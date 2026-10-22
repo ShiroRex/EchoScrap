@@ -12,13 +12,14 @@ namespace EchoScrap.Combat
         public const float BlastRadius = 3f;
         public const float BlastDamage = 35f;
         private const int VisualCapacity = 32;
-        private struct Blast { public int Source; public Vector3 Position; }
-        private struct Wave { public Transform Transform; public MeshRenderer Renderer; public float Age; public bool Active; }
+        private struct Blast { public int Source; public Vector3 Position; public float Radius, Damage, Knockback; }
+
         private static readonly Dictionary<int, MothExplosionPool> pools = new Dictionary<int, MothExplosionPool>();
         private readonly Queue<Blast> pending = new Queue<Blast>(256);
         private readonly IDamageTarget[] targets = new IDamageTarget[512];
-        private readonly Wave[] waves = new Wave[VisualCapacity];
-        private MaterialPropertyBlock block;
+
+        private readonly Prototype.ProceduralExplosionVfx[] prototypeEffects = new Prototype.ProceduralExplosionVfx[VisualCapacity];
+
         private CombatSession session;
         private PlayerHealth player;
         private int sessionKey;
@@ -27,6 +28,16 @@ namespace EchoScrap.Combat
         public bool AutoTick { get; set; } = true;
         public int TotalExplosions { get; private set; }
         public int PendingCount => pending.Count;
+        public int ActiveVisualCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < prototypeEffects.Length; i++)
+                    if (prototypeEffects[i] != null && prototypeEffects[i].gameObject.activeSelf) count++;
+                return count;
+            }
+        }
 
         public static MothExplosionPool GetOrCreate(CombatSession owner, PlayerHealth target)
         {
@@ -42,28 +53,35 @@ namespace EchoScrap.Combat
 
         public void BindReferences(CombatSession owner, PlayerHealth target)
         {
-            if (session != null) session.SessionReset -= ClearAll;
+            if (session != null)
+            {
+                session.SessionReset -= ClearAll;
+                session.Effects.OnPreferencesChanged -= ClearVisuals;
+            }
             if (pools.TryGetValue(sessionKey, out MothExplosionPool previous) && previous == this)
                 pools.Remove(sessionKey);
             session = owner;
             player = target;
             sessionKey = owner != null ? owner.GetHashCode() : 0;
             pools[sessionKey] = this;
-            if (session != null) session.SessionReset += ClearAll;
+            if (session != null)
+            {
+                session.SessionReset += ClearAll;
+                session.Effects.OnPreferencesChanged += ClearVisuals;
+            }
             if (initialized) return;
             initialized = true;
-            block = new MaterialPropertyBlock();
+
             for (int i = 0; i < VisualCapacity; i++)
             {
-                MeshRenderer renderer = CombatRingGeometry.Create("Moth blast wave", transform);
-                renderer.gameObject.SetActive(false);
-                waves[i] = new Wave { Transform = renderer.transform, Renderer = renderer };
+
+                prototypeEffects[i] = Prototype.ProceduralExplosionVfx.CreatePooled(transform, BlastRadius);
             }
         }
 
-        public void Enqueue(int sourceId, Vector3 position)
+        public void Enqueue(int sourceId, Vector3 position, float radius = BlastRadius, float damage = BlastDamage, float knockback = 8f)
         {
-            pending.Enqueue(new Blast { Source = sourceId, Position = position });
+            pending.Enqueue(new Blast { Source = sourceId, Position = position, Radius = radius, Damage = damage, Knockback = knockback });
         }
 
         private void LateUpdate()
@@ -86,7 +104,7 @@ namespace EchoScrap.Combat
                     var registered = CombatTargetRegistry.ActiveTargets;
                     int count = Mathf.Min(registered.Count, targets.Length);
                     for (int i = 0; i < count; i++) targets[i] = registered[i];
-                    if (player != null && player.IsAlive && WithinRadius(blast.Position, player.WorldCenter, player.HitRadius))
+                    if (player != null && player.IsAlive && WithinRadius(blast.Position, player.WorldCenter, player.HitRadius, blast.Radius))
                     {
                         var request = Request(blast, player.WorldCenter);
                         player.ReceiveDamage(in request);
@@ -96,9 +114,16 @@ namespace EchoScrap.Combat
                         IDamageTarget target = targets[i];
                         targets[i] = null;
                         if (target == null || !target.IsAlive || !target.IsEnemyTarget ||
-                            !WithinRadius(blast.Position, target.WorldCenter, target.HitRadius)) continue;
+                            !WithinRadius(blast.Position, target.WorldCenter, target.HitRadius, blast.Radius)) continue;
                         var request = Request(blast, target.WorldCenter);
                         target.ReceiveDamage(in request);
+                        Vector3 radial = target.WorldCenter - blast.Position; radial.y = 0f;
+                        float distance = radial.magnitude;
+                        if (target.IsAlive && distance > 0.01f)
+                        {
+                            float falloff = Mathf.Lerp(1f, 0.4f, Mathf.Clamp01(distance / blast.Radius));
+                            target.ApplyKnockback(radial / distance * (blast.Knockback * falloff));
+                        }
                     }
                     PlayWave(blast.Position);
                 }
@@ -106,10 +131,10 @@ namespace EchoScrap.Combat
             finally { flushing = false; }
         }
 
-        private static bool WithinRadius(Vector3 origin, Vector3 target, float targetRadius)
+        private static bool WithinRadius(Vector3 origin, Vector3 target, float targetRadius, float blastRadius)
         {
             Vector3 offset = target - origin; offset.y = 0f;
-            float radius = BlastRadius + targetRadius;
+            float radius = blastRadius + targetRadius;
             return offset.sqrMagnitude <= radius * radius;
         }
 
@@ -117,57 +142,49 @@ namespace EchoScrap.Combat
         {
             Vector3 direction = target - blast.Position; direction.y = 0f;
             return new DamageRequest(blast.Source, DamageSourceType.MothExplosion, blast.Position,
-                direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.forward, BlastDamage);
+                direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.forward, blast.Damage);
         }
 
         private void PlayWave(Vector3 position)
         {
             if (!initialized || (session != null && session.Effects.DecorativeIntensity <= 0f)) return;
-            for (int i = 0; i < waves.Length; i++)
+            for (int i = 0; i < prototypeEffects.Length; i++)
             {
-                if (waves[i].Active) continue;
-                Wave wave = waves[i]; wave.Active = true; wave.Age = 0f;
-                wave.Transform.position = new Vector3(position.x, 0.065f, position.z);
-                wave.Transform.localScale = Vector3.one * 0.2f;
-                wave.Transform.gameObject.SetActive(true);
-                waves[i] = wave;
-                break;
+                if (prototypeEffects[i].gameObject.activeSelf) continue;
+                uint seed = (uint)(session != null ? session.Rng.Presentation.Range(1, int.MaxValue) : 8181);
+                prototypeEffects[i].PlayPooled(position, seed);
+                return;
             }
         }
 
         public void StepVisuals(float delta)
         {
             if (delta <= 0f) return;
-            for (int i = 0; i < waves.Length; i++)
-            {
-                Wave wave = waves[i];
-                if (!wave.Active) continue;
-                wave.Age += delta;
-                float t = Mathf.Clamp01(wave.Age / 0.25f);
-                wave.Transform.localScale = Vector3.one * Mathf.Lerp(0.2f, BlastRadius, 1f - (1f - t) * (1f - t));
-                Color color = Color.Lerp(new Color(1f, 0.85f, 0.3f), new Color(1f, 0.25f, 0.4f), t);
-                color.a = (1f - t) * (session != null ? session.Effects.DecorativeIntensity : 1f);
-                block.SetColor("_BaseColor", color); wave.Renderer.SetPropertyBlock(block);
-                if (t >= 1f) { wave.Active = false; wave.Transform.gameObject.SetActive(false); }
-                waves[i] = wave;
-            }
+            for (int i = 0; i < prototypeEffects.Length; i++)
+                if (prototypeEffects[i] != null && prototypeEffects[i].gameObject.activeSelf)
+                    prototypeEffects[i].Step(delta);
         }
 
         public void ClearAll()
         {
             pending.Clear(); TotalExplosions = 0;
-            for (int i = 0; i < waves.Length; i++)
-            {
-                Wave wave = waves[i]; wave.Active = false;
-                if (wave.Transform != null) wave.Transform.gameObject.SetActive(false);
-                waves[i] = wave;
-            }
+            ClearVisuals();
+        }
+
+        private void ClearVisuals()
+        {
+            for (int i = 0; i < prototypeEffects.Length; i++)
+                if (prototypeEffects[i] != null) prototypeEffects[i].ClearPooled();
         }
 
         private void OnDisable() { ClearAll(); }
         private void OnDestroy()
         {
-            if (session != null) session.SessionReset -= ClearAll;
+            if (session != null)
+            {
+                session.SessionReset -= ClearAll;
+                session.Effects.OnPreferencesChanged -= ClearVisuals;
+            }
             if (pools.TryGetValue(sessionKey, out MothExplosionPool pool) && pool == this) pools.Remove(sessionKey);
         }
     }
@@ -181,7 +198,9 @@ namespace EchoScrap.Combat
         private Transform leftWing;
         private Transform rightWing;
         private MaterialPropertyBlock block;
-        public bool IsVisible => ring != null && ring.gameObject.activeSelf;
+
+        public bool IsVisible => (ring != null && ring.gameObject.activeSelf)
+            || (TryGetComponent<Prototype.EnemyMoth>(out var imported) && imported.WarningVisible);
         public void ResetPresentation()
         {
             if (ring == null)
@@ -190,7 +209,7 @@ namespace EchoScrap.Combat
                 progressArc = CombatRingGeometry.Create("Moth fuse progress", transform);
                 progressMesh = Instantiate(progressArc.GetComponent<MeshFilter>().sharedMesh);
                 progressArc.GetComponent<MeshFilter>().sharedMesh = progressMesh;
-                block = new MaterialPropertyBlock();
+    
                 EnemyActor actor = GetComponent<EnemyActor>();
                 Transform pivot = actor.VisualComposer.PresentationPivot;
                 Material bodyMaterial = pivot.GetComponentInChildren<MeshRenderer>().sharedMaterial;

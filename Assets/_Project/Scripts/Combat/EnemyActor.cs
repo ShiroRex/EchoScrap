@@ -19,7 +19,7 @@ namespace EchoScrap.Combat
         public const float MortarMaxBandRange = 7.5f;
         public const float MortarFireInterval = 3.5f;
         public const float MortarTelegraphLeadTime = 0.25f;
-        public const float MothFuseDuration = 0.5f;
+        public const float MothFuseDuration = 0.9f;
         public const float MothArmDistance = 2f;
 
         private static readonly List<EnemyActor> activeEnemies = new List<EnemyActor>(256);
@@ -62,6 +62,7 @@ namespace EchoScrap.Combat
         private bool deathRewardResolved;
         private bool initialized;
         private MothFusePresentation mothPresentation;
+        private Prototype.EnemyMoth prototypeMoth;
         private MothExplosionPool mothExplosions;
         private Transform mortarEmitter;
         private Vector3 mortarEmitterRestPosition;
@@ -393,6 +394,8 @@ namespace EchoScrap.Combat
                 if (mothPresentation == null)
                     mothPresentation = gameObject.AddComponent<MothFusePresentation>();
                 mothPresentation.ResetPresentation();
+                prototypeMoth = GetComponent<Prototype.EnemyMoth>() ?? gameObject.AddComponent<Prototype.EnemyMoth>();
+                prototypeMoth.Bind(this);
                 mothExplosions = MothExplosionPool.GetOrCreate(session, targetPlayer);
             }
 
@@ -491,18 +494,9 @@ namespace EchoScrap.Combat
                 }
                 if (isFuseActive)
                 {
-                    if (wasArmed)
-                        fuseTimer = Mathf.Max(0f, fuseTimer - fixedDeltaTime);
-                    mothPresentation?.ShowFuse(transform.position, 1f - fuseTimer / MothFuseDuration,
-                        session != null && session.Effects.ReducedEffectsMode);
-                    if (fuseTimer <= 0.00001f)
-                    {
-                        Vector3 blastPosition = transform.position;
-                        int sourceId = TargetId;
-                        ExecuteDeath(blastPosition, facingDirection, DamageSourceType.MothExplosion);
-                        mothExplosions.Enqueue(sourceId, blastPosition);
-                        return;
-                    }
+                    if (wasArmed) prototypeMoth.StepFuse(fixedDeltaTime);
+                    fuseTimer = prototypeMoth.FuseRemaining;
+                    if (isDead) return;
                 }
             }
 
@@ -847,7 +841,7 @@ namespace EchoScrap.Combat
             bool lethal = currentHealth <= 0f;
             bool moth = runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth;
             if (lethal && moth)
-                ArmMoth();
+                ArmMoth(fromLethalDamage: true);
             bool causedDeath = lethal && !moth;
 
             if (visualComposer != null)
@@ -888,14 +882,18 @@ namespace EchoScrap.Combat
             return result;
         }
 
-        public void ArmMoth()
+        public void ArmMoth(bool fromLethalDamage = false)
         {
             if (isDead || isFuseActive || runtimeArchetype.ArchetypeId != EnemyArchetypeId.ExplosiveMoth)
                 return;
             isFuseActive = true;
-            fuseTimer = MothFuseDuration;
-            mothPresentation?.ShowFuse(transform.position, 0f,
-                session != null && session.Effects.ReducedEffectsMode);
+            fuseTimer = prototypeMoth.StartPriming(fromLethalDamage);
+        }
+
+        public void CompleteMothDetonation()
+        {
+            if (!isFuseActive || isDead) return;
+            ExecuteDeath(transform.position, facingDirection, DamageSourceType.MothExplosion);
         }
 
         protected virtual void ExecuteDeath(Vector3 capturedPosition, Vector3 hitDirection, DamageSourceType cause)
