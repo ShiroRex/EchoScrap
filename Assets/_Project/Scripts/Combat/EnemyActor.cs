@@ -19,6 +19,8 @@ namespace EchoScrap.Combat
         public const float MortarMaxBandRange = 7.5f;
         public const float MortarFireInterval = 3.5f;
         public const float MortarTelegraphLeadTime = 0.25f;
+        public const float MothFuseDuration = 0.5f;
+        public const float MothArmDistance = 2f;
 
         private static readonly List<EnemyActor> activeEnemies = new List<EnemyActor>(256);
         private static readonly Dictionary<int, Material> sharedPrimaryMaterials = new Dictionary<int, Material>();
@@ -54,6 +56,8 @@ namespace EchoScrap.Combat
         private bool isDead;
         private bool deathRewardResolved;
         private bool initialized;
+        private MothFusePresentation mothPresentation;
+        private MothExplosionPool mothExplosions;
         private Transform mortarEmitter;
         private Vector3 mortarEmitterRestPosition;
         private Vector3 mortarEmitterRestScale;
@@ -70,7 +74,7 @@ namespace EchoScrap.Combat
         public Vector3 KnockbackVelocity => knockbackVelocity;
         public Vector3 Velocity => body != null ? body.linearVelocity : Vector3.zero;
         public Vector3 FacingDirection => facingDirection;
-        public bool IsAlive => EnsureInitialized() && !isDead && currentHealth > 0f;
+        public bool IsAlive => EnsureInitialized() && !isDead && (currentHealth > 0f || isFuseActive);
         public bool IsDead => !IsAlive;
         public bool IsEnemyTarget => true;
         public bool DeathRewardResolved => deathRewardResolved;
@@ -376,6 +380,14 @@ namespace EchoScrap.Combat
             fuseTimer = 0f;
             telegraphTimer = 0f;
             isFuseActive = false;
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
+            {
+                mothPresentation = GetComponent<MothFusePresentation>();
+                if (mothPresentation == null)
+                    mothPresentation = gameObject.AddComponent<MothFusePresentation>();
+                mothPresentation.ResetPresentation();
+                mothExplosions = MothExplosionPool.GetOrCreate(session, targetPlayer);
+            }
 
             // 5. Colliders, triggers y capas
             gameObject.layer = PhysicsLayers.EnemyLayer;
@@ -457,8 +469,35 @@ namespace EchoScrap.Combat
 
         public virtual void StepPhysics(float fixedDeltaTime)
         {
-            if (isDead || fixedDeltaTime <= 0f)
+            if (isDead || fixedDeltaTime <= 0f || (session != null && (session.IsPaused || !session.IsGameplayFlowActive())))
                 return;
+
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
+            {
+                bool wasArmed = isFuseActive;
+                if (!isFuseActive && targetPlayer != null && targetPlayer.IsAlive)
+                {
+                    Vector3 distance = targetPlayer.transform.position - transform.position;
+                    distance.y = 0f;
+                    if (distance.sqrMagnitude < MothArmDistance * MothArmDistance)
+                        ArmMoth();
+                }
+                if (isFuseActive)
+                {
+                    if (wasArmed)
+                        fuseTimer = Mathf.Max(0f, fuseTimer - fixedDeltaTime);
+                    mothPresentation?.ShowFuse(transform.position, 1f - fuseTimer / MothFuseDuration,
+                        session != null && session.Effects.ReducedEffectsMode);
+                    if (fuseTimer <= 0.00001f)
+                    {
+                        Vector3 blastPosition = transform.position;
+                        int sourceId = TargetId;
+                        ExecuteDeath(blastPosition, facingDirection, DamageSourceType.MothExplosion);
+                        mothExplosions.Enqueue(sourceId, blastPosition);
+                        return;
+                    }
+                }
+            }
 
             // 1. Frenado progresivo del empuje según arquetipo
             if (knockbackVelocity.sqrMagnitude > 0.0001f)
@@ -749,7 +788,7 @@ namespace EchoScrap.Combat
             }
         }
 
-        public DamageResult ReceiveDamage(in DamageRequest request)
+        public virtual DamageResult ReceiveDamage(in DamageRequest request)
         {
             EnsureInitialized();
             Vector3 worldPos = transform.position;
@@ -790,7 +829,11 @@ namespace EchoScrap.Combat
             float previous = currentHealth;
             currentHealth = Mathf.Max(0f, currentHealth - resolvedDamage);
             float lost = previous - currentHealth;
-            bool causedDeath = currentHealth <= 0f;
+            bool lethal = currentHealth <= 0f;
+            bool moth = runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth;
+            if (lethal && moth)
+                ArmMoth();
+            bool causedDeath = lethal && !moth;
 
             if (visualComposer != null)
             {
@@ -828,6 +871,16 @@ namespace EchoScrap.Combat
             }
 
             return result;
+        }
+
+        public void ArmMoth()
+        {
+            if (isDead || isFuseActive || runtimeArchetype.ArchetypeId != EnemyArchetypeId.ExplosiveMoth)
+                return;
+            isFuseActive = true;
+            fuseTimer = MothFuseDuration;
+            mothPresentation?.ShowFuse(transform.position, 0f,
+                session != null && session.Effects.ReducedEffectsMode);
         }
 
         protected virtual void ExecuteDeath(Vector3 capturedPosition, Vector3 hitDirection, DamageSourceType cause)

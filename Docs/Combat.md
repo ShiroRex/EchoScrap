@@ -16,7 +16,7 @@ de Almacén/captura/persistencia no forman parte de esta etapa.
 | 5. Interceptor | Integrada |
 | 6. Coloso | Integrada |
 | 7. Mortero | Integrada: 52/52 Play Mode |
-| 8. Polilla | Pendiente |
+| 8. Polilla | Integrada: 88/88 Play Mode y segunda build Windows |
 | 9. XP y botiquines | Integrada: 66/66 Play Mode |
 | 10. Ocho mejoras | Integrada: 79/79 Play Mode |
 | 11. Oleadas | Pendiente |
@@ -89,3 +89,18 @@ Los resultados de cada actividad se registran aquí al terminar su validación.
 - Entrada de teclado, ratón y mando verificada, incluyendo botón mantenido y
   recuperación del dash con una pulsación nueva.
 - Fuentes contrastadas por SHA256: 193 archivos; detalles en `Docs/CombatUpgradeDraft.md`.
+
+### Polilla y segunda build — 22 de octubre de 2026
+
+- Suite completa: **88 aprobadas, cero fallos**: ocho casos de Polilla y uno de
+  montaje del encuentro con cinco arquetipos, además de las suites anteriores.
+- Mecha de 0.5 s por proximidad o daño letal, empuje con cero HP, radio 3 m,
+  daño 35 a ambos bandos, protección del dash, cadenas y reciclaje verificados.
+- Alas, abdomen, arco de progreso y radio legibles en efectos reducidos.
+- Capturas inspeccionadas: `Logs/EnemyMoth/Preview.png` y
+  `Logs/CombatSandbox/Preview.png`; XML/log en `Logs/EnemyMoth/`.
+- Segunda build Windows x86_64 completada: `Builds/WindowsMoth/EchoScrap.exe`.
+  Incluye escena propia `CombatSandbox`, cinco enemigos, dash, linterna y reinicio.
+  Registro en `Logs/EnemyMothBuild/Unity.log`.
+- El generador mantiene intactos el prefab y la escena de locomoción originales;
+  la nueva escena guarda sus dependencias de shader para la build.

@@ -434,11 +434,11 @@ namespace EchoScrap.Combat
                     if (result.CausedDeath)
                         killCount++;
 
-                    if (applyKnockback && knockbackImpulse > 0f && target.IsAlive)
-                    {
-                        target.ApplyKnockback(hitDir * knockbackImpulse);
-                    }
                 }
+                // Una Polilla armada con HP cero sigue siendo un cuerpo empujable durante su mecha.
+                if (applyKnockback && knockbackImpulse > 0f && target.IsAlive &&
+                    (result.AppliedRealDamage || target is EnemyActor { IsFuseActive: true }))
+                    target.ApplyKnockback(hitDir * knockbackImpulse);
             }
 
             var pulseEvent = new PulseResolvedEvent(
