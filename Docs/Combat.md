@@ -20,8 +20,8 @@ de Almacén/captura/persistencia no forman parte de esta etapa.
 | 9. XP y botiquines | Integrada: 66/66 Play Mode |
 | 10. Ocho mejoras | Integrada: 79/79 Play Mode |
 | 11. Oleadas | Integrada: 97/97 Play Mode |
-| 12. Gólgora | Integrada: 111/111 Play Mode; build conjunta con actividad 13 |
-| 13. Arena, HUD y flujo | Pendiente |
+| 12. Gólgora | Integrada: 111/111 Play Mode; tercera build Windows completada |
+| 13. Arena, HUD y flujo | Integrada: 124/124 Play Mode y tercera build Windows |
 | 14. Juice y rendimiento | Pendiente |
 
 Cada actividad se desarrolla en su propia rama desde `develop`, se prueba y se
