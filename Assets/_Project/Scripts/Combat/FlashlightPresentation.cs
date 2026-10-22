@@ -332,6 +332,8 @@ namespace EchoScrap.Combat
             displayedPulseCount = Mathf.Clamp(weapon.EmittedPulsesInCurrentBurst, 0, FlashlightWeapon.PulsesPerBurst);
             displayedInRest = weapon.IsInRestPhase;
             displayedSolarMode = weapon.IsSolarModeActive;
+            if (displayedSolarMode && displayedPulseCount == 0 && weapon.TotalPulsesEmitted > 0)
+                displayedPulseCount = FlashlightWeapon.PulsesPerBurst;
             CaptureEnvelopeTimings();
 
             // No repetir destellos anteriores al reactivar la vista
@@ -353,12 +355,17 @@ namespace EchoScrap.Combat
         private void HandleBurstStarted(int burstId)
         {
             resyncPending = false;
-            displayedPulseCount = 0;
+            bool continuingSolar = displayedSolarMode && weapon != null && weapon.IsSolarModeActive && displayedPulseCount > 0;
+            if (!continuingSolar)
+                displayedPulseCount = 0;
             displayedInRest = false;
             displayedSolarMode = weapon != null && weapon.IsSolarModeActive;
             CaptureEnvelopeTimings();
-            emissionEndTime = 0f;
-            contactEndTime = 0f;
+            if (!continuingSolar)
+            {
+                emissionEndTime = 0f;
+                contactEndTime = 0f;
+            }
             ApplyVisualState();
         }
 
@@ -368,9 +375,7 @@ namespace EchoScrap.Combat
                 ResynchronizeStateWithoutRepeatingFlashes();
 
             displayedSolarMode = pulse.IsSolarMode;
-            displayedPulseCount = pulse.IsSolarMode
-                ? FlashlightWeapon.PulsesPerBurst
-                : Mathf.Clamp(pulse.PulseIndex, 0, FlashlightWeapon.PulsesPerBurst);
+            displayedPulseCount = Mathf.Clamp(pulse.PulseIndex, 0, FlashlightWeapon.PulsesPerBurst);
             displayedInRest = false;
             CaptureEnvelopeTimings();
 

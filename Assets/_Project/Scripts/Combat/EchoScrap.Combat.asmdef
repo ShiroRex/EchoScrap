@@ -6,6 +6,7 @@
     "EchoScrap.Player",
     "Unity.InputSystem",
     "Unity.Cinemachine",
-    "Unity.RenderPipelines.Universal.Runtime"
+    "Unity.RenderPipelines.Universal.Runtime",
+    "UnityEngine.UI"
   ]
 }
