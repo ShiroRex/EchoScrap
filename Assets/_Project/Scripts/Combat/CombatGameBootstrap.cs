@@ -38,6 +38,7 @@ namespace EchoScrap.Combat
         public UpgradeDraftPresentation DraftPresentation { get; private set; }
         public FlashlightWeapon Weapon { get; private set; }
         public CombatHud Hud { get; private set; }
+        public DamageNumberPresenter DamageNumbers { get; private set; }
         public Camera GameplayCamera => gameplayCamera;
         public CinemachineCamera CameraRig => cameraRig;
         public int RunResetCount { get; private set; }
@@ -112,6 +113,8 @@ namespace EchoScrap.Combat
             var hurtPresentation = GetOrAdd<PlayerHurtPresentation>(playerObject);
             hurtPresentation.Bind(Session, Player);
             Hud.BindReferences(this, hurtPresentation);
+            DamageNumbers = SystemObject<DamageNumberPresenter>("DamageNumbers");
+            DamageNumbers.BindReferences(Session, gameplayCamera);
 
             if (prewarmEnemies)
             {
