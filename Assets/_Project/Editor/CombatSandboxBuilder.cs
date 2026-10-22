@@ -41,11 +41,22 @@ namespace EchoScrap.Editor
             var serialized = new SerializedObject(setup);
             serialized.FindProperty("playerMotor").objectReferenceValue = player;
             var references = serialized.FindProperty("shaderReferences");
-            references.arraySize = 3;
+            references.arraySize = 5;
             references.GetArrayElementAtIndex(0).objectReferenceValue = ShaderMaterial("UnlitOpaque", "Universal Render Pipeline/Unlit", false);
             references.GetArrayElementAtIndex(1).objectReferenceValue = ShaderMaterial("UnlitTransparent", "Universal Render Pipeline/Unlit", true);
             references.GetArrayElementAtIndex(2).objectReferenceValue = ShaderMaterial("RescueLens", "EchoScrap/Flashlight Rescue Lens", true);
+            references.GetArrayElementAtIndex(3).objectReferenceValue = ShaderMaterial("OilVolume", "EchoScrap/Oil Lantern Volume", true);
+            references.GetArrayElementAtIndex(4).objectReferenceValue = ShaderMaterial("PrototypeParticles", "Sprites/Default", true);
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.10f, 0.12f, 0.16f);
+            foreach (Light light in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+            {
+                if (light.type != LightType.Directional) continue;
+                light.intensity = 0.22f;
+                light.color = new Color(0.72f, 0.82f, 1f);
+                light.shadows = LightShadows.None;
+            }
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene)) throw new BuildFailedException("No se pudo guardar CombatSandbox.");
 

@@ -108,6 +108,11 @@ namespace EchoScrap.Combat
         private float contactLength = 0.05f;
         private float lastBuiltRange = -1f;
         private float lastBuiltAngle = -1f;
+        private Prototype.PlayerFlashlightView prototypeView;
+        private OilLanternVolume oilLantern;
+
+        public Prototype.PlayerFlashlightView ImportedView => prototypeView;
+        public OilLanternVolume OilLantern => oilLantern;
 
         public int DisplayedPulseCount => displayedPulseCount;
         public bool IsShowingRestDimState => displayedInRest && displayedPulseCount == FlashlightWeapon.PulsesPerBurst;
@@ -219,7 +224,7 @@ namespace EchoScrap.Combat
                 Transform existingLight = flashlightPivot.Find("FlashlightSpotLight");
                 GameObject lightGo = existingLight != null ? existingLight.gameObject : new GameObject("FlashlightSpotLight");
                 lightGo.transform.SetParent(flashlightPivot, false);
-                lightGo.transform.localPosition = new Vector3(0f, 0.65f, 0.1f);
+                lightGo.transform.localPosition = new Vector3(0f, 0.65f, 0.8f);
                 lightGo.transform.localRotation = Quaternion.Euler(14f, 0f, 0f);
                 spotLight = lightGo.GetComponent<Light>();
                 if (spotLight == null)
@@ -234,6 +239,22 @@ namespace EchoScrap.Combat
             }
 
             EnsureHitSparkPool();
+            if (prototypeView == null)
+            {
+                var host = new GameObject("Refactor Flashlight View");
+                host.SetActive(false);
+                host.transform.SetParent(transform, false);
+                prototypeView = host.AddComponent<Prototype.PlayerFlashlightView>();
+                var outlineObject = new GameObject("Prototype coverage outline");
+                outlineObject.transform.SetParent(flashlightPivot, false);
+                var outline = outlineObject.AddComponent<LineRenderer>();
+                outline.enabled = false;
+                prototypeView.Configure(weapon, flashlightPivot, spotLight, coneMeshFilter,
+                    coneMeshRenderer, outline, emitterRenderer);
+                host.SetActive(true);
+                oilLantern = host.AddComponent<OilLanternVolume>();
+                oilLantern.Bind(weapon, spotLight, session);
+            }
         }
 
         private void EnsureHitSparkPool()
@@ -260,6 +281,8 @@ namespace EchoScrap.Combat
         private void OnEnable()
         {
             EnsureInitialized();
+            prototypeView.enabled = true;
+            oilLantern.enabled = true;
             if (weapon != null)
             {
                 weapon.OnBurstStarted += HandleBurstStarted;
@@ -281,6 +304,8 @@ namespace EchoScrap.Combat
 
         private void OnDisable()
         {
+            if (prototypeView != null) prototypeView.enabled = false;
+            if (oilLantern != null) oilLantern.enabled = false;
             if (weapon != null)
             {
                 weapon.OnBurstStarted -= HandleBurstStarted;
@@ -321,6 +346,7 @@ namespace EchoScrap.Combat
                 session.SessionReset -= ResetTransientFeedback;
             }
             session = combatSession;
+            if (oilLantern != null) oilLantern.Bind(weapon, spotLight, session);
             if (isActiveAndEnabled && session != null)
             {
                 session.Events.OnDamageResolved += HandleDamageResolved;
@@ -359,6 +385,7 @@ namespace EchoScrap.Combat
             contactEndTime = 0f;
 
             RebuildConeGeometry(weapon.ActiveBurstRange, weapon.ActiveBurstAngle);
+            if (prototypeView != null) prototypeView.SynchronizeWithoutFlashes();
         }
 
         private void CaptureEnvelopeTimings()
@@ -550,82 +577,12 @@ namespace EchoScrap.Combat
 
         private void ApplyVisualState()
         {
-            if (weapon == null)
-                return;
-
-            bool reduced = session != null && session.Effects.ReducedEffectsMode;
-            float emission = reduced ? 0f : ComputeEmissionEnvelope();
-            float contact = ComputeContactEnvelope();
-            float range = weapon.ActiveBurstRange;
-            float angle = weapon.ActiveBurstAngle;
-
-            bool inBurst = !displayedInRest || emission > 0.01f;
-            float beamOpacity;
-            if (displayedSolarMode)
-            {
-                beamOpacity = solarOpacity;
-            }
-            else if (inBurst)
-            {
-                beamOpacity = reduced ? betweenPulseOpacity : Mathf.Lerp(betweenPulseOpacity, pulseOpacity, emission);
-            }
-            else
-            {
-                beamOpacity = restOpacity;
-            }
-
-            if (useSpotLight && spotLight != null)
-                beamOpacity *= realLightBeamOpacityMultiplier;
-
-            if (coneMeshRenderer != null)
-            {
-                coneBlock.SetColor(CoreColorId, coreColor);
-                coneBlock.SetColor(EdgeColorId, edgeColor);
-                coneBlock.SetColor(ContrastColorId, contrastColor);
-                coneBlock.SetVector(GeometryId, new Vector4(range, angle * 0.5f * Mathf.Deg2Rad, edgeFade, lensEdgeWidth));
-                coneBlock.SetVector(BeamShapeId, new Vector4(radialFalloffExponent, lateralFillMinimum, 0f, 0f));
-                coneBlock.SetVector(AppearanceId, new Vector4(beamOpacity, edgeOpacity, emission, 1f));
-                coneBlock.SetFloat(EmitterOnlyId, 0f);
-                coneMeshRenderer.SetPropertyBlock(coneBlock);
-                coneMeshRenderer.enabled = weapon.isActiveAndEnabled;
-            }
-
-            // Tras el 4.º pulso los cuadrados permanecen tenues durante el descanso (0.4 s) y se reinician al comenzar la siguiente ráfaga
-            CurrentMarkerBrightnessMultiplier = displayedSolarMode
-                ? 1f
+            if (weapon == null || prototypeView == null) return;
+            CurrentMarkerBrightnessMultiplier = displayedSolarMode ? 1f
                 : (displayedInRest ? markerRestDimMultiplier : 1f);
-
-            if (emitterRenderer != null)
-            {
-                float finalAccent = (!reduced && displayedPulseCount == FlashlightWeapon.PulsesPerBurst)
-                    ? emission * fourthPulseAccent
-                    : 0f;
-
-                emitterBlock.SetColor(CoreColorId, coreColor);
-                emitterBlock.SetColor(EdgeColorId, edgeColor);
-                emitterBlock.SetColor(ContrastColorId, contrastColor);
-                emitterBlock.SetFloat(EmitterOnlyId, 1f);
-                emitterBlock.SetVector(EmitterStateId, new Vector4(displayedPulseCount, emission, contact, pilotOpacity));
-                emitterBlock.SetVector(EmitterGeometryId, new Vector4(markerHalfSize, markerSpacing, markerActiveOpacity, markerInactiveBackingOpacity));
-                emitterBlock.SetVector(AppearanceId, new Vector4(0f, 0f, finalAccent, CurrentMarkerBrightnessMultiplier));
-                emitterRenderer.SetPropertyBlock(emitterBlock);
-                emitterRenderer.enabled = weapon.isActiveAndEnabled;
-            }
-
-            if (spotLight != null)
-            {
-                spotLight.enabled = useSpotLight && weapon.isActiveAndEnabled;
-                spotLight.color = coreColor;
-                spotLight.spotAngle = angle;
-                spotLight.innerSpotAngle = angle * 0.65f;
-                spotLight.range = range + 2f;
-                float lightMult = displayedSolarMode
-                    ? 1.15f
-                    : (inBurst ? Mathf.Lerp(0.65f, 1.50f, emission) : 0.25f);
-                spotLight.intensity = baseLightIntensity * lightMult;
-            }
+            prototypeView.RenderNow(session != null && session.Effects.ReducedEffectsMode);
+            oilLantern?.Refresh();
         }
-
         public void RebuildConeGeometry(float range, float angle)
         {
             EnsureInitialized();
