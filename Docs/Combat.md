@@ -18,7 +18,7 @@ de Almacén/captura/persistencia no forman parte de esta etapa.
 | 7. Mortero | Integrada: 52/52 Play Mode |
 | 8. Polilla | Pendiente |
 | 9. XP y botiquines | Integrada: 66/66 Play Mode |
-| 10. Ocho mejoras | Pendiente |
+| 10. Ocho mejoras | Integrada: 79/79 Play Mode |
 | 11. Oleadas | Pendiente |
 | 12. Gólgora | Pendiente |
 | 13. Arena, HUD y flujo | Pendiente |
@@ -79,3 +79,13 @@ Los resultados de cada actividad se registran aquí al terminar su validación.
 - Corregidos dos GUID nuevos malformados y la inicialización de MaterialPropertyBlock
   en el ciclo de vida de Unity; la validación verifica GUIDs y descubrimiento de tests.
 - XML, log y hashes de 185 fuentes: `Logs/CombatPickupsXp/`.
+
+### Ocho mejoras y selección táctica — 22 de octubre de 2026
+
+- Suite completa: **79 aprobadas, cero fallos**; once casos nuevos del draft y dos
+  regresiones del indicador Solar y la captura de parámetros de ráfaga.
+- Captura `Logs/CombatUpgradeDraft/Preview.png` inspeccionada a 1280×720: nombres,
+  rareza, tier y valores antes/después legibles.
+- Entrada de teclado, ratón y mando verificada, incluyendo botón mantenido y
+  recuperación del dash con una pulsación nueva.
+- Fuentes contrastadas por SHA256: 193 archivos; detalles en `Docs/CombatUpgradeDraft.md`.

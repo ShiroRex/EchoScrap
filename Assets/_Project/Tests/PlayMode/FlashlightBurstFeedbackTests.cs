@@ -469,6 +469,48 @@ namespace EchoScrap.Tests
             Assert.IsTrue(presentation.IsContactDiamondVisible);
         }
 
+        [Test]
+        public void SolarIndicatorCountsFourPulses_HoldsFourthAcrossBoundary_AndResyncDoesNotReplayFlash()
+        {
+            playerStats.SetUpgradeTier("FLASH_05", 1);
+            weapon.ResetWeaponCycle();
+            for (int index = 1; index <= 4; index++)
+            {
+                weapon.StepWeapon(0.2f);
+                Assert.AreEqual(index, presentation.DisplayedPulseCount);
+            }
+            Assert.AreEqual(4, weapon.TotalPulsesEmitted);
+            Assert.IsFalse(weapon.IsInRestPhase);
+            Assert.Greater(presentation.CurrentEmissionEnvelope, 0f, "El cuarto acento no debe borrarse al abrir el siguiente bloque Solar.");
+            presentation.enabled = false;
+            presentation.enabled = true;
+            presentation.StepPresentation(0f);
+            Assert.AreEqual(4, presentation.DisplayedPulseCount);
+            Assert.AreEqual(0f, presentation.CurrentEmissionEnvelope, "Reactivar la vista no repite emisiones.");
+            weapon.StepWeapon(0.2f);
+            Assert.AreEqual(5, weapon.TotalPulsesEmitted);
+            Assert.AreEqual(1, presentation.DisplayedPulseCount);
+        }
+
+        [Test]
+        public void AcquiringSolarMidBurstPreservesCurrentDamageAndCoverageUntilNextCompleteBurst()
+        {
+            CombatDummy target = CreateDummy("Upgrade boundary target", new Vector3(0f, 1f, 5f), 1000f);
+            weapon.ResetWeaponCycle();
+            weapon.StepWeapon(0.2f);
+            playerStats.SetUpgradeTier("FLASH_05", 1);
+            playerStats.SetUpgradeTier("FLASH_01", 5);
+            Assert.AreEqual(7f, weapon.ActiveBurstRange);
+            weapon.StepWeapon(0.6f);
+            Assert.AreEqual(985f, target.CurrentHealth, 0.001f);
+            Assert.IsTrue(weapon.IsInRestPhase);
+            weapon.StepWeapon(0.4f);
+            Assert.AreEqual(19f, weapon.ActiveBurstRange);
+            weapon.StepWeapon(0.2f);
+            Assert.AreEqual(975.625f, target.CurrentHealth, 0.001f);
+            Assert.AreEqual(1, presentation.DisplayedPulseCount);
+        }
+
         private CombatDummy CreateDummy(string name, Vector3 position, float hp)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
