@@ -87,6 +87,8 @@ namespace EchoScrap.Core
         public Vector3 CurrentPresentationScale => presentationPivot != null ? presentationPivot.localScale : Vector3.one;
         public Vector3 CurrentPresentationLocalPosition => presentationPivot != null ? presentationPivot.localPosition : Vector3.zero;
         public Quaternion CurrentPresentationLocalRotation => presentationPivot != null ? presentationPivot.localRotation : Quaternion.identity;
+        public float MaxLocomotionTiltDegrees => maxLocomotionTiltDegrees;
+        public float CurrentTiltPitch => currentTiltPitch;
         public int DustEmissionCount { get; private set; }
         public float LastDustEmitTimestamp => lastDustEmitTime;
 
@@ -181,6 +183,11 @@ namespace EchoScrap.Core
             isHeavyMassActor = heavyMass;
             isKnockbackImmune = knockbackImmune;
             heavyMassDeformation = Mathf.Clamp(heavyDeform, 0.02f, 0.04f);
+        }
+
+        public void SetLocomotionTiltDegrees(float degrees)
+        {
+            maxLocomotionTiltDegrees = Mathf.Clamp(degrees, 0f, 20f);
         }
 
         public void ReportLocomotion(Vector3 facingDirection, Vector3 velocity, float maxSpeed, float gameplayTime, float decorativeIntensity = 1f)

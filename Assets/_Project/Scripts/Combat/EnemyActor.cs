@@ -16,6 +16,8 @@ namespace EchoScrap.Combat
     public class EnemyActor : MonoBehaviour, IDamageTarget
     {
         private static readonly List<EnemyActor> activeEnemies = new List<EnemyActor>(256);
+        private static readonly Dictionary<int, Material> sharedPrimaryMaterials = new Dictionary<int, Material>();
+        private static readonly Dictionary<int, Material> sharedSecondaryMaterials = new Dictionary<int, Material>();
         public static IReadOnlyList<EnemyActor> ActiveEnemies => activeEnemies;
 
         [SerializeField] private EnemyArchetypeSettings archetypeSettings;
@@ -165,11 +167,68 @@ namespace EchoScrap.Combat
             if (visualComposer == null || visualComposer.PresentationPivot == null)
                 return;
 
-            Shader litShader = Shader.Find("Universal Render Pipeline/Lit");
-            if (litShader == null)
-                litShader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (litShader == null)
-                litShader = Shader.Find("Standard");
+            int key = (int)runtimeArchetype.ArchetypeId;
+            if (!sharedPrimaryMaterials.TryGetValue(key, out Material primaryMat) || primaryMat == null)
+            {
+                Shader litShader = Shader.Find("Universal Render Pipeline/Lit")
+                    ?? Shader.Find("Universal Render Pipeline/Unlit")
+                    ?? Shader.Find("Standard");
+                primaryMat = new Material(litShader)
+                {
+                    name = $"EnemyPrimary_{runtimeArchetype.ArchetypeId}",
+                    color = runtimeArchetype.PrimaryColor
+                };
+                sharedPrimaryMaterials[key] = primaryMat;
+            }
+            else
+            {
+                primaryMat.color = runtimeArchetype.PrimaryColor;
+            }
+
+            if (!sharedSecondaryMaterials.TryGetValue(key, out Material secondaryMat) || secondaryMat == null)
+            {
+                Shader litShader = Shader.Find("Universal Render Pipeline/Lit")
+                    ?? Shader.Find("Universal Render Pipeline/Unlit")
+                    ?? Shader.Find("Standard");
+                secondaryMat = new Material(litShader)
+                {
+                    name = $"EnemySecondary_{runtimeArchetype.ArchetypeId}",
+                    color = runtimeArchetype.SecondaryColor
+                };
+                sharedSecondaryMaterials[key] = secondaryMat;
+            }
+            else
+            {
+                secondaryMat.color = runtimeArchetype.SecondaryColor;
+            }
+
+            Transform crest = visualComposer.PresentationPivot.Find("FacingCrest");
+            if (crest != null)
+            {
+                switch (runtimeArchetype.ArchetypeId)
+                {
+                    case EnemyArchetypeId.Interceptor:
+                        crest.localPosition = new Vector3(0f, 0.15f, 0.52f);
+                        crest.localScale = new Vector3(0.36f, 0.20f, 0.65f);
+                        break;
+                    case EnemyArchetypeId.Colossus:
+                        crest.localPosition = new Vector3(0f, 0.55f, 0.35f);
+                        crest.localScale = new Vector3(0.72f, 0.36f, 0.45f);
+                        break;
+                    case EnemyArchetypeId.Mortar:
+                        crest.localPosition = new Vector3(0f, 0.65f, 0.15f);
+                        crest.localScale = new Vector3(0.35f, 0.55f, 0.55f);
+                        break;
+                    case EnemyArchetypeId.ExplosiveMoth:
+                        crest.localPosition = new Vector3(0f, 0.25f, -0.32f);
+                        crest.localScale = new Vector3(0.58f, 0.48f, 0.62f);
+                        break;
+                    default:
+                        crest.localPosition = new Vector3(0f, 0.35f, 0.42f);
+                        crest.localScale = new Vector3(0.28f, 0.22f, 0.38f);
+                        break;
+                }
+            }
 
             Renderer[] renderers = visualComposer.PresentationPivot.GetComponentsInChildren<Renderer>(true);
             for (int i = 0; i < renderers.Length; i++)
@@ -178,10 +237,7 @@ namespace EchoScrap.Combat
                 if (r == null)
                     continue;
 
-                Color color = r.gameObject.name.Contains("Crest")
-                    ? runtimeArchetype.SecondaryColor
-                    : runtimeArchetype.PrimaryColor;
-                r.sharedMaterial = new Material(litShader) { color = color };
+                r.sharedMaterial = r.gameObject.name.Contains("Crest") ? secondaryMat : primaryMat;
             }
         }
 
@@ -282,6 +338,14 @@ namespace EchoScrap.Combat
             Vector3 clampedSpawn = new Vector3(spawnPosition.x, 1f, spawnPosition.z);
             transform.localScale = runtimeArchetype.VisualScale;
             transform.SetPositionAndRotation(clampedSpawn, Quaternion.identity);
+            if (targetPlayer != null)
+            {
+                Vector3 toTarget = targetPlayer.transform.position - clampedSpawn;
+                toTarget.y = 0f;
+                if (toTarget.sqrMagnitude > 0.001f)
+                    facingDirection = toTarget.normalized;
+            }
+
             if (body != null)
             {
                 body.isKinematic = false;
@@ -295,8 +359,15 @@ namespace EchoScrap.Combat
             {
                 bool immune = runtimeArchetype.KnockbackSusceptibility <= 0.0001f;
                 visualComposer.ConfigureActorMass(runtimeArchetype.IsHeavyMass, immune, 0.03f);
+                float tilt = runtimeArchetype.ArchetypeId == EnemyArchetypeId.Interceptor
+                    ? 12f
+                    : (runtimeArchetype.IsHeavyMass ? 3f : 6f);
+                visualComposer.SetLocomotionTiltDegrees(tilt);
                 if (visualComposer.OrientationRoot != null)
+                {
                     visualComposer.OrientationRoot.gameObject.SetActive(true);
+                    visualComposer.OrientationRoot.rotation = Quaternion.LookRotation(facingDirection, Vector3.up);
+                }
                 visualComposer.ResetVisualState();
             }
 
@@ -341,8 +412,10 @@ namespace EchoScrap.Combat
                 knockbackVelocity = Vector3.zero;
             }
 
+            bool isKnockedBack = knockbackVelocity.sqrMagnitude > 0.1f;
+
             // 2. Calcular velocidad de locomoción hacia el objetivo + separación local + evitación sencilla
-            Vector3 locomotionVelocity = ComputeArchetypeLocomotion(fixedDeltaTime);
+            Vector3 locomotionVelocity = isKnockedBack ? Vector3.zero : ComputeArchetypeLocomotion(fixedDeltaTime);
             currentDesiredVelocity = locomotionVelocity;
 
             if (locomotionVelocity.sqrMagnitude > 0.001f)
@@ -355,10 +428,10 @@ namespace EchoScrap.Combat
                     facingDirection = toPlayer.normalized;
             }
 
-            // 3. Escribir velocidad planar combinada con altura fija en el Rigidbody
+            // 3. Escribir velocidad planar en el Rigidbody (empuje prioritario cuando está activo, como en Arena)
             if (body != null && !body.isKinematic)
             {
-                Vector3 combined = locomotionVelocity + knockbackVelocity;
+                Vector3 combined = isKnockedBack ? knockbackVelocity : (locomotionVelocity + knockbackVelocity);
                 combined.y = 0f;
                 body.linearVelocity = combined;
                 if (Mathf.Abs(body.position.y - 1f) > 0.01f)
@@ -366,7 +439,8 @@ namespace EchoScrap.Combat
             }
 
             // 4. Comprobar daño de contacto mediante los colliders reales
-            TryDealContactDamage();
+            if (!isKnockedBack)
+                TryDealContactDamage();
         }
 
         protected virtual Vector3 ComputeArchetypeLocomotion(float fixedDeltaTime)
