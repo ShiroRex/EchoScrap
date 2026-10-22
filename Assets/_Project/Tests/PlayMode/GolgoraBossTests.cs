@@ -266,6 +266,23 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void TwoMetrePlayerRestingOnFloorCanBeDisplacedFromBossEntryVolume()
+        {
+            player.GetComponent<CapsuleCollider>().height = 2f;
+            MovePlayer(Vector3.up);
+            BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
+            director.Step(480f);
+            encounter.Boss.AutoTick = false;
+            encounter.Step(1.5f);
+            Assert.IsFalse(encounter.IntroWaitingForClearance);
+            Assert.AreEqual(GolgoraState.Pursuing, encounter.Boss.State);
+            Assert.AreEqual(SessionState.Running, session.State);
+            Assert.Greater(Vector3.Distance(player.WorldCenter, encounter.Boss.WorldCenter),
+                player.HitRadius + encounter.Boss.HitRadius);
+            Assert.AreEqual(1f, player.WorldCenter.y);
+        }
+
+        [Test]
         public void VictoryAwardsClosingXpOnce_NoDropRng_AndCinematicUsesUnscaledTime()
         {
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);

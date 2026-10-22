@@ -156,7 +156,10 @@ namespace EchoScrap.Combat
                     Vector3 position = Boss.WorldCenter + outward * (radius + ring * 0.5f);
                     position.y = player.WorldCenter.y;
                     Vector3 halfSegment = Vector3.up * Mathf.Max(0f, halfHeight - playerRadius);
-                    if (Physics.CheckCapsule(position - halfSegment, position + halfSegment, playerRadius,
+                    // A two-metre player rests exactly on y=0. Floor contact is not a blocked escape.
+                    // Lift only the query slightly; the actual Rigidbody keeps its fixed gameplay height.
+                    Vector3 queryCenter = position + Vector3.up * 0.03f;
+                    if (Physics.CheckCapsule(queryCenter - halfSegment, queryCenter + halfSegment, playerRadius,
                         1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
                         continue;
                     if (playerBody != null)
