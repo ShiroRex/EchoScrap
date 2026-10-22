@@ -1,0 +1,429 @@
+using System.Collections;
+using System.IO;
+using EchoScrap.Combat;
+using EchoScrap.Core;
+using EchoScrap.Player;
+using NUnit.Framework;
+using Unity.Cinemachine;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
+
+namespace EchoScrap.Tests
+{
+    public sealed class FlashlightBurstFeedbackTests
+    {
+        private Scene testScene;
+        private CombatSession session;
+        private GameObject playerObject;
+        private PlayerRuntimeStats playerStats;
+        private PlayerHealth playerHealth;
+        private ActorVisualComposer playerComposer;
+        private FlashlightWeapon weapon;
+        private FlashlightPresentation presentation;
+        private CombatCameraFeedback cameraFeedback;
+        private Camera mainCamera;
+
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            PhysicsLayers.EnsureConfigured();
+            CombatTargetRegistry.Clear();
+
+            testScene = SceneManager.CreateScene($"FlashlightTest_{Random.Range(1000, 9999)}");
+            SceneManager.SetActiveScene(testScene);
+
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "ArenaFloor";
+            floor.transform.localScale = new Vector3(6f, 1f, 6f);
+            var floorRenderer = floor.GetComponent<Renderer>();
+            floorRenderer.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+            {
+                color = new Color(0.16f, 0.18f, 0.21f, 1f)
+            };
+
+            var lightGo = new GameObject("DirectionalLight");
+            var dirLight = lightGo.AddComponent<Light>();
+            dirLight.type = LightType.Directional;
+            dirLight.intensity = 1.1f;
+            lightGo.transform.rotation = Quaternion.Euler(52f, -30f, 0f);
+
+            var camGo = new GameObject("MainCamera");
+            camGo.tag = "MainCamera";
+            mainCamera = camGo.AddComponent<Camera>();
+            mainCamera.clearFlags = CameraClearFlags.SolidColor;
+            mainCamera.backgroundColor = new Color(0.08f, 0.09f, 0.12f, 1f);
+            mainCamera.transform.position = new Vector3(0f, 11.5f, -6.5f);
+            mainCamera.transform.rotation = Quaternion.Euler(60f, 0f, 0f);
+
+            var sessionGo = new GameObject("CombatSession");
+            session = sessionGo.AddComponent<CombatSession>();
+
+            playerObject = new GameObject("Player");
+            playerObject.layer = PhysicsLayers.PlayerLayer;
+            playerObject.transform.position = new Vector3(0f, 1f, 0f);
+            var playerCol = playerObject.AddComponent<CapsuleCollider>();
+            playerCol.radius = 0.45f;
+            playerCol.height = 1.8f;
+
+            var visualRoot = new GameObject("Visual");
+            visualRoot.transform.SetParent(playerObject.transform, false);
+            var bodyMesh = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            bodyMesh.name = "PlayerBodyMesh";
+            bodyMesh.transform.SetParent(visualRoot.transform, false);
+            Object.DestroyImmediate(bodyMesh.GetComponent<Collider>());
+            bodyMesh.GetComponent<Renderer>().sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+            {
+                color = new Color(0.95f, 0.72f, 0.22f, 1f)
+            };
+
+            var aimPivotGo = new GameObject("FlashlightPivot");
+            aimPivotGo.transform.SetParent(playerObject.transform, false);
+            aimPivotGo.transform.localPosition = Vector3.zero;
+
+            playerStats = playerObject.AddComponent<PlayerRuntimeStats>();
+            playerStats.ResetToInitial();
+            playerComposer = playerObject.AddComponent<ActorVisualComposer>();
+            playerComposer.EnsureHierarchy();
+            playerComposer.CacheRenderers();
+
+            playerHealth = playerObject.AddComponent<PlayerHealth>();
+            playerHealth.BindSession(session);
+
+            weapon = playerObject.AddComponent<FlashlightWeapon>();
+            weapon.BindSession(session);
+            weapon.ResetWeaponCycle();
+
+            presentation = playerObject.AddComponent<FlashlightPresentation>();
+            presentation.BindSession(session);
+            presentation.EnsureInitialized();
+
+            var vcamGo = new GameObject("CombatVcam");
+            var vcam = vcamGo.AddComponent<CinemachineCamera>();
+            vcam.Follow = playerObject.transform;
+            cameraFeedback = vcamGo.AddComponent<CombatCameraFeedback>();
+            cameraFeedback.BindReferences(session, playerObject.transform, null, null, weapon);
+
+            session.ResetSession(4242);
+            weapon.ResetWeaponCycle();
+            presentation.ResynchronizeStateWithoutRepeatingFlashes();
+            yield return null;
+        }
+
+        [UnityTearDown]
+        public IEnumerator TearDown()
+        {
+            Time.timeScale = 1f;
+            CombatTargetRegistry.Clear();
+            if (testScene.IsValid() && testScene.isLoaded)
+            {
+                Scene cleanup = SceneManager.GetSceneByName("FlashlightCleanupScene");
+                if (!cleanup.IsValid() || !cleanup.isLoaded)
+                    cleanup = SceneManager.CreateScene("FlashlightCleanupScene");
+                SceneManager.SetActiveScene(cleanup);
+                yield return SceneManager.UnloadSceneAsync(testScene);
+            }
+        }
+
+        [Test]
+        public void PulseSchedule_02_04_06_08_Rest04_Cycle12_AndFourthPulseKnockbackOnly()
+        {
+            CombatDummy dummy = CreateDummy("ScheduleDummy", new Vector3(0f, 1f, 4f), hp: 50f);
+
+            // t = 0.19 s: aún no se ha emitido el primer pulso
+            weapon.StepWeapon(0.19f);
+            Assert.AreEqual(0, weapon.EmittedPulsesInCurrentBurst);
+            Assert.AreEqual(50f, dummy.CurrentHealth, 0.001f);
+
+            // t = 0.20 s: Pulso 1 (-3.75 HP, sin empuje)
+            weapon.StepWeapon(0.011f);
+            Assert.AreEqual(1, weapon.EmittedPulsesInCurrentBurst);
+            Assert.AreEqual(46.25f, dummy.CurrentHealth, 0.01f);
+            Assert.AreEqual(0, dummy.KnockbackAppliedCount);
+
+            // t = 0.40 s: Pulso 2 (-3.75 HP, sin empuje)
+            weapon.StepWeapon(0.20f);
+            Assert.AreEqual(2, weapon.EmittedPulsesInCurrentBurst);
+            Assert.AreEqual(42.50f, dummy.CurrentHealth, 0.01f);
+            Assert.AreEqual(0, dummy.KnockbackAppliedCount);
+
+            // t = 0.60 s: Pulso 3 (-3.75 HP, sin empuje)
+            weapon.StepWeapon(0.20f);
+            Assert.AreEqual(3, weapon.EmittedPulsesInCurrentBurst);
+            Assert.AreEqual(38.75f, dummy.CurrentHealth, 0.01f);
+            Assert.AreEqual(0, dummy.KnockbackAppliedCount);
+
+            // t = 0.80 s: Pulso 4 (-3.75 HP -> total 15 HP en 4 pulsos, empuje 10 m/s aplicado y entra en descanso)
+            weapon.StepWeapon(0.20f);
+            Assert.AreEqual(4, weapon.EmittedPulsesInCurrentBurst);
+            Assert.AreEqual(35.00f, dummy.CurrentHealth, 0.01f);
+            Assert.AreEqual(1, dummy.KnockbackAppliedCount, "El empuje debe aplicarse únicamente en el cuarto pulso.");
+            Assert.AreEqual(10f, dummy.LastKnockbackImpulse.magnitude, 0.05f, "El impulso del cuarto pulso debe ser 10 m/s.");
+            Assert.IsTrue(weapon.IsInRestPhase, "Tras el 4.º pulso en 0.8 s debe entrar en el descanso de 0.4 s.");
+            Assert.IsTrue(presentation.IsShowingRestDimState, "Los 4 cuadrados deben permanecer tenues durante el descanso.");
+
+            // t = 1.15 s: sigue en descanso (ciclo de 1.2 s)
+            weapon.StepWeapon(0.35f);
+            Assert.IsTrue(weapon.IsInRestPhase);
+            Assert.AreEqual(4, presentation.DisplayedPulseCount);
+
+            // t = 1.20 s: comienza la ráfaga 2 y se reinician los cuadrados a 0
+            weapon.StepWeapon(0.06f);
+            Assert.AreEqual(2, weapon.CurrentBurstId);
+            Assert.IsFalse(weapon.IsInRestPhase);
+            Assert.AreEqual(0, weapon.EmittedPulsesInCurrentBurst);
+            Assert.AreEqual(0, presentation.DisplayedPulseCount, "Los cuadrados deben reiniciarse al comenzar la siguiente ráfaga.");
+        }
+
+        [Test]
+        public void BurstParameterSnapshot_UpgradesMidBurstApplyOnlyToNextBurst_AndLowFpsDoesNotDuplicateOrDrift()
+        {
+            CombatDummy dummy = CreateDummy("SnapshotDummy", new Vector3(0f, 1f, 4f), hp: 200f);
+
+            // Emitir pulsos 1 y 2 en un único paso largo de baja tasa de FPS (0.42 s)
+            weapon.StepWeapon(0.42f);
+            Assert.AreEqual(2, weapon.EmittedPulsesInCurrentBurst, "Una caída de FPS debe resolver los pulsos vencidos una vez cada uno.");
+            Assert.AreEqual(200f - 7.50f, dummy.CurrentHealth, 0.01f);
+
+            // Aplicar mejoras a mitad de la ráfaga 1 (FLASH_01: +1m y +10°; FLASH_04 tier 1: +50% daño y -20°)
+            playerStats.SetUpgradeTier("FLASH_01", 2); // +2 m -> 9 m, +20° -> 80°
+            playerStats.SetUpgradeTier("FLASH_04", 1); // +50% daño -> 5.625, -20° -> 60°
+
+            // La ráfaga 1 conserva los parámetros capturados al inicio (3.75 daño, 7 m alcance, 60° apertura)
+            Assert.AreEqual(1, weapon.CurrentBurstId);
+            Assert.AreEqual(2, weapon.EmittedPulsesInCurrentBurst, "Mejorar no debe reiniciar el contador de la ráfaga activa.");
+            Assert.AreEqual(7f, weapon.ActiveBurstRange, 0.001f);
+            Assert.AreEqual(60f, weapon.ActiveBurstAngle, 0.001f);
+
+            // Completar pulsos 3 y 4 de la ráfaga 1: siguen haciendo 3.75 de daño cada uno
+            weapon.StepWeapon(0.40f);
+            Assert.AreEqual(4, weapon.EmittedPulsesInCurrentBurst);
+            Assert.AreEqual(200f - 15.0f, dummy.CurrentHealth, 0.01f);
+
+            // Completar el descanso de 0.4 s para iniciar la ráfaga 2 y emitir su primer pulso (t = 1.42 s)
+            weapon.StepWeapon(0.60f);
+            Assert.AreEqual(2, weapon.CurrentBurstId);
+            Assert.AreEqual(1, weapon.EmittedPulsesInCurrentBurst);
+            Assert.AreEqual(9f, weapon.ActiveBurstRange, 0.001f, "La ráfaga 2 ya adopta el nuevo alcance (9 m).");
+            float expectedUpgradedPulse = 3.75f * 1.50f;
+            Assert.AreEqual(200f - 15.0f - expectedUpgradedPulse, dummy.CurrentHealth, 0.02f);
+        }
+
+        [Test]
+        public void Detection_ConsidersTargetRadiusOnConeEdge_TraversesObstacles_AndDeduplicatesMultiColliderTargets()
+        {
+            // Colocar un muro/obstáculo directamente entre el jugador (0,1,0) y los objetivos
+            var obstacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            obstacle.name = "SolidWallObstacle";
+            obstacle.transform.position = new Vector3(0f, 1f, 1.5f);
+            obstacle.transform.localScale = new Vector3(4f, 2f, 0.5f);
+
+            // Objetivo 1 detrás del obstáculo con múltiples colliders hijos
+            CombatDummy multiColDummy = CreateDummy("MultiColliderDummy", new Vector3(0f, 1f, 3.0f), hp: 50f);
+            var extraChild1 = new GameObject("ExtraCol1");
+            extraChild1.transform.SetParent(multiColDummy.transform, false);
+            extraChild1.AddComponent<BoxCollider>().size = new Vector3(1f, 2f, 1f);
+            var extraChild2 = new GameObject("ExtraCol2");
+            extraChild2.transform.SetParent(multiColDummy.transform, false);
+            extraChild2.AddComponent<SphereCollider>().radius = 0.6f;
+
+            // Objetivo 2 cuyo centro está a 34° (> 30° semiángulo), pero cuyo radio (1.0 m a distancia 4.0 m -> ~14° radio angular) toca el borde del cono
+            float angleDeg = 34f * Mathf.Deg2Rad;
+            Vector3 edgePos = new Vector3(Mathf.Sin(angleDeg) * 4.0f, 1f, Mathf.Cos(angleDeg) * 4.0f);
+            CombatDummy edgeDummy = CreateDummy("EdgeRadiusDummy", edgePos, hp: 50f);
+            edgeDummy.transform.localScale = new Vector3(2f, 1f, 2f); // HitRadius = 0.5 * 2 = 1.0 m
+
+            // Objetivo 3 fuera del cono (50° con radio pequeño)
+            float outDeg = 50f * Mathf.Deg2Rad;
+            CombatDummy outsideDummy = CreateDummy("OutsideConeDummy", new Vector3(Mathf.Sin(outDeg) * 4.0f, 1f, Mathf.Cos(outDeg) * 4.0f), hp: 50f);
+
+            Physics.SyncTransforms();
+
+            // Avanzar hasta el primer pulso (0.20 s) apuntando al objetivo más cercano (MultiColliderDummy en +Z)
+            weapon.StepWeapon(0.21f);
+
+            // MultiColliderDummy (detrás del obstáculo y con 3 colliders) debe recibir exactamente 1 impacto de 3.75 HP
+            Assert.AreEqual(50f - 3.75f, multiColDummy.CurrentHealth, 0.01f, "Debe atravesar obstáculos y dañar una sola vez aunque tenga múltiples colliders.");
+
+            // EdgeRadiusDummy debe recibir impacto gracias a su radio en el borde del cono
+            Assert.AreEqual(50f - 3.75f, edgeDummy.CurrentHealth, 0.01f, "Debe considerar el radio del objetivo en los bordes del cono.");
+
+            // OutsideDummy no debe recibir impacto
+            Assert.AreEqual(50f, outsideDummy.CurrentHealth, 0.01f);
+
+            Object.DestroyImmediate(obstacle);
+        }
+
+        [Test]
+        public void IndicatorContract_NoHitNoDiamond_HitShowsDiamond_AndViewResyncDoesNotRepeatFlashes()
+        {
+            int initialMeshBuilds = presentation.GeometryBuildCount;
+
+            // Emitir pulso 1 y 2 sin objetivos en escena
+            weapon.StepWeapon(0.21f);
+            presentation.StepPresentation(0.01f);
+            Assert.AreEqual(1, presentation.DisplayedPulseCount);
+            Assert.IsFalse(presentation.IsContactDiamondVisible, "Sin blancos no debe aparecer el rombo de confirmación.");
+
+            weapon.StepWeapon(0.20f);
+            presentation.StepPresentation(0.01f);
+            Assert.AreEqual(2, presentation.DisplayedPulseCount);
+            Assert.IsFalse(presentation.IsContactDiamondVisible);
+            Assert.Greater(presentation.CurrentEmissionEnvelope, 0.1f, "Acaba de emitir un pulso.");
+
+            // Desactivar y reactivar la vista tras haber emitido 2 pulsos: debe reconstruir el conteo (2) sin repetir el flash
+            presentation.enabled = false;
+            presentation.enabled = true;
+            Assert.AreEqual(2, presentation.DisplayedPulseCount, "Al reactivar la vista debe reconstruir el conteo actual.");
+            Assert.AreEqual(0f, presentation.CurrentEmissionEnvelope, 0.001f, "Reactivar la vista no debe repetir flashes anteriores.");
+            Assert.IsFalse(presentation.IsContactDiamondVisible);
+
+            // Añadir un objetivo y emitir el pulso 3: ahora sí debe aparecer el rombo de confirmación
+            CombatDummy target = CreateDummy("HitDiamondDummy", new Vector3(0f, 1f, 3.5f), hp: 40f);
+            weapon.StepWeapon(0.20f);
+            presentation.StepPresentation(0.005f);
+            Assert.AreEqual(3, presentation.DisplayedPulseCount);
+            Assert.IsTrue(presentation.IsContactDiamondVisible, "Con impacto válido debe activarse el rombo de confirmación.");
+            Assert.Greater(presentation.HitSparksSpawnedCount, 0, "Debe emitir chispa de impacto en la posición del objetivo.");
+
+            // La geometría del cono no se reconstruye si no cambian alcance o ángulo
+            Assert.AreEqual(initialMeshBuilds, presentation.GeometryBuildCount, "El mesh del cono sólo debe reconstruirse si cambia alcance o apertura.");
+            Object.DestroyImmediate(target.gameObject);
+        }
+
+        [Test]
+        public void CameraFeedback_AnticipationAfter010s_CleanWarpAbove4m_AndUseLargestXZShakePolicy()
+        {
+            // 1. Anticipación de cámara tras 0.10 s de dirección sostenida hacia un objetivo apuntado
+            CombatDummy aimTarget = CreateDummy("CameraLeadTarget", new Vector3(0f, 1f, 5f), hp: 100f);
+            weapon.UpdateAim(0.1f);
+
+            // Antes de 0.10 s de dirección sostenida no se adelanta
+            cameraFeedback.StepFeedback(0.05f);
+            Assert.AreEqual(0f, cameraFeedback.CurrentLeadOffsetXZ.magnitude, 0.001f);
+
+            // Superar los 0.10 s y avanzar la entrada (0.08 s) hasta el máximo de 1.2 m
+            cameraFeedback.StepFeedback(0.06f);
+            cameraFeedback.StepFeedback(0.08f);
+            Assert.AreEqual(CombatCameraFeedback.MaxLeadDistance, cameraFeedback.CurrentLeadOffsetXZ.magnitude, 0.05f);
+            Assert.AreEqual(0f, cameraFeedback.CurrentLeadOffsetXZ.y, 0.0001f);
+
+            // Al teletransportar > 4 m hace warp limpio
+            playerObject.transform.position = new Vector3(10f, 1f, 10f);
+            cameraFeedback.StepFeedback(0.016f);
+            Assert.AreEqual(1, cameraFeedback.WarpCount, "Al teletransportar > 4 m la cámara debe registrar un warp limpio.");
+
+            // 2. Coordinador de Camera Shake con política UseLargest en XZ
+            session.Effects.ShakeIntensity = 1f;
+            session.Effects.ReducedEffectsMode = false;
+
+            cameraFeedback.RequestPresetShake(ShakePriority.Low);     // 0.06 m
+            cameraFeedback.RequestPresetShake(ShakePriority.High);    // 0.18 m
+            cameraFeedback.StepFeedback(0.001f);
+
+            Assert.AreEqual(ShakePriority.High, cameraFeedback.CurrentWinningPriority);
+            Assert.AreEqual(CombatCameraFeedback.PlayerHurtShakeAmplitude, cameraFeedback.CurrentWinningShakeAmplitude, 0.01f,
+                "Política UseLargest: debe usar 0.18 m sin sumar los 0.06 m del cuarto pulso.");
+            Assert.LessOrEqual(cameraFeedback.CurrentShakeOffsetXZ.magnitude, CombatCameraFeedback.PlayerHurtShakeAmplitude + 0.005f);
+            Assert.AreEqual(0f, cameraFeedback.CurrentShakeOffsetXZ.y, 0.0001f, "El shake sólo debe desplazar en XZ.");
+
+            // Control de intensidad al 50%
+            session.Effects.ShakeIntensity = 0.5f;
+            cameraFeedback.StepFeedback(0.001f);
+            Assert.LessOrEqual(cameraFeedback.CurrentWinningShakeAmplitude, CombatCameraFeedback.PlayerHurtShakeAmplitude * 0.5f + 0.01f);
+
+            // Control de intensidad al 0%
+            session.Effects.ShakeIntensity = 0f;
+            cameraFeedback.StepFeedback(0.001f);
+            Assert.AreEqual(0f, cameraFeedback.CurrentShakeOffsetXZ.magnitude, 0.0001f);
+
+            Object.DestroyImmediate(aimTarget.gameObject);
+        }
+
+        [UnityTest]
+        public IEnumerator VisualPreview_CapturesRescueLensCone4SquaresAndTargetHit()
+        {
+            session.Effects.ShakeIntensity = 1f;
+            session.Effects.ReducedEffectsMode = false;
+            playerObject.transform.position = Vector3.zero;
+
+            CombatDummy targetDummy = CreateDummy("PreviewTarget", new Vector3(1.2f, 1f, 3.8f), hp: 50f);
+            var rend = targetDummy.GetComponentInChildren<Renderer>();
+            if (rend != null)
+            {
+                rend.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+                {
+                    color = new Color(0.85f, 0.28f, 0.24f, 1f)
+                };
+            }
+
+            // Emitir 3 pulsos sobre el objetivo para mostrar el cono Apollo, 3 cuadrados encendidos, rombo de contacto y flash de impacto
+            weapon.UpdateAim(0.2f);
+            weapon.StepWeapon(0.20f);
+            weapon.StepWeapon(0.20f);
+            weapon.StepWeapon(0.20f);
+            presentation.StepPresentation(0.005f);
+
+            yield return null;
+
+            mainCamera.transform.position = new Vector3(0.6f, 8.8f, -2.6f);
+            mainCamera.transform.LookAt(new Vector3(0.6f, 0.5f, 2.2f));
+
+            string dir = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "FlashlightBurstFeedback");
+            Directory.CreateDirectory(dir);
+            string previewPath = Path.Combine(dir, "Preview.png");
+
+            var rt = new RenderTexture(1280, 720, 24);
+            RenderTexture prevTarget = mainCamera.targetTexture;
+            RenderTexture prevActive = RenderTexture.active;
+            try
+            {
+                mainCamera.targetTexture = rt;
+                mainCamera.Render();
+                RenderTexture.active = rt;
+                var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+                tex.Apply();
+                File.WriteAllBytes(previewPath, tex.EncodeToPNG());
+                Object.Destroy(tex);
+            }
+            finally
+            {
+                mainCamera.targetTexture = prevTarget;
+                RenderTexture.active = prevActive;
+                rt.Release();
+                Object.Destroy(rt);
+            }
+
+            Assert.IsTrue(File.Exists(previewPath), "Debe generarse la captura visual de la linterna.");
+            Assert.AreEqual(3, presentation.DisplayedPulseCount);
+            Assert.IsTrue(presentation.IsContactDiamondVisible);
+        }
+
+        private CombatDummy CreateDummy(string name, Vector3 position, float hp)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            go.name = name;
+            go.layer = PhysicsLayers.EnemyLayer;
+            go.transform.position = position;
+
+            var visual = new GameObject("Visual");
+            visual.transform.SetParent(go.transform, false);
+            var meshGo = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            meshGo.name = "Mesh";
+            meshGo.transform.SetParent(visual.transform, false);
+            Object.DestroyImmediate(meshGo.GetComponent<Collider>());
+            Object.DestroyImmediate(go.GetComponent<MeshRenderer>());
+            Object.DestroyImmediate(go.GetComponent<MeshFilter>());
+
+            var composer = go.AddComponent<ActorVisualComposer>();
+            composer.EnsureHierarchy();
+            composer.CacheRenderers();
+
+            var dummy = go.AddComponent<CombatDummy>();
+            dummy.Configure(session, playerHealth, hp: hp, enableContact: false);
+            Physics.SyncTransforms();
+            return dummy;
+        }
+    }
+}

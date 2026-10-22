@@ -18,6 +18,7 @@ namespace EchoScrap.Combat
         [Header("Salud")]
         [SerializeField, Min(1f)] private float maxHealth = 30f;
         [SerializeField] private bool isBossDummy;
+        [SerializeField, Range(0f, 2f)] private float knockbackSusceptibility = 1f;
 
         [Header("Contacto Dañino")]
         [SerializeField] private bool dealsContactDamage = true;
@@ -37,9 +38,12 @@ namespace EchoScrap.Combat
         public float MaxHealth => maxHealth;
         public bool IsAlive => EnsureInitialized() && !isDead && currentHealth > 0f;
         public bool IsDead => !IsAlive;
+        public bool IsEnemyTarget => true;
         public bool IsPlayingDeathVisual => isDead && deathVisualTimer > 0f;
         public bool DeathRewardResolved => deathRewardResolved;
         public int DeathNotifyCount { get; private set; }
+        public int KnockbackAppliedCount { get; private set; }
+        public Vector3 LastKnockbackImpulse { get; private set; }
         public Vector3 WorldCenter => transform.position;
         public Collider BodyCollider => bodyCollider;
         public ActorVisualComposer VisualComposer => visualComposer;
@@ -64,6 +68,18 @@ namespace EchoScrap.Combat
         private void Awake()
         {
             EnsureInitialized();
+        }
+
+        private void OnEnable()
+        {
+            EnsureInitialized();
+            if (IsAlive)
+                CombatTargetRegistry.Register(this);
+        }
+
+        private void OnDisable()
+        {
+            CombatTargetRegistry.Unregister(this);
         }
 
         public bool EnsureInitialized()
@@ -106,6 +122,20 @@ namespace EchoScrap.Combat
             contactCooldown = Mathf.Max(0.05f, contactCd);
             isBossDummy = asBossDummy;
             ResetDummy();
+        }
+
+        public void ApplyKnockback(Vector3 planarImpulse)
+        {
+            if (!IsAlive || knockbackSusceptibility <= 0.0001f)
+                return;
+
+            Vector3 scaled = new Vector3(planarImpulse.x, 0f, planarImpulse.z) * knockbackSusceptibility;
+            if (scaled.sqrMagnitude <= 0.0001f)
+                return;
+
+            KnockbackAppliedCount++;
+            LastKnockbackImpulse = scaled;
+            visualComposer?.ReportKnockbackVelocity(scaled);
         }
 
         private void FixedUpdate()
@@ -279,6 +309,7 @@ namespace EchoScrap.Combat
             deathRewardResolved = true;
             DeathNotifyCount++;
             deathVisualTimer = deathVisualDuration;
+            CombatTargetRegistry.Unregister(this);
 
             // La muerte desactiva inmediatamente daño, selección y colisión del actor
             if (bodyCollider != null)
@@ -311,12 +342,16 @@ namespace EchoScrap.Combat
             isDead = false;
             deathRewardResolved = false;
             DeathNotifyCount = 0;
+            KnockbackAppliedCount = 0;
+            LastKnockbackImpulse = Vector3.zero;
             deathVisualTimer = 0f;
             nextContactReadyTime = 0f;
             currentHealth = maxHealth;
 
             if (bodyCollider != null)
                 bodyCollider.enabled = true;
+            if (isActiveAndEnabled)
+                CombatTargetRegistry.Register(this);
             if (visualComposer != null)
             {
                 if (visualComposer.OrientationRoot != null)
