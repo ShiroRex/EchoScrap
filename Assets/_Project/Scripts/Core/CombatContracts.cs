@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace EchoScrap.Core
@@ -362,9 +363,38 @@ namespace EchoScrap.Core
     {
         int TargetId { get; }
         bool IsAlive { get; }
+        bool IsEnemyTarget { get; }
         Vector3 WorldCenter { get; }
         float HitRadius { get; }
         DamageResult ReceiveDamage(in DamageRequest request);
+        void ApplyKnockback(Vector3 planarImpulse);
+    }
+
+    /// <summary>
+    /// Registro activo libre de asignaciones para enemigos y objetivos de combate.
+    /// </summary>
+    public static class CombatTargetRegistry
+    {
+        private static readonly List<IDamageTarget> activeTargets = new List<IDamageTarget>(256);
+
+        public static IReadOnlyList<IDamageTarget> ActiveTargets => activeTargets;
+
+        public static void Register(IDamageTarget target)
+        {
+            if (target != null && !activeTargets.Contains(target))
+                activeTargets.Add(target);
+        }
+
+        public static void Unregister(IDamageTarget target)
+        {
+            if (target != null)
+                activeTargets.Remove(target);
+        }
+
+        public static void Clear()
+        {
+            activeTargets.Clear();
+        }
     }
 
     /// <summary>

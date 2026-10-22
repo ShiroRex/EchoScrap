@@ -33,6 +33,7 @@ namespace EchoScrap.Combat
         public float MaxHealth => EnsureInitialized() ? stats.MaxHealth : 100f;
         public bool IsAlive => EnsureInitialized() && !isDead && currentHealth > 0f;
         public bool IsDead => !IsAlive;
+        public bool IsEnemyTarget => false;
         public float ProtectionRemaining => Mathf.Max(0f, protectionRemaining);
         public bool HasDamageProtection => protectionRemaining > 0.0001f;
         public bool IsDashInvulnerable => dashInvulnerable || (motor != null && motor.IsDashInvulnerable);
@@ -95,6 +96,11 @@ namespace EchoScrap.Combat
         public void SetDashInvulnerable(bool value)
         {
             dashInvulnerable = value;
+        }
+
+        public void ApplyKnockback(Vector3 planarImpulse)
+        {
+            // El jugador no recibe empuje de la propia linterna.
         }
 
         private void Update()
