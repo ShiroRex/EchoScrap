@@ -1,0 +1,11 @@
+{
+  "name": "EchoScrap.PlayModeTests",
+  "rootNamespace": "EchoScrap.Tests",
+  "references": [
+    "EchoScrap.Player",
+    "Unity.Cinemachine",
+    "Unity.InputSystem"
+  ],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}
