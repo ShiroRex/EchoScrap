@@ -332,6 +332,10 @@ namespace EchoScrap.Combat
                 bodyCollider.height = runtimeArchetype.ColliderHeight;
                 bodyCollider.isTrigger = false;
                 bodyCollider.enabled = true;
+                if (targetPlayer != null && targetPlayer.HurtboxCollider != null)
+                {
+                    Physics.IgnoreCollision(bodyCollider, targetPlayer.HurtboxCollider, !runtimeArchetype.IsHeavyMass);
+                }
             }
 
             // 6. Escala, rotación, posición y MaterialPropertyBlock
@@ -349,6 +353,7 @@ namespace EchoScrap.Combat
             if (body != null)
             {
                 body.isKinematic = false;
+                body.mass = runtimeArchetype.IsHeavyMass ? 500f : 1f;
                 body.position = clampedSpawn;
                 body.rotation = Quaternion.identity;
                 body.linearVelocity = Vector3.zero;
