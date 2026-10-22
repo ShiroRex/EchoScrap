@@ -34,6 +34,8 @@ namespace EchoScrap.Combat
         private ActorDeathEvent pendingBossDeathEvent;
         private bool initialized;
 
+        public event Action SessionReset;
+
         public GameplayClock Clock
         {
             get
@@ -354,6 +356,7 @@ namespace EchoScrap.Combat
                 playerInput.SetInputEnabled(true);
             }
 
+            SessionReset?.Invoke();
             PublishSessionState();
         }
 

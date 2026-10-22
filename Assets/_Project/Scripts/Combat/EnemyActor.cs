@@ -15,6 +15,11 @@ namespace EchoScrap.Combat
     [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider))]
     public class EnemyActor : MonoBehaviour, IDamageTarget
     {
+        public const float MortarMinBandRange = 6.5f;
+        public const float MortarMaxBandRange = 7.5f;
+        public const float MortarFireInterval = 3.5f;
+        public const float MortarTelegraphLeadTime = 0.25f;
+
         private static readonly List<EnemyActor> activeEnemies = new List<EnemyActor>(256);
         private static readonly Dictionary<int, Material> sharedPrimaryMaterials = new Dictionary<int, Material>();
         private static readonly Dictionary<int, Material> sharedSecondaryMaterials = new Dictionary<int, Material>();
@@ -25,6 +30,7 @@ namespace EchoScrap.Combat
         [SerializeField] private CombatSession session;
         [SerializeField] private PlayerHealth targetPlayer;
         [SerializeField] private ActorVisualComposer visualComposer;
+        [SerializeField] private CorrosivePuddlePool puddlePool;
 
         [Header("Separación Local y Evitación")]
         [SerializeField, Min(0.2f)] private float separationRadius = 1.15f;
@@ -48,6 +54,10 @@ namespace EchoScrap.Combat
         private bool isDead;
         private bool deathRewardResolved;
         private bool initialized;
+        private Transform mortarEmitter;
+        private Vector3 mortarEmitterRestPosition;
+        private Vector3 mortarEmitterRestScale;
+        private float mortarRecoilRemaining;
 
         public Action<EnemyActor> ReturnToPoolCallback { get; set; }
 
@@ -66,6 +76,7 @@ namespace EchoScrap.Combat
         public bool DeathRewardResolved => deathRewardResolved;
         public int DeathNotifyCount { get; private set; }
         public int KnockbackAppliedCount { get; private set; }
+        public int MortarShotsFiredCount { get; private set; }
         public float NextContactReadyTime => nextContactReadyTime;
         public float FuseTimer => fuseTimer;
         public float AttackCooldownTimer => attackCooldownTimer;
@@ -77,6 +88,31 @@ namespace EchoScrap.Combat
         public ActorVisualComposer VisualComposer => visualComposer;
         public CombatSession Session => session;
         public PlayerHealth TargetPlayer => targetPlayer;
+        public CorrosivePuddlePool PuddlePool => puddlePool;
+
+        public void BindPuddlePool(CorrosivePuddlePool pool)
+        {
+            puddlePool = pool;
+        }
+
+        private CorrosivePuddlePool EnsurePuddlePool()
+        {
+            if (puddlePool != null)
+            {
+                puddlePool.BindReferences(session, targetPlayer);
+                return puddlePool;
+            }
+
+            puddlePool = FindAnyObjectByType<CorrosivePuddlePool>();
+            if (puddlePool == null)
+            {
+                var poolGo = new GameObject("CorrosivePuddlePool");
+                puddlePool = poolGo.AddComponent<CorrosivePuddlePool>();
+            }
+
+            puddlePool.BindReferences(session, targetPlayer);
+            return puddlePool;
+        }
 
         public float HitRadius
         {
@@ -158,6 +194,8 @@ namespace EchoScrap.Combat
                 visualComposer = gameObject.AddComponent<ActorVisualComposer>();
 
             visualComposer.EnsureHierarchy();
+            if (visualComposer.PresentationPivot != null)
+                mortarEmitter = visualComposer.PresentationPivot.Find("FacingCrest");
             ApplyArchetypeMaterials();
             visualComposer.CacheRenderers();
         }
@@ -218,6 +256,9 @@ namespace EchoScrap.Combat
                     case EnemyArchetypeId.Mortar:
                         crest.localPosition = new Vector3(0f, 0.65f, 0.15f);
                         crest.localScale = new Vector3(0.35f, 0.55f, 0.55f);
+                        mortarEmitter = crest;
+                        mortarEmitterRestPosition = crest.localPosition;
+                        mortarEmitterRestScale = crest.localScale;
                         break;
                     case EnemyArchetypeId.ExplosiveMoth:
                         crest.localPosition = new Vector3(0f, 0.25f, -0.32f);
@@ -297,6 +338,7 @@ namespace EchoScrap.Combat
             deathRewardResolved = false;
             DeathNotifyCount = 0;
             KnockbackAppliedCount = 0;
+            MortarShotsFiredCount = 0;
 
             // 2. Muestreo determinista de velocidad inicial (p.ej. Residual 3.5 m/s ±15%)
             float variance = Mathf.Clamp(runtimeArchetype.SpeedVarianceFraction, 0f, 0.5f);
@@ -319,6 +361,18 @@ namespace EchoScrap.Combat
             // 4. Temporizadores de contacto, disparo, mecha y telegrafía a cero
             nextContactReadyTime = 0f;
             attackCooldownTimer = 0f;
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+            {
+                DeterministicRandom attackRng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
+                attackCooldownTimer = MortarFireInterval - attackRng.Range(1f, MortarFireInterval);
+                EnsurePuddlePool();
+                mortarRecoilRemaining = 0f;
+                if (mortarEmitter != null)
+                {
+                    mortarEmitter.localPosition = mortarEmitterRestPosition;
+                    mortarEmitter.localScale = mortarEmitterRestScale;
+                }
+            }
             fuseTimer = 0f;
             telegraphTimer = 0f;
             isFuseActive = false;
@@ -423,8 +477,17 @@ namespace EchoScrap.Combat
             Vector3 locomotionVelocity = isKnockedBack ? Vector3.zero : ComputeArchetypeLocomotion(fixedDeltaTime);
             currentDesiredVelocity = locomotionVelocity;
 
-            if (locomotionVelocity.sqrMagnitude > 0.001f)
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar && targetPlayer != null)
+            {
+                Vector3 toPlayer = targetPlayer.transform.position - transform.position;
+                toPlayer.y = 0f;
+                if (toPlayer.sqrMagnitude > 0.001f)
+                    facingDirection = toPlayer.normalized;
+            }
+            else if (locomotionVelocity.sqrMagnitude > 0.001f)
+            {
                 facingDirection = locomotionVelocity.normalized;
+            }
             else if (targetPlayer != null)
             {
                 Vector3 toPlayer = targetPlayer.transform.position - transform.position;
@@ -443,9 +506,47 @@ namespace EchoScrap.Combat
                     body.position = new Vector3(body.position.x, 1f, body.position.z);
             }
 
-            // 4. Comprobar daño de contacto mediante los colliders reales
+            // 4. Mortero: cadencia de 3,5 s, vuelo de 0,65 s y charco con reserva propia.
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+            {
+                StepMortarAttack(fixedDeltaTime);
+            }
+
+            // 5. Comprobar daño de contacto mediante los colliders reales
             if (!isKnockedBack)
                 TryDealContactDamage();
+        }
+
+        private void StepMortarAttack(float fixedDeltaTime)
+        {
+            if (isDead || targetPlayer == null || !targetPlayer.IsAlive)
+            {
+                telegraphTimer = 0f;
+                return;
+            }
+
+            attackCooldownTimer = Mathf.Min(MortarFireInterval, attackCooldownTimer + fixedDeltaTime);
+            float remaining = MortarFireInterval - attackCooldownTimer;
+            bool hasCapacity = puddlePool != null && puddlePool.CanLaunchProjectile;
+            telegraphTimer = hasCapacity && remaining <= MortarTelegraphLeadTime && remaining > 0f
+                ? (MortarTelegraphLeadTime - remaining)
+                : 0f;
+
+            if (attackCooldownTimer >= MortarFireInterval && hasCapacity)
+            {
+                Vector3 launchOrigin = transform.position + new Vector3(0f, 0.65f, 0f) + facingDirection * 0.25f;
+                var spec = CorrosivePuddlePool.ProjectileSpec.CreateMortarDefault(
+                    TargetId,
+                    launchOrigin,
+                    targetPlayer.transform.position);
+                if (puddlePool.TryLaunchParabolicProjectile(in spec))
+                {
+                    attackCooldownTimer = 0f;
+                    telegraphTimer = 0f;
+                    mortarRecoilRemaining = 0.16f;
+                    MortarShotsFiredCount++;
+                }
+            }
         }
 
         protected virtual Vector3 ComputeArchetypeLocomotion(float fixedDeltaTime)
@@ -459,15 +560,38 @@ namespace EchoScrap.Combat
             Vector3 myPos = transform.position;
             Vector3 toPlayer = targetPlayer.transform.position - myPos;
             toPlayer.y = 0f;
-            Vector3 seekDir = toPlayer.sqrMagnitude > 0.0001f ? toPlayer.normalized : Vector3.zero;
+            float distSqr = toPlayer.sqrMagnitude;
+            float dist = distSqr > 0.0001f ? Mathf.Sqrt(distSqr) : 0f;
+            Vector3 dirToPlayer = dist > 0.0001f ? (toPlayer / dist) : Vector3.forward;
+
+            Vector3 seekDir;
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+            {
+                // Mantiene 6,5–7,5 m, retrocediendo sin dejar de mirar al jugador.
+                if (dist > MortarMaxBandRange)
+                    seekDir = dirToPlayer;
+                else if (dist < MortarMinBandRange)
+                    seekDir = -dirToPlayer;
+                else
+                    seekDir = Vector3.zero;
+            }
+            else
+            {
+                seekDir = dist > 0.0001f ? dirToPlayer : Vector3.zero;
+            }
 
             // Separación local entre enemigos cercanos para evitar apilamiento sin requerir colisiones O(N^2) en PhysX
             Vector3 separation = ComputeLocalSeparation(myPos);
+
+            if (seekDir.sqrMagnitude < 0.0001f && separation.sqrMagnitude < 0.05f)
+                return Vector3.zero;
 
             Vector3 combinedDir = seekDir + separation * separationWeight;
             combinedDir.y = 0f;
             if (combinedDir.sqrMagnitude > 0.0001f)
                 combinedDir.Normalize();
+            else
+                return Vector3.zero;
 
             // Evitación sencilla de obstáculos estáticos (capa Default = 0)
             combinedDir = ApplySimpleObstacleAvoidance(myPos, combinedDir);
@@ -613,6 +737,16 @@ namespace EchoScrap.Combat
             visualComposer.ReportLocomotion(facingDirection, Velocity, Mathf.Max(0.1f, assignedMoveSpeed), now, decIntensity);
             visualComposer.ReportKnockbackVelocity(knockbackVelocity);
             visualComposer.StepVisuals(deltaTime, 540f, reduced);
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar && mortarEmitter != null)
+            {
+                mortarRecoilRemaining = Mathf.Max(0f, mortarRecoilRemaining - deltaTime);
+                float intensity = reduced ? 0f : decIntensity;
+                float charge = Mathf.Clamp01(telegraphTimer / MortarTelegraphLeadTime) * intensity;
+                float recoil = Mathf.Clamp01(mortarRecoilRemaining / 0.16f) * intensity;
+                mortarEmitter.localPosition = mortarEmitterRestPosition + Vector3.back * (0.08f * recoil);
+                mortarEmitter.localScale = Vector3.Scale(mortarEmitterRestScale,
+                    new Vector3(1f + charge * 0.12f, 1f - charge * 0.12f, 1f - recoil * 0.18f));
+            }
         }
 
         public DamageResult ReceiveDamage(in DamageRequest request)
@@ -776,13 +910,16 @@ namespace EchoScrap.Combat
 
         [SerializeField] private CombatSession session;
         [SerializeField] private PlayerHealth playerHealth;
+        [SerializeField] private CorrosivePuddlePool puddlePool;
 
         public int TotalCreatedCount => allCreatedActors.Count;
 
-        public void BindReferences(CombatSession combatSession, PlayerHealth player)
+        public void BindReferences(CombatSession combatSession, PlayerHealth player, CorrosivePuddlePool corrosivePool = null)
         {
             session = combatSession;
             playerHealth = player;
+            if (corrosivePool != null)
+                puddlePool = corrosivePool;
         }
 
         public void Prewarm(EnemyArchetypeId archetypeId, int count)
@@ -828,6 +965,8 @@ namespace EchoScrap.Combat
             }
 
             actor.ReturnToPoolCallback = ReturnToPool;
+            if (puddlePool != null)
+                actor.BindPuddlePool(puddlePool);
             actor.InitializeOrResetFromPool(data, session, playerHealth, position);
             return actor;
         }
@@ -870,6 +1009,8 @@ namespace EchoScrap.Combat
 
             var actor = go.AddComponent<EnemyActor>();
             actor.ReturnToPoolCallback = ReturnToPool;
+            if (puddlePool != null)
+                actor.BindPuddlePool(puddlePool);
             actor.InitializeOrResetFromPool(data, session, playerHealth, Vector3.zero);
             allCreatedActors.Add(actor);
             return actor;
