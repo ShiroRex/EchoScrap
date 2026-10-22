@@ -35,6 +35,10 @@ las builds, en `Builds/`. Ambas carpetas están excluidas del repositorio.
 - Dash: 22 m/s durante 0.15 s, invulnerabilidad y cooldown de un segundo desde
   el final. Las paredes bloquean; los cuerpos enemigos se atraviesan.
 - El hit-stop es local a la presentación; no detiene física, horda ni temporizadores.
+- Corrección solicitada tras probar el juego: se importa la vista de linterna de
+  Refactor y la Polilla/VFX del prototipo. Mechas vigentes: 0.9 s por proximidad y
+  1.2 s por muerte; explosión con empuje radial de 8 m/s y cadenas. Véanse
+  `PrototypeFlashlight.md` y `PrototypeMoth.md`.
 - Interceptor conserva el resultado efectivo de empuje de Arena: susceptibilidad
   1.0 y frenado 12 m/s². El texto del GDD sobre resistencia no coincide con esa fórmula.
 - Interceptor anticipa 0.4 s de velocidad real del jugador, limitada a 8 m/s,

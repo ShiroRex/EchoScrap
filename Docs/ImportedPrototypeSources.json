@@ -1,0 +1,26 @@
+[
+  {
+    "Path": "Assets/_Project/Scripts/Refactor/Player/Weapons/PlayerFlashlightView.cs",
+    "SHA256": "7A7C693A9A84205CE5B747720509D191FF2C34EA4A9696810D8E03733F822F1E"
+  },
+  {
+    "Path": "Assets/_Project/Scripts/Refactor/Visuals/HD2DLightFlicker.cs",
+    "SHA256": "0454CB8C329E8FA2F8181887BA0A9A68218F1AB45E613FBD9DF8E07420F834A4"
+  },
+  {
+    "Path": "Assets/_Project/Scripts/Enemies/EnemyMoth.cs",
+    "SHA256": "C9BC60E5D0564897E7AA5101BCD924A27A01647CF976A4C729FE0C1D1F5E6970"
+  },
+  {
+    "Path": "Assets/_Project/Scripts/VFX/ProceduralExplosionVfx.cs",
+    "SHA256": "916509DF6DC49862F946023764BDE518424425CB3FE90BA7E77D29BF8768E2DE"
+  },
+  {
+    "Path": "Assets/_Project/Scripts/VFX/ExplosionTelegraph.cs",
+    "SHA256": "48588BA6CF751151C66AFA93D5E9194933002009B114343CDF640563BEC1E5C7"
+  },
+  {
+    "Path": "Assets/_Project/Scripts/VFX/VfxRuntimeUtils.cs",
+    "SHA256": "CCA7640C32363B786D90FA1644954883337145DAA441FE5A1779CB620A0D705C"
+  }
+]
