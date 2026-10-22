@@ -511,6 +511,75 @@ namespace EchoScrap.Tests
             Assert.AreEqual(1, presentation.DisplayedPulseCount);
         }
 
+        [Test]
+        public void ImportedRefactorViewUsesRealShadowsAndFourMarkers_WithThreeDimensionalBeam()
+        {
+            Assert.IsNotNull(presentation.ImportedView);
+            Assert.AreEqual(LightShadows.Soft, presentation.ImportedView.KeyLight.shadows);
+            Assert.AreEqual(0.8f, presentation.ImportedView.KeyLight.transform.localPosition.z, 0.001f);
+            for (int index = 1; index <= 4; index++)
+            {
+                weapon.StepWeapon(0.2f);
+                presentation.StepPresentation(0f);
+                Assert.AreEqual(index, presentation.ImportedView.EmittedCount);
+            }
+            Assert.IsNotNull(presentation.OilLantern.OilGlow);
+            Assert.AreEqual(LightType.Point, presentation.OilLantern.OilGlow.type);
+            Assert.Greater(presentation.OilLantern.BeamMesh.bounds.size.y, 4f,
+                "The beam has vertical volume, not only an XZ fan.");
+            session.Effects.ReducedEffectsMode = true;
+            presentation.StepPresentation(0f);
+            Assert.IsFalse(presentation.OilLantern.BeamRenderer.enabled);
+            Assert.IsTrue(presentation.ImportedView.KeyLight.enabled);
+            Assert.AreEqual(4, presentation.ImportedView.EmittedCount);
+        }
+
+        [UnityTest]
+        public IEnumerator ImportedOilLanternPreviewIlluminatesTallObjects_FromGameplayAndSideViews()
+        {
+            var lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            foreach (Light light in lights)
+                if (light.type == LightType.Directional) { light.intensity = 0.12f; light.color = new Color(0.65f, 0.77f, 1f); }
+            Color oldAmbient = RenderSettings.ambientLight;
+            var oldMode = RenderSettings.ambientMode;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.07f, 0.09f, 0.13f);
+            for (int i = 0; i < 3; i++)
+            {
+                var obstacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                obstacle.name = "3D light witness " + i;
+                obstacle.transform.position = new Vector3((i - 1) * 1.7f, 0.7f + i * 0.35f, 4f + i * 1.1f);
+                obstacle.transform.localScale = new Vector3(0.8f, 1.4f + i * 0.7f, 0.8f);
+            }
+            weapon.StepWeapon(0.2f); presentation.StepPresentation(0f);
+            session.SetManualPause(true);
+            string directory = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "PrototypeFlashlight");
+            Directory.CreateDirectory(directory);
+            try
+            {
+                for (int view = 0; view < 2; view++)
+                {
+                    mainCamera.transform.position = view == 0 ? new Vector3(1f, 12f, -5f) : new Vector3(9f, 4.5f, -2f);
+                    mainCamera.transform.LookAt(new Vector3(0f, 1f, 3.5f));
+                    var target = new RenderTexture(1280, 720, 24);
+                    mainCamera.targetTexture = target;
+                    yield return null; yield return null; yield return null;
+                    var previous = RenderTexture.active;
+                    RenderTexture.active = target;
+                    var capture = new Texture2D(1280, 720, TextureFormat.RGB24, false);
+                    capture.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0); capture.Apply();
+                    File.WriteAllBytes(Path.Combine(directory, view == 0 ? "Preview.png" : "Preview_Side.png"), capture.EncodeToPNG());
+                    RenderTexture.active = previous; mainCamera.targetTexture = null;
+                    Object.Destroy(capture); Object.Destroy(target);
+                }
+            }
+            finally
+            {
+                RenderSettings.ambientMode = oldMode; RenderSettings.ambientLight = oldAmbient;
+                session.SetManualPause(false);
+            }
+        }
+
         private CombatDummy CreateDummy(string name, Vector3 position, float hp)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
