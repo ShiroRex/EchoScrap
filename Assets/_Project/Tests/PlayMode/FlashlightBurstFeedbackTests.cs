@@ -108,6 +108,10 @@ namespace EchoScrap.Tests
             weapon.ResetWeaponCycle();
             presentation.ResynchronizeStateWithoutRepeatingFlashes();
             yield return null;
+            // The first rendered frame can compile shaders. Manual timing starts after that frame.
+            session.ResetSession(4242);
+            weapon.ResetWeaponCycle();
+            presentation.ResynchronizeStateWithoutRepeatingFlashes();
         }
 
         [UnityTearDown]
@@ -433,6 +437,7 @@ namespace EchoScrap.Tests
             weapon.StepWeapon(0.20f);
             presentation.StepPresentation(0.005f);
 
+            session.SetManualPause(true);
             yield return null;
 
             mainCamera.transform.position = new Vector3(0.6f, 8.8f, -2.6f);
