@@ -927,7 +927,8 @@ namespace EchoScrap.Combat
                 float dropChance = session != null && session.PlayerStats != null
                     ? session.PlayerStats.GetMedkitDropChance(runtimeArchetype.IsEliteDropTier)
                     : (runtimeArchetype.IsEliteDropTier ? 0.25f : 0.04f);
-                droppedMedkit = combatRng.NextFloat() < dropChance;
+                // El cierre del jefe acredita XP aparte; no crea botiquín ni consume una tirada de drop.
+                droppedMedkit = runtimeArchetype.ArchetypeId != EnemyArchetypeId.GolgoraBoss && combatRng.NextFloat() < dropChance;
             }
 
             var deathEvent = new ActorDeathEvent(
@@ -1096,7 +1097,9 @@ namespace EchoScrap.Combat
             go.layer = PhysicsLayers.EnemyLayer;
             go.tag = PhysicsLayers.EnemyTag;
 
-            var actor = go.AddComponent<EnemyActor>();
+            EnemyActor actor = data.ArchetypeId == EnemyArchetypeId.GolgoraBoss
+                ? go.AddComponent<GolgoraActor>()
+                : go.AddComponent<EnemyActor>();
             actor.ReturnToPoolCallback = ReturnToPool;
             if (puddlePool != null)
                 actor.BindPuddlePool(puddlePool);
