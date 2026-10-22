@@ -981,6 +981,26 @@ namespace EchoScrap.Combat
         [SerializeField] private CorrosivePuddlePool puddlePool;
 
         public int TotalCreatedCount => allCreatedActors.Count;
+        private CombatSession subscribedSession;
+
+        private void OnEnable() => SubscribeToSession();
+        private void OnDisable() => UnsubscribeFromSession();
+
+        private void SubscribeToSession()
+        {
+            if (subscribedSession == session) return;
+            UnsubscribeFromSession();
+            if (session == null || !isActiveAndEnabled) return;
+            subscribedSession = session;
+            subscribedSession.SessionReset += DespawnAllActive;
+        }
+
+        private void UnsubscribeFromSession()
+        {
+            if (subscribedSession != null)
+                subscribedSession.SessionReset -= DespawnAllActive;
+            subscribedSession = null;
+        }
 
         public void BindReferences(CombatSession combatSession, PlayerHealth player, CorrosivePuddlePool corrosivePool = null)
         {
@@ -988,6 +1008,7 @@ namespace EchoScrap.Combat
             playerHealth = player;
             if (corrosivePool != null)
                 puddlePool = corrosivePool;
+            SubscribeToSession();
         }
 
         public void Prewarm(EnemyArchetypeId archetypeId, int count)

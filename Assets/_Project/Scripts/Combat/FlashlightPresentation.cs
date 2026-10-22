@@ -271,6 +271,7 @@ namespace EchoScrap.Combat
             if (session != null)
             {
                 session.Events.OnDamageResolved += HandleDamageResolved;
+                session.SessionReset += ResetTransientFeedback;
             }
 
             resyncPending = true;
@@ -291,6 +292,7 @@ namespace EchoScrap.Combat
             if (session != null)
             {
                 session.Events.OnDamageResolved -= HandleDamageResolved;
+                session.SessionReset -= ResetTransientFeedback;
             }
             ClearHitSparks();
         }
@@ -314,10 +316,25 @@ namespace EchoScrap.Combat
         {
             EnsureInitialized();
             if (session != null)
+            {
                 session.Events.OnDamageResolved -= HandleDamageResolved;
+                session.SessionReset -= ResetTransientFeedback;
+            }
             session = combatSession;
             if (isActiveAndEnabled && session != null)
+            {
                 session.Events.OnDamageResolved += HandleDamageResolved;
+                session.SessionReset += ResetTransientFeedback;
+            }
+        }
+
+        private void ResetTransientFeedback()
+        {
+            viewTime = 0f;
+            nextSparkIndex = 0;
+            ClearHitSparks();
+            ResynchronizeStateWithoutRepeatingFlashes();
+            ApplyVisualState();
         }
 
         /// <summary>

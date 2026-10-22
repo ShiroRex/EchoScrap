@@ -119,6 +119,7 @@ namespace EchoScrap.Combat
             {
                 subscribedSession.Events.OnDamageResolved += HandleDamageResolved;
                 subscribedSession.Events.OnPlayerHealed += HandlePlayerHealed;
+                subscribedSession.SessionReset += ClearTransientFeedback;
             }
             else if (subscribedHealth != null)
             {
@@ -138,6 +139,7 @@ namespace EchoScrap.Combat
             {
                 subscribedSession.Events.OnDamageResolved -= HandleDamageResolved;
                 subscribedSession.Events.OnPlayerHealed -= HandlePlayerHealed;
+                subscribedSession.SessionReset -= ClearTransientFeedback;
             }
             if (subscribedHealth != null)
             {

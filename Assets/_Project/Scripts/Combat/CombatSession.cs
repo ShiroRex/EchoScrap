@@ -21,6 +21,7 @@ namespace EchoScrap.Combat
         [SerializeField] private PlayerRuntimeStats playerStats;
         [SerializeField] private PlayerInputReader playerInput;
         [SerializeField] private PlayerMotor playerMotor;
+        [SerializeField] private FlashlightWeapon playerWeapon;
 
         private GameplayClock clock;
         private SessionRng rng;
@@ -33,6 +34,8 @@ namespace EchoScrap.Combat
         private bool pendingBossDeath;
         private ActorDeathEvent pendingBossDeathEvent;
         private bool initialized;
+        private bool bossIntroRequested;
+        private CombatOutcomeResolver outcomeResolver;
 
         public event Action SessionReset;
 
@@ -96,6 +99,8 @@ namespace EchoScrap.Combat
             events = new CombatEventBus();
             effectPreferences = new EffectPreferences();
             clock.OnPauseStateChanged += HandlePauseStateChanged;
+            outcomeResolver = GetComponent<CombatOutcomeResolver>() ?? gameObject.AddComponent<CombatOutcomeResolver>();
+            outcomeResolver.Bind(this);
             ResolvePlayerReferences();
         }
 
@@ -111,7 +116,12 @@ namespace EchoScrap.Combat
                     playerInput = playerHealth.GetComponent<PlayerInputReader>();
                 if (playerMotor == null)
                     playerMotor = playerHealth.GetComponent<PlayerMotor>();
+                if (playerWeapon == null)
+                    playerWeapon = playerHealth.GetComponent<FlashlightWeapon>();
                 playerHealth.BindSession(this);
+                if (playerWeapon != null)
+                    playerWeapon.BindSession(this);
+                playerHealth.GetComponent<PlayerDashPresentation>()?.BindSession(this);
             }
             else if (playerMotor == null)
             {
@@ -164,7 +174,6 @@ namespace EchoScrap.Combat
             {
                 clock.AdvanceSimulationStep(Time.fixedDeltaTime);
             }
-            ResolveSimulationStepOutcome();
         }
 
         private void Update()
@@ -174,12 +183,6 @@ namespace EchoScrap.Combat
             {
                 clock.AdvanceGameplayTime(Time.deltaTime);
             }
-            ResolveSimulationStepOutcome();
-        }
-
-        private void LateUpdate()
-        {
-            ResolveSimulationStepOutcome();
         }
 
         public bool IsGameplayFlowActive()
@@ -302,6 +305,7 @@ namespace EchoScrap.Combat
             {
                 pendingPlayerDeath = false;
                 pendingBossDeath = false;
+                bossIntroRequested = false;
                 state = SessionState.Defeat;
                 clock.SetPause(PauseReason.SessionEnded, true);
                 events.PublishDeath(pendingPlayerDeathEvent);
@@ -312,7 +316,9 @@ namespace EchoScrap.Combat
             if (pendingBossDeath)
             {
                 pendingBossDeath = false;
+                bossIntroRequested = false;
                 state = SessionState.Victory;
+                clock.SetPause(PauseReason.SessionEnded, true);
                 events.PublishDeath(pendingBossDeathEvent);
                 PublishSessionState();
             }
@@ -320,10 +326,11 @@ namespace EchoScrap.Combat
 
         public void SetBossIntroState(bool inIntro)
         {
+            EnsureInitialized();
             if (state == SessionState.Victory || state == SessionState.Defeat)
                 return;
 
-            state = inIntro ? SessionState.BossIntro : SessionState.Running;
+            bossIntroRequested = inIntro;
             RefreshHighLevelState();
         }
 
@@ -335,6 +342,7 @@ namespace EchoScrap.Combat
 
             pendingPlayerDeath = false;
             pendingBossDeath = false;
+            bossIntroRequested = false;
             state = SessionState.Running;
             rng.Reset(initialSeed);
             clock.Reset();
@@ -355,6 +363,13 @@ namespace EchoScrap.Combat
                 playerInput.enabled = true;
                 playerInput.SetInputEnabled(true);
             }
+            if (playerWeapon != null)
+            {
+                if (playerWeapon.enabled)
+                    playerWeapon.ResetWeaponCycle();
+                else
+                    playerWeapon.enabled = true; // OnEnable restarts and subscribes exactly once.
+            }
 
             SessionReset?.Invoke();
             PublishSessionState();
@@ -363,14 +378,24 @@ namespace EchoScrap.Combat
         private void RefreshHighLevelState()
         {
             if (state == SessionState.Victory || state == SessionState.Defeat)
+            {
+                if (playerInput != null)
+                    playerInput.SetInputEnabled(false);
+                if (playerMotor != null)
+                {
+                    playerMotor.CancelDashAndRestoreState(resetCooldown: true);
+                    playerMotor.Stop();
+                    playerMotor.enabled = false;
+                }
                 return;
+            }
 
             if (clock.HasPauseReason(PauseReason.TacticalDraft))
                 state = SessionState.TacticalDraft;
             else if (clock.HasPauseReason(PauseReason.Manual) || clock.HasPauseReason(PauseReason.FocusLost))
                 state = SessionState.Paused;
-            else if (state == SessionState.Paused || state == SessionState.TacticalDraft)
-                state = SessionState.Running;
+            else
+                state = bossIntroRequested ? SessionState.BossIntro : SessionState.Running;
 
             if (playerInput != null)
             {

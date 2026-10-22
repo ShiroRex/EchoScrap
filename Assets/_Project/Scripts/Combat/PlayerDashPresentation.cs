@@ -51,6 +51,7 @@ namespace EchoScrap.Combat
         private float dashElapsed;
         private int spawnedThisDash;
         private bool initialized;
+        private CombatSession subscribedSession;
 
         public int ActiveAfterimageCount
         {
@@ -129,6 +130,7 @@ namespace EchoScrap.Combat
                 motor.OnDashStateChanged += HandleDashStateChanged;
                 motor.OnDashBlockedByWall += HandleDashBlockedByWall;
             }
+            SubscribeToSession();
         }
 
         private void OnDisable()
@@ -138,7 +140,32 @@ namespace EchoScrap.Combat
                 motor.OnDashStateChanged -= HandleDashStateChanged;
                 motor.OnDashBlockedByWall -= HandleDashBlockedByWall;
             }
+            UnsubscribeFromSession();
             ClearAllEffects();
+        }
+
+        public void BindSession(CombatSession combatSession)
+        {
+            EnsureInitialized();
+            UnsubscribeFromSession();
+            session = combatSession;
+            SubscribeToSession();
+        }
+
+        private void SubscribeToSession()
+        {
+            if (subscribedSession == session) return;
+            UnsubscribeFromSession();
+            if (!isActiveAndEnabled || session == null) return;
+            subscribedSession = session;
+            subscribedSession.SessionReset += ClearAllEffects;
+        }
+
+        private void UnsubscribeFromSession()
+        {
+            if (subscribedSession != null)
+                subscribedSession.SessionReset -= ClearAllEffects;
+            subscribedSession = null;
         }
 
         private void OnDestroy()
@@ -326,6 +353,8 @@ namespace EchoScrap.Combat
 
         public void ClearAllEffects()
         {
+            dashElapsed = 0f;
+            spawnedThisDash = 0;
             for (int i = 0; i < MaxAfterimages; i++)
             {
                 afterimages[i].Active = false;

@@ -46,6 +46,7 @@ namespace EchoScrap.Combat
         private Material sharedFragmentMaterial;
         private MaterialPropertyBlock propertyBlock;
         private bool initialized;
+        private CombatSession subscribedSession;
 
         public int ActiveBurstCount
         {
@@ -137,14 +138,12 @@ namespace EchoScrap.Combat
         private void OnEnable()
         {
             EnsureInitialized();
-            if (session != null)
-                session.Events.OnActorDied += HandleActorDied;
+            SubscribeToSession();
         }
 
         private void OnDisable()
         {
-            if (session != null)
-                session.Events.OnActorDied -= HandleActorDied;
+            UnsubscribeFromSession();
             ClearAll();
         }
 
@@ -157,11 +156,29 @@ namespace EchoScrap.Combat
         public void BindSession(CombatSession combatSession)
         {
             EnsureInitialized();
-            if (session != null)
-                session.Events.OnActorDied -= HandleActorDied;
+            UnsubscribeFromSession();
             session = combatSession;
-            if (isActiveAndEnabled && session != null)
-                session.Events.OnActorDied += HandleActorDied;
+            SubscribeToSession();
+        }
+
+        private void SubscribeToSession()
+        {
+            if (subscribedSession == session) return;
+            UnsubscribeFromSession();
+            if (!isActiveAndEnabled || session == null) return;
+            subscribedSession = session;
+            subscribedSession.Events.OnActorDied += HandleActorDied;
+            subscribedSession.SessionReset += ClearAll;
+        }
+
+        private void UnsubscribeFromSession()
+        {
+            if (subscribedSession != null)
+            {
+                subscribedSession.Events.OnActorDied -= HandleActorDied;
+                subscribedSession.SessionReset -= ClearAll;
+            }
+            subscribedSession = null;
         }
 
         private void HandleActorDied(ActorDeathEvent evt)
@@ -310,6 +327,7 @@ namespace EchoScrap.Combat
 
         public void ClearAll()
         {
+            nextSlotIndex = 0;
             for (int i = 0; i < MaxSimultaneousBursts; i++)
             {
                 slots[i].Active = false;
