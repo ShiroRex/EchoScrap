@@ -210,6 +210,10 @@ namespace EchoScrap.Combat
             {
                 RequestShake(ShakePriority.Critical, BossCriticalShakeAmplitude, BossCriticalShakeDuration);
             }
+            else if (deathEvent.ArchetypeId == (int)EnemyArchetypeId.Colossus)
+            {
+                RequestShake(ShakePriority.Medium, MediumExplosionShakeAmplitude, MediumExplosionShakeDuration);
+            }
         }
 
         public void RequestPresetShake(ShakePriority priority)
