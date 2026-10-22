@@ -35,8 +35,8 @@ namespace EchoScrap.Combat
         public bool IsDead => !IsAlive;
         public float ProtectionRemaining => Mathf.Max(0f, protectionRemaining);
         public bool HasDamageProtection => protectionRemaining > 0.0001f;
-        public bool IsDashInvulnerable => dashInvulnerable;
-        public bool IsInvulnerable => HasDamageProtection || dashInvulnerable;
+        public bool IsDashInvulnerable => dashInvulnerable || (motor != null && motor.IsDashInvulnerable);
+        public bool IsInvulnerable => HasDamageProtection || IsDashInvulnerable;
         public Vector3 WorldCenter => transform.position;
         public float HitRadius => hurtboxCollider is CapsuleCollider cap ? cap.radius : 0.5f;
         public Collider HurtboxCollider => hurtboxCollider;
@@ -328,13 +328,14 @@ namespace EchoScrap.Combat
             protectionRemaining = 0f;
             dashInvulnerable = false;
 
-            // Desactivar inmediatamente daño, selección y colisión del actor
+            // Desactivar inmediatamente daño, selección y colisión del actor; cancelar dash si estaba activo
             if (hurtboxCollider != null)
                 hurtboxCollider.enabled = false;
             if (inputReader != null)
                 inputReader.SetInputEnabled(false);
             if (motor != null)
             {
+                motor.CancelDashAndRestoreState(resetCooldown: true);
                 motor.Stop();
                 motor.enabled = false;
             }
