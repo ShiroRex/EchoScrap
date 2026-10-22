@@ -90,6 +90,24 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void ProximityPrimedMothIgnoresFurtherDamageLikePrototype_ButStillAcceptsFourthPulsePush()
+        {
+            EnemyActor moth = Spawn(new Vector3(0f, 1f, 3f));
+            moth.ArmMoth();
+            var lethal = Lethal();
+            Assert.IsTrue(moth.ReceiveDamage(in lethal).WasImmune);
+            Assert.AreEqual(12f, moth.CurrentHealth);
+            Assert.AreEqual(0.9f, moth.FuseTimer, 0.001f);
+            int samples = session.Rng.Combat.SampleCount;
+            var weapon = player.gameObject.AddComponent<FlashlightWeapon>();
+            weapon.BindSession(session); weapon.enabled = false; weapon.ResetWeaponCycle();
+            for (int i = 0; i < 4; i++) weapon.StepWeapon(0.2f);
+            Assert.AreEqual(12f, moth.CurrentHealth);
+            Assert.AreEqual(10f, moth.KnockbackVelocity.magnitude, 0.001f);
+            Assert.AreEqual(samples, session.Rng.Combat.SampleCount);
+        }
+
+        [Test]
         public void ExplosionHurtsBothFactions_AccountsForColliderEdge_AndDoesNotReachOutside()
         {
             EnemyActor moth = Spawn(new Vector3(0f, 1f, 2f));
@@ -205,6 +223,27 @@ namespace EchoScrap.Tests
             session.ResetSession();
             Assert.AreEqual(0, explosions.ActiveVisualCount);
             Assert.AreEqual(0, explosions.TotalExplosions);
+        }
+
+        [Test]
+        public void PooledPrototypeShockwaveKeepsExactRadius_ThenHidesAndReusesItsGeometry()
+        {
+            Vector3 origin = new Vector3(20f, 1f, 20f);
+            explosions.Enqueue(999, origin); explosions.FlushExplosions();
+            var effect = explosions.GetComponentInChildren<EchoScrap.Combat.Prototype.ProceduralExplosionVfx>();
+            var ring = effect.GetComponentInChildren<LineRenderer>();
+            explosions.StepVisuals(0.22f);
+            Vector3 edge = ring.transform.TransformPoint(ring.GetPosition(0)) - origin; edge.y = 0f;
+            Assert.AreEqual(3f, edge.magnitude, 0.001f);
+            explosions.StepVisuals(0.4f);
+            Assert.IsFalse(ring.gameObject.activeInHierarchy);
+            explosions.StepVisuals(1.4f);
+            Assert.AreEqual(0, explosions.ActiveVisualCount);
+            explosions.Enqueue(1000, origin + Vector3.right * 10f); explosions.FlushExplosions();
+            Assert.AreSame(effect, explosions.GetComponentInChildren<EchoScrap.Combat.Prototype.ProceduralExplosionVfx>());
+            explosions.StepVisuals(0.22f);
+            edge = ring.transform.TransformPoint(ring.GetPosition(0)) - (origin + Vector3.right * 10f); edge.y = 0f;
+            Assert.AreEqual(3f, edge.magnitude, 0.001f);
         }
 
         [UnityTest]

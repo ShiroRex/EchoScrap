@@ -68,6 +68,11 @@ namespace EchoScrap.Combat
         private Vector3 mortarEmitterRestPosition;
         private Vector3 mortarEmitterRestScale;
         private float mortarRecoilRemaining;
+        private readonly List<Renderer> archetypeRenderers = new List<Renderer>(8);
+        private bool materialsConfigured;
+        private EnemyArchetypeId presentedArchetypeId;
+        private Color presentedPrimaryColor;
+        private Color presentedSecondaryColor;
 
         public Action<EnemyActor> ReturnToPoolCallback { get; set; }
 
@@ -215,6 +220,10 @@ namespace EchoScrap.Combat
         {
             if (visualComposer == null || visualComposer.PresentationPivot == null)
                 return;
+            if (materialsConfigured && presentedArchetypeId == runtimeArchetype.ArchetypeId
+                && presentedPrimaryColor == runtimeArchetype.PrimaryColor
+                && presentedSecondaryColor == runtimeArchetype.SecondaryColor)
+                return;
 
             int key = (int)runtimeArchetype.ArchetypeId;
             if (!sharedPrimaryMaterials.TryGetValue(key, out Material primaryMat) || primaryMat == null)
@@ -282,15 +291,20 @@ namespace EchoScrap.Combat
                 }
             }
 
-            Renderer[] renderers = visualComposer.PresentationPivot.GetComponentsInChildren<Renderer>(true);
-            for (int i = 0; i < renderers.Length; i++)
+            archetypeRenderers.Clear();
+            visualComposer.PresentationPivot.GetComponentsInChildren(true, archetypeRenderers);
+            for (int i = 0; i < archetypeRenderers.Count; i++)
             {
-                Renderer r = renderers[i];
+                Renderer r = archetypeRenderers[i];
                 if (r == null)
                     continue;
 
                 r.sharedMaterial = r.gameObject.name.Contains("Crest") ? secondaryMat : primaryMat;
             }
+            presentedArchetypeId = runtimeArchetype.ArchetypeId;
+            presentedPrimaryColor = runtimeArchetype.PrimaryColor;
+            presentedSecondaryColor = runtimeArchetype.SecondaryColor;
+            materialsConfigured = true;
         }
 
         private void OnEnable()
@@ -319,6 +333,33 @@ namespace EchoScrap.Combat
             PlayerHealth player,
             Vector3 spawnPosition)
         {
+            ConfigurePoolReferences(data, combatSession, player);
+            ResetForSpawn(spawnPosition);
+        }
+
+        /// <summary>Builds reusable views and references without sampling any gameplay randomness.</summary>
+        public void PrepareForPool(EnemyArchetypeData data, CombatSession combatSession, PlayerHealth player)
+        {
+            ConfigurePoolReferences(data, combatSession, player);
+            currentHealth = 0f;
+            isDead = true;
+            assignedMoveSpeed = runtimeArchetype.BaseMoveSpeed;
+            bodyCollider.enabled = false;
+            body.isKinematic = true;
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+                EnsurePuddlePool();
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
+            {
+                mothPresentation = GetComponent<MothFusePresentation>() ?? gameObject.AddComponent<MothFusePresentation>();
+                mothPresentation.ResetPresentation();
+                prototypeMoth = GetComponent<Prototype.EnemyMoth>() ?? gameObject.AddComponent<Prototype.EnemyMoth>();
+                prototypeMoth.Bind(this);
+                mothExplosions = MothExplosionPool.GetOrCreate(session, targetPlayer);
+            }
+        }
+
+        private void ConfigurePoolReferences(EnemyArchetypeData data, CombatSession combatSession, PlayerHealth player)
+        {
             runtimeArchetype = data;
             session = combatSession;
             targetPlayer = player;
@@ -327,7 +368,11 @@ namespace EchoScrap.Combat
             ApplyArchetypeMaterials();
             visualComposer.CacheRenderers();
 
-            ResetForSpawn(spawnPosition);
+            if (data.ArchetypeId == EnemyArchetypeId.Interceptor)
+            {
+                var motion = GetComponent<ActorMotionPresentation>() ?? gameObject.AddComponent<ActorMotionPresentation>();
+                motion.Bind(session, visualComposer, this);
+            }
         }
 
         /// <summary>
@@ -802,7 +847,8 @@ namespace EchoScrap.Combat
             EnsureInitialized();
             Vector3 worldPos = transform.position;
 
-            if (isDead || currentHealth <= 0f || request.BaseDamage <= 0f || float.IsNaN(request.BaseDamage))
+            if (isDead || currentHealth <= 0f || (isFuseActive && runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
+                || request.BaseDamage <= 0f || float.IsNaN(request.BaseDamage))
             {
                 var ignored = new DamageResult(
                     request.SourceId,
@@ -981,6 +1027,8 @@ namespace EchoScrap.Combat
 
         public int TotalCreatedCount => allCreatedActors.Count;
         private CombatSession subscribedSession;
+        private Action<EnemyActor> returnCallback;
+        private Action<EnemyActor> ReturnCallback => returnCallback ??= ReturnToPool;
 
         private void OnEnable() => SubscribeToSession();
         private void OnDisable() => UnsubscribeFromSession();
@@ -1052,7 +1100,7 @@ namespace EchoScrap.Combat
                 actor = CreateInstance(data);
             }
 
-            actor.ReturnToPoolCallback = ReturnToPool;
+            actor.ReturnToPoolCallback = ReturnCallback;
             if (puddlePool != null)
                 actor.BindPuddlePool(puddlePool);
             actor.InitializeOrResetFromPool(data, session, playerHealth, position);
@@ -1091,6 +1139,7 @@ namespace EchoScrap.Combat
         private EnemyActor CreateInstance(EnemyArchetypeData data)
         {
             var go = new GameObject($"Enemy_{data.DisplayName}_{allCreatedActors.Count}");
+            go.SetActive(false);
             go.transform.SetParent(transform, false);
             go.layer = PhysicsLayers.EnemyLayer;
             go.tag = PhysicsLayers.EnemyTag;
@@ -1098,10 +1147,10 @@ namespace EchoScrap.Combat
             EnemyActor actor = data.ArchetypeId == EnemyArchetypeId.GolgoraBoss
                 ? go.AddComponent<GolgoraActor>()
                 : go.AddComponent<EnemyActor>();
-            actor.ReturnToPoolCallback = ReturnToPool;
+            actor.ReturnToPoolCallback = ReturnCallback;
             if (puddlePool != null)
                 actor.BindPuddlePool(puddlePool);
-            actor.InitializeOrResetFromPool(data, session, playerHealth, Vector3.zero);
+            actor.PrepareForPool(data, session, playerHealth);
             allCreatedActors.Add(actor);
             return actor;
         }

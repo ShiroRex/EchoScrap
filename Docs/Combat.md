@@ -22,7 +22,7 @@ de Almacén/captura/persistencia no forman parte de esta etapa.
 | 11. Oleadas | Integrada: 97/97 Play Mode |
 | 12. Gólgora | Integrada: 111/111 Play Mode; tercera build Windows completada |
 | 13. Arena, HUD y flujo | Integrada: 124/124 Play Mode y tercera build Windows |
-| 14. Juice y rendimiento | Pendiente |
+| 14. Juice y rendimiento | Integrada: 149/149 Play Mode y build Windows final; mediciones en CombatJuiceIntegration.md |
 
 Cada actividad se desarrolla en su propia rama desde `develop`, se prueba y se
 confirma antes de integrarla. Los logs y capturas locales se guardan en `Logs/`;
@@ -97,7 +97,7 @@ Los resultados de cada actividad se registran aquí al terminar su validación.
   recuperación del dash con una pulsación nueva.
 - Fuentes contrastadas por SHA256: 193 archivos; detalles en `Docs/CombatUpgradeDraft.md`.
 
-### Polilla y segunda build — 22 de octubre de 2026
+### Polilla y segunda build — 22 de octubre de 2026 (validación histórica)
 
 - Suite completa: **88 aprobadas, cero fallos**: ocho casos de Polilla y uno de
   montaje del encuentro con cinco arquetipos, además de las suites anteriores.
@@ -111,3 +111,19 @@ Los resultados de cada actividad se registran aquí al terminar su validación.
   Registro en `Logs/EnemyMothBuild/Unity.log`.
 - El generador mantiene intactos el prefab y la escena de locomoción originales;
   la nueva escena guarda sus dependencias de shader para la build.
+
+La importación posterior de la Polilla del prototipo reemplaza la mecha de 0.5 s
+descrita en ese registro por 0.9/1.2 s. Véase `PrototypeMoth.md`.
+
+### Cierre de combate — 22 de octubre de 2026
+
+- Suite completa: **149 aprobadas, cero fallos**. XML, log y hashes de las 292
+  fuentes probadas en `Logs/CombatJuiceIntegration/`.
+- Build Windows x86_64 de `CombatArena` completada y copiada a
+  `Builds/WindowsCombatPrototype/EchoScrap.exe`. Registro en `Logs/CombatJuiceWindows/`.
+- Integradas las correcciones de linterna/Polilla del prototipo, daño flotante,
+  suelo en la entrada del jefe, limpieza de pools y presentación de cierre.
+- Ensayo renderizado a 1920×1080 con 150/250 enemigos, tres condiciones visuales
+  y límites 30/60/120 FPS. Método, resultados y límites en `CombatJuiceIntegration.md`;
+  datos locales en `Logs/CombatJuiceOptimizedBenchmark/`.
+- Audio, Almacén, captura y persistencia permanecen fuera de esta implementación.

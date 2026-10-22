@@ -316,6 +316,10 @@ namespace EchoScrap.Player
         {
             WallBlockReactionCount = 0;
             CancelDashAndRestoreState(resetCooldown: true);
+            Vector3 initialFacing = transform.forward;
+            initialFacing.y = 0f;
+            FacingDirection = initialFacing.sqrMagnitude > 0.0001f ? initialFacing.normalized : Vector3.forward;
+            dashDirection = FacingDirection;
         }
 
         private void PublishDashEvent(bool started, bool ended, bool blocked)

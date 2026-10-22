@@ -365,6 +365,7 @@ namespace EchoScrap.Combat
             }
             if (playerWeapon != null)
             {
+                playerWeapon.ResetAimForSession();
                 if (playerWeapon.enabled)
                     playerWeapon.ResetWeaponCycle();
                 else

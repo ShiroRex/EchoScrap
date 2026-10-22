@@ -115,6 +115,7 @@ namespace EchoScrap.Combat
             Hud.BindReferences(this, hurtPresentation);
             DamageNumbers = SystemObject<DamageNumberPresenter>("DamageNumbers");
             DamageNumbers.BindReferences(Session, gameplayCamera);
+            GetOrAdd<ActorMotionPresentation>(playerObject).Bind(Session, composer);
 
             if (prewarmEnemies)
             {
