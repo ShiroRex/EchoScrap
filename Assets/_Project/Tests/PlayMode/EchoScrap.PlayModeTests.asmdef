@@ -2,9 +2,13 @@
   "name": "EchoScrap.PlayModeTests",
   "rootNamespace": "EchoScrap.Tests",
   "references": [
+    "EchoScrap.Core",
     "EchoScrap.Player",
+    "EchoScrap.Combat",
     "Unity.Cinemachine",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "UnityEngine.UI"
   ],
   "optionalUnityReferences": ["TestAssemblies"],
   "autoReferenced": false
