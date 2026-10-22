@@ -13,6 +13,7 @@ namespace EchoScrap.Core
         public const int PlayerLayer = 6;
         public const int PlayerDashLayer = 7;
         public const int EnemyLayer = 8;
+        public const string EnemyTag = "Enemy";
 
         private static bool configured;
 
@@ -23,6 +24,9 @@ namespace EchoScrap.Core
             Physics.IgnoreLayerCollision(PlayerLayer, DefaultLayer, false);
             Physics.IgnoreLayerCollision(PlayerDashLayer, DefaultLayer, false);
             Physics.IgnoreLayerCollision(EnemyLayer, DefaultLayer, false);
+
+            // Los enemigos normales usan separación local entre parejas sin colisiones físicas Enemy-Enemy
+            Physics.IgnoreLayerCollision(EnemyLayer, EnemyLayer, true);
 
             // En estado normal, el jugador colisiona con cuerpos sólidos en EnemyLayer (Coloso, Gólgora)
             Physics.IgnoreLayerCollision(PlayerLayer, EnemyLayer, false);
@@ -38,7 +42,10 @@ namespace EchoScrap.Core
             if (!configured)
                 EnsureCollisionMatrix();
             else
+            {
+                Physics.IgnoreLayerCollision(EnemyLayer, EnemyLayer, true);
                 Physics.IgnoreLayerCollision(PlayerDashLayer, EnemyLayer, true);
+            }
         }
 
         public static void SetLayerRecursively(GameObject root, int layer, Transform excludeSubtree = null)
