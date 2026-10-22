@@ -154,6 +154,28 @@ namespace EchoScrap.Combat
                         IsHeavyMass = false
                     };
 
+                case EnemyArchetypeId.GolgoraBoss:
+                    return new EnemyArchetypeData
+                    {
+                        ArchetypeId = EnemyArchetypeId.GolgoraBoss,
+                        DisplayName = "Gólgora",
+                        MaxHealth = 1500f,
+                        BaseMoveSpeed = 1.6f,
+                        SpeedVarianceFraction = 0f,
+                        ContactDamage = 30f,
+                        ContactCooldown = 0.5f,
+                        XpReward = 500,
+                        IsEliteDropTier = false,
+                        KnockbackSusceptibility = 0f,
+                        KnockbackBraking = 30f,
+                        VisualScale = Vector3.one * 3.5f,
+                        ColliderRadius = 0.5f,
+                        ColliderHeight = 1.8f,
+                        PrimaryColor = new Color(0.19f, 0.13f, 0.14f),
+                        SecondaryColor = new Color(1f, 0.37f, 0.08f),
+                        IsHeavyMass = true
+                    };
+
                 default:
                     return CreateDefault(EnemyArchetypeId.Residual);
             }

@@ -183,7 +183,7 @@ namespace EchoScrap.Combat
 
         private void HandleActorDied(ActorDeathEvent evt)
         {
-            if (evt.IsPlayer)
+            if (evt.IsPlayer || evt.IsBoss)
                 return;
 
             EnemyArchetypeId archId = (EnemyArchetypeId)evt.ArchetypeId;
