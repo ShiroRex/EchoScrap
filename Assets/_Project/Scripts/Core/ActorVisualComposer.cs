@@ -233,11 +233,18 @@ namespace EchoScrap.Core
 
         public void SetDashState(bool dashing, bool endedNow = false, bool blockedByWallNow = false)
         {
+            EnsureHierarchy();
             isDashStretching = dashing;
             if (endedNow)
                 dashEndRecoveryTimer = dashEndRecoveryDuration;
             if (blockedByWallNow)
                 wallBlockTimer = 0.08f;
+
+            if (hitStopRemaining <= 0f)
+            {
+                ComposePoseImmediate(out Vector3 localPos, out Quaternion localRot, out Vector3 localScale);
+                ApplyPoseToTransform(localPos, localRot, localScale);
+            }
         }
 
         public void TriggerHitReaction(Vector3 hitDirection, bool isCritical, bool isPlayerHurt = false, bool reducedEffects = false)
@@ -367,15 +374,15 @@ namespace EchoScrap.Core
             }
             localRotation = Quaternion.Euler(pitch, 0f, roll);
 
-            // Escala (Prioridad: Dash -> Fin de Dash / Muro -> Impacto -> Arranque/Frenado)
-            if (isDashStretching)
-            {
-                localScale = new Vector3(0.85f, 0.85f, 1.30f);
-            }
-            else if (wallBlockTimer > 0f)
+            // Escala (Prioridad: Muro -> Dash -> Fin de Dash -> Impacto -> Arranque/Frenado)
+            if (wallBlockTimer > 0f)
             {
                 float w = Mathf.Clamp01(wallBlockTimer / 0.08f);
                 localScale = Vector3.Lerp(Vector3.one, new Vector3(1.18f, 1.12f, 0.78f), w);
+            }
+            else if (isDashStretching)
+            {
+                localScale = new Vector3(0.85f, 0.85f, 1.30f);
             }
             else if (dashEndRecoveryTimer > 0f)
             {

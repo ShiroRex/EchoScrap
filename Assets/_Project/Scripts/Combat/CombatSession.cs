@@ -76,6 +76,7 @@ namespace EchoScrap.Combat
         public int CurrentSeed => Rng.BaseSeed;
         public PlayerHealth PlayerHealth => playerHealth;
         public PlayerRuntimeStats PlayerStats => playerStats;
+        public PlayerMotor PlayerMotor => playerMotor;
 
         private void Awake()
         {
@@ -110,19 +111,34 @@ namespace EchoScrap.Combat
                     playerMotor = playerHealth.GetComponent<PlayerMotor>();
                 playerHealth.BindSession(this);
             }
+            else if (playerMotor == null)
+            {
+                playerMotor = FindAnyObjectByType<PlayerMotor>();
+                if (playerMotor != null && playerInput == null)
+                    playerInput = playerMotor.GetComponent<PlayerInputReader>();
+            }
         }
 
         private void OnEnable()
         {
             EnsureInitialized();
+            ResolvePlayerReferences();
             if (playerStats != null)
                 playerStats.OnStatsChanged += PublishSessionState;
+            if (playerMotor != null)
+                playerMotor.OnDashStateChanged += HandleMotorDashStateChanged;
+            if (playerInput != null)
+                playerInput.PauseRequested += ToggleManualPause;
         }
 
         private void OnDisable()
         {
             if (playerStats != null)
                 playerStats.OnStatsChanged -= PublishSessionState;
+            if (playerMotor != null)
+                playerMotor.OnDashStateChanged -= HandleMotorDashStateChanged;
+            if (playerInput != null)
+                playerInput.PauseRequested -= ToggleManualPause;
             Time.timeScale = 1f;
         }
 
@@ -132,6 +148,11 @@ namespace EchoScrap.Combat
                 clock.OnPauseStateChanged -= HandlePauseStateChanged;
             events?.ClearAllListeners();
             Time.timeScale = 1f;
+        }
+
+        private void HandleMotorDashStateChanged(DashStateEvent dashEvent)
+        {
+            events?.PublishDash(in dashEvent);
         }
 
         private void FixedUpdate()
@@ -189,6 +210,14 @@ namespace EchoScrap.Combat
             RefreshHighLevelState();
         }
 
+        public void ConfirmDraftSelectionAndResume()
+        {
+            EnsureInitialized();
+            if (playerInput != null)
+                playerInput.SuppressDashFromUiConfirmation();
+            SetTacticalDraftPause(false);
+        }
+
         public void SimulateFocusChange(bool hasFocus)
         {
             EnsureInitialized();
@@ -210,6 +239,8 @@ namespace EchoScrap.Combat
         public void ResumeFromFocusLoss()
         {
             EnsureInitialized();
+            if (playerInput != null)
+                playerInput.SuppressDashFromUiConfirmation();
             clock.SetPause(PauseReason.FocusLost, false);
             RefreshHighLevelState();
         }
@@ -217,6 +248,8 @@ namespace EchoScrap.Combat
         public void ResumeAllUserPauses()
         {
             EnsureInitialized();
+            if (playerInput != null)
+                playerInput.SuppressDashFromUiConfirmation();
             clock.SetPause(PauseReason.Manual, false);
             clock.SetPause(PauseReason.FocusLost, false);
             RefreshHighLevelState();
@@ -312,6 +345,7 @@ namespace EchoScrap.Combat
             if (playerMotor != null)
             {
                 playerMotor.enabled = true;
+                playerMotor.ResetDashForSession();
                 playerMotor.Stop();
             }
             if (playerInput != null)
