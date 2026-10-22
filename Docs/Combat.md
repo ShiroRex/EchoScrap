@@ -17,7 +17,7 @@ de Almacén/captura/persistencia no forman parte de esta etapa.
 | 6. Coloso | Integrada |
 | 7. Mortero | Integrada: 52/52 Play Mode |
 | 8. Polilla | Pendiente |
-| 9. XP y botiquines | Pendiente |
+| 9. XP y botiquines | Integrada: 66/66 Play Mode |
 | 10. Ocho mejoras | Pendiente |
 | 11. Oleadas | Pendiente |
 | 12. Gólgora | Pendiente |
@@ -70,3 +70,12 @@ Los resultados de cada actividad se registran aquí al terminar su validación.
 - Solapamiento de sacudidas sin acceso a índices invalidados; anticipación según
   velocidad real, sin autoapuntado y desactivada en modo reducido.
 - Commit `d33de2d`; ejecución en `Logs/CameraFeedbackFix/` de su checkout aislado.
+
+### XP, niveles y botiquines — 22 de octubre de 2026
+
+- Suite completa: **66 aprobadas, cero fallos**, con las once pruebas nuevas descubiertas.
+- Umbrales, acumulación de elecciones, magnetismo, conservación de XP agrupada,
+  curación a salud completa, RNG de recompensas y diez reinicios verificados.
+- Corregidos dos GUID nuevos malformados y la inicialización de MaterialPropertyBlock
+  en el ciclo de vida de Unity; la validación verifica GUIDs y descubrimiento de tests.
+- XML, log y hashes de 185 fuentes: `Logs/CombatPickupsXp/`.
