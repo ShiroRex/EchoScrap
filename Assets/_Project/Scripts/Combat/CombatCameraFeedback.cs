@@ -8,16 +8,16 @@ namespace EchoScrap.Combat
 {
     public enum ShakePriority
     {
-        Low = 1,       // Cuarto pulso de linterna: 0.06 m, 0.09 s
-        Medium = 2,    // Muerte de Coloso o explosión de Polilla: 0.14 m, 0.16 s
-        High = 3,      // Daño recibido por el jugador: 0.18 m, 0.18 s
-        Critical = 4   // Rugido, embestida o derrota de Gólgora: 0.24 m, 0.28 s
+        Low = 1,       // Cuarto pulso de linterna
+        Medium = 2,    // Muerte de Coloso o explosión de Polilla
+        High = 3,      // Daño recibido por el jugador
+        Critical = 4   // Ataques o derrota de Gólgora
     }
 
     /// <summary>
     /// Extensión de Cinemachine para combate:
-    /// 1. Anticipación de cámara: tras 0.10 s de dirección sostenida (movimiento o apuntado),
-    ///    adelanta hasta 1.2 m (entrada 0.08 s, retorno 0.12 s) y realiza warp limpio al teletransportar > 4 m.
+    /// 1. Anticipación de cámara: predice 0.10 s de velocidad física real, sin seguir el autoapuntado,
+    ///    hasta 1.2 m (entrada 0.08 s, retorno 0.12 s), con warp limpio al teletransportar > 4 m.
     /// 2. Coordinador único de Camera Shake con política UseLargest (sin sumar amplitudes),
     ///    desplazamiento exclusivo en XZ y soporte de intensidad (100% / 50% / 0%).
     /// </summary>
@@ -25,22 +25,24 @@ namespace EchoScrap.Combat
     public sealed class CombatCameraFeedback : CinemachineExtension
     {
         public const float SustainedDirectionDelay = 0.10f;
+        public const float PredictionTime = SustainedDirectionDelay;
         public const float MaxLeadDistance = 1.20f;
         public const float LeadEntryDuration = 0.08f;
         public const float LeadReturnDuration = 0.12f;
         public const float TeleportWarpThreshold = 4.00f;
 
-        public const float FourthPulseShakeAmplitude = 0.06f;
-        public const float FourthPulseShakeDuration = 0.09f;
+        public const float FourthPulseShakeAmplitude = 0.08f;
+        public const float FourthPulseShakeDuration = 0.12f;
 
         public const float MediumExplosionShakeAmplitude = 0.14f;
         public const float MediumExplosionShakeDuration = 0.16f;
 
-        public const float PlayerHurtShakeAmplitude = 0.18f;
-        public const float PlayerHurtShakeDuration = 0.18f;
+        public const float PlayerHurtShakeAmplitude = 0.24f;
+        public const float PlayerHurtShakeDuration = 0.30f;
 
-        public const float BossCriticalShakeAmplitude = 0.24f;
-        public const float BossCriticalShakeDuration = 0.28f;
+        public const float BossCriticalShakeAmplitude = 0.35f;
+        public const float BossCriticalShakeDuration = 0.45f;
+        public const float MaxShakeAmplitude = 0.35f;
 
         [SerializeField] private CombatSession session;
         [SerializeField] private Transform trackedTarget;
@@ -56,9 +58,11 @@ namespace EchoScrap.Combat
             public float Duration;
             public float Elapsed;
             public float PhaseSeed;
+            public float Frequency;
         }
 
         private readonly List<ActiveShake> activeShakes = new List<ActiveShake>(8);
+        private Rigidbody trackedBody;
 
         private Vector3 lastTargetPosition;
         private bool hasLastTargetPosition;
@@ -133,12 +137,17 @@ namespace EchoScrap.Combat
 
             if (trackedTarget != null)
             {
+                trackedBody = trackedTarget.GetComponent<Rigidbody>();
                 if (inputReader == null)
                     inputReader = trackedTarget.GetComponent<PlayerInputReader>();
                 if (playerMotor == null)
                     playerMotor = trackedTarget.GetComponent<PlayerMotor>();
                 if (flashlightWeapon == null)
                     flashlightWeapon = trackedTarget.GetComponent<FlashlightWeapon>();
+            }
+            else
+            {
+                trackedBody = null;
             }
         }
 
@@ -150,10 +159,14 @@ namespace EchoScrap.Combat
             session.Events.OnPulseResolved -= HandlePulseResolved;
             session.Events.OnDamageResolved -= HandleDamageResolved;
             session.Events.OnActorDied -= HandleActorDied;
+            session.Events.OnSessionStateChanged -= HandleSessionStateChanged;
+            session.Effects.OnPreferencesChanged -= HandlePreferencesChanged;
 
             session.Events.OnPulseResolved += HandlePulseResolved;
             session.Events.OnDamageResolved += HandleDamageResolved;
             session.Events.OnActorDied += HandleActorDied;
+            session.Events.OnSessionStateChanged += HandleSessionStateChanged;
+            session.Effects.OnPreferencesChanged += HandlePreferencesChanged;
         }
 
         private void UnsubscribeSessionEvents()
@@ -164,6 +177,21 @@ namespace EchoScrap.Combat
             session.Events.OnPulseResolved -= HandlePulseResolved;
             session.Events.OnDamageResolved -= HandleDamageResolved;
             session.Events.OnActorDied -= HandleActorDied;
+            session.Events.OnSessionStateChanged -= HandleSessionStateChanged;
+            session.Effects.OnPreferencesChanged -= HandlePreferencesChanged;
+        }
+
+        private void HandleSessionStateChanged(SessionStateEvent stateEvent)
+        {
+            if (stateEvent.PauseReasons != PauseReason.None
+                || (stateEvent.State == SessionState.Running && stateEvent.GameplayTime <= 0f))
+                ResetFeedbackState();
+        }
+
+        private void HandlePreferencesChanged()
+        {
+            if (session != null && session.Effects.ReducedEffectsMode)
+                ResetFeedbackState();
         }
 
         public void ResetFeedbackState()
@@ -190,9 +218,9 @@ namespace EchoScrap.Combat
 
         private void HandlePulseResolved(PulseResolvedEvent pulse)
         {
-            if (!pulse.IsSolarMode && pulse.PulseIndex == FlashlightWeapon.PulsesPerBurst)
+            if (pulse.PulseIndex == FlashlightWeapon.PulsesPerBurst)
             {
-                RequestShake(ShakePriority.Low, FourthPulseShakeAmplitude, FourthPulseShakeDuration);
+                RequestShake(ShakePriority.Low, FourthPulseShakeAmplitude, FourthPulseShakeDuration, 24f);
             }
         }
 
@@ -200,7 +228,7 @@ namespace EchoScrap.Combat
         {
             if (result.IsPlayerTarget && result.AppliedRealDamage)
             {
-                RequestShake(ShakePriority.High, PlayerHurtShakeAmplitude, PlayerHurtShakeDuration);
+                RequestShake(ShakePriority.High, PlayerHurtShakeAmplitude, PlayerHurtShakeDuration, 10f);
             }
         }
 
@@ -208,11 +236,11 @@ namespace EchoScrap.Combat
         {
             if (deathEvent.IsBoss)
             {
-                RequestShake(ShakePriority.Critical, BossCriticalShakeAmplitude, BossCriticalShakeDuration);
+                RequestShake(ShakePriority.Critical, BossCriticalShakeAmplitude, BossCriticalShakeDuration, 8f);
             }
             else if (deathEvent.ArchetypeId == (int)EnemyArchetypeId.Colossus)
             {
-                RequestShake(ShakePriority.Medium, MediumExplosionShakeAmplitude, MediumExplosionShakeDuration);
+                RequestShake(ShakePriority.Medium, MediumExplosionShakeAmplitude, MediumExplosionShakeDuration, 14f);
             }
         }
 
@@ -221,16 +249,16 @@ namespace EchoScrap.Combat
             switch (priority)
             {
                 case ShakePriority.Low:
-                    RequestShake(ShakePriority.Low, FourthPulseShakeAmplitude, FourthPulseShakeDuration);
+                    RequestShake(ShakePriority.Low, FourthPulseShakeAmplitude, FourthPulseShakeDuration, 24f);
                     break;
                 case ShakePriority.Medium:
-                    RequestShake(ShakePriority.Medium, MediumExplosionShakeAmplitude, MediumExplosionShakeDuration);
+                    RequestShake(ShakePriority.Medium, MediumExplosionShakeAmplitude, MediumExplosionShakeDuration, 14f);
                     break;
                 case ShakePriority.High:
-                    RequestShake(ShakePriority.High, PlayerHurtShakeAmplitude, PlayerHurtShakeDuration);
+                    RequestShake(ShakePriority.High, PlayerHurtShakeAmplitude, PlayerHurtShakeDuration, 10f);
                     break;
                 case ShakePriority.Critical:
-                    RequestShake(ShakePriority.Critical, BossCriticalShakeAmplitude, BossCriticalShakeDuration);
+                    RequestShake(ShakePriority.Critical, BossCriticalShakeAmplitude, BossCriticalShakeDuration, 8f);
                     break;
             }
         }
@@ -238,11 +266,14 @@ namespace EchoScrap.Combat
         /// <summary>
         /// Registra o reemplaza una sacudida de su misma prioridad para ser evaluada con política UseLargest.
         /// </summary>
-        public void RequestShake(ShakePriority priority, float amplitude, float duration)
+        public void RequestShake(ShakePriority priority, float amplitude, float duration, float frequency = 0f)
         {
             float scale = GetEffectiveShakeScale();
-            if (scale <= 0.0001f || amplitude <= 0.0001f || duration <= 0.0001f)
+            if (scale <= 0.0001f || amplitude <= 0.0001f || duration <= 0.0001f
+                || (session != null && session.IsPaused))
                 return;
+
+            amplitude = Mathf.Min(amplitude, MaxShakeAmplitude);
 
             float phaseSeed = session != null
                 ? session.Rng.Presentation.Range(0f, Mathf.PI * 2f)
@@ -254,7 +285,8 @@ namespace EchoScrap.Combat
                 BaseAmplitude = amplitude,
                 Duration = duration,
                 Elapsed = 0f,
-                PhaseSeed = phaseSeed
+                PhaseSeed = phaseSeed,
+                Frequency = frequency > 0f ? frequency : shakeFrequency
             };
 
             for (int i = 0; i < activeShakes.Count; i++)
@@ -280,6 +312,11 @@ namespace EchoScrap.Combat
         {
             if (deltaTime < 0f)
                 return;
+            if ((session != null && session.IsPaused) || Time.timeScale <= 0f)
+            {
+                ResetFeedbackState();
+                return;
+            }
 
             StepCameraLead(deltaTime, vcam);
             StepCameraShake(deltaTime);
@@ -287,6 +324,7 @@ namespace EchoScrap.Combat
 
         private void StepCameraLead(float deltaTime, CinemachineVirtualCameraBase vcam)
         {
+            bool warped = false;
             if (trackedTarget != null)
             {
                 Vector3 currentPos = trackedTarget.position;
@@ -301,16 +339,26 @@ namespace EchoScrap.Combat
                         currentLeadOffsetXZ = Vector3.zero;
                         if (vcam != null)
                             vcam.OnTargetObjectWarped(trackedTarget, delta);
+                        warped = true;
                     }
                 }
                 lastTargetPosition = currentPos;
                 hasLastTargetPosition = true;
             }
 
+            if (warped || (session != null && session.Effects.ReducedEffectsMode))
+            {
+                currentLeadOffsetXZ = Vector3.zero;
+                sustainedDirectionTimer = 0f;
+                sustainedReferenceDir = Vector3.zero;
+                return;
+            }
+
             if (deltaTime <= 0f)
                 return;
 
-            Vector3 desiredDirection = DetermineLeadDirection();
+            Vector3 planarVelocity = DetermineLeadVelocity();
+            Vector3 desiredDirection = planarVelocity;
             if (desiredDirection.sqrMagnitude > 0.001f)
             {
                 desiredDirection.Normalize();
@@ -331,8 +379,8 @@ namespace EchoScrap.Combat
                 sustainedReferenceDir = Vector3.zero;
             }
 
-            bool leadActive = sustainedDirectionTimer + 0.0001f >= SustainedDirectionDelay && desiredDirection.sqrMagnitude > 0.001f;
-            Vector3 targetOffset = leadActive ? (desiredDirection * MaxLeadDistance) : Vector3.zero;
+            bool leadActive = planarVelocity.sqrMagnitude > 0.001f;
+            Vector3 targetOffset = Vector3.ClampMagnitude(planarVelocity * PredictionTime, MaxLeadDistance);
             float speed = leadActive
                 ? (MaxLeadDistance / Mathf.Max(0.001f, LeadEntryDuration))
                 : (MaxLeadDistance / Mathf.Max(0.001f, LeadReturnDuration));
@@ -343,22 +391,13 @@ namespace EchoScrap.Combat
                 currentLeadOffsetXZ = currentLeadOffsetXZ.normalized * MaxLeadDistance;
         }
 
-        private Vector3 DetermineLeadDirection()
+        private Vector3 DetermineLeadVelocity()
         {
-            if (inputReader != null && inputReader.Movement.sqrMagnitude > 0.01f)
-            {
-                return new Vector3(inputReader.Movement.x, 0f, inputReader.Movement.y).normalized;
-            }
-
-            if (flashlightWeapon != null && flashlightWeapon.CurrentTarget != null)
-            {
-                Vector3 aim = flashlightWeapon.CurrentAimDirection;
-                aim.y = 0f;
-                if (aim.sqrMagnitude > 0.01f)
-                    return aim.normalized;
-            }
-
-            return Vector3.zero;
+            Vector3 velocity = playerMotor != null
+                ? playerMotor.Velocity
+                : (trackedBody != null ? trackedBody.linearVelocity : Vector3.zero);
+            velocity.y = 0f;
+            return velocity;
         }
 
         private void StepCameraShake(float deltaTime)
@@ -373,7 +412,8 @@ namespace EchoScrap.Combat
                 return;
             }
 
-            int winningIndex = -1;
+            bool hasWinner = false;
+            ActiveShake winner = default;
             float largestCurrentAmplitude = 0f;
             ShakePriority winningPriority = ShakePriority.Low;
 
@@ -389,7 +429,7 @@ namespace EchoScrap.Combat
 
                 activeShakes[i] = shake;
                 float normalizedRemaining = Mathf.Clamp01(1f - (shake.Elapsed / Mathf.Max(0.0001f, shake.Duration)));
-                float currentAmp = shake.BaseAmplitude * normalizedRemaining * scale;
+                float currentAmp = shake.BaseAmplitude * normalizedRemaining * normalizedRemaining * scale;
 
                 // Política UseLargest: escoger la fuente de mayor amplitud actual (o mayor prioridad en empate), nunca sumar
                 bool isBetter = currentAmp > largestCurrentAmplitude + 0.0001f
@@ -399,11 +439,12 @@ namespace EchoScrap.Combat
                 {
                     largestCurrentAmplitude = currentAmp;
                     winningPriority = shake.Priority;
-                    winningIndex = i;
+                    winner = shake;
+                    hasWinner = true;
                 }
             }
 
-            if (winningIndex < 0 || largestCurrentAmplitude <= 0.0001f)
+            if (!hasWinner || largestCurrentAmplitude <= 0.0001f)
             {
                 currentShakeOffsetXZ = Vector3.zero;
                 currentWinningShakeAmplitude = 0f;
@@ -411,11 +452,10 @@ namespace EchoScrap.Combat
                 return;
             }
 
-            ActiveShake winner = activeShakes[winningIndex];
             currentWinningShakeAmplitude = largestCurrentAmplitude;
             currentWinningPriority = winner.Priority;
 
-            float phase = winner.PhaseSeed + winner.Elapsed * shakeFrequency * Mathf.PI * 2f;
+            float phase = winner.PhaseSeed + winner.Elapsed * winner.Frequency * Mathf.PI * 2f;
             Vector3 unitXZ = new Vector3(Mathf.Cos(phase), 0f, Mathf.Sin(phase * 1.37f));
             if (unitXZ.sqrMagnitude > 1f)
                 unitXZ.Normalize();
@@ -437,6 +477,11 @@ namespace EchoScrap.Combat
             }
 
             bool isPaused = (session != null && session.IsPaused) || Time.timeScale <= 0f;
+            if (isPaused)
+            {
+                ResetFeedbackState();
+                return;
+            }
             float effectiveDt = isPaused ? 0f : deltaTime;
 
             if (stage == CinemachineCore.Stage.Body)
