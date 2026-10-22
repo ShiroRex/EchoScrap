@@ -1,5 +1,8 @@
 {
   "name": "EchoScrap.Player",
   "rootNamespace": "EchoScrap.Player",
-  "references": ["Unity.InputSystem"]
+  "references": [
+    "EchoScrap.Core",
+    "Unity.InputSystem"
+  ]
 }

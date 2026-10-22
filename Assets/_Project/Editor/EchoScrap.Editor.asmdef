@@ -2,7 +2,9 @@
   "name": "EchoScrap.Editor",
   "rootNamespace": "EchoScrap.Editor",
   "references": [
+    "EchoScrap.Core",
     "EchoScrap.Player",
+    "EchoScrap.Combat",
     "Unity.InputSystem",
     "Unity.Cinemachine",
     "Unity.RenderPipelines.Universal.Runtime"
