@@ -19,7 +19,7 @@ de Almacén/captura/persistencia no forman parte de esta etapa.
 | 8. Polilla | Integrada: 88/88 Play Mode y segunda build Windows |
 | 9. XP y botiquines | Integrada: 66/66 Play Mode |
 | 10. Ocho mejoras | Integrada: 79/79 Play Mode |
-| 11. Oleadas | Pendiente |
+| 11. Oleadas | Integrada: 97/97 Play Mode |
 | 12. Gólgora | Pendiente |
 | 13. Arena, HUD y flujo | Pendiente |
 | 14. Juice y rendimiento | Pendiente |
