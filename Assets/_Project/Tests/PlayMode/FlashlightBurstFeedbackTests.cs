@@ -292,20 +292,22 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void CameraFeedback_AnticipationAfter010s_CleanWarpAbove4m_AndUseLargestXZShakePolicy()
+        public void CameraFeedback_PredictsActualVelocity_CleanWarpAbove4m_AndUseLargestXZShakePolicy()
         {
-            // 1. Anticipación de cámara tras 0.10 s de dirección sostenida hacia un objetivo apuntado
+            // El autoapuntado no adelanta la cámara estando quieto.
             CombatDummy aimTarget = CreateDummy("CameraLeadTarget", new Vector3(0f, 1f, 5f), hp: 100f);
             weapon.UpdateAim(0.1f);
-
-            // Antes de 0.10 s de dirección sostenida no se adelanta
-            cameraFeedback.StepFeedback(0.05f);
+            cameraFeedback.StepFeedback(0.20f);
             Assert.AreEqual(0f, cameraFeedback.CurrentLeadOffsetXZ.magnitude, 0.001f);
 
-            // Superar los 0.10 s y avanzar la entrada (0.08 s) hasta el máximo de 1.2 m
-            cameraFeedback.StepFeedback(0.06f);
+            // Se predicen 0.10 s de velocidad real; 8 m/s produce 0.8 m, sin depender del input.
+            Rigidbody body = playerObject.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            cameraFeedback.BindReferences(session, playerObject.transform, null, null, weapon);
+            body.linearVelocity = Vector3.right * 8f;
             cameraFeedback.StepFeedback(0.08f);
-            Assert.AreEqual(CombatCameraFeedback.MaxLeadDistance, cameraFeedback.CurrentLeadOffsetXZ.magnitude, 0.05f);
+            Assert.AreEqual(0.8f, cameraFeedback.CurrentLeadOffsetXZ.x, 0.01f);
+            Assert.AreEqual(0f, cameraFeedback.CurrentLeadOffsetXZ.z, 0.001f);
             Assert.AreEqual(0f, cameraFeedback.CurrentLeadOffsetXZ.y, 0.0001f);
 
             // Al teletransportar > 4 m hace warp limpio
@@ -317,13 +319,13 @@ namespace EchoScrap.Tests
             session.Effects.ShakeIntensity = 1f;
             session.Effects.ReducedEffectsMode = false;
 
-            cameraFeedback.RequestPresetShake(ShakePriority.Low);     // 0.06 m
-            cameraFeedback.RequestPresetShake(ShakePriority.High);    // 0.18 m
+            cameraFeedback.RequestPresetShake(ShakePriority.Low);
+            cameraFeedback.RequestPresetShake(ShakePriority.High);
             cameraFeedback.StepFeedback(0.001f);
 
             Assert.AreEqual(ShakePriority.High, cameraFeedback.CurrentWinningPriority);
             Assert.AreEqual(CombatCameraFeedback.PlayerHurtShakeAmplitude, cameraFeedback.CurrentWinningShakeAmplitude, 0.01f,
-                "Política UseLargest: debe usar 0.18 m sin sumar los 0.06 m del cuarto pulso.");
+                "Política UseLargest: debe usar daño del jugador sin sumar el cuarto pulso.");
             Assert.LessOrEqual(cameraFeedback.CurrentShakeOffsetXZ.magnitude, CombatCameraFeedback.PlayerHurtShakeAmplitude + 0.005f);
             Assert.AreEqual(0f, cameraFeedback.CurrentShakeOffsetXZ.y, 0.0001f, "El shake sólo debe desplazar en XZ.");
 
@@ -338,6 +340,73 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0f, cameraFeedback.CurrentShakeOffsetXZ.magnitude, 0.0001f);
 
             Object.DestroyImmediate(aimTarget.gameObject);
+        }
+
+        [Test]
+        public void CameraFeedback_ExpiringLowerIndexDoesNotInvalidateSurvivingWinner()
+        {
+            cameraFeedback.ResetFeedbackState();
+            cameraFeedback.RequestShake(ShakePriority.Low, 0.08f, 0.10f);
+            cameraFeedback.RequestShake(ShakePriority.High, 0.24f, 0.30f);
+
+            Assert.DoesNotThrow(() => cameraFeedback.StepFeedback(0.11f),
+                "Quitar una sacudida anterior de la lista no debe invalidar el ganador ya seleccionado.");
+            float remaining = 1f - 0.11f / 0.30f;
+            Assert.AreEqual(ShakePriority.High, cameraFeedback.CurrentWinningPriority);
+            Assert.AreEqual(0.24f * remaining * remaining, cameraFeedback.CurrentWinningShakeAmplitude, 0.0001f);
+            cameraFeedback.StepFeedback(0.20f);
+            Assert.IsFalse(cameraFeedback.IsShaking);
+        }
+
+        [Test]
+        public void CameraFeedback_VelocityScalesLead_DashIsCapped_AndReducedEffectsClearIt()
+        {
+            Rigidbody body = playerObject.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            cameraFeedback.BindReferences(session, playerObject.transform, null, null, weapon);
+
+            body.linearVelocity = Vector3.forward * 2f;
+            cameraFeedback.StepFeedback(0.08f);
+            Assert.AreEqual(0.20f, cameraFeedback.CurrentLeadOffsetXZ.z, 0.001f);
+
+            body.linearVelocity = Vector3.forward * 22f;
+            cameraFeedback.StepFeedback(0.08f);
+            Assert.AreEqual(CombatCameraFeedback.MaxLeadDistance, cameraFeedback.CurrentLeadOffsetXZ.z, 0.001f);
+
+            body.linearVelocity = Vector3.zero;
+            cameraFeedback.StepFeedback(0.12f);
+            Assert.AreEqual(Vector3.zero, cameraFeedback.CurrentLeadOffsetXZ);
+
+            body.linearVelocity = Vector3.forward * 22f;
+            cameraFeedback.StepFeedback(0.08f);
+            cameraFeedback.RequestPresetShake(ShakePriority.High);
+            cameraFeedback.StepFeedback(0.001f);
+            session.Effects.ReducedEffectsMode = true;
+            Assert.AreEqual(Vector3.zero, cameraFeedback.CurrentLeadOffsetXZ);
+            Assert.IsFalse(cameraFeedback.IsShaking);
+            cameraFeedback.StepFeedback(0.20f);
+            Assert.AreEqual(Vector3.zero, cameraFeedback.CurrentLeadOffsetXZ);
+        }
+
+        [Test]
+        public void CameraFeedback_PauseAndResetDiscardOldShakes_AndAmplitudeIsCapped()
+        {
+            cameraFeedback.RequestShake(ShakePriority.Critical, 100f, 1f);
+            cameraFeedback.StepFeedback(0f);
+            Assert.AreEqual(CombatCameraFeedback.MaxShakeAmplitude, cameraFeedback.CurrentWinningShakeAmplitude, 0.0001f);
+
+            session.SetManualPause(true);
+            Assert.AreEqual(Vector3.zero, cameraFeedback.CurrentShakeOffsetXZ);
+            Assert.IsFalse(cameraFeedback.IsShaking);
+            session.SetManualPause(false);
+            cameraFeedback.StepFeedback(0.01f);
+            Assert.IsFalse(cameraFeedback.IsShaking);
+
+            cameraFeedback.RequestPresetShake(ShakePriority.High);
+            cameraFeedback.StepFeedback(0.001f);
+            Assert.IsTrue(cameraFeedback.IsShaking);
+            session.ResetSession(4242);
+            Assert.IsFalse(cameraFeedback.IsShaking, "El reinicio no puede conservar una sacudida de la sesión anterior.");
         }
 
         [UnityTest]
