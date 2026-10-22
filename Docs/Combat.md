@@ -37,6 +37,9 @@ las builds, en `Builds/`. Ambas carpetas están excluidas del repositorio.
 - El hit-stop es local a la presentación; no detiene física, horda ni temporizadores.
 - Interceptor conserva el resultado efectivo de empuje de Arena: susceptibilidad
   1.0 y frenado 12 m/s². El texto del GDD sobre resistencia no coincide con esa fórmula.
+- Interceptor anticipa 0.4 s de velocidad real del jugador, limitada a 8 m/s,
+  y persigue directamente a menos de 1.2 m. Regresión de la corrección:
+  **80/80 Play Mode**, `Logs/InterceptorPredictionFix/`.
 - Mortero: 25 HP, 2.2 m/s ±10%, contacto 5/0.5 s, banda 6.5–7.5 m, disparo cada
   3.5 s. El proyectil viaja 0.65 s con arco 3.5 m, sin daño directo, y deja
   charco de radio 1.5 m durante 4 s: 5 de daño cada 0.5 s.

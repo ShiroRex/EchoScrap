@@ -36,9 +36,14 @@ namespace EchoScrap.Combat
         [SerializeField, Min(0.2f)] private float separationRadius = 1.15f;
         [SerializeField, Min(0f)] private float separationWeight = 2.6f;
         [SerializeField, Min(0.2f)] private float obstacleLookAhead = 1.1f;
+        [Header("Interceptor")]
+        [SerializeField, Min(0f)] private float interceptorPredictionSeconds = 0.4f;
+        [SerializeField, Min(0f)] private float interceptorPredictionSpeedCap = 8f;
+        [SerializeField, Min(0f)] private float interceptorDirectPursuitDistance = 1.2f;
 
         private Rigidbody body;
         private CapsuleCollider bodyCollider;
+        private Rigidbody targetBody;
 
         private float currentHealth;
         private float assignedMoveSpeed;
@@ -162,6 +167,7 @@ namespace EchoScrap.Combat
                 targetPlayer = session != null && session.PlayerHealth != null
                     ? session.PlayerHealth
                     : FindAnyObjectByType<PlayerHealth>();
+            targetBody = targetPlayer != null ? targetPlayer.GetComponent<Rigidbody>() : null;
 
             return true;
         }
@@ -311,6 +317,7 @@ namespace EchoScrap.Combat
             runtimeArchetype = data;
             session = combatSession;
             targetPlayer = player;
+            targetBody = player != null ? player.GetComponent<Rigidbody>() : null;
             EnsureInitialized();
             ApplyArchetypeMaterials();
             visualComposer.CacheRenderers();
@@ -577,7 +584,15 @@ namespace EchoScrap.Combat
             }
             else
             {
-                seekDir = dist > 0.0001f ? dirToPlayer : Vector3.zero;
+                Vector3 pursuitOffset = toPlayer;
+                if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Interceptor && targetBody != null &&
+                    dist > interceptorDirectPursuitDistance)
+                {
+                    Vector3 targetVelocity = targetBody.linearVelocity;
+                    targetVelocity.y = 0f;
+                    pursuitOffset += Vector3.ClampMagnitude(targetVelocity, interceptorPredictionSpeedCap) * interceptorPredictionSeconds;
+                }
+                seekDir = pursuitOffset.sqrMagnitude > 0.0001f ? pursuitOffset.normalized : Vector3.zero;
             }
 
             // Separación local entre enemigos cercanos para evitar apilamiento sin requerir colisiones O(N^2) en PhysX

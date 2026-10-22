@@ -205,6 +205,29 @@ namespace EchoScrap.Tests
                 "El Interceptor debe deslizar notablemente más lejos que el Residual tras recibir el mismo impulso de 10 m/s.");
         }
 
+        [Test]
+        public void PursuitPredictsVelocity_CapsDashPrediction_AndSwitchesToDirectNearPlayer()
+        {
+            Rigidbody targetBody = playerObject.GetComponent<Rigidbody>();
+            EnemyActor interceptor = enemyPool.Spawn(EnemyArchetypeId.Interceptor, new Vector3(0f, 1f, 5f));
+            targetBody.linearVelocity = Vector3.right * 6f;
+            interceptor.StepPhysics(0.02f);
+            Vector3 expected = new Vector3(2.4f, 0f, -5f).normalized;
+            Assert.That(Vector3.Dot(interceptor.Velocity.normalized, expected), Is.GreaterThan(0.9999f));
+
+            targetBody.linearVelocity = Vector3.right * 22f;
+            interceptor.StepPhysics(0.02f);
+            expected = new Vector3(3.2f, 0f, -5f).normalized;
+            Assert.That(Vector3.Dot(interceptor.Velocity.normalized, expected), Is.GreaterThan(0.9999f),
+                "Un dash no debe llevar la predicción por encima de 8 m/s.");
+
+            interceptor.Body.position = interceptor.transform.position = new Vector3(0f, 1f, 1.1f);
+            Physics.SyncTransforms();
+            interceptor.StepPhysics(0.02f);
+            Assert.That(Vector3.Dot(interceptor.Velocity.normalized, Vector3.back), Is.GreaterThan(0.9999f),
+                "A menos de 1.2 m utiliza persecución directa.");
+        }
+
         [UnityTest]
         public IEnumerator SilhouetteAndForwardTilt_ShowsPronouncedLeanAndCapturesPreview()
         {
