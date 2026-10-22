@@ -127,3 +127,10 @@ descrita en ese registro por 0.9/1.2 s. Véase `PrototypeMoth.md`.
   y límites 30/60/120 FPS. Método, resultados y límites en `CombatJuiceIntegration.md`;
   datos locales en `Logs/CombatJuiceOptimizedBenchmark/`.
 - Audio, Almacén, captura y persistencia permanecen fuera de esta implementación.
+
+### Coloso: embestida solicitada después del cierre
+
+Se añade preparación de 0.8 s, carga de 4.2 m a 12 m/s, recuperación de 0.6 s y
+cooldown desfasado de 5–7 s. Se corrige el apoyo de su cápsula escalada en el suelo.
+Suite completa: **168/168 Play Mode**. Mecánica, VFX y validación en
+`ColossusCharge.md`; build jugable en la ruta habitual de WindowsCombatPrototype.

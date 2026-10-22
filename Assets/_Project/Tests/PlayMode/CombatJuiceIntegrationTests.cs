@@ -64,7 +64,7 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(cooldowns[i], actor.AttackCooldownTimer);
             }
             Assert.AreEqual(samples, game.Session.Rng.Combat.SampleCount);
-            Assert.AreEqual(5, samples, "Residual/Interceptor/Moth sample once, Mortar twice, Colossus never.");
+            Assert.AreEqual(6, samples, "Residual/Interceptor/Moth sample once, Mortar twice, Colossus samples its initial charge cooldown.");
         }
 
         [Test]

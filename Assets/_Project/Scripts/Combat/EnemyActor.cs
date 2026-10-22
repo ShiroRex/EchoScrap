@@ -68,6 +68,7 @@ namespace EchoScrap.Combat
         private Vector3 mortarEmitterRestPosition;
         private Vector3 mortarEmitterRestScale;
         private float mortarRecoilRemaining;
+        private ColossusCharge colossusCharge;
         private readonly List<Renderer> archetypeRenderers = new List<Renderer>(8);
         private bool materialsConfigured;
         private EnemyArchetypeId presentedArchetypeId;
@@ -103,6 +104,7 @@ namespace EchoScrap.Combat
         public ActorVisualComposer VisualComposer => visualComposer;
         public CombatSession Session => session;
         public PlayerHealth TargetPlayer => targetPlayer;
+        public ColossusCharge Charge => colossusCharge;
         public CorrosivePuddlePool PuddlePool => puddlePool;
 
         public void BindPuddlePool(CorrosivePuddlePool pool)
@@ -373,6 +375,11 @@ namespace EchoScrap.Combat
                 var motion = GetComponent<ActorMotionPresentation>() ?? gameObject.AddComponent<ActorMotionPresentation>();
                 motion.Bind(session, visualComposer, this);
             }
+            if (data.ArchetypeId == EnemyArchetypeId.Colossus)
+            {
+                colossusCharge = GetComponent<ColossusCharge>() ?? gameObject.AddComponent<ColossusCharge>();
+                colossusCharge.Bind(this);
+            }
         }
 
         /// <summary>
@@ -462,6 +469,10 @@ namespace EchoScrap.Combat
             // 6. Escala, rotación, posición y MaterialPropertyBlock
             Vector3 clampedSpawn = new Vector3(spawnPosition.x, 1f, spawnPosition.z);
             transform.localScale = runtimeArchetype.VisualScale;
+            // The heavy capsule scales to 3.2 m tall. Keep its bottom on the floor at fixed root Y=1.
+            bodyCollider.center = runtimeArchetype.ArchetypeId == EnemyArchetypeId.Colossus
+                ? Vector3.up * Mathf.Max(0f, runtimeArchetype.ColliderHeight * 0.5f - 1f / runtimeArchetype.VisualScale.y)
+                : Vector3.zero;
             transform.SetPositionAndRotation(clampedSpawn, Quaternion.identity);
             if (targetPlayer != null)
             {
@@ -497,6 +508,7 @@ namespace EchoScrap.Combat
                 visualComposer.ResetVisualState();
             }
 
+            colossusCharge?.ResetForSpawn();
             if (!gameObject.activeSelf)
                 gameObject.SetActive(true);
 
@@ -559,10 +571,18 @@ namespace EchoScrap.Combat
             bool isKnockedBack = knockbackVelocity.sqrMagnitude > 0.1f;
 
             // 2. Calcular velocidad de locomoción hacia el objetivo + separación local + evitación sencilla
-            Vector3 locomotionVelocity = isKnockedBack ? Vector3.zero : ComputeArchetypeLocomotion(fixedDeltaTime);
+            Vector3 locomotionVelocity;
+            if (colossusCharge != null && colossusCharge.TryOverrideLocomotion(fixedDeltaTime, out Vector3 chargeVelocity))
+                locomotionVelocity = chargeVelocity;
+            else
+                locomotionVelocity = isKnockedBack ? Vector3.zero : ComputeArchetypeLocomotion(fixedDeltaTime);
             currentDesiredVelocity = locomotionVelocity;
 
-            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar && targetPlayer != null)
+            if (colossusCharge != null && colossusCharge.State != ColossusChargeState.Pursuit)
+            {
+                facingDirection = colossusCharge.LockedDirection;
+            }
+            else if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar && targetPlayer != null)
             {
                 Vector3 toPlayer = targetPlayer.transform.position - transform.position;
                 toPlayer.y = 0f;
@@ -756,6 +776,8 @@ namespace EchoScrap.Combat
 
         public bool TryDealContactDamage()
         {
+            if (colossusCharge != null && !colossusCharge.AllowsOrdinaryContact)
+                return false;
             if (isDead || runtimeArchetype.ContactDamage <= 0f || targetPlayer == null || !targetPlayer.IsAlive)
                 return false;
 
@@ -772,6 +794,18 @@ namespace EchoScrap.Combat
                 return false;
             }
 
+            return ResolveChargeContact(hitDirection);
+        }
+
+        // A swept charge contact can occur between the current and next physics position.
+        // It uses the same cooldown and damage contract as physical contact.
+        internal bool ResolveChargeContact(Vector3 hitDirection)
+        {
+            if (isDead || targetPlayer == null || !targetPlayer.IsAlive ||
+                targetPlayer.gameObject.layer == PhysicsLayers.PlayerDashLayer)
+                return false;
+            float now = session != null ? session.GameplayTime : Time.time;
+            if (now < nextContactReadyTime) return false;
             nextContactReadyTime = now + Mathf.Max(0.05f, runtimeArchetype.ContactCooldown);
             var request = new DamageRequest(
                 TargetId,
@@ -830,6 +864,7 @@ namespace EchoScrap.Combat
             visualComposer.ReportLocomotion(facingDirection, Velocity, Mathf.Max(0.1f, assignedMoveSpeed), now, decIntensity);
             visualComposer.ReportKnockbackVelocity(knockbackVelocity);
             visualComposer.StepVisuals(deltaTime, 540f, reduced);
+            colossusCharge?.Presentation.Step(deltaTime);
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar && mortarEmitter != null)
             {
                 mortarRecoilRemaining = Mathf.Max(0f, mortarRecoilRemaining - deltaTime);

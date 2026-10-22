@@ -29,10 +29,11 @@ namespace EchoScrap.Combat
             public float meanPopulation, meanMs, p50Ms, p95Ms, maximumMs;
             public float cpuMs, gpuMs, allocatedMb, peakAllocatedMb, reservedMb, gcBytesPerFrame;
             public bool gcSamplesAvailable;
+            public int framesWithColossusCharges, framesWithColossusWindups, peakChargingColossi;
         }
         [Serializable] private sealed class Report
         {
-            public string unity, cpu, gpu, os;
+            public string unity, cpu, gpu, os, scenario;
             public int width, height;
             public float secondsPerCase;
             public Result[] results;
@@ -42,6 +43,7 @@ namespace EchoScrap.Combat
             public float ms, cpu, gpu, playerSpeed;
             public long gc, memory;
             public int enemies, puddles, projectiles;
+            public int chargingColossi, windingColossi;
             public bool playerAlive;
         }
         private readonly Frame[] frames = new Frame[32768];
@@ -58,6 +60,7 @@ namespace EchoScrap.Combat
         private float duration = 20f;
         private int dashCount;
         private bool previousDash;
+        private bool chargeTrial;
         private RenderTexture measurementTarget;
         private Texture2D renderBarrier;
         private UniversalRenderPipeline.SingleCameraRequest renderRequest;
@@ -83,6 +86,7 @@ namespace EchoScrap.Combat
         {
             yield return null; yield return null;
             string[] args = Environment.GetCommandLineArgs();
+            chargeTrial = Array.IndexOf(args, "-benchmarkColossusCharge") >= 0;
             output = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "CombatBenchmark");
             for (int i = 0; i < args.Length - 1; i++)
             {
@@ -119,12 +123,21 @@ namespace EchoScrap.Combat
             game.Enemies.Prewarm(EnemyArchetypeId.Colossus, 40);
             game.Enemies.Prewarm(EnemyArchetypeId.Mortar, 75);
             game.Enemies.Prewarm(EnemyArchetypeId.ExplosiveMoth, 60);
-            foreach (int population in new[] { 150, 250 })
-                foreach (PresentationCondition condition in new[] { PresentationCondition.FullEffects,
-                    PresentationCondition.NoDecorativeEffects, PresentationCondition.ReducedEffects })
-                    yield return RunCase(population, condition, -1);
-            foreach (int fps in new[] { 30, 60, 120 })
-                yield return RunCase(150, PresentationCondition.FullEffects, fps);
+            if (chargeTrial)
+            {
+                // Base weapon lets the Colossus survive to its first charge; the max-upgrade trial kills it too early.
+                foreach (int population in new[] { 150, 250 })
+                    yield return RunCase(population, PresentationCondition.FullEffects, -1);
+            }
+            else
+            {
+                foreach (int population in new[] { 150, 250 })
+                    foreach (PresentationCondition condition in new[] { PresentationCondition.FullEffects,
+                        PresentationCondition.NoDecorativeEffects, PresentationCondition.ReducedEffects })
+                        yield return RunCase(population, condition, -1);
+                foreach (int fps in new[] { 30, 60, 120 })
+                    yield return RunCase(150, PresentationCondition.FullEffects, fps);
+            }
             driving = false;
             game.Motor.OnDashStateChanged -= KeepBenchmarkInvulnerability;
             if (pad != null && pad.added) InputSystem.RemoveDevice(pad);
@@ -132,6 +145,7 @@ namespace EchoScrap.Combat
             {
                 unity = Application.unityVersion, cpu = SystemInfo.processorType,
                 gpu = SystemInfo.graphicsDeviceName, os = SystemInfo.operatingSystem,
+                scenario = chargeTrial ? "Colossus charge, base upgrades" : "All upgrades at maximum",
                 width = Screen.width, height = Screen.height, secondsPerCase = duration, results = results.ToArray()
             };
             File.WriteAllText(Path.Combine(output, "Summary.json"), JsonUtility.ToJson(report, true));
@@ -147,7 +161,8 @@ namespace EchoScrap.Combat
             game.Session.Effects.ApplyCondition(condition);
             game.Director.AutoTick = false; game.Encounter.AutoTick = false;
             game.Draft.enabled = false; game.DraftPresentation.enabled = false;
-            foreach (UpgradeCardDefinition card in UpgradeCatalog.Cards) game.Stats.SetUpgradeTier(card.Id, card.MaxTier);
+            if (!chargeTrial)
+                foreach (UpgradeCardDefinition card in UpgradeCatalog.Cards) game.Stats.SetUpgradeTier(card.Id, card.MaxTier);
             game.Weapon.ResetWeaponCycle();
             game.Player.SetDashInvulnerable(true);
             input.SendMessage("OnApplicationFocus", true);
@@ -168,6 +183,15 @@ namespace EchoScrap.Combat
                 yield return null;
                 FrameTimingManager.CaptureFrameTimings();
                 uint available = FrameTimingManager.GetLatestTimings(1, timings);
+                int charging = 0, winding = 0;
+                var activeActors = EnemyActor.ActiveEnemies;
+                for (int actorIndex = 0; actorIndex < activeActors.Count; actorIndex++)
+                {
+                    EnemyActor actor = activeActors[actorIndex];
+                    if (actor.Charge == null) continue;
+                    if (actor.Charge.State == ColossusChargeState.Charging) charging++;
+                    if (actor.Charge.State == ColossusChargeState.Windup) winding++;
+                }
                 frames[count++] = new Frame
                 {
                     ms = Time.unscaledDeltaTime * 1000f,
@@ -177,6 +201,7 @@ namespace EchoScrap.Combat
                     memory = Profiler.GetTotalAllocatedMemoryLong(),
                     playerSpeed = game.Motor.Velocity.magnitude,
                     playerAlive = game.Player.IsAlive,
+                    chargingColossi = charging, windingColossi = winding,
                     puddles = game.Hazards.ActivePuddleCount, projectiles = game.Hazards.ActiveProjectileCount
                 };
             }
@@ -257,6 +282,7 @@ namespace EchoScrap.Combat
             long peakMemory = 0;
             bool gcSamplesAvailable = false;
             int deadFrames = 0;
+            int chargeFrames = 0, windupFrames = 0, peakCharging = 0;
             for (int i = 0; i < count; i++)
             {
                 Frame frame = frames[i]; sorted[i] = frame.ms;
@@ -266,6 +292,9 @@ namespace EchoScrap.Combat
                 peakMemory = Math.Max(peakMemory, frame.memory);
                 gcSamplesAvailable |= frame.gc > 0L;
                 if (!frame.playerAlive) deadFrames++;
+                if (frame.chargingColossi > 0) chargeFrames++;
+                if (frame.windingColossi > 0) windupFrames++;
+                peakCharging = Math.Max(peakCharging, frame.chargingColossi);
             }
             Array.Sort(sorted);
             int n = Math.Max(1, count);
@@ -274,6 +303,8 @@ namespace EchoScrap.Combat
                 condition = name, population = population, targetFps = fps, frames = count, peakPopulation = peak,
                 meanPlayerSpeed = (float)(speed / n), dashes = dashCount,
                 deadFrames = deadFrames,
+                framesWithColossusCharges = chargeFrames, framesWithColossusWindups = windupFrames,
+                peakChargingColossi = peakCharging,
                 meanPopulation = (float)(enemies / n), meanMs = (float)(sum / n),
                 p50Ms = count > 0 ? sorted[(int)((count - 1) * 0.50f)] : 0f,
                 p95Ms = count > 0 ? sorted[(int)((count - 1) * 0.95f)] : 0f,
@@ -287,14 +318,15 @@ namespace EchoScrap.Combat
         private void WriteFrames(string name, int count)
         {
             var csv = new StringBuilder(count * 64);
-            csv.AppendLine("frame,ms,cpu_ms,gpu_ms,gc_bytes,enemies,puddles,projectiles");
+            csv.AppendLine("frame,ms,cpu_ms,gpu_ms,gc_bytes,enemies,puddles,projectiles,charging_colossi,winding_colossi");
             for (int i = 0; i < count; i++)
             {
                 Frame f = frames[i];
                 csv.Append(i).Append(',').Append(f.ms.ToString("F4", CultureInfo.InvariantCulture)).Append(',')
                     .Append(f.cpu.ToString("F4", CultureInfo.InvariantCulture)).Append(',')
                     .Append(f.gpu.ToString("F4", CultureInfo.InvariantCulture)).Append(',')
-                    .Append(f.gc).Append(',').Append(f.enemies).Append(',').Append(f.puddles).Append(',').Append(f.projectiles).AppendLine();
+                    .Append(f.gc).Append(',').Append(f.enemies).Append(',').Append(f.puddles).Append(',').Append(f.projectiles)
+                    .Append(',').Append(f.chargingColossi).Append(',').Append(f.windingColossi).AppendLine();
             }
             File.WriteAllText(Path.Combine(output, name + ".csv"), csv.ToString());
         }
