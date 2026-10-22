@@ -1,0 +1,11 @@
+{
+  "name": "EchoScrap.Editor",
+  "rootNamespace": "EchoScrap.Editor",
+  "references": [
+    "EchoScrap.Player",
+    "Unity.InputSystem",
+    "Unity.Cinemachine",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": ["Editor"]
+}
