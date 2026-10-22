@@ -120,6 +120,7 @@ namespace EchoScrap.Combat
                 subscribedSession.Events.OnDamageResolved += HandleDamageResolved;
                 subscribedSession.Events.OnPlayerHealed += HandlePlayerHealed;
                 subscribedSession.SessionReset += ClearTransientFeedback;
+                subscribedSession.Effects.OnPreferencesChanged += RefreshFeedback;
             }
             else if (subscribedHealth != null)
             {
@@ -140,6 +141,7 @@ namespace EchoScrap.Combat
                 subscribedSession.Events.OnDamageResolved -= HandleDamageResolved;
                 subscribedSession.Events.OnPlayerHealed -= HandlePlayerHealed;
                 subscribedSession.SessionReset -= ClearTransientFeedback;
+                subscribedSession.Effects.OnPreferencesChanged -= RefreshFeedback;
             }
             if (subscribedHealth != null)
             {
@@ -159,6 +161,13 @@ namespace EchoScrap.Combat
             float max = Mathf.Max(1f, playerHealth.MaxHealth);
             immediateRatio = Mathf.Clamp01(playerHealth.CurrentHealth / max);
             recentDamageRatio = immediateRatio;
+            UpdateAlphas();
+            ApplyToUiElements();
+        }
+
+        private void RefreshFeedback()
+        {
+            UpdateAlphas();
             ApplyToUiElements();
         }
 
@@ -168,6 +177,7 @@ namespace EchoScrap.Combat
             immediateRatio = nextRatio;
             if (nextRatio > recentDamageRatio)
                 recentDamageRatio = nextRatio;
+            UpdateAlphas();
             ApplyToUiElements();
         }
 
@@ -263,6 +273,8 @@ namespace EchoScrap.Combat
             ScreenBorderAlpha = borderTimer > 0f
                 ? maxBorder * Mathf.Clamp01(borderTimer / Mathf.Max(0.01f, borderFadeDuration))
                 : 0f;
+            if (immediateRatio > 0f && immediateRatio <= 0.30f)
+                ScreenBorderAlpha = Mathf.Max(ScreenBorderAlpha, reduced ? 0.07f : 0.14f);
 
             DirectionalMarkerAlpha = directionalTimer > 0f
                 ? Mathf.Clamp01(directionalTimer / Mathf.Max(0.01f, directionalDuration))

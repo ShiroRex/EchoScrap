@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace EchoScrap.Core
@@ -40,6 +41,7 @@ namespace EchoScrap.Core
 
         private Renderer[] cachedRenderers = Array.Empty<Renderer>();
         private Color[] originalBaseColors = Array.Empty<Color>();
+        private readonly List<Renderer> rendererScratch = new List<Renderer>(8);
         private MaterialPropertyBlock flashBlock;
         private MaterialPropertyBlock restoreBlock;
 
@@ -150,23 +152,28 @@ namespace EchoScrap.Core
         {
             EnsureHierarchy();
             Transform rootForRenderers = presentationPivot != null ? presentationPivot : (orientationRoot != null ? orientationRoot : transform);
-            Renderer[] all = rootForRenderers.GetComponentsInChildren<Renderer>(true);
+            rendererScratch.Clear();
+            rootForRenderers.GetComponentsInChildren(true, rendererScratch);
             int count = 0;
-            for (int i = 0; i < all.Length; i++)
+            for (int i = 0; i < rendererScratch.Count; i++)
             {
-                if (all[i] is MeshRenderer || all[i] is SkinnedMeshRenderer || all[i] is SpriteRenderer)
+                if (rendererScratch[i] is MeshRenderer || rendererScratch[i] is SkinnedMeshRenderer || rendererScratch[i] is SpriteRenderer)
                     count++;
             }
 
-            cachedRenderers = new Renderer[count];
-            originalBaseColors = new Color[count];
-            int index = 0;
-            for (int i = 0; i < all.Length; i++)
+            if (cachedRenderers.Length != count)
             {
-                if (all[i] is MeshRenderer || all[i] is SkinnedMeshRenderer || all[i] is SpriteRenderer)
+                cachedRenderers = new Renderer[count];
+                originalBaseColors = new Color[count];
+            }
+            int index = 0;
+            for (int i = 0; i < rendererScratch.Count; i++)
+            {
+                Renderer renderer = rendererScratch[i];
+                if (renderer is MeshRenderer || renderer is SkinnedMeshRenderer || renderer is SpriteRenderer)
                 {
-                    cachedRenderers[index] = all[i];
-                    Material shared = all[i].sharedMaterial;
+                    cachedRenderers[index] = renderer;
+                    Material shared = renderer.sharedMaterial;
                     if (shared != null && shared.HasProperty(BaseColorId))
                         originalBaseColors[index] = shared.GetColor(BaseColorId);
                     else if (shared != null && shared.HasProperty(ColorId))
@@ -446,7 +453,7 @@ namespace EchoScrap.Core
             }
         }
 
-        public void ResetVisualState()
+        public void ResetVisualState(bool resetOrientation = false)
         {
             EnsureHierarchy();
             flashRemaining = 0f;
@@ -461,6 +468,13 @@ namespace EchoScrap.Core
             currentTiltPitch = 0f;
             currentTiltRoll = 0f;
             wasMoving = false;
+            previousVelocity = Vector3.zero;
+            if (resetOrientation)
+            {
+                targetFacing = transform.forward;
+                if (orientationRoot != null)
+                    orientationRoot.localRotation = Quaternion.identity;
+            }
             ApplyFlashBlock(false);
             if (presentationPivot != null)
             {

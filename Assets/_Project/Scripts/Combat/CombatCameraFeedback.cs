@@ -59,6 +59,7 @@ namespace EchoScrap.Combat
             public float Elapsed;
             public float PhaseSeed;
             public float Frequency;
+            public bool ClosingCinematic;
         }
 
         private readonly List<ActiveShake> activeShakes = new List<ActiveShake>(8);
@@ -183,6 +184,13 @@ namespace EchoScrap.Combat
 
         private void HandleSessionStateChanged(SessionStateEvent stateEvent)
         {
+            if (stateEvent.State == SessionState.Victory)
+            {
+                // La partida queda congelada; solo continúa la sacudida final del jefe.
+                activeShakes.RemoveAll(shake => !shake.ClosingCinematic);
+                currentLeadOffsetXZ = Vector3.zero;
+                return;
+            }
             if (stateEvent.PauseReasons != PauseReason.None
                 || (stateEvent.State == SessionState.Running && stateEvent.GameplayTime <= 0f))
                 ResetFeedbackState();
@@ -236,9 +244,10 @@ namespace EchoScrap.Combat
         {
             if (deathEvent.IsBoss)
             {
-                RequestShake(ShakePriority.Critical, BossCriticalShakeAmplitude, BossCriticalShakeDuration, 8f);
+                RequestShakeInternal(ShakePriority.Critical, BossCriticalShakeAmplitude, BossCriticalShakeDuration, 8f, true);
             }
-            else if (deathEvent.ArchetypeId == (int)EnemyArchetypeId.Colossus)
+            else if (deathEvent.ArchetypeId == (int)EnemyArchetypeId.Colossus
+                     || deathEvent.ArchetypeId == (int)EnemyArchetypeId.ExplosiveMoth)
             {
                 RequestShake(ShakePriority.Medium, MediumExplosionShakeAmplitude, MediumExplosionShakeDuration, 14f);
             }
@@ -267,10 +276,13 @@ namespace EchoScrap.Combat
         /// Registra o reemplaza una sacudida de su misma prioridad para ser evaluada con política UseLargest.
         /// </summary>
         public void RequestShake(ShakePriority priority, float amplitude, float duration, float frequency = 0f)
+            => RequestShakeInternal(priority, amplitude, duration, frequency, false);
+
+        private void RequestShakeInternal(ShakePriority priority, float amplitude, float duration, float frequency, bool closingCinematic)
         {
             float scale = GetEffectiveShakeScale();
             if (scale <= 0.0001f || amplitude <= 0.0001f || duration <= 0.0001f
-                || (session != null && session.IsPaused))
+                || (session != null && session.IsPaused && !(closingCinematic && session.State == SessionState.Victory)))
                 return;
 
             amplitude = Mathf.Min(amplitude, MaxShakeAmplitude);
@@ -286,7 +298,8 @@ namespace EchoScrap.Combat
                 Duration = duration,
                 Elapsed = 0f,
                 PhaseSeed = phaseSeed,
-                Frequency = frequency > 0f ? frequency : shakeFrequency
+                Frequency = frequency > 0f ? frequency : shakeFrequency,
+                ClosingCinematic = closingCinematic
             };
 
             for (int i = 0; i < activeShakes.Count; i++)
@@ -314,6 +327,12 @@ namespace EchoScrap.Combat
                 return;
             if ((session != null && session.IsPaused) || Time.timeScale <= 0f)
             {
+                if (session != null && session.State == SessionState.Victory)
+                {
+                    currentLeadOffsetXZ = Vector3.zero;
+                    StepCameraShake(deltaTime);
+                    return;
+                }
                 ResetFeedbackState();
                 return;
             }
@@ -479,6 +498,16 @@ namespace EchoScrap.Combat
             bool isPaused = (session != null && session.IsPaused) || Time.timeScale <= 0f;
             if (isPaused)
             {
+                if (session != null && session.State == SessionState.Victory)
+                {
+                    currentLeadOffsetXZ = Vector3.zero;
+                    if (stage == CinemachineCore.Stage.Noise)
+                    {
+                        StepCameraShake(Time.unscaledDeltaTime);
+                        state.PositionCorrection += currentShakeOffsetXZ;
+                    }
+                    return;
+                }
                 ResetFeedbackState();
                 return;
             }

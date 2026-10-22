@@ -374,7 +374,7 @@ namespace EchoScrap.Combat
             if (hurtboxCollider != null)
                 hurtboxCollider.enabled = true;
             if (visualComposer != null)
-                visualComposer.ResetVisualState();
+                visualComposer.ResetVisualState(resetOrientation: true);
             OnHealthChanged?.Invoke(currentHealth, currentHealth);
         }
 

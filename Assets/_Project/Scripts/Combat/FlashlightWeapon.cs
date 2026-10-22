@@ -186,6 +186,15 @@ namespace EchoScrap.Combat
             StartNewBurst(0f);
         }
 
+        public void ResetAimForSession()
+        {
+            EnsureInitialized();
+            currentTarget = null;
+            currentAimDirection = FlatDirection(transform.forward, Vector3.forward);
+            if (aimPivot != null)
+                aimPivot.rotation = Quaternion.LookRotation(currentAimDirection, Vector3.up);
+        }
+
         private bool CanOperate()
         {
             if (!isActiveAndEnabled)

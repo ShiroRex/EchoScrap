@@ -209,7 +209,7 @@ namespace EchoScrap.Combat
                 progressArc = CombatRingGeometry.Create("Moth fuse progress", transform);
                 progressMesh = Instantiate(progressArc.GetComponent<MeshFilter>().sharedMesh);
                 progressArc.GetComponent<MeshFilter>().sharedMesh = progressMesh;
-    
+
                 EnemyActor actor = GetComponent<EnemyActor>();
                 Transform pivot = actor.VisualComposer.PresentationPivot;
                 Material bodyMaterial = pivot.GetComponentInChildren<MeshRenderer>().sharedMaterial;

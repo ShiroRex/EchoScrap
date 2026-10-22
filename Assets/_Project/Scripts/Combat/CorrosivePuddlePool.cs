@@ -11,8 +11,8 @@ namespace EchoScrap.Combat
     [DisallowMultipleComponent]
     public sealed class CorrosivePuddlePool : MonoBehaviour
     {
-        public const int MaxActivePuddles = 12;
-        public const int MaxInFlightProjectiles = 16;
+        public const int MaxActivePuddles = 96;
+        public const int MaxInFlightProjectiles = 96;
         public const float DefaultMortarFlightDuration = 0.65f;
         public const float DefaultMortarPuddleRadius = 1.5f;
         public const float DefaultMortarPuddleDuration = 4f;
@@ -168,6 +168,8 @@ namespace EchoScrap.Combat
                 ConfigureRenderer(shellRenderer);
                 var trail = shell.AddComponent<TrailRenderer>();
                 ConfigureRenderer(trail);
+                // URP/Unlit ignores the per-vertex trail gradient. The imported material preserves its acid colour and fade.
+                trail.sharedMaterial = Prototype.VfxRuntimeUtils.FlatMaterial;
                 trail.time = 0.14f; trail.startWidth = 0.16f; trail.endWidth = 0f; trail.minVertexDistance = 0.08f;
                 trail.startColor = new Color(0.65f, 1f, 0.18f, 0.7f);
                 trail.endColor = new Color(0.35f, 0.85f, 0.15f, 0f);

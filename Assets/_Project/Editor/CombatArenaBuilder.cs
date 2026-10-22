@@ -169,6 +169,7 @@ namespace EchoScrap.Editor
         public static void BuildWindowsDevelopment() => BuildWindowsInternal(true);
         private static void BuildWindowsInternal(bool development)
         {
+            PlayerSettings.enableFrameTimingStats = true;
             if (!File.Exists(ScenePath)) Rebuild();
             string directory = development ? "Builds/WindowsDevelopment" : "Builds/Windows";
             Directory.CreateDirectory(directory);

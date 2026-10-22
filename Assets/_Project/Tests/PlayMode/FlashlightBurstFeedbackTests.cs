@@ -585,6 +585,83 @@ namespace EchoScrap.Tests
             }
         }
 
+        [Test]
+        public void BossClosingShakeContinuesDuringVictoryFreeze_ThenExpiresAndResets()
+        {
+            var death = new ActorDeathEvent(99, 99, false, true, Vector3.zero,
+                Vector3.forward, DamageSourceType.SolarPulse, 500, false, true);
+            session.QueueBossDeath(in death);
+            session.ResolveSimulationStepOutcome();
+            Assert.AreEqual(SessionState.Victory, session.State);
+            Assert.AreEqual(0f, Time.timeScale);
+            float gameplayTime = session.GameplayTime;
+            cameraFeedback.StepFeedback(0.01f);
+            Assert.IsTrue(cameraFeedback.IsShaking);
+            Assert.AreEqual(ShakePriority.Critical, cameraFeedback.CurrentWinningPriority);
+            Assert.AreEqual(Vector3.zero, cameraFeedback.CurrentLeadOffsetXZ);
+            cameraFeedback.RequestPresetShake(ShakePriority.High);
+            cameraFeedback.StepFeedback(0.45f);
+            Assert.IsFalse(cameraFeedback.IsShaking);
+            Assert.AreEqual(gameplayTime, session.GameplayTime);
+            session.ResetSession();
+            Assert.AreEqual(Vector3.zero, cameraFeedback.CurrentShakeOffsetXZ);
+            Assert.AreEqual(1f, Time.timeScale);
+        }
+
+        [Test]
+        public void ReducedEffectsAndSimultaneousDefeatDoNotPlayBossClosingShake()
+        {
+            var death = new ActorDeathEvent(99, 99, false, true, Vector3.zero,
+                Vector3.forward, DamageSourceType.SolarPulse, 500, false, true);
+            session.Effects.ReducedEffectsMode = true;
+            session.QueueBossDeath(in death);
+            session.ResolveSimulationStepOutcome();
+            cameraFeedback.StepFeedback(0.01f);
+            Assert.IsFalse(cameraFeedback.IsShaking);
+            session.ResetSession();
+            session.Effects.ReducedEffectsMode = false;
+            session.QueueBossDeath(in death);
+            var playerDeath = new ActorDeathEvent(1, 0, true, false, Vector3.zero,
+                Vector3.forward, DamageSourceType.DummyOrHazard, 0, false, true);
+            session.QueuePlayerDeath(in playerDeath);
+            session.ResolveSimulationStepOutcome();
+            cameraFeedback.StepFeedback(0.01f);
+            Assert.AreEqual(SessionState.Defeat, session.State);
+            Assert.IsFalse(cameraFeedback.IsShaking);
+            session.ResetSession();
+        }
+
+        [Test]
+        public void CriticalHealthBorderPersistsBelowThirtyPercent_AndHealingClearsIt()
+        {
+            var hurt = playerObject.AddComponent<PlayerHurtPresentation>();
+            hurt.Bind(session, playerHealth);
+            playerHealth.ForceSetHealthForTesting(30f);
+            hurt.StepPresentation(1f);
+            Assert.AreEqual(0.14f, hurt.ScreenBorderAlpha, 0.0001f);
+            session.Effects.ReducedEffectsMode = true;
+            Assert.AreEqual(0.07f, hurt.ScreenBorderAlpha, 0.0001f);
+            playerHealth.Heal(10f);
+            Assert.AreEqual(0f, hurt.ScreenBorderAlpha);
+            session.ResetSession();
+            Assert.AreEqual(0f, hurt.ScreenBorderAlpha);
+        }
+
+        [Test]
+        public void SessionResetRestoresAimAndVisualOrientation_WithoutRetainingTarget()
+        {
+            CreateDummy("Aim behind", new Vector3(0f, 1f, -4f), 100f);
+            weapon.UpdateAim(1f);
+            Assert.Less(weapon.CurrentAimDirection.z, -0.9f);
+            Assert.IsNotNull(weapon.CurrentTarget);
+            playerComposer.ReportLocomotion(Vector3.back, Vector3.back * 8f, 8f, 0f);
+            playerComposer.StepVisuals(0.2f, reducedEffects: false);
+            session.ResetSession();
+            Assert.IsNull(weapon.CurrentTarget);
+            Assert.AreEqual(Vector3.forward, weapon.CurrentAimDirection);
+            Assert.Less(Quaternion.Angle(Quaternion.identity, playerComposer.OrientationRoot.localRotation), 0.01f);
+        }
+
         private CombatDummy CreateDummy(string name, Vector3 position, float hp)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);

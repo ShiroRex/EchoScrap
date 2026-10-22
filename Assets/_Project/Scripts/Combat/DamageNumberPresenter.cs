@@ -54,6 +54,7 @@ namespace EchoScrap.Combat
             public float StartedAt;
             public float UpdatedAt;
             public float HorizontalOffset;
+            public float VerticalOffset;
         }
 
         private readonly Entry[] entries = new Entry[MaxActiveNumbers];
@@ -208,6 +209,7 @@ namespace EchoScrap.Combat
                     existing.WorldPosition = anchor;
                     existing.CanAggregate = !damage.CausedDeath && damage.RemainingHealth > 0f;
                     existing.Label.text = FormattedNumber(existing.Damage, false);
+                    existing.VerticalOffset = ChooseVerticalLane(existing);
                     AggregatedHitCount++;
                     Present(existing);
                     return true;
@@ -228,6 +230,7 @@ namespace EchoScrap.Combat
             entry.Label.fontSize = entry.Critical ? settings.CriticalFontSize : settings.NormalFontSize;
             entry.Label.color = entry.Critical ? settings.CriticalColor : settings.NormalColor;
             entry.Label.text = FormattedNumber(entry.Damage, entry.Critical);
+            entry.VerticalOffset = ChooseVerticalLane(entry);
             TotalShownCount++;
             Present(entry);
             return true;
@@ -291,13 +294,38 @@ namespace EchoScrap.Combat
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, uiCamera, out Vector2 position))
             {
                 float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
-                position += new Vector2(entry.HorizontalOffset, settings.RisePixels * Mathf.Clamp01(age / settings.Lifetime) * intensity);
+                position += new Vector2(entry.HorizontalOffset, entry.VerticalOffset + settings.RisePixels * Mathf.Clamp01(age / settings.Lifetime) * intensity);
                 entry.Rect.anchoredPosition = position;
                 float scale = age < settings.PopInDuration
                     ? Mathf.Lerp(settings.InitialScale, settings.PeakScale, age / settings.PopInDuration)
                     : Mathf.Lerp(settings.PeakScale, 1f, Mathf.Clamp01((age - settings.PopInDuration) / settings.PopReturnDuration));
                 entry.Rect.localScale = Vector3.one * Mathf.Lerp(1f, scale, intensity);
             }
+        }
+        private float ChooseVerticalLane(Entry entry)
+        {
+            float scale = Mathf.Max(0.001f, canvas.scaleFactor);
+            Vector3 screen = worldCamera.WorldToScreenPoint(entry.WorldPosition);
+            Vector2 anchor = new Vector2(screen.x / scale + entry.HorizontalOffset, screen.y / scale);
+            float width = entry.Label.text.Length * entry.Label.fontSize * 0.62f;
+            for (int lane = 0; lane < 4; lane++)
+            {
+                float offset = lane * (settings.CriticalFontSize + 8f);
+                bool overlaps = false;
+                foreach (Entry other in entries)
+                {
+                    if (!other.Active || other == entry) continue;
+                    Vector3 projected = worldCamera.WorldToScreenPoint(other.WorldPosition);
+                    float otherX = projected.x / scale + other.HorizontalOffset;
+                    float otherY = projected.y / scale + other.VerticalOffset;
+                    float otherWidth = other.Label.text.Length * other.Label.fontSize * 0.62f;
+                    if (Mathf.Abs(anchor.x - otherX) < (width + otherWidth) * 0.5f + 6f
+                        && Mathf.Abs(anchor.y + offset - otherY) < settings.CriticalFontSize + 5f)
+                    { overlaps = true; break; }
+                }
+                if (!overlaps) return offset;
+            }
+            return 3f * (settings.CriticalFontSize + 8f);
         }
         private bool InsideCamera(Vector3 position)
         {

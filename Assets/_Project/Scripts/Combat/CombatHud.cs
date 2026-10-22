@@ -259,10 +259,14 @@ namespace EchoScrap.Combat
         {
             SessionState state = game.Session.State;
             bool ended = state == SessionState.Victory || state == SessionState.Defeat;
+            // Keep the boss explosion and gem absorption visible before covering the arena.
+            var closing = game.Encounter != null ? game.Encounter.DeathPresentation : null;
+            bool closingVisible = state == SessionState.Victory && closing != null
+                && closing.IsPlaying && closing.PresentationTime < 1.3f;
             bool userPause = game.Session.Clock.HasPauseReason(PauseReason.Manual) || game.Session.Clock.HasPauseReason(PauseReason.FocusLost);
             bool showPause = !ended && userPause && !game.Draft.IsOpen;
             bool wasVisible = modal.activeSelf;
-            modal.SetActive(ended || showPause);
+            modal.SetActive((ended && !closingVisible) || showPause);
             pauseContent.SetActive(showPause);
             resultContent.SetActive(ended);
             if (ended && (state != previousState || !wasVisible))

@@ -51,7 +51,7 @@ public class ProceduralExplosionVfx : MonoBehaviour
         shockwave.transform.parent.gameObject.SetActive(true);
         float groundY = VfxRuntimeUtils.FindGroundY(position, 0f);
         shockwave.transform.parent.position = new Vector3(position.x, groundY + ShockwaveHeightOffset, position.z);
-        VfxRuntimeUtils.SetRingRadius(shockwave, 0.2f);
+        shockwave.transform.localScale = Vector3.one * 0.2f;
         shockwave.startColor = shockwave.endColor = ShockwaveColor;
         gameObject.SetActive(true);
         for (int i = 0; i < particles.Length; i++)
@@ -279,7 +279,8 @@ public class ProceduralExplosionVfx : MonoBehaviour
         float groundY = VfxRuntimeUtils.FindGroundY(transform.position, 0f);
         holder.transform.position = new Vector3(transform.position.x, groundY + ShockwaveHeightOffset, transform.position.z);
 
-        shockwave = VfxRuntimeUtils.CreateGroundRing(holder.transform, "Shockwave", 0.2f, 0.35f, 64, ShockwaveColor);
+        shockwave = VfxRuntimeUtils.CreateGroundRing(holder.transform, "Shockwave", 1f, 0.35f, 64, ShockwaveColor);
+        shockwave.transform.localScale = Vector3.one * 0.2f;
     }
 
     private ParticleSystem CreateParticleChild(string name, out ParticleSystemRenderer renderer)
@@ -310,7 +311,7 @@ public class ProceduralExplosionVfx : MonoBehaviour
         elapsed += deltaTime;
 
         // 1. Destello: caída rápida de intensidad
-        if (flashLight != null)
+        if (flashLight != null && flashLight.gameObject.activeSelf)
         {
             float flashT = Mathf.Clamp01(elapsed / FlashDuration);
             flashLight.intensity = flashPeakIntensity * (1f - flashT) * (1f - flashT);
@@ -321,12 +322,12 @@ public class ProceduralExplosionVfx : MonoBehaviour
         }
 
         // 2. Onda expansiva: se expande hasta el radio de daño (ease-out) y luego se desvanece
-        if (shockwave != null)
+        if (shockwave != null && shockwave.transform.parent.gameObject.activeSelf)
         {
             float expandT = Mathf.Clamp01(elapsed / ShockwaveExpandDuration);
             float easedExpand = 1f - (1f - expandT) * (1f - expandT) * (1f - expandT);
             CurrentShockwaveRadius = Mathf.Lerp(0.2f, radius, easedExpand);
-            VfxRuntimeUtils.SetRingRadius(shockwave, CurrentShockwaveRadius);
+            shockwave.transform.localScale = Vector3.one * CurrentShockwaveRadius;
 
             float fadeT = Mathf.Clamp01((elapsed - ShockwaveExpandDuration) / ShockwaveFadeDuration);
             shockwave.widthMultiplier = Mathf.Lerp(0.35f, 0.06f, easedExpand) * (1f - fadeT * 0.5f);
