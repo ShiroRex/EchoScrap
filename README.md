@@ -32,6 +32,9 @@ ilumina cuerpos y proyecta sombras en 3D; las explosiones vuelven a encadenarse.
 La validación final y las mediciones están en
 [Docs/CombatJuiceIntegration.md](Docs/CombatJuiceIntegration.md).
 
+El Coloso incorpora una embestida con trayectoria anunciada, choque contra
+paredes y recuperación: [Docs/ColossusCharge.md](Docs/ColossusCharge.md).
+
 ## Trabajo en equipo
 
 Las reglas están en [AGENTS.md](AGENTS.md): alcance limitado a lo solicitado,
