@@ -44,6 +44,13 @@ escalado, suspendida durante pérdida de foco. Efectos reducidos o intensidad
 decorativa cero eliminan la deformación. Confirmar suprime la pulsación de dash
 antes de devolver el control al jugador.
 
+Al volver a la aplicación o a la vista Game con el draft abierto, la sesión retira
+solo la pausa por pérdida de foco. La pausa táctica mantiene el combate congelado,
+las ofertas se conservan y una confirmación pendiente puede terminar. Una pausa
+manual superpuesta sigue vigente. Fuera del draft se mantiene la reanudación
+explícita habitual. El clic o botón usado para recuperar el foco debe soltarse
+antes de poder confirmar una carta.
+
 ## Verificación incluida
 
 `CombatUpgradeDraftTests` contiene once pruebas Play Mode:
@@ -67,3 +74,10 @@ fuentes probadas sin cambios. XML y registro en `Logs/CombatUpgradeDraft/`.
 
 Dos regresiones adicionales verifican que Solar conserva su cuarto indicador
 hasta el siguiente pulso y que adquirir mejoras no altera una ráfaga ya iniciada.
+
+Corrección del bloqueo por foco — 23 de octubre de 2026: cuatro regresiones
+comprueban la recuperación con teclado, ratón y mando, elecciones acumuladas,
+confirmación suspendida sin duplicados y conservación de la pausa manual. Suite
+completa: **187/187 Play Mode**, cero fallos. Resultados de reproducción previa,
+validación final y fuentes en `Logs/DraftFocusFix/`. Se probó una copia aislada
+para conservar abierto el editor del usuario; no se generó una nueva build Windows.
