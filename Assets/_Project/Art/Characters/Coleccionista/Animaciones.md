@@ -2,7 +2,9 @@
 
 Pixel art de 64 × 64 px con 15 colores de la paleta Apollo cargada en Aseprite.
 Diseño basado en las referencias del usuario: capucha y capa claras remendadas,
-máscara pálida, traje oscuro, correas, bolso, cadena y farol industrial ámbar.
+máscara marfil de médico de la plaga con pico curvado, traje oscuro, correas,
+bolso, cadena y farol industrial ámbar. El pico sobresale en ambos perfiles;
+la vista frontal usa escorzo y dos oculares oscuros enmarcados.
 
 ## Clips entregados
 
@@ -63,6 +65,16 @@ Filtrado Point, sin compresión ni mipmaps para conservar la cuadrícula de píx
 Los `.meta` de Unity incluyen estos ajustes y el normal map lineal. El atlas se
 importa como textura RGBA; el JSON contiene las celdas y tiempos para montar los
 clips en la presentación del jugador.
+
+## Script de Aseprite
+
+`Tools/Aseprite/ColeccionistaPlaga.lua` contiene el redibujo nativo de la máscara,
+su adaptación a los 108 fotogramas y la actualización de normales y vistas.
+Con la fuente abierta, copiar el script a la carpeta de scripts de Aseprite,
+actualizarla con F5 y ejecutarlo desde File > Scripts. Trabaja sobre las capas
+y documentos abiertos; guardar la fuente, ambos atlas, la vista y el GIF desde
+la interfaz. La primera ejecución conserva una copia de trabajo en memoria
+para poder ajustar el script sin acumular trazos durante esa sesión.
 
 ## Criterios consultados y verificación
 
