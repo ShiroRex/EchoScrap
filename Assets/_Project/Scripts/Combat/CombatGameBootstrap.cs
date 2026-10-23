@@ -13,6 +13,7 @@ namespace EchoScrap.Combat
         [SerializeField] private PlayerMotor playerMotor;
         [SerializeField] private Camera gameplayCamera;
         [SerializeField] private CinemachineCamera cameraRig;
+        [SerializeField] private CombatWaveSettings waveSettings;
         [SerializeField] private Vector3 spawnPosition = Vector3.up;
         [SerializeField] private bool prewarmEnemies = true;
         // Direct references keep the shaders and transparent material variants used by procedural views in builds.
@@ -44,17 +45,19 @@ namespace EchoScrap.Combat
         public int RunResetCount { get; private set; }
         public bool IsInitialized => initialized;
         public Vector3 SpawnPosition => spawnPosition;
+        public CombatWaveSettings WaveSettings => waveSettings;
 
         private void Awake() => Initialize();
         private void Start() => ResetRun(false);
 
         public void AssignSceneReferences(PlayerMotor motor, Camera camera, CinemachineCamera rig,
-            Material[] retainedMaterials = null)
+            Material[] retainedMaterials = null, CombatWaveSettings waves = null)
         {
             playerMotor = motor;
             gameplayCamera = camera;
             cameraRig = rig;
             retainedCombatMaterials = retainedMaterials;
+            waveSettings = waves;
         }
 
         public bool Initialize()
@@ -101,6 +104,7 @@ namespace EchoScrap.Combat
             DraftPresentation = GetOrAdd<UpgradeDraftPresentation>(Draft.gameObject);
             DraftPresentation.BindReferences(Session, Draft);
             Director = SystemObject<CombatWaveDirector>("WaveDirector");
+            if (waveSettings != null) Director.Settings = waveSettings;
             Director.BindReferences(Session, Enemies, Player, gameplayCamera);
             Director.BindHazardPool(Hazards);
             Encounter = SystemObject<BossEncounter>("BossEncounter");

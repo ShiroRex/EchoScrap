@@ -239,7 +239,7 @@ namespace EchoScrap.Tests
             session.Events.OnActorDied += _ => deaths++;
             encounter.OnBossActivated += _ => activations++;
             MovePlayer(Vector3.up);
-            director.Step(480f);
+            session.Clock.AdvanceGameplayTime(480f); director.Step();
             Assert.IsTrue(encounter.IsEncounterActive);
             encounter.Boss.AutoTick = false;
             Assert.AreEqual(SessionState.BossIntro, session.State);
@@ -261,7 +261,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(100f, player.CurrentHealth);
             encounter.Step(2f);
             Assert.AreEqual(1, activations);
-            director.Step(4f);
+            session.Clock.AdvanceGameplayTime(4f); director.Step();
             Assert.AreEqual(4, director.ActiveEnemyCount);
         }
 
@@ -271,7 +271,7 @@ namespace EchoScrap.Tests
             player.GetComponent<CapsuleCollider>().height = 2f;
             MovePlayer(Vector3.up);
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
-            director.Step(480f);
+            session.Clock.AdvanceGameplayTime(480f); director.Step();
             encounter.Boss.AutoTick = false;
             encounter.Step(1.5f);
             Assert.IsFalse(encounter.IntroWaitingForClearance);
@@ -286,7 +286,7 @@ namespace EchoScrap.Tests
         public void VictoryAwardsClosingXpOnce_NoDropRng_AndCinematicUsesUnscaledTime()
         {
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
-            director.Step(480f);
+            session.Clock.AdvanceGameplayTime(480f); director.Step();
             encounter.Boss.AutoTick = false;
             encounter.Step(1.5f);
             int awards = 0;
@@ -322,7 +322,7 @@ namespace EchoScrap.Tests
         public void SimultaneousDeathIsDefeat_NoVictoryGemOrClosingDraft_AndTenRestartsReuseBoss()
         {
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
-            director.Step(480f);
+            session.Clock.AdvanceGameplayTime(480f); director.Step();
             encounter.Boss.AutoTick = false;
             encounter.Step(1.5f);
             var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, 2000f);
@@ -337,7 +337,7 @@ namespace EchoScrap.Tests
             {
                 session.ResetSession();
                 MovePlayer(new Vector3(0f, 1f, 12f));
-                director.Step(480f);
+                session.Clock.AdvanceGameplayTime(480f); director.Step();
                 Assert.AreSame(pooledBoss, encounter.Boss);
                 Assert.AreEqual(1500f, encounter.Boss.CurrentHealth);
                 Assert.AreEqual(GolgoraState.Intro, encounter.Boss.State);

@@ -9,6 +9,7 @@ namespace EchoScrap.Combat
     /// coloca su volumen fuera del encuadre proyectado, conservando el perímetro físico de la arena.
     /// </summary>
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(1000)]
     public sealed class CombatWaveDirector : MonoBehaviour
     {
         [SerializeField] private CombatSession session;
@@ -30,9 +31,8 @@ namespace EchoScrap.Combat
         private int reservationCount;
         private int minionOrderOffset;
         private float footprintWinding;
-        private float elapsed;
         private float nextSpawnTime;
-        private float minionElapsed;
+        private float nextMinionTime;
         private int phaseIndex = -1;
 
         public event Action OnBossPhaseRequested;
@@ -41,7 +41,7 @@ namespace EchoScrap.Combat
         public bool StressPopulation { get => stressPopulation; set => stressPopulation = value; }
         public bool IsBossPhase { get; private set; }
         public bool BossActive { get; private set; }
-        public float Elapsed => elapsed;
+        public float Elapsed => session != null ? session.GameplayTime : 0f;
         public float NextSpawnTime => nextSpawnTime;
         public int PhaseIndex => phaseIndex;
         public int ReservedCount => reservationCount;
@@ -169,8 +169,7 @@ namespace EchoScrap.Combat
 
         public void ResetForSession()
         {
-            elapsed = 0f;
-            minionElapsed = 0f;
+            nextMinionTime = 0f;
             reservationCount = 0;
             minionOrderOffset = 0;
             IsBossPhase = false;
@@ -187,8 +186,8 @@ namespace EchoScrap.Combat
 
         private void ScheduleCurrentPhase()
         {
-            CombatWavePhase phase = Settings.GetPhase(elapsed, out phaseIndex, out float progress);
-            nextSpawnTime = elapsed + ResolveInterval(phase, progress);
+            CombatWavePhase phase = Settings.GetPhase(Elapsed, out phaseIndex, out float progress);
+            nextSpawnTime = Elapsed + ResolveInterval(phase, progress);
         }
 
         private static float ResolveInterval(CombatWavePhase phase, float progress)
@@ -203,19 +202,19 @@ namespace EchoScrap.Combat
                 && enemyPool != null && Time.timeScale > 0f;
         }
 
-        private void Update()
+        private void LateUpdate()
         {
             if (autoTick)
-                Step(Time.deltaTime);
+                Step();
         }
 
-        /// <summary>El paso público permite probar minutos de partida sin esperar tiempo real.</summary>
-        public void Step(float deltaTime)
+        /// <summary>Evalúa el reloj de sesión; nunca lo avanza ni acumula nacimientos pendientes.</summary>
+        public void Step()
         {
-            if (!CanRun() || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
+            if (!CanRun())
                 return;
 
-            elapsed += deltaTime;
+            float elapsed = Elapsed;
             if (!IsBossPhase && elapsed + 0.00001f >= Mathf.Max(0f, Settings.BossStartTime))
             {
                 BeginBossPhase();
@@ -226,12 +225,13 @@ namespace EchoScrap.Combat
             {
                 if (BossActive)
                 {
-                    minionElapsed += deltaTime;
                     float interval = Mathf.Max(0.05f, Settings.BossMinionInterval);
-                    if (minionElapsed + 0.00001f >= interval)
+                    if (elapsed + 0.00001f >= nextMinionTime)
                     {
                         SpawnBossMinionWave();
-                        minionElapsed %= interval;
+                        nextMinionTime += interval;
+                        if (nextMinionTime <= elapsed + 0.00001f)
+                            nextMinionTime = elapsed + interval;
                     }
                 }
                 return;
@@ -274,7 +274,7 @@ namespace EchoScrap.Combat
         {
             IsBossPhase = true;
             BossActive = false;
-            minionElapsed = 0f;
+            nextMinionTime = 0f;
             reservationCount = 0;
             enemyPool.DespawnAllActive();
             if (hazards == null)
@@ -288,7 +288,7 @@ namespace EchoScrap.Combat
         public void SetBossActive(bool active)
         {
             BossActive = active && IsBossPhase;
-            minionElapsed = 0f;
+            nextMinionTime = Elapsed + Mathf.Max(0.05f, Settings.BossMinionInterval);
         }
 
         public int SpawnBossMinionWave()

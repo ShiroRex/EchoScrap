@@ -17,6 +17,7 @@ namespace EchoScrap.Editor
     public static class CombatArenaBuilder
     {
         public const string ScenePath = "Assets/_Project/Scenes/CombatArena.unity";
+        public const string WaveSettingsPath = "Assets/_Project/Settings/CombatWaves_Default.asset";
         private const string MaterialDirectory = "Assets/_Project/Materials/CombatArena";
 
         [MenuItem("EchoScrap/Combat/Rebuild Playable Arena")]
@@ -24,7 +25,14 @@ namespace EchoScrap.Editor
         {
             Directory.CreateDirectory("Assets/_Project/Scenes");
             Directory.CreateDirectory(MaterialDirectory);
+            Directory.CreateDirectory("Assets/_Project/Settings");
             AssetDatabase.Refresh();
+            CombatWaveSettings waves = AssetDatabase.LoadAssetAtPath<CombatWaveSettings>(WaveSettingsPath);
+            if (waves == null)
+            {
+                waves = ScriptableObject.CreateInstance<CombatWaveSettings>();
+                AssetDatabase.CreateAsset(waves, WaveSettingsPath);
+            }
             GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(LocomotionSandboxBuilder.PrefabPath);
             if (playerPrefab == null) throw new BuildFailedException("The player locomotion prefab is missing.");
             var retainedMaterials = new List<Material>(8);
@@ -73,7 +81,7 @@ namespace EchoScrap.Editor
             RenderSettings.ambientLight = new Color(0.10f, 0.12f, 0.16f);
             RenderSettings.fog = false;
             var bootstrap = new GameObject("CombatGame").AddComponent<CombatGameBootstrap>();
-            bootstrap.AssignSceneReferences(player.GetComponent<PlayerMotor>(), camera, rig, retainedMaterials.ToArray());
+            bootstrap.AssignSceneReferences(player.GetComponent<PlayerMotor>(), camera, rig, retainedMaterials.ToArray(), waves);
             EditorSceneManager.SaveScene(scene, ScenePath);
             // Los Play Mode tests cargan los dos sandboxes por nombre. La build de entrega sigue
             // usando únicamente ScenePath mediante BuildPlayerOptions.scenes más abajo.

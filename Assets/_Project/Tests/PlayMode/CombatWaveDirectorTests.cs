@@ -54,6 +54,7 @@ namespace EchoScrap.Tests
             director.BindHazardPool(hazards);
             session.ResetSession(20261022);
             yield return null;
+            session.Clock.SetGameplayTimeForTesting(0f);
         }
 
         [UnityTearDown]
@@ -110,24 +111,24 @@ namespace EchoScrap.Tests
         [Test]
         public void FirstAttemptWaitsItsInterval_AndPhaseTransitionsDoNotReleaseOldGroups()
         {
-            director.Step(1.19f);
+            AdvanceDirector(1.19f);
             Assert.AreEqual(0, director.GroupsAttemptedCount);
-            director.Step(0.01f);
+            AdvanceDirector(0.01f);
             Assert.AreEqual(1, director.GroupsAttemptedCount);
             Assert.AreEqual(1, director.LastGroupSpawnedCount);
             Assert.AreEqual(EnemyArchetypeId.Residual, EnemyActor.ActiveEnemies[0].ArchetypeId);
-            director.Step(58.8f);
+            AdvanceDirector(58.8f);
             Assert.AreEqual(1, director.GroupsAttemptedCount, "Changing phase does not release a catch-up group.");
             Assert.AreEqual(1, director.PhaseIndex);
             Assert.AreEqual(60.8f, director.NextSpawnTime, 0.0001f);
-            director.Step(0.79f);
+            AdvanceDirector(0.79f);
             Assert.AreEqual(1, director.GroupsAttemptedCount);
-            director.Step(0.01f);
+            AdvanceDirector(0.01f);
             Assert.AreEqual(2, director.GroupsAttemptedCount);
             Assert.AreEqual(2, director.LastGroupSpawnedCount);
-            director.Step(5f);
+            AdvanceDirector(5f);
             Assert.AreEqual(3, director.GroupsAttemptedCount, "An oversized frame attempts at most one group.");
-            director.Step(0.01f);
+            AdvanceDirector(0.01f);
             Assert.AreEqual(3, director.GroupsAttemptedCount);
         }
 
@@ -168,15 +169,15 @@ namespace EchoScrap.Tests
             obstruction.transform.localScale = new Vector3(120f, 2f, 120f);
             Physics.SyncTransforms();
             Assert.IsFalse(director.TryFindSpawnPosition(EnemyArchetypeId.Residual, out _));
-            director.Step(20f);
+            AdvanceDirector(20f);
             Assert.AreEqual(1, director.GroupsAttemptedCount);
             Assert.AreEqual(0, director.TotalSpawnedCount);
             Assert.AreEqual(1, director.TotalDiscardedCount);
             Object.DestroyImmediate(obstruction);
             Physics.SyncTransforms();
-            director.Step(0.01f);
+            AdvanceDirector(0.01f);
             Assert.AreEqual(0, director.TotalSpawnedCount, "A cleared obstruction does not release missed spawns.");
-            director.Step(1.2f);
+            AdvanceDirector(1.2f);
             Assert.AreEqual(1, director.TotalSpawnedCount);
             camera.transform.rotation = Quaternion.Euler(-60f, 0f, 0f);
             Assert.IsFalse(director.TryFindSpawnPosition(EnemyArchetypeId.Residual, out _));
@@ -194,15 +195,15 @@ namespace EchoScrap.Tests
                     new EnemyWaveWeights(100f, 0f, 0f, 0f, 0f))
             };
             director.ResetForSession();
-            director.Step(0.1f);
+            AdvanceDirector(0.1f);
             Assert.AreEqual(3, director.ActiveEnemyCount);
             Assert.AreEqual(3, director.LastGroupSpawnedCount);
             Assert.AreEqual(0, director.ReservedCount);
-            director.Step(5f);
+            AdvanceDirector(5f);
             Assert.AreEqual(3, director.ActiveEnemyCount);
             Assert.AreEqual(0, director.LastGroupSpawnedCount);
             director.StressPopulation = true;
-            director.Step(0.1f);
+            AdvanceDirector(0.1f);
             Assert.AreEqual(5, director.ActiveEnemyCount);
             Assert.AreEqual(2, director.LastGroupSpawnedCount);
             var active = EnemyActor.ActiveEnemies;
@@ -224,14 +225,14 @@ namespace EchoScrap.Tests
             Assert.IsTrue(director.TryFindSpawnPosition(EnemyArchetypeId.Residual, out Vector3 repeated));
             Assert.AreEqual(first, repeated, "Decorative randomness cannot alter spawn placement.");
             session.SetManualPause(true);
-            director.Step(100f);
+            AdvanceDirector(100f);
             Assert.AreEqual(0f, director.Elapsed);
             session.SimulateFocusChange(false);
             session.SetManualPause(false);
-            director.Step(100f);
+            AdvanceDirector(100f);
             Assert.AreEqual(0f, director.Elapsed, "The other pause reason remains active.");
             session.ResumeFromFocusLoss();
-            director.Step(1.2f);
+            AdvanceDirector(1.2f);
             Assert.AreEqual(1, director.ActiveEnemyCount);
         }
 
@@ -248,7 +249,7 @@ namespace EchoScrap.Tests
             hazards.SpawnPuddle(1, new Vector3(20f, 0f, 0f));
             var projectile = CorrosivePuddlePool.ProjectileSpec.CreateMortarDefault(2, Vector3.up * 2f, new Vector3(20f, 0f, 0f));
             Assert.IsTrue(hazards.TryLaunchParabolicProjectile(in projectile));
-            director.Step(480f);
+            AdvanceDirector(480f);
             Assert.AreEqual(0, explosions.PendingCount, "La entrada elimina explosiones pendientes de la horda retirada.");
             Assert.IsTrue(director.IsBossPhase);
             Assert.IsFalse(director.BossActive);
@@ -259,7 +260,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0, hazards.ActiveProjectileCount);
             Assert.AreEqual(0, hazards.ActivePuddleCount);
             Assert.AreEqual(0, hazards.ReservedPuddleCount);
-            director.Step(10f);
+            AdvanceDirector(10f);
             Assert.AreEqual(1, requests);
             Assert.AreEqual(0, director.TotalSpawnedCount);
             session.ResetSession(20261022);
@@ -273,11 +274,11 @@ namespace EchoScrap.Tests
         [Test]
         public void BossMinions_FourSecondGroupsRespectCap_RotatePartialComposition_AndNeverCatchUp()
         {
-            director.Step(480f);
+            AdvanceDirector(480f);
             director.SetBossActive(true);
-            director.Step(3.99f);
+            AdvanceDirector(3.99f);
             Assert.AreEqual(0, director.BossMinionWavesCount);
-            director.Step(0.01f);
+            AdvanceDirector(0.01f);
             Assert.AreEqual(1, director.BossMinionWavesCount);
             Assert.AreEqual(4, director.ActiveEnemyCount);
             int residual = 0, mortar = 0, moth = 0;
@@ -290,10 +291,10 @@ namespace EchoScrap.Tests
             Assert.AreEqual(2, residual);
             Assert.AreEqual(1, mortar);
             Assert.AreEqual(1, moth);
-            director.Step(40f);
+            AdvanceDirector(40f);
             Assert.AreEqual(2, director.BossMinionWavesCount);
             Assert.AreEqual(8, director.ActiveEnemyCount, "A long frame attempts one minion wave only.");
-            director.Step(0.01f);
+            AdvanceDirector(0.01f);
             Assert.AreEqual(2, director.BossMinionWavesCount);
             settings.BossMinionCap = 9;
             Assert.AreEqual(1, director.SpawnBossMinionWave());
@@ -302,8 +303,26 @@ namespace EchoScrap.Tests
             Assert.AreEqual(EnemyArchetypeId.Mortar, last.ArchetypeId, "Order rotates so a partial group does not always select Residual.");
             Assert.AreEqual(0, director.SpawnBossMinionWave());
             session.SetManualPause(true);
-            director.Step(20f);
+            AdvanceDirector(20f);
             Assert.AreEqual(4, director.BossMinionWavesCount);
+        }
+
+        private void AdvanceDirector(float deltaTime)
+        {
+            session.Clock.AdvanceGameplayTime(deltaTime);
+            director.Step();
+        }
+
+        [Test]
+        public void DirectorUsesSessionClock_AndRepeatedEvaluationDoesNotAdvanceTimeOrSpawnAgain()
+        {
+            session.Clock.SetGameplayTimeForTesting(1.2f);
+            director.Step();
+            Assert.AreEqual(1.2f, director.Elapsed);
+            Assert.AreEqual(1, director.GroupsAttemptedCount);
+            director.Step();
+            Assert.AreEqual(1.2f, session.GameplayTime);
+            Assert.AreEqual(1, director.GroupsAttemptedCount);
         }
 
         private void AssertOutsideProjectedFootprint(Vector3 position, float margin)
