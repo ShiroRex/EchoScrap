@@ -135,6 +135,8 @@ namespace EchoScrap.Editor
             if (shader == null) throw new BuildFailedException("Missing shader: " + shaderName);
             string path = MaterialDirectory + "/" + name + ".mat";
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            // Rebuilding spawn configuration must preserve the arena's authored presentation.
+            if (material != null) return material;
             if (material == null)
             {
                 material = new Material(shader) { name = "CombatArena_" + name };
@@ -176,6 +178,39 @@ namespace EchoScrap.Editor
 
         public static void BuildWindows() => BuildWindowsInternal(false);
         public static void BuildWindowsDevelopment() => BuildWindowsInternal(true);
+
+        public static void ValidateSpawnerSettingsAndBuildWindows()
+        {
+            CombatWaveSettings waves = AssetDatabase.LoadAssetAtPath<CombatWaveSettings>(WaveSettingsPath);
+            if (waves == null) throw new BuildFailedException("The authored wave settings asset is missing.");
+            string guid = AssetDatabase.AssetPathToGUID(WaveSettingsPath);
+            float original = waves.OffscreenMargin;
+            try
+            {
+                waves.OffscreenMargin = original + 0.125f;
+                EditorUtility.SetDirty(waves);
+                AssetDatabase.SaveAssets();
+                Rebuild();
+                var rebuilt = AssetDatabase.LoadAssetAtPath<CombatWaveSettings>(WaveSettingsPath);
+                var bootstrap = Object.FindAnyObjectByType<CombatGameBootstrap>();
+                if (AssetDatabase.AssetPathToGUID(WaveSettingsPath) != guid
+                    || rebuilt.OffscreenMargin != original + 0.125f || bootstrap.WaveSettings != rebuilt
+                    || bootstrap.ArenaGround == null)
+                    throw new BuildFailedException("Rebuilding the arena did not preserve its authored spawn context.");
+            }
+            finally
+            {
+                waves = AssetDatabase.LoadAssetAtPath<CombatWaveSettings>(WaveSettingsPath);
+                waves.OffscreenMargin = original;
+                EditorUtility.SetDirty(waves);
+                AssetDatabase.SaveAssets();
+                Rebuild();
+            }
+            Directory.CreateDirectory("Logs/SpawnerPlayableRun");
+            File.WriteAllText("Logs/SpawnerPlayableRun/SettingsPersistence.json",
+                "{\"passed\":true,\"guid\":\"" + guid + "\",\"testedNonDefaultMargin\":true,\"restored\":true}");
+            BuildWindows();
+        }
         private static void BuildWindowsInternal(bool development)
         {
             PlayerSettings.enableFrameTimingStats = true;

@@ -425,6 +425,25 @@ namespace EchoScrap.Combat
             return false;
         }
 
+        // Read-only observation used by the explicit input-driven QA run, never by ordinary gameplay.
+        internal bool TryFindClosestUnattracted(Vector3 origin, CombatPickupKind kind, float range, out CombatPickupInfo info)
+        {
+            info = default;
+            float best = range * range;
+            bool found = false;
+            for (int i = 0; i < slots.Count; i++)
+            {
+                PickupSlot slot = slots[i];
+                if (!slot.Active || slot.Attracted || slot.Kind != kind) continue;
+                Vector3 delta = slot.Position - origin; delta.y = 0f;
+                if (delta.sqrMagnitude >= best) continue;
+                best = delta.sqrMagnitude;
+                info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted);
+                found = true;
+            }
+            return found;
+        }
+
         public void ResetForSession()
         {
             for (int i = 0; i < slots.Count; i++)

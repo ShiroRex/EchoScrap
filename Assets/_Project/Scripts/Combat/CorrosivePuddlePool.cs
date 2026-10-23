@@ -403,6 +403,27 @@ namespace EchoScrap.Combat
                     };
             return default;
         }
+        // Read-only observation of existing telegraphs for the opt-in QA input driver.
+        internal float AnnouncedThreatCost(Vector3 position, float padding)
+        {
+            float cost = 0f;
+            for (int i = 0; i < puddles.Length; i++)
+            {
+                PuddleSlot slot = puddles[i];
+                if (slot == null || !slot.Active) continue;
+                Vector3 delta = position - slot.Center; delta.y = 0f;
+                cost += Mathf.Max(0f, slot.Radius + padding - delta.magnitude);
+            }
+            for (int i = 0; i < projectiles.Length; i++)
+            {
+                ProjectileSlot slot = projectiles[i];
+                if (slot == null || !slot.Active) continue;
+                Vector3 delta = position - slot.Spec.TargetPosition; delta.y = 0f;
+                cost += Mathf.Max(0f, slot.Spec.ImpactRadius + padding - delta.magnitude);
+            }
+            return cost;
+        }
+
         public void ClearAll()
         {
             if (!initialized) return;

@@ -30,6 +30,8 @@ namespace EchoScrap.Combat
             public float cpuMs, gpuMs, allocatedMb, peakAllocatedMb, reservedMb, gcBytesPerFrame;
             public bool gcSamplesAvailable;
             public int framesWithColossusCharges, framesWithColossusWindups, peakChargingColossi;
+            public int directorGroups, directorSpawned, poolGrowth;
+            public double directorPlanningMs;
         }
         [Serializable] private sealed class Report
         {
@@ -61,6 +63,9 @@ namespace EchoScrap.Combat
         private int dashCount;
         private bool previousDash;
         private bool chargeTrial;
+        private bool spawnerTrial;
+        private int measuredGroups, measuredSpawned, measuredCreated;
+        private double measuredPlanning;
         private RenderTexture measurementTarget;
         private Texture2D renderBarrier;
         private UniversalRenderPipeline.SingleCameraRequest renderRequest;
@@ -87,6 +92,7 @@ namespace EchoScrap.Combat
             yield return null; yield return null;
             string[] args = Environment.GetCommandLineArgs();
             chargeTrial = Array.IndexOf(args, "-benchmarkColossusCharge") >= 0;
+            spawnerTrial = Array.IndexOf(args, "-benchmarkSpawner") >= 0;
             output = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "CombatBenchmark");
             for (int i = 0; i < args.Length - 1; i++)
             {
@@ -123,7 +129,13 @@ namespace EchoScrap.Combat
             game.Enemies.Prewarm(EnemyArchetypeId.Colossus, 40);
             game.Enemies.Prewarm(EnemyArchetypeId.Mortar, 75);
             game.Enemies.Prewarm(EnemyArchetypeId.ExplosiveMoth, 60);
-            if (chargeTrial)
+            if (spawnerTrial)
+            {
+                duration = Mathf.Min(duration, 50f); // Keep the late-horde benchmark before the boss threshold.
+                foreach (int population in new[] { 150, 250 })
+                    yield return RunCase(population, PresentationCondition.FullEffects, -1);
+            }
+            else if (chargeTrial)
             {
                 // Base weapon lets the Colossus survive to its first charge; the max-upgrade trial kills it too early.
                 foreach (int population in new[] { 150, 250 })
@@ -145,7 +157,8 @@ namespace EchoScrap.Combat
             {
                 unity = Application.unityVersion, cpu = SystemInfo.processorType,
                 gpu = SystemInfo.graphicsDeviceName, os = SystemInfo.operatingSystem,
-                scenario = chargeTrial ? "Colossus charge, base upgrades" : "All upgrades at maximum",
+                scenario = spawnerTrial ? "Late horde director active; refill to cap-4; all upgrades; benchmark invulnerability"
+                    : chargeTrial ? "Colossus charge, base upgrades" : "All upgrades at maximum",
                 width = Screen.width, height = Screen.height, secondsPerCase = duration, results = results.ToArray()
             };
             File.WriteAllText(Path.Combine(output, "Summary.json"), JsonUtility.ToJson(report, true));
@@ -159,7 +172,13 @@ namespace EchoScrap.Combat
             game.ResetRun(false);
             game.Session.ResetSession(20261022);
             game.Session.Effects.ApplyCondition(condition);
-            game.Director.AutoTick = false; game.Encounter.AutoTick = false;
+            game.Director.AutoTick = spawnerTrial; game.Encounter.AutoTick = false;
+            if (spawnerTrial)
+            {
+                game.Director.StressPopulation = population > game.WaveSettings.PopulationCap;
+                game.Session.Clock.SetGameplayTimeForTesting(420f);
+                game.Director.ResetForSession();
+            }
             game.Draft.enabled = false; game.DraftPresentation.enabled = false;
             if (!chargeTrial)
                 foreach (UpgradeCardDefinition card in UpgradeCatalog.Cards) game.Stats.SetUpgradeTier(card.Id, card.MaxTier);
@@ -174,6 +193,10 @@ namespace EchoScrap.Combat
             Debug.Log("[CombatBenchmark] START " + name);
             float warmUntil = Time.realtimeSinceStartup + 3f;
             while (Time.realtimeSinceStartup < warmUntil) yield return null;
+            measuredGroups = game.Director.GroupsAttemptedCount;
+            measuredSpawned = game.Director.TotalSpawnedCount;
+            measuredCreated = game.Enemies.TotalCreatedCount;
+            measuredPlanning = game.Director.TotalPlanningMilliseconds;
             dashCount = 0; previousDash = game.Motor.IsDashing;
             int count = 0;
             float end = Time.realtimeSinceStartup + duration;
@@ -255,7 +278,7 @@ namespace EchoScrap.Combat
 
         private void MaintainPopulation()
         {
-            int missing = desiredPopulation - EnemyActor.ActiveEnemies.Count;
+            int missing = desiredPopulation - (spawnerTrial ? 4 : 0) - EnemyActor.ActiveEnemies.Count;
             for (int i = 0; i < missing; i++)
             {
                 int slot = spawnSerial++ % 20;
@@ -305,6 +328,10 @@ namespace EchoScrap.Combat
                 deadFrames = deadFrames,
                 framesWithColossusCharges = chargeFrames, framesWithColossusWindups = windupFrames,
                 peakChargingColossi = peakCharging,
+                directorGroups = game.Director.GroupsAttemptedCount - measuredGroups,
+                directorSpawned = game.Director.TotalSpawnedCount - measuredSpawned,
+                directorPlanningMs = game.Director.TotalPlanningMilliseconds - measuredPlanning,
+                poolGrowth = game.Enemies.TotalCreatedCount - measuredCreated,
                 meanPopulation = (float)(enemies / n), meanMs = (float)(sum / n),
                 p50Ms = count > 0 ? sorted[(int)((count - 1) * 0.50f)] : 0f,
                 p95Ms = count > 0 ? sorted[(int)((count - 1) * 0.95f)] : 0f,

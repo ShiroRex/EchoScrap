@@ -448,10 +448,14 @@ namespace EchoScrap.Tests
         [Test]
         public void PreparingVisualGeometryDoesNotDrawCombatRandomness()
         {
+            var cold = new GameObject("ColdGeometryPool").AddComponent<EnemyPool>();
+            cold.BindReferences(session, player, hazards);
             int before = session.Rng.Combat.SampleCount;
-            enemies.GetSpawnGeometry(settings.GetArchetype(EnemyArchetypeId.Colossus));
-            enemies.GetSpawnGeometry(settings.GetArchetype(EnemyArchetypeId.ExplosiveMoth));
+            cold.GetSpawnGeometry(settings.GetArchetype(EnemyArchetypeId.Colossus));
+            cold.GetSpawnGeometry(settings.GetArchetype(EnemyArchetypeId.ExplosiveMoth));
             Assert.AreEqual(before, session.Rng.Combat.SampleCount);
+            Assert.AreEqual(2, cold.TotalCreatedCount);
+            Assert.AreEqual(0, director.ActiveEnemyCount);
         }
 
         private void SetConstantGroup(int size, EnemyArchetypeId id)
@@ -461,6 +465,29 @@ namespace EchoScrap.Tests
             settings.Phases = new[] { new CombatWavePhase(0f, 1.2f, 1.2f, size, weights, weights) };
             session.Clock.SetGameplayTimeForTesting(0f);
             director.ResetForSession();
+        }
+
+        [Test]
+        public void WarmPlacementSamplingReusesBuffersWithoutGrowingPoolsOrManagedHeap()
+        {
+            long probeBefore = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
+            byte[] probe = new byte[1048576];
+            long probeSize = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() - probeBefore;
+            System.GC.KeepAlive(probe);
+            Assert.GreaterOrEqual(probeSize, 1048576L, "Calibrate the native heap counter before trusting it.");
+            for (int i = 0; i < 20; i++) director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out _);
+            int created = enemies.TotalCreatedCount;
+            int collections = System.GC.CollectionCount(0) + System.GC.CollectionCount(1) + System.GC.CollectionCount(2);
+            long before = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
+            int found = 0;
+            for (int i = 0; i < 1024; i++)
+                if (director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out _)) found++;
+            long growth = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() - before;
+            Assert.AreEqual(1024, found);
+            Assert.AreEqual(created, enemies.TotalCreatedCount);
+            Assert.AreEqual(collections, System.GC.CollectionCount(0) + System.GC.CollectionCount(1) + System.GC.CollectionCount(2),
+                "A collection must not hide allocations during measurement.");
+            Assert.LessOrEqual(growth, 2048L);
         }
 
         private void AdvanceDirector(float deltaTime)
