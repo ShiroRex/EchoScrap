@@ -2403,7 +2403,7 @@
     },
     "pivotPixelsTopLeft": {
       "x": 32,
-      "y": 58
+      "y": 62
     },
     "normalSpace": "Tangent-space OpenGL +Y; import as linear normal map",
     "authoredDirections": [

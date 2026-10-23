@@ -1,10 +1,16 @@
 # El Coleccionista — arte y animaciones
 
-Pixel art de 64 × 64 px con 15 colores de la paleta Apollo cargada en Aseprite.
+Pixel art de 64 × 64 px con 17 colores de la paleta Apollo cargada en Aseprite.
 Diseño basado en las referencias del usuario: capucha y capa claras remendadas,
 máscara marfil de médico de la plaga con pico curvado, traje oscuro, correas,
 bolso, cadena y farol industrial ámbar. El pico sobresale en ambos perfiles;
-la vista frontal usa escorzo y dos oculares oscuros enmarcados.
+la vista frontal usa escorzo con el pico recto y centrado entre los oculares.
+
+El rediseño recupera las proporciones del concepto aprobado: hombros anchos,
+torso compacto, capa envolvente y botas anchas. Las poses de reposo ocupan
+59–60 px de alto, con las suelas en la fila 61. Se trasladaron los contornos
+del concepto a la cuadrícula, se limitaron los colores a Apollo sin dithering
+y se redibujaron máscara, botas, farol y detalles para su lectura a 64 px.
 
 ## Clips entregados
 
@@ -18,7 +24,7 @@ el reflejo para conservar la orientación correcta del eje X.
 | Idle | 8 | 140 ms | Bucle de respiración, tela y farol |
 | Walk | 8 | 90 ms | Bucle; piernas opuestas, brazos y faldones móviles |
 | Dash | 3 | 40 / 60 / 50 ms | Una vez, 150 ms en total |
-| Death | 8 | 80 / 80 / 100 / 100 / 120 / 120 / 160 / 180 ms | Una vez, 940 ms; caída, apagado y disolución |
+| Death | 8 | 80 / 80 / 100 / 100 / 120 / 120 / 160 / 180 ms | Una vez, 940 ms; caída articulada y disolución |
 
 La velocidad de `Walk` puede escalarse según la velocidad real del jugador;
 el GDD usa el mismo ciclo para caminar/correr. No hay un control de sprint separado.
@@ -59,8 +65,8 @@ Las filas del atlas, contadas desde arriba y empezando en cero, son:
 Las celdas miden siempre 64 × 64 px. En Dash solo se usan las primeras tres
 columnas. La última celda de cada Death es transparente de forma intencional.
 No recortar automáticamente ni eliminar esas celdas vacías de la secuencia.
-Pivote de suelo: **(32, 58)** desde la esquina superior izquierda de la celda
-(normalizado para Unity, desde abajo: **0,5 / 0,09375**).
+Pivote de suelo: **(32, 62)** desde la esquina superior izquierda de la celda
+(normalizado para Unity, desde abajo: **0,5 / 0,03125**).
 Filtrado Point, sin compresión ni mipmaps para conservar la cuadrícula de píxeles.
 Los `.meta` de Unity incluyen estos ajustes y el normal map lineal. El atlas se
 importa como textura RGBA; el JSON contiene las celdas y tiempos para montar los
@@ -68,13 +74,19 @@ clips en la presentación del jugador.
 
 ## Script de Aseprite
 
-`Tools/Aseprite/ColeccionistaPlaga.lua` contiene el redibujo nativo de la máscara,
-su adaptación a los 108 fotogramas y la actualización de normales y vistas.
+`Tools/Aseprite/ColeccionistaPlaga.lua` contiene las matrices de píxeles de los
+108 fotogramas revisados, separadas en seis capas de color y una de normales.
+Es autocontenido: no depende de imágenes temporales ni lee o escribe archivos.
 Con la fuente abierta, copiar el script a la carpeta de scripts de Aseprite,
 actualizarla con F5 y ejecutarlo desde File > Scripts. Trabaja sobre las capas
 y documentos abiertos; guardar la fuente, ambos atlas, la vista y el GIF desde
-la interfaz. La primera ejecución conserva una copia de trabajo en memoria
-para poder ajustar el script sin acumular trazos durante esa sesión.
+la interfaz. Reejecutarlo restaura estas poses: no acumula trazos ni conserva
+ediciones manuales posteriores sobre los mismos fotogramas.
+
+Las normales describen volúmenes suaves según la silueta y las capas del traje;
+no convierten automáticamente los brillos pintados en relieve. Usan una rampa
+de 81 direcciones con alfa binaria. El sombreado del color sigue siendo artístico;
+la intensidad final de iluminación debe ajustarse en el material del juego.
 
 ## Criterios consultados y verificación
 
@@ -87,4 +99,7 @@ Verificado: 108 fotogramas y 16 clips; ocho poses distintas por Walk; duración
 de Dash de 150 ms; muerte con final transparente; colores limitados a Apollo;
 atlas idénticos a la composición de la fuente; alfa idéntica entre color y normal;
 vectores normales unitarios dentro del error de cuantización de 8 bits; reflejo
-izquierdo coherente; silueta continua en los ciclos de reposo, marcha y dash.
+izquierdo coherente. Revisión visual de las cuatro direcciones, de los ocho
+pasos de marcha y de las poses de dash y muerte. Las poses de reposo iniciales
+coinciden píxel a píxel con las bases revisadas antes de construir los ciclos.
+El sprite no está conectado todavía a un Animator ni se ha validado en combate.
