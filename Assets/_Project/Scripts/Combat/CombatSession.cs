@@ -234,8 +234,11 @@ namespace EchoScrap.Combat
                     RefreshHighLevelState();
                 }
             }
-            else if (!requireExplicitResumeOnFocusLoss)
+            else if (!requireExplicitResumeOnFocusLoss || clock.HasPauseReason(PauseReason.TacticalDraft))
             {
+                // The draft already keeps combat paused and hides the normal Resume menu.
+                // Returning focus must unlock its UI, including a suspended confirmation.
+                // Preserve tactical and manual pause reasons until their owners release them.
                 clock.SetPause(PauseReason.FocusLost, false);
                 RefreshHighLevelState();
             }

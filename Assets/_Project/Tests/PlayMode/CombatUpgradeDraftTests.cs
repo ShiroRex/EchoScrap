@@ -263,6 +263,149 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void FocusReturnDuringDraftRestoresKeyboardChoiceWithoutAdvancingGameplay()
+        {
+            var disabled = new List<InputDevice>();
+            foreach (var device in InputSystem.devices)
+                if (device.enabled) { disabled.Add(device); InputSystem.DisableDevice(device); }
+            var keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>();
+                view.BindReferences(session, draft);
+                progression.AddExperience(250);
+                string offersBefore = OfferIds();
+                float gameplayTime = session.GameplayTime;
+                session.SendMessage("OnApplicationFocus", false);
+                view.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);
+                view.StepInput(0.016f);
+                session.SendMessage("OnApplicationFocus", true);
+                view.SendMessage("OnApplicationFocus", true, SendMessageOptions.DontRequireReceiver);
+
+                Assert.That(session.Clock.HasPauseReason(PauseReason.FocusLost), Is.False,
+                    "Returning to the paused draft must restore its controls without an inaccessible Resume button.");
+                Assert.That(session.State, Is.EqualTo(SessionState.TacticalDraft));
+                Assert.That(Time.timeScale, Is.Zero);
+                Assert.That(OfferIds(), Is.EqualTo(offersBefore), "Refocusing cannot reroll the offer.");
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                InputSystem.Update();
+                view.StepInput(0.016f);
+                string chosen = draft.Offers[1].Card.Id;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Digit2));
+                InputSystem.Update();
+                view.StepInput(0.016f);
+                Assert.That(view.IsConfirming, Is.True);
+                view.StepPresentation(0.17f);
+                Assert.That(stats.GetUpgradeTier(chosen), Is.EqualTo(1));
+                Assert.That(progression.PendingChoices, Is.EqualTo(1));
+                Assert.That(session.IsPaused, Is.True, "The next queued choice still pauses combat.");
+                Assert.That(session.GameplayTime, Is.EqualTo(gameplayTime));
+                Assert.That(draft.TryChoose(0), Is.True);
+                Assert.That(session.State, Is.EqualTo(SessionState.Running));
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(keyboard);
+                foreach (var device in disabled) if (device.added) InputSystem.EnableDevice(device);
+            }
+        }
+
+        [Test]
+        public void FocusReturnDuringConfirmationFinishesOnceAndPreservesManualPause()
+        {
+            var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>();
+            view.BindReferences(session, draft);
+            progression.AddExperience(100);
+            string chosen = draft.Offers[0].Card.Id;
+            int acquired = 0;
+            draft.OnCardChosen += _ => acquired++;
+            session.SetManualPause(true);
+            Assert.That(view.ConfirmSelection(), Is.True);
+            view.StepPresentation(0.08f);
+            session.SendMessage("OnApplicationFocus", false);
+            view.StepPresentation(1f);
+            Assert.That(acquired, Is.Zero, "Unfocused confirmation remains suspended.");
+
+            session.SendMessage("OnApplicationFocus", true);
+            view.StepPresentation(0.081f);
+            view.StepPresentation(1f);
+            Assert.That(acquired, Is.EqualTo(1));
+            Assert.That(stats.GetUpgradeTier(chosen), Is.EqualTo(1));
+            Assert.That(draft.IsOpen, Is.False);
+            Assert.That(session.Clock.HasPauseReason(PauseReason.FocusLost), Is.False);
+            Assert.That(session.Clock.HasPauseReason(PauseReason.Manual), Is.True);
+            Assert.That(session.State, Is.EqualTo(SessionState.Paused));
+            session.ResumeAllUserPauses();
+            Assert.That(session.State, Is.EqualTo(SessionState.Running));
+
+            // Outside a tactical choice, returning to the application still requires Resume.
+            session.SendMessage("OnApplicationFocus", false);
+            session.SendMessage("OnApplicationFocus", true);
+            Assert.That(session.Clock.HasPauseReason(PauseReason.FocusLost), Is.True);
+            Assert.That(session.IsPaused, Is.True);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FocusReturnRequiresReleaseBeforeMouseOrGamepadCanConfirm(bool useGamepad)
+        {
+            var disabled = new List<InputDevice>();
+            foreach (var device in InputSystem.devices)
+                if (device.enabled) { disabled.Add(device); InputSystem.DisableDevice(device); }
+            var mouse = InputSystem.AddDevice<Mouse>();
+            var gamepad = InputSystem.AddDevice<Gamepad>();
+            try
+            {
+                var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>();
+                view.BindReferences(session, draft);
+                progression.AddExperience(100);
+                Canvas.ForceUpdateCanvases();
+                var card = (RectTransform)view.CanvasRoot.transform.Find("UpgradeCard_1");
+                var releasedMouse = new MouseState { position = RectTransformUtility.WorldToScreenPoint(null, card.position) };
+                InputSystem.QueueStateEvent(mouse, releasedMouse);
+                InputSystem.QueueStateEvent(gamepad, new GamepadState());
+                InputSystem.Update();
+                view.StepInput(0.016f);
+                view.StepInput(0.016f);
+
+                session.SendMessage("OnApplicationFocus", false);
+                view.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);
+                if (useGamepad)
+                    InputSystem.QueueStateEvent(gamepad, new GamepadState().WithButton(GamepadButton.South));
+                else
+                    InputSystem.QueueStateEvent(mouse, new MouseState { position = releasedMouse.position }.WithButton(MouseButton.Left));
+                InputSystem.Update();
+                session.SendMessage("OnApplicationFocus", true);
+                view.SendMessage("OnApplicationFocus", true, SendMessageOptions.DontRequireReceiver);
+                view.StepInput(0.016f);
+                Assert.That(view.IsConfirming, Is.False, "The refocus press must not acquire a card.");
+                Assert.That(progression.PendingChoices, Is.EqualTo(1));
+
+                InputSystem.QueueStateEvent(mouse, releasedMouse);
+                InputSystem.QueueStateEvent(gamepad, new GamepadState());
+                InputSystem.Update();
+                view.StepInput(0.016f);
+                if (useGamepad)
+                    InputSystem.QueueStateEvent(gamepad, new GamepadState().WithButton(GamepadButton.South));
+                else
+                    InputSystem.QueueStateEvent(mouse, new MouseState { position = releasedMouse.position }.WithButton(MouseButton.Left));
+                InputSystem.Update();
+                view.StepInput(0.016f);
+                Assert.That(view.IsConfirming, Is.True, "A fresh press after release must remain responsive.");
+                view.StepPresentation(0.17f);
+                Assert.That(draft.IsOpen, Is.False);
+                Assert.That(session.IsPaused, Is.False);
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(gamepad);
+                InputSystem.RemoveDevice(mouse);
+                foreach (var device in disabled) if (device.added) InputSystem.EnableDevice(device);
+            }
+        }
+
+        [Test]
         public void PresentationShowsBeforeAfter_NavigatesAndConfirmsLocally_FocusLossSuspendsAnimation()
         {
             var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>();

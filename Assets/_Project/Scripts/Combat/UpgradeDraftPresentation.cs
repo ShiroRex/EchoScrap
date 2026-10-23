@@ -82,6 +82,14 @@ namespace EchoScrap.Combat
             StepPresentation(Time.unscaledDeltaTime);
             if (Application.isFocused) StepInput(Time.unscaledDeltaTime);
         }
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            // The click/button used to return to the Game view must be released before choosing.
+            inputArmed = false;
+            stickLatched = false;
+            navigationRepeat = 0f;
+            pointerKnown = false;
+        }
         public void StepPresentation(float unscaledDeltaTime)
         {
             if (!IsConfirming || unscaledDeltaTime < 0f ||
