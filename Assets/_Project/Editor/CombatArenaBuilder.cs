@@ -82,6 +82,7 @@ namespace EchoScrap.Editor
             RenderSettings.fog = false;
             var bootstrap = new GameObject("CombatGame").AddComponent<CombatGameBootstrap>();
             bootstrap.AssignSceneReferences(player.GetComponent<PlayerMotor>(), camera, rig, retainedMaterials.ToArray(), waves, ground);
+            CombatArenaAuthoring.Prepare(bootstrap);
             EditorSceneManager.SaveScene(scene, ScenePath);
             // Los Play Mode tests cargan los dos sandboxes por nombre. La build de entrega sigue
             // usando únicamente ScenePath mediante BuildPlayerOptions.scenes más abajo.

@@ -46,6 +46,8 @@ namespace EchoScrap.Combat
             if (body != null) body.SetParent(pose, false);
             if (crest != null) crest.SetParent(pose, false);
             ground = new GameObject("Colossus charge ground effects");
+            // The enemy pool stays fixed in world space, unlike the moving actor.
+            ground.transform.SetParent(actor.transform.parent, false);
             boundary = Line("Charge boundary", 4, true, 0.055f);
             arrow = Line("Locked direction", 3, false, 0.09f);
             shock = Prototype.VfxRuntimeUtils.CreateGroundRing(ground.transform, "Brake impact", 1f, 0.12f, 32, Color.white);

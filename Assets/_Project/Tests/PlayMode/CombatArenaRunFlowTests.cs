@@ -71,6 +71,61 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void InspectorBalanceAsset_DrivesHealthWeaponDashAndSurvivesRunReset()
+        {
+            PlayerCombatSettings original = game.Stats.Settings;
+            var edited = Object.Instantiate(original);
+            try
+            {
+                const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                typeof(PlayerCombatSettings).GetField("maxHealth", flags).SetValue(edited, 137f);
+                typeof(PlayerCombatSettings).GetField("flashlightRange", flags).SetValue(edited, 9f);
+                typeof(PlayerCombatSettings).GetField("damagePerPulse", flags).SetValue(edited, 8.25f);
+                typeof(PlayerCombatSettings).GetField("dashSpeed", flags).SetValue(edited, 31f);
+                game.Stats.Settings = edited;
+                game.ResetRun(false);
+                Assert.AreEqual(137f, game.Player.CurrentHealth);
+                Assert.AreEqual(9f, game.Weapon.ActiveBurstRange);
+                Assert.AreEqual(8.25f, game.Weapon.ActiveDamagePerPulse);
+                Assert.AreEqual(31f, game.Motor.EffectiveDashSpeed);
+                Assert.AreSame(edited, game.Stats.Settings, "Restarting must preserve the assigned balance configuration.");
+                Assert.IsFalse(game.Motor.transform.GetComponent<FlashlightPresentation>().ConeRenderer.enabled);
+            }
+            finally
+            {
+                game.Stats.Settings = original;
+                game.ResetRun(false);
+                Object.DestroyImmediate(edited);
+            }
+        }
+
+        [Test]
+        public void RuntimeEffects_StayGroupedAndDoNotMultiplyOnRestart()
+        {
+            Transform effects = game.transform.Find("RuntimeEffects");
+            Assert.IsNotNull(effects);
+            Assert.IsNotNull(effects.Find("DashPresentationPool"));
+            Assert.IsNotNull(effects.Find("FlashlightHitSparkPool"));
+            var moth = game.Enemies.Spawn(EnemyArchetypeId.ExplosiveMoth, new Vector3(10f, 1f, 0f));
+            var colossus = game.Enemies.Spawn(EnemyArchetypeId.Colossus, new Vector3(-10f, 1f, 0f));
+            int children = game.Enemies.transform.childCount;
+            int effectChildren = effects.childCount;
+            int rootCount = game.gameObject.scene.rootCount;
+            for (int index = 0; index < 10; index++) game.ResetRun(false);
+            Assert.AreEqual(children, game.Enemies.transform.childCount);
+            Assert.AreEqual(effectChildren, effects.childCount);
+            Assert.AreEqual(rootCount, game.gameObject.scene.rootCount);
+            foreach (GameObject root in game.gameObject.scene.GetRootGameObjects())
+            {
+                Assert.AreNotEqual("VFX_ExplosionTelegraph", root.name);
+                Assert.AreNotEqual("Colossus charge ground effects", root.name);
+                Assert.AreNotEqual("CombatEventSystem", root.name);
+            }
+            Assert.IsFalse(moth.gameObject.activeSelf);
+            Assert.IsFalse(colossus.gameObject.activeSelf);
+        }
+
+        [Test]
         public void Hud_ShowsImmediateDamageAndRecentBar_AndTracksCardsAndQueuedDraftWithoutExtraPausePanel()
         {
             game.Player.TakeContactOrHazardDamage(20f, Vector3.right * 2f);

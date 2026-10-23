@@ -163,14 +163,17 @@ public class PlayerFlashlightView : MonoBehaviour
 
     public void RenderNow(bool reduced)
     {
+        if (!Initialize()) return;
         reducedEffects = reduced;
-        // The prototype's saved prefab placed its coverage on the ground; the final player is assembled at runtime.
+        // Keep the legacy (hidden) coverage aligned with the floor when the player moves.
         coneMeshFilter.transform.localPosition = new Vector3(0f, -flashlightPivot.position.y + 0.035f, 0f);
         LateUpdate();
     }
 
     public void SynchronizeWithoutFlashes()
     {
+        // A prepared child may be called by the bootstrap before Unity invokes its Awake.
+        if (!Initialize()) return;
         Resynchronize();
         ApplyAppearance();
     }
