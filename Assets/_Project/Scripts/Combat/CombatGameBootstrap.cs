@@ -10,12 +10,15 @@ namespace EchoScrap.Combat
     [DisallowMultipleComponent]
     public sealed class CombatGameBootstrap : MonoBehaviour
     {
+        [Header("Referencias preparadas en la escena")]
         [SerializeField] private PlayerMotor playerMotor;
         [SerializeField] private Camera gameplayCamera;
         [SerializeField] private CinemachineCamera cameraRig;
         [SerializeField] private CombatWaveSettings waveSettings;
         [SerializeField] private Collider arenaGround;
+        [Header("Inicio de partida")]
         [SerializeField] private Vector3 spawnPosition = Vector3.up;
+        [Tooltip("Reserva enemigos al arrancar para reutilizarlos. No son enemigos vivos todavía.")]
         [SerializeField] private bool prewarmEnemies = true;
         // Direct references keep the shaders and transparent material variants used by procedural views in builds.
         [SerializeField] private Material[] retainedCombatMaterials;
@@ -89,7 +92,9 @@ namespace EchoScrap.Combat
             Progression.BindSession(Session);
             Hazards = SystemObject<CorrosivePuddlePool>("CorrosiveHazards");
             Hazards.BindReferences(Session, Player);
-            MothExplosions = MothExplosionPool.GetOrCreate(Session, Player);
+            MothExplosions = Session.GetComponentInChildren<MothExplosionPool>(true);
+            if (MothExplosions != null) MothExplosions.BindReferences(Session, Player);
+            else MothExplosions = MothExplosionPool.GetOrCreate(Session, Player);
             deathPresentation = SystemObject<EnemyDeathPresentationPool>("EnemyDeathPresentation");
             deathPresentation.BindSession(Session);
             Enemies = SystemObject<EnemyPool>("EnemyPool");

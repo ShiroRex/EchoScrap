@@ -14,6 +14,8 @@ namespace EchoScrap.Combat
     [DisallowMultipleComponent]
     public sealed class PlayerDashPresentation : MonoBehaviour
     {
+        [Tooltip("Contenedor fijo de efectos en la escena; las siluetas no siguen al jugador.")]
+        [SerializeField] private Transform worldEffectsRoot;
         public const int MaxAfterimages = 3;
         public const float AfterimageLifetime = 0.12f;
 
@@ -91,7 +93,7 @@ namespace EchoScrap.Combat
             ghostSharedMaterial = new Material(unlitShader) { name = "DashPresentationSharedMat" };
 
             var container = new GameObject("DashPresentationPool");
-            container.transform.SetParent(transform.parent, false);
+            container.transform.SetParent(worldEffectsRoot != null ? worldEffectsRoot : transform.parent, false);
 
             for (int i = 0; i < MaxAfterimages; i++)
             {

@@ -35,7 +35,10 @@ namespace EchoScrap.Combat.Prototype
             properties ??= new MaterialPropertyBlock();
             renderers ??= actor.VisualComposer.PresentationPivot.GetComponentsInChildren<Renderer>(true);
             if (telegraph == null)
+            {
                 telegraph = ExplosionTelegraph.Create(actor.WorldCenter, explosionRadius);
+                telegraph.transform.SetParent(actor.transform.parent, true);
+            }
             ResetPooledState();
         }
 

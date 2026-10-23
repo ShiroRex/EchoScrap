@@ -3,6 +3,9 @@
 `Assets/_Project/Scenes/CombatArena.unity` monta la partida completa con cinco
 arquetipos, oleadas hasta ocho minutos, Gólgora, XP, ocho mejoras, pausa y reinicio.
 La arena física mide 120×120 m y conserva el centro libre para la entrada del jefe.
+El jugador de combate, sus estadísticas y los sistemas de la escena ya están
+preparados antes de Play. Consulta [EditarCombatArena.md](EditarCombatArena.md)
+para localizar cada ajuste en el Inspector y entender los objetos que aparecen.
 El generador `EchoScrap/Combat/Rebuild Playable Arena` guarda escena y dependencias
 de shaders, incluida la linterna y la explosión importadas del prototipo.
 

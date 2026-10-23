@@ -34,6 +34,8 @@ namespace EchoScrap.Combat
         [SerializeField] private MeshFilter coneMeshFilter;
         [SerializeField] private MeshRenderer coneMeshRenderer;
         [SerializeField] private MeshRenderer emitterRenderer;
+        [Tooltip("Contenedor fijo de efectos en la escena; las chispas no siguen al jugador.")]
+        [SerializeField] private Transform worldEffectsRoot;
 
         [Header("Paleta Apollo")]
         [SerializeField] private Color coreColor = new Color(232f / 255f, 193f / 255f, 112f / 255f, 1f);     // #E8C170
@@ -108,7 +110,7 @@ namespace EchoScrap.Combat
         private float contactLength = 0.05f;
         private float lastBuiltRange = -1f;
         private float lastBuiltAngle = -1f;
-        private Prototype.PlayerFlashlightView prototypeView;
+        [SerializeField] private Prototype.PlayerFlashlightView prototypeView;
         private OilLanternVolume oilLantern;
 
         public Prototype.PlayerFlashlightView ImportedView => prototypeView;
@@ -245,16 +247,22 @@ namespace EchoScrap.Combat
                 host.SetActive(false);
                 host.transform.SetParent(transform, false);
                 prototypeView = host.AddComponent<Prototype.PlayerFlashlightView>();
-                var outlineObject = new GameObject("Prototype coverage outline");
-                outlineObject.transform.SetParent(flashlightPivot, false);
-                var outline = outlineObject.AddComponent<LineRenderer>();
-                outline.enabled = false;
-                prototypeView.Configure(weapon, flashlightPivot, spotLight, coneMeshFilter,
-                    coneMeshRenderer, outline, emitterRenderer);
-                host.SetActive(true);
-                oilLantern = host.AddComponent<OilLanternVolume>();
-                oilLantern.Bind(weapon, spotLight, session);
             }
+            Transform outlineTransform = flashlightPivot.Find("Prototype coverage outline");
+            if (outlineTransform == null)
+            {
+                outlineTransform = new GameObject("Prototype coverage outline").transform;
+                outlineTransform.SetParent(flashlightPivot, false);
+            }
+            var outline = outlineTransform.GetComponent<LineRenderer>();
+            if (outline == null) outline = outlineTransform.gameObject.AddComponent<LineRenderer>();
+            outline.enabled = false;
+            prototypeView.Configure(weapon, flashlightPivot, spotLight, coneMeshFilter,
+                coneMeshRenderer, outline, emitterRenderer);
+            prototypeView.gameObject.SetActive(true);
+            oilLantern = prototypeView.GetComponent<OilLanternVolume>();
+            if (oilLantern == null) oilLantern = prototypeView.gameObject.AddComponent<OilLanternVolume>();
+            oilLantern.Bind(weapon, spotLight, session);
         }
 
         private void EnsureHitSparkPool()
@@ -263,7 +271,7 @@ namespace EchoScrap.Combat
                 return;
 
             var poolContainer = new GameObject("FlashlightHitSparkPool");
-            poolContainer.transform.SetParent(transform.parent, false);
+            poolContainer.transform.SetParent(worldEffectsRoot != null ? worldEffectsRoot : transform.parent, false);
             for (int i = 0; i < HitSparkPoolSize; i++)
             {
                 GameObject spark = GameObject.CreatePrimitive(PrimitiveType.Sphere);
