@@ -50,7 +50,7 @@ namespace EchoScrap.Editor
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             Transform arena = new GameObject("Arena_120m").transform;
-            Cube("Floor", arena, new Vector3(0f, -0.5f, 0f), new Vector3(120f, 1f, 120f), floor);
+            Collider ground = Cube("Floor", arena, new Vector3(0f, -0.5f, 0f), new Vector3(120f, 1f, 120f), floor);
             Cube("Wall_North", arena, new Vector3(0f, 1.5f, 60.5f), new Vector3(122f, 3f, 1f), walls);
             Cube("Wall_South", arena, new Vector3(0f, 1.5f, -60.5f), new Vector3(122f, 3f, 1f), walls);
             Cube("Wall_East", arena, new Vector3(60.5f, 1.5f, 0f), new Vector3(1f, 3f, 120f), walls);
@@ -81,7 +81,7 @@ namespace EchoScrap.Editor
             RenderSettings.ambientLight = new Color(0.10f, 0.12f, 0.16f);
             RenderSettings.fog = false;
             var bootstrap = new GameObject("CombatGame").AddComponent<CombatGameBootstrap>();
-            bootstrap.AssignSceneReferences(player.GetComponent<PlayerMotor>(), camera, rig, retainedMaterials.ToArray(), waves);
+            bootstrap.AssignSceneReferences(player.GetComponent<PlayerMotor>(), camera, rig, retainedMaterials.ToArray(), waves, ground);
             EditorSceneManager.SaveScene(scene, ScenePath);
             // Los Play Mode tests cargan los dos sandboxes por nombre. La build de entrega sigue
             // usando únicamente ScenePath mediante BuildPlayerOptions.scenes más abajo.
@@ -159,7 +159,7 @@ namespace EchoScrap.Editor
             return material;
         }
 
-        private static void Cube(string name, Transform parent, Vector3 position, Vector3 scale, Material material, bool collider = true)
+        private static Collider Cube(string name, Transform parent, Vector3 position, Vector3 scale, Material material, bool collider = true)
         {
             GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.name = name; cube.transform.SetParent(parent, false);
@@ -171,6 +171,7 @@ namespace EchoScrap.Editor
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
             }
+            return collider ? cube.GetComponent<Collider>() : null;
         }
 
         public static void BuildWindows() => BuildWindowsInternal(false);

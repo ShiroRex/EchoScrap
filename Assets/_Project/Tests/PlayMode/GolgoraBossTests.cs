@@ -20,6 +20,7 @@ namespace EchoScrap.Tests
         private Camera camera;
         private Material floorMaterial;
         private Material playerMaterial;
+        private Collider arenaGround;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -30,6 +31,7 @@ namespace EchoScrap.Tests
             testScene = SceneManager.CreateScene("GolgoraTest_" + Random.Range(10000, 99999));
             SceneManager.SetActiveScene(testScene);
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            arenaGround = floor.GetComponent<Collider>();
             floor.transform.localScale = Vector3.one * 12f;
             floorMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
             { color = new Color(0.10f, 0.13f, 0.17f) };
@@ -388,6 +390,7 @@ namespace EchoScrap.Tests
             director.AutoTick = false;
             director.BindReferences(session, enemies, player, camera);
             director.BindHazardPool(hazards);
+            director.BindSpawnContext(arenaGround);
             var encounter = new GameObject("BossEncounter").AddComponent<BossEncounter>();
             encounter.AutoTick = false;
             encounter.BindReferences(session, enemies, hazards, director, player);

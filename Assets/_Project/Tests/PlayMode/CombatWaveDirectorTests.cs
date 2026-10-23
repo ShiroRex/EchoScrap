@@ -18,6 +18,7 @@ namespace EchoScrap.Tests
         private Camera camera;
         private CombatWaveDirector director;
         private CombatWaveSettings settings;
+        private Collider floor;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -42,6 +43,11 @@ namespace EchoScrap.Tests
             hazards.BindReferences(session, player);
             enemies = new GameObject("Enemies").AddComponent<EnemyPool>();
             enemies.BindReferences(session, player, hazards);
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            ground.name = "ArenaGround";
+            ground.transform.position = new Vector3(0f, -0.5f, 0f);
+            ground.transform.localScale = new Vector3(120f, 1f, 120f);
+            floor = ground.GetComponent<Collider>();
             camera = new GameObject("GameplayCamera").AddComponent<Camera>();
             camera.fieldOfView = 60f;
             camera.aspect = 16f / 9f;
@@ -52,6 +58,7 @@ namespace EchoScrap.Tests
             director.Settings = settings;
             director.BindReferences(session, enemies, player, camera);
             director.BindHazardPool(hazards);
+            director.BindSpawnContext(floor);
             session.ResetSession(20261022);
             yield return null;
             session.Clock.SetGameplayTimeForTesting(0f);
@@ -305,6 +312,155 @@ namespace EchoScrap.Tests
             session.SetManualPause(true);
             AdvanceDirector(20f);
             Assert.AreEqual(4, director.BossMinionWavesCount);
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        public void GroupsShareCompactFormation_AndEveryVisualVolumeIsOutsideCamera(int size)
+        {
+            SetConstantGroup(size, EnemyArchetypeId.Colossus);
+            AdvanceDirector(1.2f);
+            Assert.AreEqual(size, director.LastGroupSpawnedCount);
+            Assert.AreEqual(0, director.ReservedCount);
+            Assert.LessOrEqual(director.LastAnchorAttempts, 16);
+            Assert.LessOrEqual(director.LastMemberValidations, 64);
+            float spacing = 1.6f + settings.SpawnClearance;
+            var actors = EnemyActor.ActiveEnemies;
+            float longest = 0f, shortest = float.MaxValue;
+            for (int a = 0; a < actors.Count; a++)
+            {
+                Assert.IsTrue(director.IsSpawnVolumeOutsideView(actors[a].ArchetypeId, actors[a].transform.position));
+                for (int b = a + 1; b < actors.Count; b++)
+                {
+                    float distance = Vector3.Distance(actors[a].transform.position, actors[b].transform.position);
+                    longest = Mathf.Max(longest, distance);
+                    shortest = Mathf.Min(shortest, distance);
+                }
+            }
+            Assert.AreEqual(spacing, shortest, 0.001f);
+            Assert.AreEqual(size == 4 ? spacing * Mathf.Sqrt(2f) : spacing, longest, 0.001f);
+        }
+
+        [Test]
+        public void FarEnemiesKeepTheirPopulationSlots_AndDeathReleasesOnlyAvailablePlaces()
+        {
+            settings.PopulationCap = 2;
+            SetConstantGroup(2, EnemyArchetypeId.Residual);
+            AdvanceDirector(1.2f);
+            var first = EnemyActor.ActiveEnemies[0];
+            var second = EnemyActor.ActiveEnemies[1];
+            first.Body.position = first.transform.position = new Vector3(55f, 1f, 55f);
+            second.Body.position = second.transform.position = new Vector3(-55f, 1f, -55f);
+            AdvanceDirector(12f);
+            Assert.IsTrue(first.IsAlive && second.IsAlive);
+            Assert.AreEqual(2, director.ActiveEnemyCount);
+            Assert.AreEqual(2, director.TotalSpawnedCount);
+            var damage = new DamageRequest(1, DamageSourceType.FlashlightPulse, Vector3.zero, Vector3.forward, 999f);
+            first.ReceiveDamage(in damage);
+            AdvanceDirector(1.2f);
+            Assert.AreEqual(2, director.ActiveEnemyCount);
+            Assert.AreEqual(1, director.LastGroupSpawnedCount);
+            Assert.IsTrue(second.IsAlive);
+        }
+
+        [Test]
+        public void GroundIsRequired_AndLowObstaclesAreNotMistakenForFloor()
+        {
+            director.BindSpawnContext(null);
+            Assert.IsFalse(director.TryFindSpawnPosition(EnemyArchetypeId.Residual, out _));
+            director.BindSpawnContext(floor);
+            floor.enabled = false;
+            Assert.IsFalse(director.TryFindSpawnPosition(EnemyArchetypeId.Residual, out _));
+            floor.enabled = true;
+            var low = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            low.transform.position = new Vector3(0f, 0.05f, 0f);
+            low.transform.localScale = new Vector3(120f, 0.1f, 120f);
+            Physics.SyncTransforms();
+            Assert.IsFalse(director.TryFindSpawnPosition(EnemyArchetypeId.Residual, out _));
+            Object.DestroyImmediate(low);
+            Physics.SyncTransforms();
+            Assert.IsTrue(director.TryFindSpawnPosition(EnemyArchetypeId.Residual, out _));
+        }
+
+        [Test]
+        public void ColossusUsesShiftedCapsule_AndRejectsObstaclesAboveTheOldQuery()
+        {
+            var data = settings.GetArchetype(EnemyArchetypeId.Colossus);
+            EnemySpawnGeometry geometry = enemies.GetSpawnGeometry(data);
+            geometry.CapsuleAt(Vector3.up, out Vector3 bottom, out Vector3 top);
+            Assert.AreEqual(0f, bottom.y - geometry.Radius, 0.001f);
+            Assert.AreEqual(3.2f, top.y + geometry.Radius, 0.001f);
+            EnemyActor actor = enemies.Spawn(data, new Vector3(45f, 1f, 45f));
+            Assert.AreEqual(EnemySpawnGeometry.LocalColliderCenter(data), actor.BodyCollider.center);
+            Assert.AreEqual(0f, actor.BodyCollider.bounds.min.y, 0.001f);
+            Assert.AreEqual(3.2f, actor.BodyCollider.bounds.max.y, 0.001f);
+            enemies.ReturnToPool(actor);
+            var high = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            high.transform.position = new Vector3(0f, 3.05f, 0f);
+            high.transform.localScale = new Vector3(120f, 0.1f, 120f);
+            Physics.SyncTransforms();
+            Assert.IsTrue(director.TryFindSpawnPosition(EnemyArchetypeId.Residual, out _));
+            Assert.IsFalse(director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out _));
+        }
+
+        [TestCase(1.7777778f)]
+        [TestCase(2.3333333f)]
+        public void RootOutsideScreenDoesNotAllowVisibleColossusHead(float aspect)
+        {
+            camera.aspect = aspect;
+            // A shallower view lets a head cross the bottom plane while its root remains outside.
+            camera.transform.rotation = Quaternion.Euler(50f, 0f, 0f);
+            var rootPlane = new Plane(Vector3.up, Vector3.up);
+            Ray ray = camera.ViewportPointToRay(new Vector3(0.5f, -0.01f, 0f));
+            Assert.IsTrue(rootPlane.Raycast(ray, out float distance));
+            Vector3 root = ray.GetPoint(distance);
+            Assert.Less(camera.WorldToViewportPoint(root).y, 0f);
+            Vector3 headViewport = camera.WorldToViewportPoint(root + Vector3.up * 2.2f);
+            Assert.That(headViewport.y, Is.InRange(0f, 1f));
+            Assert.IsFalse(director.IsSpawnVolumeOutsideView(EnemyArchetypeId.Colossus, root));
+            for (int i = 0; i < 16; i++)
+            {
+                Assert.IsTrue(director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out Vector3 position));
+                Assert.IsTrue(director.IsSpawnVolumeOutsideView(EnemyArchetypeId.Colossus, position));
+            }
+        }
+
+        [Test]
+        public void SaturatedObstacleQueriesDiscardWholeGroup_AndRespectSearchBudget()
+        {
+            SetConstantGroup(4, EnemyArchetypeId.Residual);
+            for (int i = 0; i < 33; i++)
+            {
+                var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                cube.transform.position = Vector3.up;
+                cube.transform.localScale = new Vector3(120f, 2f, 120f);
+            }
+            Physics.SyncTransforms();
+            AdvanceDirector(1.2f);
+            Assert.AreEqual(0, director.TotalSpawnedCount);
+            Assert.AreEqual(4, director.Discarded(CombatWaveDirector.DiscardReason.QuerySaturated));
+            Assert.AreEqual(0, director.ReservedCount);
+            Assert.LessOrEqual(director.LastAnchorAttempts, 16);
+            Assert.LessOrEqual(director.LastMemberValidations, 64);
+        }
+
+        [Test]
+        public void PreparingVisualGeometryDoesNotDrawCombatRandomness()
+        {
+            int before = session.Rng.Combat.SampleCount;
+            enemies.GetSpawnGeometry(settings.GetArchetype(EnemyArchetypeId.Colossus));
+            enemies.GetSpawnGeometry(settings.GetArchetype(EnemyArchetypeId.ExplosiveMoth));
+            Assert.AreEqual(before, session.Rng.Combat.SampleCount);
+        }
+
+        private void SetConstantGroup(int size, EnemyArchetypeId id)
+        {
+            var weights = new EnemyWaveWeights(id == EnemyArchetypeId.Residual ? 100f : 0f,
+                0f, id == EnemyArchetypeId.Colossus ? 100f : 0f, 0f, 0f);
+            settings.Phases = new[] { new CombatWavePhase(0f, 1.2f, 1.2f, size, weights, weights) };
+            session.Clock.SetGameplayTimeForTesting(0f);
+            director.ResetForSession();
         }
 
         private void AdvanceDirector(float deltaTime)

@@ -360,6 +360,25 @@ namespace EchoScrap.Combat
             }
         }
 
+        public Bounds CaptureSpawnModelBounds()
+        {
+            Bounds bounds = new Bounds(Vector3.zero, Vector3.zero);
+            for (int i = 0; i < archetypeRenderers.Count; i++)
+            {
+                Renderer view = archetypeRenderers[i];
+                if (!(view is MeshRenderer) && !(view is SkinnedMeshRenderer)) continue;
+                Bounds local = view.localBounds;
+                Matrix4x4 toActor = transform.worldToLocalMatrix * view.transform.localToWorldMatrix;
+                for (int corner = 0; corner < 8; corner++)
+                {
+                    Vector3 point = local.center + Vector3.Scale(local.extents,
+                        new Vector3((corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f));
+                    bounds.Encapsulate(toActor.MultiplyPoint3x4(point));
+                }
+            }
+            return bounds;
+        }
+
         private void ConfigurePoolReferences(EnemyArchetypeData data, CombatSession combatSession, PlayerHealth player)
         {
             runtimeArchetype = data;
@@ -470,9 +489,7 @@ namespace EchoScrap.Combat
             Vector3 clampedSpawn = new Vector3(spawnPosition.x, 1f, spawnPosition.z);
             transform.localScale = runtimeArchetype.VisualScale;
             // The heavy capsule scales to 3.2 m tall. Keep its bottom on the floor at fixed root Y=1.
-            bodyCollider.center = runtimeArchetype.ArchetypeId == EnemyArchetypeId.Colossus
-                ? Vector3.up * Mathf.Max(0f, runtimeArchetype.ColliderHeight * 0.5f - 1f / runtimeArchetype.VisualScale.y)
-                : Vector3.zero;
+            bodyCollider.center = EnemySpawnGeometry.LocalColliderCenter(runtimeArchetype);
             transform.SetPositionAndRotation(clampedSpawn, Quaternion.identity);
             if (targetPlayer != null)
             {
@@ -1052,6 +1069,8 @@ namespace EchoScrap.Combat
     /// </summary>
     public sealed class EnemyPool : MonoBehaviour
     {
+        private readonly Dictionary<EnemyArchetypeId, EnemySpawnGeometry> spawnGeometry =
+            new Dictionary<EnemyArchetypeId, EnemySpawnGeometry>(5);
         private readonly Dictionary<EnemyArchetypeId, Stack<EnemyActor>> inactivePools =
             new Dictionary<EnemyArchetypeId, Stack<EnemyActor>>();
         private readonly List<EnemyActor> allCreatedActors = new List<EnemyActor>(256);
@@ -1108,6 +1127,26 @@ namespace EchoScrap.Combat
                 actor.gameObject.SetActive(false);
                 stack.Push(actor);
             }
+        }
+
+        public EnemySpawnGeometry GetSpawnGeometry(EnemyArchetypeData data)
+        {
+            if (spawnGeometry.TryGetValue(data.ArchetypeId, out EnemySpawnGeometry geometry) && geometry.Matches(data))
+                return geometry;
+            EnemyActor model;
+            if (inactivePools.TryGetValue(data.ArchetypeId, out Stack<EnemyActor> stack) && stack.Count > 0)
+            {
+                model = stack.Peek();
+                model.PrepareForPool(data, session, playerHealth);
+            }
+            else
+            {
+                model = CreateInstance(data);
+                ReturnToPool(model);
+            }
+            geometry = new EnemySpawnGeometry(data, model.CaptureSpawnModelBounds());
+            spawnGeometry[data.ArchetypeId] = geometry;
+            return geometry;
         }
 
         public EnemyActor Spawn(EnemyArchetypeId archetypeId, Vector3 position)

@@ -186,6 +186,25 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator SpawnSamplingUsesStableCinemachinePose_RegardlessOfDecorativeShake()
+        {
+            yield return null;
+            game.Session.ResetSession(20261022);
+            game.Session.Effects.ApplyCondition(PresentationCondition.FullEffects);
+            var feedback = game.CameraRig.GetComponent<CombatCameraFeedback>();
+            feedback.RequestShake(ShakePriority.Medium, 0.35f, 1f, 13f);
+            yield return null;
+            Assert.IsTrue(game.Director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out Vector3 full));
+            int samples = game.Session.Rng.Combat.SampleCount;
+            game.Session.ResetSession(20261022);
+            game.Session.Effects.ApplyCondition(PresentationCondition.ReducedEffects);
+            yield return null;
+            Assert.IsTrue(game.Director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out Vector3 reduced));
+            Assert.That(Vector3.Distance(full, reduced), Is.LessThan(0.001f));
+            Assert.AreEqual(samples, game.Session.Rng.Combat.SampleCount);
+        }
+
+        [UnityTest]
         public IEnumerator BossArrow_RemainsVisibleOutsideFrameWithEffectsReduced()
         {
             Vector3 position = new Vector3(50f, 1f, 50f);
