@@ -12,6 +12,18 @@ torso compacto, capa envolvente y botas anchas. Las poses de reposo ocupan
 del concepto a la cuadrícula, se limitaron los colores a Apollo sin dithering
 y se redibujaron máscara, botas, farol y detalles para su lectura a 64 px.
 
+La corrección frontal ensancha la raíz del pico y las mejillas, acorta su
+proyección por el escorzo y conserva el eje entre los oculares. El perfil
+aceptado conserva su capucha y máscara. Se mantienen los tonos de hueso Apollo
+en ambas vistas, con sombra lateral en el pico frontal.
+
+Se sustituyeron los movimientos de recortes independientes por una deformación
+continua de la prenda superior. Cuello, cintura, axila y muñeca comparten la
+misma transformación; el farol acompaña a la mano. Las piernas se dibujan por
+debajo del faldón, con solapamiento en las caderas, y las botas usan su contorno
+real para evitar arrastrar restos de la capa. La caída mantiene conectado el
+traje; la disolución final conserva fragmentos intencionales.
+
 ## Clips entregados
 
 Cada clip existe en `Down`, `Right`, `Up` y `Left`: 16 clips, 108 fotogramas.
@@ -100,6 +112,16 @@ de Dash de 150 ms; muerte con final transparente; colores limitados a Apollo;
 atlas idénticos a la composición de la fuente; alfa idéntica entre color y normal;
 vectores normales unitarios dentro del error de cuantización de 8 bits; reflejo
 izquierdo coherente. Revisión visual de las cuatro direcciones, de los ocho
-pasos de marcha y de las poses de dash y muerte. Las poses de reposo iniciales
-coinciden píxel a píxel con las bases revisadas antes de construir los ciclos.
-El sprite no está conectado todavía a un Animator ni se ha validado en combate.
+pasos de marcha y de las poses de dash y muerte, con hojas de contacto y onion
+skin en Aseprite. El análisis de conectividad de los 108 cuadros no encuentra
+componentes separados en Idle, Walk ni Dash; los ocho cuadros con componentes
+separados pertenecen a la disolución final de Death. Los espacios del brazo,
+asa, entrepierna y extremos de capa se revisaron como espacio negativo.
+
+Las exportaciones guardadas de color y normales coinciden píxel a píxel con
+los 108 cuadros de la fuente, incluidas sus duraciones. Se revisó la respuesta
+de las normales con tres luces direccionales en una previsualización local.
+El GIF conserva 27 cuadros y 2930 ms para su secuencia de demostración.
+PixelLab gratuito rechazó la prueba por alta demanda; no se usaron resultados
+de ese servicio en esta corrección. El sprite no está conectado todavía a un
+Animator ni se ha validado en combate.
