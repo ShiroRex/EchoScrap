@@ -7,8 +7,10 @@ Shader "EchoScrap/Character Pixel Lit"
         [MainColor] _BaseColor("Tint / damage flash", Color) = (1,1,1,1)
         _EmissionColor("Damage accent", Color) = (0,0,0,0)
         _FrameRect("Frame UV rect", Vector) = (0,0.9375,0.125,0.0625)
-        _AmbientStrength("Palette fill", Range(0,1)) = 0.85
-        _NormalStrength("Relief", Range(0,1)) = 0.55
+        _AmbientStrength("Palette fill", Range(0,1)) = 0.55
+        _NormalStrength("Relief", Range(0,2)) = 1
+        _KeyStrength("Main light response", Range(0,4)) = 1.5
+        _LocalStrength("Local light response", Range(0,2)) = 0.65
     }
     SubShader
     {
@@ -36,7 +38,7 @@ Shader "EchoScrap/Character Pixel Lit"
                 float4 _BaseMap_TexelSize;
                 float4 _FrameRect;
                 half4 _BaseColor, _EmissionColor;
-                half _AmbientStrength, _NormalStrength;
+                half _AmbientStrength, _NormalStrength, _KeyStrength, _LocalStrength;
             CBUFFER_END
             struct Attributes { float4 positionOS:POSITION; float3 normalOS:NORMAL; float4 tangentOS:TANGENT; float2 uv:TEXCOORD0; };
             struct Varyings { float4 positionCS:SV_POSITION; float3 positionWS:TEXCOORD0; half3 normalWS:TEXCOORD1; half3 tangentWS:TEXCOORD2; half3 bitangentWS:TEXCOORD3; float2 uv:TEXCOORD4; };
@@ -46,12 +48,17 @@ Shader "EchoScrap/Character Pixel Lit"
                 VertexPositionInputs p=GetVertexPositionInputs(input.positionOS.xyz);
                 VertexNormalInputs n=GetVertexNormalInputs(input.normalOS,input.tangentOS);
                 o.positionCS=p.positionCS; o.positionWS=p.positionWS;
+                // Keep the drawn proportions at this steep perspective angle. Depth remains physical,
+                // but all sprite pixels use the foot's projection scale (no enlarged head / tiny boots).
+                float footW=TransformObjectToHClip(float3(0,0,0)).w;
+                o.positionCS.z*=footW/o.positionCS.w;
+                o.positionCS.w=footW;
                 o.normalWS=n.normalWS; o.tangentWS=n.tangentWS; o.bitangentWS=n.bitangentWS;
                 o.uv=input.uv; return o;
             }
             half3 Contribution(half3 normal, Light light)
             {
-                return saturate(dot(normal,light.direction)*0.5h+0.5h)*light.color*light.distanceAttenuation*light.shadowAttenuation;
+                return saturate((dot(normal,light.direction)+0.15h)/1.15h)*light.color*light.distanceAttenuation*light.shadowAttenuation;
             }
             half4 Frag(Varyings input):SV_Target
             {
@@ -65,7 +72,7 @@ Shader "EchoScrap/Character Pixel Lit"
                 inputData.positionWS=input.positionWS;
                 inputData.normalizedScreenSpaceUV=GetNormalizedScreenSpaceUV(input.positionCS);
                 Light mainLight=GetMainLight(TransformWorldToShadowCoord(input.positionWS));
-                half3 lighting=_AmbientStrength+Contribution(normal,mainLight)*0.30h;
+                half3 lighting=_AmbientStrength+Contribution(normal,mainLight)*_KeyStrength;
                 half3 additional=0;
                 #if defined(_ADDITIONAL_LIGHTS)
                     #if USE_CLUSTER_LIGHT_LOOP
@@ -77,10 +84,11 @@ Shader "EchoScrap/Character Pixel Lit"
                         additional+=Contribution(normal,GetAdditionalLight(lightIndex,input.positionWS,half4(1,1,1,1)));
                     LIGHT_LOOP_END
                 #endif
-                lighting+=saturate(additional)*0.22h;
+                // Compress bright lantern pulses smoothly instead of flattening their entire lit side.
+                lighting+=additional/(1+additional)*_LocalStrength;
                 half flash=saturate(max(_EmissionColor.r,max(_EmissionColor.g,_EmissionColor.b)));
                 half3 albedo=lerp(color.rgb*_BaseColor.rgb,_BaseColor.rgb,flash*0.75h);
-                return half4(albedo*min(lighting,1.22h),color.a);
+                return half4(albedo*min(lighting,1.4h),color.a);
             }
             ENDHLSL
         }

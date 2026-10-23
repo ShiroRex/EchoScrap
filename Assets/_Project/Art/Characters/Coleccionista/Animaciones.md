@@ -132,10 +132,21 @@ Conserva el Rigidbody, hurtbox, controles, velocidad y autoapuntado originales.
 La cápsula y la flecha provisionales están ocultas únicamente en este prefab
 de combate; los sandboxes de locomoción conservan su representación de prueba.
 
-La vista usa un quad orientado hacia la cámara, con el pivote de los pies en
-el suelo y escala de referencia de 24 píxeles por unidad. Ajusta la escala y
-posición proyectadas a píxeles enteros para evitar vibración de la cuadrícula.
-La sombra de contacto permanece en el plano del suelo. Los indicadores de los
+La vista usa un quad vertical que sigue únicamente el giro horizontal de la
+cámara, con el pivote de los pies en el suelo y escala de referencia de 24
+píxeles por unidad. `visualScale = 1.5` aumenta su tamaño; a 1080p pasa de dos
+a tres píxeles de pantalla por píxel del sprite. La altura compensa el ángulo
+alto de la cámara y el shader conserva la escala de proyección de los pies,
+evitando agrandar la cabeza o encoger las botas por perspectiva. Las estelas
+usan la misma corrección. El ajuste a la cuadrícula desplaza el pie sobre el
+plano horizontal, sin levantarlo del suelo.
+
+La sombra de contacto es más ancha y oscura. Una segunda sombra proyecta la
+silueta del cuadro animado sobre el suelo siguiendo la dirección de la luz
+principal. Es una proyección estilizada sobre el piso plano de esta arena:
+no es un shadow map y no se adapta a escaleras ni paredes. No requiere activar
+sombras globales para toda la horda. Ambas desaparecen durante Death y vuelven
+al reiniciar. Los indicadores de los
 cuatro pulsos se sitúan bajo los pies para dejar legibles la cara y el equipo.
 El resplandor cálido sigue al farol del sprite; la llama 3D provisional se oculta.
 El haz volumétrico respeta la silueta mediante stencil y mantiene su apuntado.
@@ -150,7 +161,9 @@ y las estelas con tiempo no escalado, sin reactivar la simulación.
 
 El material `Coleccionista.mat` usa `CharacterPixelLit.shader`: alfa recortada,
 normal map lineal OpenGL +Y, luces URP 3D y un relleno que mantiene legible la
-paleta. Color y normales comparten exactamente el mismo rectángulo UV. El flash
+paleta. La corrección de presentación baja el relleno de 0.85 a 0.55, aumenta
+el relieve de 0.55 a 1 y permite graduar por separado la respuesta a la luz
+principal y al farol. Color y normales comparten exactamente el mismo rectángulo UV. El flash
 de daño comparte su bloque de propiedades con la animación. Las tres estelas
 del dash reutilizan un pool de quads con la silueta del cuadro capturado.
 
@@ -159,6 +172,9 @@ Collector To Player**. `CollectorSpriteAuthoring` actualiza datos, mallas,
 materiales y prefab conservando sus GUID; no reconstruye ni guarda la arena.
 Las pruebas `CollectorSpriteTests` comprueban clips, direcciones, suelo, pausa,
 dash, estelas, daño, caída y reinicio usando el jugador de la escena real.
+También comparan capturas GPU con/sin normales y con/sin sombras para verificar
+que ambos efectos se vean en el render, además de comprobar la postura vertical
+y que la sombra use el mismo cuadro que el personaje en las cuatro direcciones.
 
 Validación de integración: 58 pruebas Play Mode aprobadas; las ocho pruebas
 del Coleccionista se repitieron después de reforzar el caso de muerte justo
@@ -173,3 +189,13 @@ por debajo de 60 FPS en esa carga. El ensayo anterior del director ya medía
 Son muestras de cinco segundos por caso en Ryzen 7 5700X / Radeon RX 6650 XT;
 el contador de tiempo GPU no estuvo disponible. Informe en
 `Logs/CollectorBenchmark/Summary.json`.
+
+Validación de postura, tamaño y sombras (23-10-2026): 59 pruebas Play Mode
+aprobadas y build Windows completada. Las capturas frontal, de perfil y de
+comparación están en `Logs/CollectorIntegration/`. La comparación GPU detectó
+9503 píxeles con respuesta a las normales y 13503 afectados por las sombras.
+El nuevo ensayo standalone de cinco segundos por caso midió 8,69 ms de media /
+11,53 ms p95 con 150 enemigos y 17,13 ms / 20,89 ms con 250. El segundo caso
+sigue sin sostener 60 FPS; estas muestras no demuestran una mejora de rendimiento
+respecto al ensayo anterior. El contador GPU siguió sin estar disponible.
+Informe: `Logs/CollectorGroundingBenchmark/Summary.json`.

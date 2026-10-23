@@ -4,16 +4,18 @@ using UnityEngine;
 
 namespace EchoScrap.Combat
 {
-    /// <summary>Camera-facing pixel art, driven by the physical player and the authored Aseprite timings.</summary>
+    /// <summary>Upright pixel art, grounded in the arena and driven by the authored Aseprite timings.</summary>
     [DefaultExecutionOrder(250)]
     [DisallowMultipleComponent]
     public sealed class CollectorSpriteView : MonoBehaviour
     {
         private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int GroundHeightId = Shader.PropertyToID("_GroundHeight");
         [SerializeField] private CharacterSpriteSet sprites;
         [SerializeField] private MeshRenderer characterRenderer;
         [SerializeField] private MeshRenderer shadowRenderer;
+        [SerializeField] private MeshRenderer projectedShadowRenderer;
         [SerializeField] private Material afterimageMaterial;
         [SerializeField] private PlayerMotor motor;
         [SerializeField] private PlayerHealth health;
@@ -21,12 +23,14 @@ namespace EchoScrap.Combat
         [SerializeField] private Vector3 footOffset = Vector3.down;
         [SerializeField] private Transform pulseIndicator;
         [SerializeField] private bool snapToPixelGrid = true;
+        [SerializeField, Min(0.5f)] private float visualScale = 1.5f;
         private FlashlightPresentation flashlight;
         private Camera viewCamera;
         private CombatSession session;
         private CombatSession subscribedSession;
         private MaterialPropertyBlock properties;
         private MaterialPropertyBlock shadowProperties;
+        private MaterialPropertyBlock projectedShadowProperties;
         private float clipTime;
         private bool initialized;
         private Vector4 frameRect;
@@ -37,6 +41,7 @@ namespace EchoScrap.Combat
         public float ClipTime => clipTime;
         public CharacterSpriteSet Sprites => sprites;
         public MeshRenderer CharacterRenderer => characterRenderer;
+        public MeshRenderer ProjectedShadowRenderer => projectedShadowRenderer;
         public Material AfterimageMaterial => afterimageMaterial;
         public Mesh CharacterMesh => characterRenderer.GetComponent<MeshFilter>().sharedMesh;
         public bool DeathComplete => Motion == CharacterMotion.Death && clipTime >= sprites.GetClip(Motion, Facing).Duration;
@@ -56,6 +61,10 @@ namespace EchoScrap.Combat
             viewCamera = Camera.main;
             properties = new MaterialPropertyBlock();
             shadowProperties = new MaterialPropertyBlock();
+            projectedShadowProperties = new MaterialPropertyBlock();
+            // The shadow shader projects these vertices onto the floor, outside the source quad bounds.
+            if (projectedShadowRenderer != null)
+                projectedShadowRenderer.localBounds = new Bounds(Vector3.zero, Vector3.one * 24f);
             ResetPresentation();
         }
 
@@ -160,11 +169,19 @@ namespace EchoScrap.Combat
             characterRenderer.GetPropertyBlock(properties);
             properties.SetVector(FrameRectId, frameRect);
             characterRenderer.SetPropertyBlock(properties);
-            if (shadowRenderer == null) return;
-            shadowRenderer.enabled = !DeathComplete;
             float opacity = Motion == CharacterMotion.Death ? 1f - clipTime / clip.Duration : 1f;
-            shadowProperties.SetColor(BaseColorId, new Color(0.025f, 0.02f, 0.035f, opacity * 0.42f));
-            shadowRenderer.SetPropertyBlock(shadowProperties);
+            if (shadowRenderer != null)
+            {
+                shadowRenderer.enabled = !DeathComplete;
+                shadowProperties.SetColor(BaseColorId, new Color(0.005f, 0.006f, 0.009f, opacity * 0.85f));
+                shadowRenderer.SetPropertyBlock(shadowProperties);
+            }
+            if (projectedShadowRenderer != null)
+            {
+                projectedShadowRenderer.enabled = !DeathComplete;
+                projectedShadowProperties.SetVector(FrameRectId, frameRect);
+                projectedShadowProperties.SetColor(BaseColorId, new Color(0.005f, 0.006f, 0.009f, opacity * 0.65f));
+            }
         }
 
         public void AlignToCamera()
@@ -174,7 +191,7 @@ namespace EchoScrap.Combat
             Vector3 recoil = composer != null && composer.OrientationRoot != null
                 ? composer.OrientationRoot.TransformVector(composer.CurrentPresentationLocalPosition) : Vector3.zero;
             Vector3 position = foot + recoil;
-            float scale = 1f;
+            float scale = visualScale;
             if (snapToPixelGrid && viewCamera.pixelHeight > 0)
             {
                 Vector3 screen = viewCamera.WorldToScreenPoint(position);
@@ -182,16 +199,34 @@ namespace EchoScrap.Combat
                     : 2f * screen.z * Mathf.Tan(viewCamera.fieldOfView * Mathf.Deg2Rad * 0.5f) / viewCamera.pixelHeight;
                 if (worldPerPixel > 0f)
                 {
-                    float stride = Mathf.Max(1f, Mathf.Round(1f / (sprites.pixelsPerUnit * worldPerPixel)));
+                    float stride = Mathf.Max(1f, Mathf.Round(visualScale / (sprites.pixelsPerUnit * worldPerPixel)));
                     scale = stride * sprites.pixelsPerUnit * worldPerPixel;
                     screen.x = Mathf.Round(screen.x / stride) * stride;
                     screen.y = Mathf.Round(screen.y / stride) * stride;
-                    position = viewCamera.ScreenToWorldPoint(screen);
+                    // Keep the foot on its floor plane rather than moving it vertically with screen snapping.
+                    Ray snappedRay = viewCamera.ScreenPointToRay(screen);
+                    var floor = new Plane(Vector3.up, position);
+                    if (floor.Raycast(snappedRay, out float distance)) position = snappedRay.GetPoint(distance);
                 }
             }
-            characterRenderer.transform.SetPositionAndRotation(position, viewCamera.transform.rotation);
-            characterRenderer.transform.localScale = Vector3.one * scale;
-            if (shadowRenderer != null) shadowRenderer.transform.position = foot;
+            Vector3 forward = Vector3.ProjectOnPlane(viewCamera.transform.forward, Vector3.up).normalized;
+            Quaternion upright = Quaternion.LookRotation(forward, Vector3.up);
+            // Correct the high camera angle without laying the character down on the floor.
+            float verticalProjection = Mathf.Max(0.35f, Mathf.Abs(Vector3.Dot(Vector3.up, viewCamera.transform.up)));
+            characterRenderer.transform.SetPositionAndRotation(position, upright);
+            characterRenderer.transform.localScale = new Vector3(scale, scale / verticalProjection, scale);
+            if (shadowRenderer != null)
+            {
+                shadowRenderer.transform.position = position;
+                shadowRenderer.transform.localScale = Vector3.one * scale;
+            }
+            if (projectedShadowRenderer != null)
+            {
+                projectedShadowRenderer.transform.SetPositionAndRotation(position, upright);
+                projectedShadowRenderer.transform.localScale = characterRenderer.transform.localScale;
+                projectedShadowProperties.SetFloat(GroundHeightId, foot.y - 0.01f);
+                projectedShadowRenderer.SetPropertyBlock(projectedShadowProperties);
+            }
             if (pulseIndicator != null)
             {
                 pulseIndicator.SetPositionAndRotation(foot - viewCamera.transform.up * 0.32f - viewCamera.transform.forward * 0.02f,

@@ -22,7 +22,13 @@ Shader "EchoScrap/Character Afterimage"
                 half4 _BaseColor;
             CBUFFER_END
             struct V { float4 p:SV_POSITION; float2 uv:TEXCOORD0; };
-            V Vert(float4 p:POSITION,float2 uv:TEXCOORD0) { V o;o.p=TransformObjectToHClip(p.xyz);o.uv=uv;return o; }
+            V Vert(float4 p:POSITION,float2 uv:TEXCOORD0)
+            {
+                V o; o.p=TransformObjectToHClip(p.xyz);
+                float footW=TransformObjectToHClip(float3(0,0,0)).w;
+                o.p.z*=footW/o.p.w; o.p.w=footW;
+                o.uv=uv; return o;
+            }
             half4 Frag(V i):SV_Target
             {
                 float2 inset=_BaseMap_TexelSize.xy*0.5;

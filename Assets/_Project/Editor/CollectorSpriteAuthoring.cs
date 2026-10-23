@@ -39,6 +39,9 @@ namespace EchoScrap.Editor
             Material ghost = Material("Coleccionista_Afterimage", "EchoScrap/Character Afterimage");
             ghost.SetTexture("_BaseMap", color.GetTexture("_BaseMap"));
             Material shadow = Material("Coleccionista_Shadow", "EchoScrap/Character Contact Shadow");
+            shadow.SetColor("_BaseColor", new Color(0.005f, 0.006f, 0.009f, 0.85f));
+            Material cast = Material("Coleccionista_ProjectedShadow", "EchoScrap/Character Projected Shadow");
+            cast.SetTexture("_BaseMap", color.GetTexture("_BaseMap"));
             Mesh quad = Quad(ArtPath + "Coleccionista_Quad.asset", new Rect(-32f / set.pixelsPerUnit, -2f / set.pixelsPerUnit, 64f / set.pixelsPerUnit, 64f / set.pixelsPerUnit));
             Mesh shadowQuad = Quad(ArtPath + "Coleccionista_ShadowQuad.asset", new Rect(-0.72f, -0.45f, 1.44f, 0.9f));
 
@@ -53,18 +56,26 @@ namespace EchoScrap.Editor
                 CapsuleCollider collider = root.GetComponent<CapsuleCollider>();
                 Vector3 foot = Vector3.up * (collider.center.y - collider.height * 0.5f);
                 renderer.transform.localPosition = foot + Vector3.up * 0.025f;
-                renderer.transform.localRotation = Quaternion.Euler(60f, 0f, 0f);
+                renderer.transform.localRotation = Quaternion.identity;
                 MeshRenderer contact = Renderer(root.transform, "Coleccionista Contact Shadow", shadowQuad, shadow);
                 contact.transform.localPosition = foot + Vector3.up * 0.025f;
                 contact.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                MeshRenderer projected = Renderer(root.transform, "Coleccionista Projected Shadow", quad, cast);
+                projected.transform.localPosition = foot + Vector3.up * 0.025f;
                 CollectorSpriteView view = root.GetComponent<CollectorSpriteView>();
                 if (view == null) view = root.AddComponent<CollectorSpriteView>();
                 Set(view, "sprites", set); Set(view, "characterRenderer", renderer); Set(view, "shadowRenderer", contact);
+                Set(view, "projectedShadowRenderer", projected);
                 Set(view, "afterimageMaterial", ghost); Set(view, "motor", root.GetComponent<EchoScrap.Player.PlayerMotor>());
                 Set(view, "health", root.GetComponent<PlayerHealth>()); Set(view, "composer", composer);
                 Set(view, "pulseIndicator", root.GetComponent<FlashlightPresentation>().EmitterRenderer.transform);
                 var serialized = new SerializedObject(view);
                 serialized.FindProperty("footOffset").vector3Value = foot;
+                // Match the arena's 60-degree reference camera before Play Mode starts too.
+                float previewScale = serialized.FindProperty("visualScale").floatValue;
+                renderer.transform.localScale = new Vector3(previewScale, previewScale * 2f, previewScale);
+                contact.transform.localScale = Vector3.one * previewScale;
+                projected.transform.localScale = renderer.transform.localScale;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
                 serialized = new SerializedObject(composer);
                 serialized.FindProperty("authoredSpritePoses").boolValue = true;
@@ -75,9 +86,9 @@ namespace EchoScrap.Editor
                 PrefabUtility.SaveAsPrefabAsset(root, CombatArenaAuthoring.PlayerPrefabPath);
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
-            EditorUtility.SetDirty(set); EditorUtility.SetDirty(color); EditorUtility.SetDirty(ghost); EditorUtility.SetDirty(shadow);
+            EditorUtility.SetDirty(set); EditorUtility.SetDirty(color); EditorUtility.SetDirty(ghost); EditorUtility.SetDirty(shadow); EditorUtility.SetDirty(cast);
             AssetDatabase.SaveAssets();
-            Debug.Log("[EchoScrap] Collector connected: 108 frames, 16 clips, lit billboard, foot pivot and sprite dash pool. Arena unchanged.");
+            Debug.Log("[EchoScrap] Collector connected: 108 frames, 16 clips, upright lit sprite, grounded shadows and sprite dash pool. Arena unchanged.");
         }
 
         private static void ReadManifest(CharacterSpriteSet set)

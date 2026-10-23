@@ -97,17 +97,60 @@ namespace EchoScrap.Tests
             CapsuleCollider collider = game.Motor.GetComponent<CapsuleCollider>();
             Assert.That(view.CharacterRenderer.transform.position.y,
                 Is.EqualTo(game.Motor.transform.position.y + collider.center.y - collider.height / 2f + 0.025f).Within(0.01f));
-            Assert.That(Quaternion.Angle(view.CharacterRenderer.transform.rotation, game.GameplayCamera.transform.rotation), Is.LessThan(0.1f));
+            Assert.That(Vector3.Dot(view.CharacterRenderer.transform.up, Vector3.up), Is.GreaterThan(0.999f),
+                "The character must stand vertically instead of inheriting the camera pitch.");
+            Assert.That(view.ProjectedShadowRenderer, Is.Not.Null);
             foreach (Transform child in game.Motor.GetComponentsInChildren<Transform>(true))
                 if (child.name == "Placeholder Body" || child.name == "Facing Marker") Assert.That(child.gameObject.activeSelf, Is.False);
             yield return Capture(game.GameplayCamera, "Arena.png");
+            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.GreaterThan(1.3f),
+                "At the reference 1080p render size, the sprite must use the larger pixel stride.");
             var close = new GameObject("Collector close-up camera").AddComponent<Camera>();
             close.CopyFrom(game.GameplayCamera);
             close.transform.rotation = game.GameplayCamera.transform.rotation;
-            close.transform.position = view.CharacterRenderer.transform.position + close.transform.up * 1.25f - close.transform.forward * 6f;
+            close.transform.position = view.CharacterRenderer.bounds.center - close.transform.forward * 12f;
             close.fieldOfView = 42f;
             yield return Capture(close, "CloseUp.png");
             Object.Destroy(close.gameObject);
+        }
+
+        [UnityTest]
+        public IEnumerator NormalsAndBothGroundShadowsChangeTheRenderedImage()
+        {
+            game.Session.Clock.SetPause(PauseReason.Manual, true);
+            var camera = new GameObject("Collector lighting validation camera").AddComponent<Camera>();
+            camera.CopyFrom(game.GameplayCamera);
+            camera.transform.rotation = game.GameplayCamera.transform.rotation;
+            camera.transform.position = view.CharacterRenderer.bounds.center - camera.transform.forward * 12f;
+            camera.fieldOfView = 42f;
+            var material = new Material(view.CharacterRenderer.sharedMaterial);
+            Material original = view.CharacterRenderer.sharedMaterial;
+            view.CharacterRenderer.sharedMaterial = material;
+            Color32[] lit = null, flat = null, noShadow = null;
+            yield return Capture(camera, "Grounded.png", pixels => lit = pixels);
+            material.SetFloat("_NormalStrength", 0f);
+            yield return Capture(camera, "FlatNormals.png", pixels => flat = pixels);
+            material.SetFloat("_NormalStrength", 1f);
+            view.ProjectedShadowRenderer.gameObject.SetActive(false);
+            Transform contact = game.Motor.transform.Find("Coleccionista Contact Shadow");
+            contact.gameObject.SetActive(false);
+            yield return Capture(camera, "NoGroundShadows.png", pixels => noShadow = pixels);
+            int reliefPixels = ChangedPixels(lit, flat);
+            int shadowPixels = ChangedPixels(lit, noShadow);
+            Assert.That(reliefPixels, Is.GreaterThan(100), "The normal map must visibly affect the rendered sprite.");
+            Assert.That(shadowPixels, Is.GreaterThan(100), "The floor shadows must be visible, not just configured.");
+            Debug.Log($"[Collector presentation] Normal response: {reliefPixels} pixels; ground shadows: {shadowPixels} pixels.");
+            view.CharacterRenderer.sharedMaterial = original;
+            Object.Destroy(material); Object.Destroy(camera.gameObject);
+            game.Session.Clock.SetPause(PauseReason.Manual, false);
+        }
+
+        private static int ChangedPixels(Color32[] a, Color32[] b)
+        {
+            int changed = 0;
+            for (int i = 0; i < a.Length; i++)
+                if (Mathf.Abs(a[i].r - b[i].r) + Mathf.Abs(a[i].g - b[i].g) + Mathf.Abs(a[i].b - b[i].b) > 6) changed++;
+            return changed;
         }
 
         [UnityTest]
@@ -121,6 +164,18 @@ namespace EchoScrap.Tests
                 yield return new WaitForSeconds(0.16f);
                 Assert.That(view.Motion, Is.EqualTo(CharacterMotion.Walk));
                 Assert.That(view.Facing, Is.EqualTo(facings[i]));
+                var spriteBlock = new MaterialPropertyBlock();
+                var shadowBlock = new MaterialPropertyBlock();
+                view.CharacterRenderer.GetPropertyBlock(spriteBlock);
+                view.ProjectedShadowRenderer.GetPropertyBlock(shadowBlock);
+                Assert.That(shadowBlock.GetVector("_FrameRect"), Is.EqualTo(spriteBlock.GetVector("_FrameRect")),
+                    "The floor silhouette must follow each animation frame and direction.");
+                if (facings[i] == CharacterFacing.Right)
+                {
+                    game.Session.Clock.SetPause(PauseReason.Manual, true);
+                    yield return Capture(game.GameplayCamera, "Side.png");
+                    game.Session.Clock.SetPause(PauseReason.Manual, false);
+                }
             }
             game.Session.Clock.SetPause(PauseReason.Manual, true);
             int pausedFrame = view.FrameIndex;
@@ -187,7 +242,7 @@ namespace EchoScrap.Tests
             Assert.That(game.Motor.GetComponent<ActorVisualComposer>().IsFlashActive, Is.False);
         }
 
-        private static IEnumerator Capture(Camera camera, string name)
+        private static IEnumerator Capture(Camera camera, string name, System.Action<Color32[]> captured = null)
         {
             var target = new RenderTexture(1920, 1080, 24);
             RenderTexture old = camera.targetTexture;
@@ -197,6 +252,7 @@ namespace EchoScrap.Tests
             RenderTexture.active = target;
             var texture = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
             texture.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); texture.Apply();
+            captured?.Invoke(texture.GetPixels32());
             string directory = Path.Combine(Application.dataPath, "..", "Logs", "CollectorIntegration");
             Directory.CreateDirectory(directory); File.WriteAllBytes(Path.Combine(directory, name), texture.EncodeToPNG());
             camera.targetTexture = old; RenderTexture.active = oldActive;
