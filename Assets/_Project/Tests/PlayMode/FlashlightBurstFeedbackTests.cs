@@ -527,6 +527,9 @@ namespace EchoScrap.Tests
                 weapon.StepWeapon(0.2f);
                 presentation.StepPresentation(0f);
                 Assert.AreEqual(index, presentation.ImportedView.EmittedCount);
+                Assert.IsFalse(presentation.ConeRenderer.enabled, "The legacy ground fan must not duplicate the 3D beam.");
+                Assert.IsTrue(presentation.OilLantern.BeamRenderer.enabled);
+                Assert.IsTrue(presentation.EmitterRenderer.enabled, "Hiding the fan must preserve the four pulse markers.");
             }
             Assert.IsNotNull(presentation.OilLantern.OilGlow);
             Assert.AreEqual(LightType.Point, presentation.OilLantern.OilGlow.type);
@@ -535,8 +538,21 @@ namespace EchoScrap.Tests
             session.Effects.ReducedEffectsMode = true;
             presentation.StepPresentation(0f);
             Assert.IsFalse(presentation.OilLantern.BeamRenderer.enabled);
+            Assert.IsFalse(presentation.ConeRenderer.enabled, "Reduced effects must not restore the ground fan.");
             Assert.IsTrue(presentation.ImportedView.KeyLight.enabled);
             Assert.AreEqual(4, presentation.ImportedView.EmittedCount);
+            session.Effects.ReducedEffectsMode = false;
+            playerStats.SetUpgradeTier("FLASH_05", 1);
+            weapon.StepWeapon(0.4f);
+            presentation.StepPresentation(0f);
+            Assert.IsTrue(weapon.IsSolarModeActive);
+            Assert.IsFalse(presentation.ConeRenderer.enabled);
+            Assert.IsTrue(presentation.OilLantern.BeamRenderer.enabled);
+            presentation.enabled = false;
+            presentation.enabled = true;
+            presentation.StepPresentation(0f);
+            Assert.IsFalse(presentation.ConeRenderer.enabled, "Reactivating the view must preserve the single-beam presentation.");
+            Assert.IsTrue(presentation.EmitterRenderer.enabled);
         }
 
         [UnityTest]
