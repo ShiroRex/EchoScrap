@@ -21,6 +21,8 @@ namespace EchoScrap.Core
         [SerializeField] private Transform orientationRoot;
         [SerializeField] private Transform presentationPivot;
         [SerializeField] private Transform flashlightPivot;
+        [Tooltip("El pixel art ya contiene las poses: conservar su cuadrícula y aplicar solo recoil y flash.")]
+        [SerializeField] private bool authoredSpritePoses;
 
         [Header("Locomoción y Arranque/Frenado")]
         [SerializeField, Range(0f, 15f)] private float maxLocomotionTiltDegrees = 6f;
@@ -377,6 +379,9 @@ namespace EchoScrap.Core
             }
 
             // Inclinación por locomoción + empuje recibido
+            if (authoredSpritePoses)
+                return;
+
             float pitch = currentTiltPitch;
             float roll = currentTiltRoll;
             if (!isKnockbackImmune && knockbackVelocityVisual.sqrMagnitude > 0.05f && orientationRoot != null)

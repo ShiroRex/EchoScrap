@@ -123,5 +123,53 @@ los 108 cuadros de la fuente, incluidas sus duraciones. Se revisó la respuesta
 de las normales con tres luces direccionales en una previsualización local.
 El GIF conserva 27 cuadros y 2930 ms para su secuencia de demostración.
 PixelLab gratuito rechazó la prueba por alta demanda; no se usaron resultados
-de ese servicio en esta corrección. El sprite no está conectado todavía a un
-Animator ni se ha validado en combate.
+de ese servicio en esta corrección.
+
+## Integración en el jugador
+
+`CombatPlayer.prefab`, usado por `CombatArena`, incluye `CollectorSpriteView`.
+Conserva el Rigidbody, hurtbox, controles, velocidad y autoapuntado originales.
+La cápsula y la flecha provisionales están ocultas únicamente en este prefab
+de combate; los sandboxes de locomoción conservan su representación de prueba.
+
+La vista usa un quad orientado hacia la cámara, con el pivote de los pies en
+el suelo y escala de referencia de 24 píxeles por unidad. Ajusta la escala y
+posición proyectadas a píxeles enteros para evitar vibración de la cuadrícula.
+La sombra de contacto permanece en el plano del suelo. Los indicadores de los
+cuatro pulsos se sitúan bajo los pies para dejar legibles la cara y el equipo.
+El resplandor cálido sigue al farol del sprite; la llama 3D provisional se oculta.
+El haz volumétrico respeta la silueta mediante stencil y mantiene su apuntado.
+
+`Coleccionista_Sprites.asset` contiene los rectángulos UV y tiempos importados
+del JSON. `CollectorSpriteView` elige Idle/Walk según la velocidad física, Dash
+según el estado y duración reales del motor, y Death según la salud. Conserva
+la fase al cambiar de dirección, usa histéresis en diagonales y conserva la
+última dirección al detenerse. El reinicio devuelve la pose frontal de reposo.
+La pausa congela la animación; la derrota permite terminar la caída, el flash
+y las estelas con tiempo no escalado, sin reactivar la simulación.
+
+El material `Coleccionista.mat` usa `CharacterPixelLit.shader`: alfa recortada,
+normal map lineal OpenGL +Y, luces URP 3D y un relleno que mantiene legible la
+paleta. Color y normales comparten exactamente el mismo rectángulo UV. El flash
+de daño comparte su bloque de propiedades con la animación. Las tres estelas
+del dash reutilizan un pool de quads con la silueta del cuadro capturado.
+
+Para reimportar un atlas actualizado, ejecutar **EchoScrap > Art > Connect
+Collector To Player**. `CollectorSpriteAuthoring` actualiza datos, mallas,
+materiales y prefab conservando sus GUID; no reconstruye ni guarda la arena.
+Las pruebas `CollectorSpriteTests` comprueban clips, direcciones, suelo, pausa,
+dash, estelas, daño, caída y reinicio usando el jugador de la escena real.
+
+Validación de integración: 58 pruebas Play Mode aprobadas; las ocho pruebas
+del Coleccionista se repitieron después de reforzar el caso de muerte justo
+tras un dash. Build Windows x86_64 completada en `Builds/Windows/EchoScrap.exe`.
+Capturas de la cámara real y acercamiento: `Logs/CollectorIntegration/`.
+El ensayo standalone a 1920×1080, con todas las mejoras, efectos completos y
+director activo, midió 9,06 ms de media / 11,88 ms p95 con 150 enemigos, el
+límite normal de la partida (aproximadamente 110 FPS). Con la opción de estrés
+de 250 enemigos midió 19,24 ms / 23,66 ms p95 (aproximadamente 52 FPS); sigue
+por debajo de 60 FPS en esa carga. El ensayo anterior del director ya medía
+19,45 ms de media con 250, así que no se amplió esta tarea a optimizar la horda.
+Son muestras de cinco segundos por caso en Ryzen 7 5700X / Radeon RX 6650 XT;
+el contador de tiempo GPU no estuvo disponible. Informe en
+`Logs/CollectorBenchmark/Summary.json`.
