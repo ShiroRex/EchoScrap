@@ -132,14 +132,15 @@ Conserva el Rigidbody, hurtbox, controles, velocidad y autoapuntado originales.
 La cápsula y la flecha provisionales están ocultas únicamente en este prefab
 de combate; los sandboxes de locomoción conservan su representación de prueba.
 
-La vista usa un quad vertical que sigue únicamente el giro horizontal de la
-cámara, con el pivote de los pies en el suelo y escala de referencia de 24
-píxeles por unidad. `visualScale = 1.5` aumenta su tamaño; a 1080p pasa de dos
-a tres píxeles de pantalla por píxel del sprite. La altura compensa el ángulo
-alto de la cámara y el shader conserva la escala de proyección de los pies,
-evitando agrandar la cabeza o encoger las botas por perspectiva. Las estelas
-usan la misma corrección. El ajuste a la cuadrícula desplaza el pie sobre el
-plano horizontal, sin levantarlo del suelo.
+La vista usa un quad vertical fijo en el plano XY del mundo, con el pivote de
+los pies en el suelo y escala de referencia de 24 píxeles por unidad. Se
+restauró `visualScale = 1`: a 1080p vuelve al paso de dos píxeles de pantalla
+por píxel horizontal del sprite. `standingHeight = 1.6` define una proporción
+vertical fija de la geometría; nunca se divide por el ángulo de la cámara.
+Ni la orientación ni la proporción del plano siguen la cámara. El personaje
+y sus estelas usan perspectiva 3D normal: se retiró la alteración de clip.w
+que mantenía la proyección siempre frontal. El ajuste a la cuadrícula desplaza
+el pie sobre el plano horizontal, sin levantarlo del suelo.
 
 La sombra de contacto es más ancha y oscura. Una segunda sombra proyecta la
 silueta del cuadro animado sobre el suelo siguiendo la dirección de la luz
@@ -160,10 +161,12 @@ La pausa congela la animación; la derrota permite terminar la caída, el flash
 y las estelas con tiempo no escalado, sin reactivar la simulación.
 
 El material `Coleccionista.mat` usa `CharacterPixelLit.shader`: alfa recortada,
-normal map lineal OpenGL +Y, luces URP 3D y un relleno que mantiene legible la
-paleta. La corrección de presentación baja el relleno de 0.85 a 0.55, aumenta
-el relieve de 0.55 a 1 y permite graduar por separado la respuesta a la luz
-principal y al farol. Color y normales comparten exactamente el mismo rectángulo UV. El flash
+normal map lineal OpenGL +Y y la iluminación Simple Lit de URP, sin brillo
+especular añadido a la tela. Recibe el ambiente/probes de la escena mediante
+`SampleSH`, luz direccional, luces locales, sombras recibidas, AO y niebla.
+Se retiraron el relleno de color fijo y las ponderaciones artificiales de las
+luces, que mantenían el sprite iluminado sin depender del ambiente. El relieve
+del normal map permanece en 1. Color y normales comparten exactamente el mismo rectángulo UV. El flash
 de daño comparte su bloque de propiedades con la animación. Las tres estelas
 del dash reutilizan un pool de quads con la silueta del cuadro capturado.
 
@@ -175,6 +178,11 @@ dash, estelas, daño, caída y reinicio usando el jugador de la escena real.
 También comparan capturas GPU con/sin normales y con/sin sombras para verificar
 que ambos efectos se vean en el render, además de comprobar la postura vertical
 y que la sombra use el mismo cuadro que el personaje en las cuatro direcciones.
+Una prueba adicional aísla exclusivamente el renderer del personaje: compara
+oscuridad total, la luz direccional de la arena, ambiente/probe y luces puntuales
+roja/azul. Así verifica la respuesta del sprite sin confundirla con cambios en
+el suelo o en el haz. Otra prueba cambia pitch/yaw de cámara y comprueba que
+el plano no gire ni cambie sus proporciones para mirarla de frente.
 
 Validación de integración: 58 pruebas Play Mode aprobadas; las ocho pruebas
 del Coleccionista se repitieron después de reforzar el caso de muerte justo
@@ -199,3 +207,12 @@ El nuevo ensayo standalone de cinco segundos por caso midió 8,69 ms de media /
 sigue sin sostener 60 FPS; estas muestras no demuestran una mejora de rendimiento
 respecto al ensayo anterior. El contador GPU siguió sin estar disponible.
 Informe: `Logs/CollectorGroundingBenchmark/Summary.json`.
+
+Validación posterior al retorno de tamaño y a la iluminación del entorno:
+61 pruebas Play Mode aprobadas, incluida la respuesta aislada al ambiente,
+direccional y luces de color; build Windows completada. La referencia sin
+luces da RGB medio (0,0,0), sin relleno autoiluminado. El ensayo standalone a
+1080p midió 8,52 ms de media / 11,54 ms p95 con 150 enemigos, y 17,48 ms /
+21,32 ms con 250. La carga de estrés sigue por debajo de 60 FPS; son muestras
+de cinco segundos, con tiempo GPU no disponible. Informes actuales:
+`Logs/CollectorWorldRegression.xml` y `Logs/CollectorWorldBenchmark/Summary.json`.

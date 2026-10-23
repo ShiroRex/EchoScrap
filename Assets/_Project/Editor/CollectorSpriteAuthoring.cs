@@ -71,9 +71,10 @@ namespace EchoScrap.Editor
                 Set(view, "pulseIndicator", root.GetComponent<FlashlightPresentation>().EmitterRenderer.transform);
                 var serialized = new SerializedObject(view);
                 serialized.FindProperty("footOffset").vector3Value = foot;
-                // Match the arena's 60-degree reference camera before Play Mode starts too.
+                // The sprite is a physical upright plane, including in the editor preview.
                 float previewScale = serialized.FindProperty("visualScale").floatValue;
-                renderer.transform.localScale = new Vector3(previewScale, previewScale * 2f, previewScale);
+                float standingHeight = serialized.FindProperty("standingHeight").floatValue;
+                renderer.transform.localScale = new Vector3(previewScale, previewScale * standingHeight, previewScale);
                 contact.transform.localScale = Vector3.one * previewScale;
                 projected.transform.localScale = renderer.transform.localScale;
                 serialized.ApplyModifiedPropertiesWithoutUndo();

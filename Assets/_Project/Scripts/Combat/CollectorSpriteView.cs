@@ -23,7 +23,9 @@ namespace EchoScrap.Combat
         [SerializeField] private Vector3 footOffset = Vector3.down;
         [SerializeField] private Transform pulseIndicator;
         [SerializeField] private bool snapToPixelGrid = true;
-        [SerializeField, Min(0.5f)] private float visualScale = 1.5f;
+        [SerializeField, Min(0.5f)] private float visualScale = 1f;
+        [Tooltip("Fixed world-space proportions of the upright plane; never compensated against the camera.")]
+        [SerializeField, Min(0.5f)] private float standingHeight = 1.6f;
         private FlashlightPresentation flashlight;
         private Camera viewCamera;
         private CombatSession session;
@@ -209,12 +211,11 @@ namespace EchoScrap.Combat
                     if (floor.Raycast(snappedRay, out float distance)) position = snappedRay.GetPoint(distance);
                 }
             }
-            Vector3 forward = Vector3.ProjectOnPlane(viewCamera.transform.forward, Vector3.up).normalized;
-            Quaternion upright = Quaternion.LookRotation(forward, Vector3.up);
-            // Correct the high camera angle without laying the character down on the floor.
-            float verticalProjection = Mathf.Max(0.35f, Mathf.Abs(Vector3.Dot(Vector3.up, viewCamera.transform.up)));
+            // The arena uses a fixed XY character plane. The camera observes its real perspective;
+            // neither the plane orientation nor its proportions follow camera pitch/yaw.
+            Quaternion upright = Quaternion.identity;
             characterRenderer.transform.SetPositionAndRotation(position, upright);
-            characterRenderer.transform.localScale = new Vector3(scale, scale / verticalProjection, scale);
+            characterRenderer.transform.localScale = new Vector3(scale, scale * standingHeight, scale);
             if (shadowRenderer != null)
             {
                 shadowRenderer.transform.position = position;

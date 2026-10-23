@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
+using UnityEngine.Rendering;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
@@ -103,8 +104,8 @@ namespace EchoScrap.Tests
             foreach (Transform child in game.Motor.GetComponentsInChildren<Transform>(true))
                 if (child.name == "Placeholder Body" || child.name == "Facing Marker") Assert.That(child.gameObject.activeSelf, Is.False);
             yield return Capture(game.GameplayCamera, "Arena.png");
-            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.GreaterThan(1.3f),
-                "At the reference 1080p render size, the sprite must use the larger pixel stride.");
+            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.InRange(0.8f, 1.2f),
+                "Restore the original player scale at the reference 1080p render size.");
             var close = new GameObject("Collector close-up camera").AddComponent<Camera>();
             close.CopyFrom(game.GameplayCamera);
             close.transform.rotation = game.GameplayCamera.transform.rotation;
@@ -112,6 +113,127 @@ namespace EchoScrap.Tests
             close.fieldOfView = 42f;
             yield return Capture(close, "CloseUp.png");
             Object.Destroy(close.gameObject);
+        }
+
+        [UnityTest]
+        public IEnumerator CameraAngleDoesNotRotateOrReshapeTheStandingPlane()
+        {
+            var camera = new GameObject("Collector angle validation camera").AddComponent<Camera>();
+            camera.CopyFrom(game.GameplayCamera);
+            camera.transform.SetPositionAndRotation(game.GameplayCamera.transform.position, Quaternion.Euler(30, 20, 0));
+            view.Bind(camera, game.Session);
+            view.AlignToCamera();
+            Quaternion rotation = view.CharacterRenderer.transform.rotation;
+            Vector3 scale = view.CharacterRenderer.transform.localScale;
+            float aspect = scale.y / scale.x;
+            camera.transform.rotation = Quaternion.Euler(65, -15, 0);
+            view.AlignToCamera();
+            Assert.That(Quaternion.Angle(rotation, view.CharacterRenderer.transform.rotation), Is.LessThan(0.01f));
+            scale = view.CharacterRenderer.transform.localScale;
+            Assert.That(scale.y / scale.x, Is.EqualTo(aspect).Within(0.001f),
+                "World proportions must stay fixed when the camera pitch changes.");
+            Assert.That(Quaternion.Angle(rotation, camera.transform.rotation), Is.GreaterThan(30f));
+            view.Bind(game.GameplayCamera, game.Session);
+            Object.Destroy(camera.gameObject);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SceneAmbientDirectionalAndColoredPointLightsAffectTheSpriteItself()
+        {
+            game.Session.Clock.SetPause(PauseReason.Manual, true);
+            MeshRenderer renderer = view.CharacterRenderer;
+            int originalLayer = renderer.gameObject.layer;
+            AmbientMode ambientMode = RenderSettings.ambientMode;
+            Color ambient = RenderSettings.ambientLight;
+            SphericalHarmonicsL2 probe = RenderSettings.ambientProbe;
+            Light[] lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            var lightMasks = new int[lights.Length];
+            var lightEnabled = new bool[lights.Length];
+            Light directional = null;
+            for (int i = 0; i < lights.Length; i++)
+            {
+                Light light = lights[i];
+                lightMasks[i] = light.cullingMask;
+                lightEnabled[i] = light.enabled;
+                if (light.type == LightType.Directional) directional = light;
+                // Lantern controllers can re-enable their lights during LateUpdate. Exclude them
+                // from the isolated sprite layer as well so the dark reference is really unlit.
+                light.cullingMask = 0;
+                light.enabled = false;
+            }
+            Assert.That(directional, Is.Not.Null);
+            var camera = new GameObject("Collector isolated lighting camera").AddComponent<Camera>();
+            camera.CopyFrom(game.GameplayCamera);
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.black;
+            camera.cullingMask = 1 << 31;
+            camera.orthographic = true;
+            camera.orthographicSize = 2.4f;
+            camera.transform.rotation = Quaternion.Euler(25, 0, 0);
+            camera.transform.position = renderer.bounds.center - camera.transform.forward * 12f;
+            renderer.gameObject.layer = 31;
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = Color.black;
+            RenderSettings.ambientProbe = new SphericalHarmonicsL2();
+            Color32[] dark = null, key = null, environment = null, red = null, blue = null;
+            var lamp = new GameObject("Collector environment light validation").AddComponent<Light>();
+            lamp.type = LightType.Point;
+            lamp.range = 12f;
+            lamp.intensity = 8f;
+            lamp.transform.position = renderer.bounds.center + Vector3.back * 2f + Vector3.right;
+            lamp.enabled = false;
+            try
+            {
+                yield return Capture(camera, "EnvironmentDark.png", pixels => dark = pixels);
+                directional.cullingMask = 1 << 31;
+                directional.enabled = true;
+                yield return Capture(camera, "EnvironmentDirectional.png", pixels => key = pixels);
+                directional.enabled = false;
+                directional.cullingMask = 0;
+                RenderSettings.ambientLight = new Color(0.3f, 0.3f, 0.3f);
+                var litProbe = new SphericalHarmonicsL2();
+                litProbe.AddAmbientLight(new Color(0.3f, 0.3f, 0.3f));
+                RenderSettings.ambientProbe = litProbe;
+                yield return Capture(camera, "EnvironmentAmbient.png", pixels => environment = pixels);
+                RenderSettings.ambientLight = Color.black;
+                RenderSettings.ambientProbe = new SphericalHarmonicsL2();
+                lamp.enabled = true;
+                lamp.color = Color.red;
+                yield return Capture(camera, "EnvironmentRed.png", pixels => red = pixels);
+                lamp.color = Color.blue;
+                yield return Capture(camera, "EnvironmentBlue.png", pixels => blue = pixels);
+                Vector3 darkMean = MeanRgb(dark), keyMean = MeanRgb(key), ambientMean = MeanRgb(environment);
+                Vector3 redMean = MeanRgb(red), blueMean = MeanRgb(blue);
+                Assert.That(darkMean.magnitude, Is.LessThan(0.05f), "No permanent emissive palette fill in darkness.");
+                Assert.That(keyMean.magnitude, Is.GreaterThan(darkMean.magnitude + 0.2f), "The arena directional light must light the sprite.");
+                Assert.That(ambientMean.magnitude, Is.GreaterThan(darkMean.magnitude + 0.2f), "Scene ambient/probe light must reach the sprite.");
+                Assert.That(redMean.x, Is.GreaterThan(redMean.z + 0.2f));
+                Assert.That(blueMean.z, Is.GreaterThan(blueMean.x + 0.2f));
+                Debug.Log($"[Collector world light] Dark={darkMean}; directional={keyMean}; ambient={ambientMean}; red={redMean}; blue={blueMean}");
+            }
+            finally
+            {
+                for (int i = 0; i < lights.Length; i++)
+                    if (lights[i] != null)
+                    {
+                        lights[i].cullingMask = lightMasks[i];
+                        lights[i].enabled = lightEnabled[i];
+                    }
+                RenderSettings.ambientMode = ambientMode;
+                RenderSettings.ambientLight = ambient;
+                RenderSettings.ambientProbe = probe;
+                renderer.gameObject.layer = originalLayer;
+                Object.Destroy(lamp.gameObject); Object.Destroy(camera.gameObject);
+                game.Session.Clock.SetPause(PauseReason.Manual, false);
+            }
+        }
+
+        private static Vector3 MeanRgb(Color32[] pixels)
+        {
+            Vector3 sum = Vector3.zero;
+            foreach (Color32 pixel in pixels) sum += new Vector3(pixel.r, pixel.g, pixel.b);
+            return sum / pixels.Length;
         }
 
         [UnityTest]

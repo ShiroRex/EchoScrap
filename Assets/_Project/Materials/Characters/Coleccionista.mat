@@ -33,9 +33,6 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AmbientStrength: 0.55
-    - _KeyStrength: 1.5
-    - _LocalStrength: 0.65
     - _NormalStrength: 1
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}

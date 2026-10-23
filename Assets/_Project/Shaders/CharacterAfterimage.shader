@@ -25,8 +25,6 @@ Shader "EchoScrap/Character Afterimage"
             V Vert(float4 p:POSITION,float2 uv:TEXCOORD0)
             {
                 V o; o.p=TransformObjectToHClip(p.xyz);
-                float footW=TransformObjectToHClip(float3(0,0,0)).w;
-                o.p.z*=footW/o.p.w; o.p.w=footW;
                 o.uv=uv; return o;
             }
             half4 Frag(V i):SV_Target
