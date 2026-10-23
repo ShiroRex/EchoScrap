@@ -13,6 +13,8 @@ namespace EchoScrap.Combat
         [SerializeField] private PlayerMotor playerMotor;
         [SerializeField] private Camera gameplayCamera;
         [SerializeField] private CinemachineCamera cameraRig;
+        [SerializeField] private CombatWaveSettings waveSettings;
+        [SerializeField] private Collider arenaGround;
         [SerializeField] private Vector3 spawnPosition = Vector3.up;
         [SerializeField] private bool prewarmEnemies = true;
         // Direct references keep the shaders and transparent material variants used by procedural views in builds.
@@ -44,17 +46,21 @@ namespace EchoScrap.Combat
         public int RunResetCount { get; private set; }
         public bool IsInitialized => initialized;
         public Vector3 SpawnPosition => spawnPosition;
+        public CombatWaveSettings WaveSettings => waveSettings;
+        public Collider ArenaGround => arenaGround;
 
         private void Awake() => Initialize();
         private void Start() => ResetRun(false);
 
         public void AssignSceneReferences(PlayerMotor motor, Camera camera, CinemachineCamera rig,
-            Material[] retainedMaterials = null)
+            Material[] retainedMaterials = null, CombatWaveSettings waves = null, Collider floor = null)
         {
             playerMotor = motor;
             gameplayCamera = camera;
             cameraRig = rig;
             retainedCombatMaterials = retainedMaterials;
+            waveSettings = waves;
+            arenaGround = floor;
         }
 
         public bool Initialize()
@@ -63,9 +69,9 @@ namespace EchoScrap.Combat
             if (playerMotor == null) playerMotor = FindAnyObjectByType<PlayerMotor>();
             if (gameplayCamera == null) gameplayCamera = Camera.main;
             if (cameraRig == null) cameraRig = FindAnyObjectByType<CinemachineCamera>();
-            if (playerMotor == null || gameplayCamera == null || cameraRig == null)
+            if (playerMotor == null || gameplayCamera == null || cameraRig == null || waveSettings == null || arenaGround == null)
             {
-                Debug.LogError("CombatArena requires its player and follow camera references.", this);
+                Debug.LogError("CombatArena requires its player, follow camera, wave settings and ground references.", this);
                 return false;
             }
 
@@ -101,7 +107,9 @@ namespace EchoScrap.Combat
             DraftPresentation = GetOrAdd<UpgradeDraftPresentation>(Draft.gameObject);
             DraftPresentation.BindReferences(Session, Draft);
             Director = SystemObject<CombatWaveDirector>("WaveDirector");
+            if (waveSettings != null) Director.Settings = waveSettings;
             Director.BindReferences(Session, Enemies, Player, gameplayCamera);
+            Director.BindSpawnContext(arenaGround, cameraRig);
             Director.BindHazardPool(Hazards);
             Encounter = SystemObject<BossEncounter>("BossEncounter");
             Encounter.BindReferences(Session, Enemies, Hazards, Director, Player);

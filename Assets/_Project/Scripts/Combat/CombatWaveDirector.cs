@@ -1,14 +1,16 @@
 using System;
 using EchoScrap.Core;
+using Unity.Cinemachine;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace EchoScrap.Combat
 {
     /// <summary>
-    /// Oleadas acumuladas sin deuda de apariciones. Reserva cada plaza antes de crear el enemigo y
-    /// coloca su volumen fuera del encuadre proyectado, conservando el perímetro físico de la arena.
+    /// Session-clock scheduler and bounded, atomic group placement outside a stable 3D view.
     /// </summary>
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(1000)]
     public sealed class CombatWaveDirector : MonoBehaviour
     {
         [SerializeField] private CombatSession session;
@@ -20,7 +22,16 @@ namespace EchoScrap.Combat
         [SerializeField] private bool autoTick = true;
         [SerializeField] private bool stressPopulation;
 
-        private readonly Vector2[] footprint = new Vector2[4];
+        [SerializeField] private Collider arenaGround;
+        [SerializeField] private CinemachineCamera cameraRig;
+        private static readonly ProfilerMarker PlanMarker = new ProfilerMarker("EchoScrap.Spawner.PlanGroup");
+        private readonly Plane[] viewPlanes = new Plane[6];
+        private readonly EnemyArchetypeData[] groupData = new EnemyArchetypeData[4];
+        private readonly EnemySpawnGeometry[] groupGeometry = new EnemySpawnGeometry[4];
+        private readonly Vector3[] groupOffsets = new Vector3[4];
+        private readonly Vector3[] groupPositions = new Vector3[4];
+        private readonly EnemyActor[] activatedGroup = new EnemyActor[4];
+        private readonly int[] discardedByReason = new int[8];
         private readonly Collider[] obstacleBuffer = new Collider[32];
         private readonly Vector3[] reservationPositions = new Vector3[16];
         private readonly float[] reservationRadii = new float[16];
@@ -29,10 +40,8 @@ namespace EchoScrap.Combat
         private bool subscribed;
         private int reservationCount;
         private int minionOrderOffset;
-        private float footprintWinding;
-        private float elapsed;
         private float nextSpawnTime;
-        private float minionElapsed;
+        private float nextMinionTime;
         private int phaseIndex = -1;
 
         public event Action OnBossPhaseRequested;
@@ -41,7 +50,7 @@ namespace EchoScrap.Combat
         public bool StressPopulation { get => stressPopulation; set => stressPopulation = value; }
         public bool IsBossPhase { get; private set; }
         public bool BossActive { get; private set; }
-        public float Elapsed => elapsed;
+        public float Elapsed => session != null ? session.GameplayTime : 0f;
         public float NextSpawnTime => nextSpawnTime;
         public int PhaseIndex => phaseIndex;
         public int ReservedCount => reservationCount;
@@ -50,6 +59,12 @@ namespace EchoScrap.Combat
         public int GroupsAttemptedCount { get; private set; }
         public int BossMinionWavesCount { get; private set; }
         public int LastGroupSpawnedCount { get; private set; }
+        public enum DiscardReason { None, PopulationCap, InvalidCamera, MissingGround, OutsideArena, Obstructed, QuerySaturated, PoolFailure }
+        public Collider ArenaGround => arenaGround;
+        public int LastAnchorAttempts { get; private set; }
+        public int LastMemberValidations { get; private set; }
+        public double TotalPlanningMilliseconds { get; private set; }
+        public int Discarded(DiscardReason reason) => discardedByReason[(int)reason];
         public int PopulationLimit => Mathf.Max(1, stressPopulation ? Settings.StressPopulationCap : Settings.PopulationCap);
         public CombatWaveSettings Settings
         {
@@ -135,9 +150,23 @@ namespace EchoScrap.Combat
             gameplayCamera = camera;
             ResolveReferences();
             BindPools();
+            PrepareSpawnGeometry();
             if (isActiveAndEnabled)
                 Subscribe();
             ResetForSession();
+        }
+
+        public void BindSpawnContext(Collider floor, CinemachineCamera rig = null)
+        {
+            arenaGround = floor;
+            cameraRig = rig;
+        }
+
+        private void PrepareSpawnGeometry()
+        {
+            if (enemyPool == null) return;
+            for (int id = (int)EnemyArchetypeId.Residual; id <= (int)EnemyArchetypeId.ExplosiveMoth; id++)
+                enemyPool.GetSpawnGeometry(Settings.GetArchetype((EnemyArchetypeId)id));
         }
 
         public void BindHazardPool(CorrosivePuddlePool pool)
@@ -169,8 +198,7 @@ namespace EchoScrap.Combat
 
         public void ResetForSession()
         {
-            elapsed = 0f;
-            minionElapsed = 0f;
+            nextMinionTime = 0f;
             reservationCount = 0;
             minionOrderOffset = 0;
             IsBossPhase = false;
@@ -180,6 +208,9 @@ namespace EchoScrap.Combat
             GroupsAttemptedCount = 0;
             BossMinionWavesCount = 0;
             LastGroupSpawnedCount = 0;
+            LastAnchorAttempts = LastMemberValidations = 0;
+            TotalPlanningMilliseconds = 0;
+            Array.Clear(discardedByReason, 0, discardedByReason.Length);
             enemyPool?.DespawnAllActive();
             hazards?.ClearAll();
             ScheduleCurrentPhase();
@@ -187,8 +218,8 @@ namespace EchoScrap.Combat
 
         private void ScheduleCurrentPhase()
         {
-            CombatWavePhase phase = Settings.GetPhase(elapsed, out phaseIndex, out float progress);
-            nextSpawnTime = elapsed + ResolveInterval(phase, progress);
+            CombatWavePhase phase = Settings.GetPhase(Elapsed, out phaseIndex, out float progress);
+            nextSpawnTime = Elapsed + ResolveInterval(phase, progress);
         }
 
         private static float ResolveInterval(CombatWavePhase phase, float progress)
@@ -203,19 +234,19 @@ namespace EchoScrap.Combat
                 && enemyPool != null && Time.timeScale > 0f;
         }
 
-        private void Update()
+        private void LateUpdate()
         {
             if (autoTick)
-                Step(Time.deltaTime);
+                Step();
         }
 
-        /// <summary>El paso público permite probar minutos de partida sin esperar tiempo real.</summary>
-        public void Step(float deltaTime)
+        /// <summary>Evalúa el reloj de sesión; nunca lo avanza ni acumula nacimientos pendientes.</summary>
+        public void Step()
         {
-            if (!CanRun() || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
+            if (!CanRun())
                 return;
 
-            elapsed += deltaTime;
+            float elapsed = Elapsed;
             if (!IsBossPhase && elapsed + 0.00001f >= Mathf.Max(0f, Settings.BossStartTime))
             {
                 BeginBossPhase();
@@ -226,12 +257,13 @@ namespace EchoScrap.Combat
             {
                 if (BossActive)
                 {
-                    minionElapsed += deltaTime;
                     float interval = Mathf.Max(0.05f, Settings.BossMinionInterval);
-                    if (minionElapsed + 0.00001f >= interval)
+                    if (elapsed + 0.00001f >= nextMinionTime)
                     {
                         SpawnBossMinionWave();
-                        minionElapsed %= interval;
+                        nextMinionTime += interval;
+                        if (nextMinionTime <= elapsed + 0.00001f)
+                            nextMinionTime = elapsed + interval;
                     }
                 }
                 return;
@@ -252,15 +284,7 @@ namespace EchoScrap.Combat
             GroupsAttemptedCount++;
             LastGroupSpawnedCount = 0;
             EnemyWaveWeights weights = EnemyWaveWeights.Lerp(phase.InitialWeights, phase.FinalWeights, progress);
-            int size = Mathf.Clamp(phase.GroupSize, 1, 64);
-            for (int i = 0; i < size; i++)
-            {
-                EnemyArchetypeId id = weights.Choose(RandomSource.NextFloat());
-                if (TrySpawn(id, PopulationLimit))
-                    LastGroupSpawnedCount++;
-                else
-                    TotalDiscardedCount++;
-            }
+            SpawnGroup(Mathf.Clamp(phase.GroupSize, 1, 4), weights, PopulationLimit, false);
 
             // Mantener el calendario en frames normales, pero descartar intervalos vencidos al saltar tiempo.
             nextSpawnTime += spawnInterval;
@@ -274,7 +298,7 @@ namespace EchoScrap.Combat
         {
             IsBossPhase = true;
             BossActive = false;
-            minionElapsed = 0f;
+            nextMinionTime = 0f;
             reservationCount = 0;
             enemyPool.DespawnAllActive();
             if (hazards == null)
@@ -288,7 +312,7 @@ namespace EchoScrap.Combat
         public void SetBossActive(bool active)
         {
             BossActive = active && IsBossPhase;
-            minionElapsed = 0f;
+            nextMinionTime = Elapsed + Mathf.Max(0.05f, Settings.BossMinionInterval);
         }
 
         public int SpawnBossMinionWave()
@@ -303,217 +327,266 @@ namespace EchoScrap.Combat
             BossMinionWavesCount++;
             LastGroupSpawnedCount = 0;
             int cap = Mathf.Min(PopulationLimit, Mathf.Max(1, Settings.BossMinionCap));
-            for (int i = 0; i < order.Length; i++)
-            {
-                EnemyArchetypeId id = order[(i + minionOrderOffset) % order.Length];
-                if (TrySpawn(id, cap))
-                    LastGroupSpawnedCount++;
-                else
-                    TotalDiscardedCount++;
-            }
+            SpawnGroup(Mathf.Min(4, order.Length), default, cap, true);
             minionOrderOffset = (minionOrderOffset + 1) % order.Length;
             return LastGroupSpawnedCount;
         }
 
-        private bool TrySpawn(EnemyArchetypeId id, int cap)
+        private void RecordDiscard(int count, DiscardReason reason)
         {
-            if (ActiveEnemyCount + reservationCount >= cap || reservationCount >= reservationPositions.Length)
-                return false;
+            TotalDiscardedCount += count;
+            discardedByReason[(int)reason] += count;
+        }
 
-            EnemyArchetypeData data = Settings.GetArchetype(id);
-            if (!TryFindSpawnPosition(data, out Vector3 position))
-                return false;
-
-            int reservation = reservationCount++;
-            reservationPositions[reservation] = position;
-            reservationRadii[reservation] = GetRadius(data);
+        private void SpawnGroup(int requested, EnemyWaveWeights weights, int cap, bool minions)
+        {
+            LastAnchorAttempts = LastMemberValidations = 0;
+            int size = Mathf.Min(requested, Mathf.Max(0, cap - ActiveEnemyCount - reservationCount));
+            RecordDiscard(requested - size, DiscardReason.PopulationCap);
+            if (size == 0) return;
+            for (int i = 0; i < size; i++)
+            {
+                EnemyArchetypeId id = minions
+                    ? Settings.BossMinionOrder[(i + minionOrderOffset) % Settings.BossMinionOrder.Length]
+                    : weights.Choose(RandomSource.NextFloat());
+                groupData[i] = Settings.GetArchetype(id);
+                groupGeometry[i] = enemyPool.GetSpawnGeometry(groupData[i]);
+            }
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            bool planned;
+            DiscardReason failure;
+            using (PlanMarker.Auto()) planned = TryPlanGroup(size, out failure);
+            TotalPlanningMilliseconds += (System.Diagnostics.Stopwatch.GetTimestamp() - started)
+                * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            if (!planned)
+            {
+                RecordDiscard(size, failure);
+                return;
+            }
+            int activated = 0;
             try
             {
-                EnemyActor actor = enemyPool.Spawn(data, position);
-                if (actor == null)
-                    return false;
-                TotalSpawnedCount++;
-                return true;
+                // Reserve the entire validated formation before any actor can become active.
+                reservationCount = size;
+                for (int i = 0; i < size; i++)
+                {
+                    reservationPositions[i] = groupPositions[i];
+                    reservationRadii[i] = groupGeometry[i].Radius;
+                }
+                for (int i = 0; i < size; i++)
+                {
+                    EnemyActor actor = enemyPool.Spawn(groupData[i], groupPositions[i]);
+                    if (actor == null) return;
+                    activatedGroup[activated++] = actor;
+                }
+                LastGroupSpawnedCount = size;
+                TotalSpawnedCount += size;
             }
             finally
             {
-                reservationCount--;
+                if (activated != size)
+                {
+                    for (int i = 0; i < activated; i++) enemyPool.ReturnToPool(activatedGroup[i]);
+                    RecordDiscard(size, DiscardReason.PoolFailure);
+                }
+                Array.Clear(activatedGroup, 0, activatedGroup.Length);
+                reservationCount = 0;
             }
         }
 
         public bool TryFindSpawnPosition(EnemyArchetypeId id, out Vector3 position)
         {
-            return TryFindSpawnPosition(Settings.GetArchetype(id), out position);
+            position = default;
+            if (enemyPool == null) return false;
+            groupData[0] = Settings.GetArchetype(id);
+            groupGeometry[0] = enemyPool.GetSpawnGeometry(groupData[0]);
+            LastAnchorAttempts = LastMemberValidations = 0;
+            if (!TryPlanGroup(1, out _)) return false;
+            position = groupPositions[0];
+            return true;
         }
 
-        private bool TryFindSpawnPosition(EnemyArchetypeData data, out Vector3 position)
+        private bool TryPlanGroup(int size, out DiscardReason failure)
         {
-            position = default;
-            if (player == null || gameplayCamera == null || !BuildCameraFootprint())
-                return false;
-
-            Vector3 playerPosition = player.transform.position;
-            Vector2 origin = new Vector2(playerPosition.x, playerPosition.z);
-            float radius = GetRadius(data);
-            float margin = Mathf.Max(0f, Settings.OffscreenMargin) + radius;
-            float minimum = Mathf.Max(0f, Settings.BaselineMinimumDistance);
-            float maximum = Mathf.Max(minimum, Settings.BaselineMaximumDistance);
+            failure = DiscardReason.InvalidCamera;
+            if (player == null || !BuildStableView()) return false;
+            failure = DiscardReason.MissingGround;
+            if (arenaGround == null || !arenaGround.enabled || !arenaGround.gameObject.activeInHierarchy) return false;
+            Vector3 origin = player.transform.position;
+            origin.y = EnemySpawnGeometry.RootHeight;
+            float maxRadius = 0f;
+            for (int i = 0; i < size; i++) maxRadius = Mathf.Max(maxRadius, groupGeometry[i].Radius);
+            float spacing = 2f * maxRadius + Mathf.Max(0f, Settings.SpawnClearance);
             int attempts = Mathf.Clamp(Settings.PositionAttempts, 1, 16);
             for (int attempt = 0; attempt < attempts; attempt++)
             {
+                LastAnchorAttempts++;
                 float angle = RandomSource.Range(0f, Mathf.PI * 2f);
-                Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-                float distance = RandomSource.Range(minimum, maximum);
-                if (TryFindFootprintExit(origin, direction, margin, out float exitDistance))
-                    distance = Mathf.Max(distance, exitDistance + 0.05f);
-
-                Vector2 candidate = origin + direction * distance;
-                if (!InsideArena(candidate, radius) || !OutsideExpandedFootprint(candidate, margin))
-                    continue;
-
-                Vector3 candidateWorld = new Vector3(candidate.x, 1f, candidate.y);
-                if (!PositionIsClear(candidateWorld, data, radius))
-                    continue;
-
-                position = candidateWorld;
-                return true;
+                Vector3 radial = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                Vector3 tangent = new Vector3(-radial.z, 0f, radial.x);
+                Bounds envelope = default;
+                for (int i = 0; i < size; i++)
+                {
+                    Vector2 offset = FormationOffset(size, i) * spacing;
+                    groupOffsets[i] = tangent * offset.x + radial * offset.y;
+                    Bounds member = groupGeometry[i].VisualBounds;
+                    member.center += groupOffsets[i];
+                    if (i == 0) envelope = member; else envelope.Encapsulate(member);
+                }
+                float distance = RandomSource.Range(Mathf.Max(0f, Settings.BaselineMinimumDistance),
+                    Mathf.Max(Settings.BaselineMinimumDistance, Settings.BaselineMaximumDistance));
+                if (!TryFindViewExit(origin + envelope.center, envelope.extents, radial, out float exit)) continue;
+                distance = Mathf.Max(distance, exit + 0.05f);
+                Vector3 anchor = origin + radial * distance;
+                Bounds worldEnvelope = envelope;
+                worldEnvelope.center += anchor;
+                if (!OutsideView(worldEnvelope)) continue;
+                bool valid = true;
+                for (int i = 0; i < size; i++)
+                {
+                    LastMemberValidations++;
+                    Vector3 position = anchor + groupOffsets[i];
+                    groupPositions[i] = position;
+                    if (!InsideArena(new Vector2(position.x, position.z), groupGeometry[i].Radius))
+                    { failure = DiscardReason.OutsideArena; valid = false; break; }
+                    if (!HasGround(position, groupGeometry[i].Radius))
+                    { failure = DiscardReason.MissingGround; valid = false; break; }
+                    if (!PositionIsClear(position, groupGeometry[i], i, out failure))
+                    { valid = false; break; }
+                }
+                if (valid) { failure = DiscardReason.None; return true; }
             }
             return false;
         }
 
-        private static float GetRadius(EnemyArchetypeData data)
+        private static Vector2 FormationOffset(int size, int index)
         {
-            return Mathf.Max(0.05f, data.ColliderRadius
-                * Mathf.Max(Mathf.Abs(data.VisualScale.x), Mathf.Abs(data.VisualScale.z)));
+            if (size == 2) return new Vector2(index == 0 ? -0.5f : 0.5f, 0f);
+            if (size == 3) return index == 2 ? new Vector2(0f, Mathf.Sqrt(3f) / 3f)
+                : new Vector2(index == 0 ? -0.5f : 0.5f, -Mathf.Sqrt(3f) / 6f);
+            if (size == 4) return new Vector2((index & 1) == 0 ? -0.5f : 0.5f, index < 2 ? -0.5f : 0.5f);
+            return Vector2.zero;
         }
 
         public bool InsideArena(Vector2 point, float radius)
         {
-            Vector2 half = Settings.ArenaHalfExtents;
             Vector2 delta = point - Settings.ArenaCenter;
             float inset = Mathf.Max(0f, Settings.ArenaBoundaryInset) + Mathf.Max(0f, radius);
-            return Mathf.Abs(delta.x) <= half.x - inset && Mathf.Abs(delta.y) <= half.y - inset;
+            return Mathf.Abs(delta.x) <= Settings.ArenaHalfExtents.x - inset
+                && Mathf.Abs(delta.y) <= Settings.ArenaHalfExtents.y - inset;
         }
 
-        private bool BuildCameraFootprint()
-        {
-            var plane = new Plane(Vector3.up, new Vector3(0f, Settings.GroundHeight, 0f));
-            for (int i = 0; i < 4; i++)
-            {
-                float x = i == 1 || i == 2 ? 1f : 0f;
-                float y = i >= 2 ? 1f : 0f;
-                Ray ray = gameplayCamera.ViewportPointToRay(new Vector3(x, y, 0f));
-                if (!plane.Raycast(ray, out float distance) || distance < 0f)
-                    return false;
-                Vector3 point = ray.GetPoint(distance);
-                footprint[i] = new Vector2(point.x, point.z);
-            }
+        private float ViewMargin => Mathf.Max(0f, Settings.OffscreenMargin)
+            + CombatCameraFeedback.MaxLeadDistance + CombatCameraFeedback.MaxShakeAmplitude;
 
-            float area = 0f;
-            for (int i = 0; i < 4; i++)
+        private bool BuildStableView()
+        {
+            if (gameplayCamera == null || gameplayCamera.orthographic) return false;
+            Vector3 position = gameplayCamera.transform.position;
+            Quaternion rotation = gameplayCamera.transform.rotation;
+            float fov = gameplayCamera.fieldOfView, near = gameplayCamera.nearClipPlane, far = gameplayCamera.farClipPlane;
+            if (cameraRig != null)
             {
-                Vector2 a = footprint[i];
-                Vector2 b = footprint[(i + 1) % 4];
-                area += a.x * b.y - a.y * b.x;
+                if (!cameraRig.PreviousStateIsValid) return false;
+                CameraState state = cameraRig.State;
+                position = state.RawPosition;
+                rotation = state.RawOrientation;
+                fov = state.Lens.FieldOfView;
+                near = state.Lens.NearClipPlane;
+                far = state.Lens.FarClipPlane;
             }
-            if (Mathf.Abs(area) < 0.0001f)
-                return false;
-            footprintWinding = Mathf.Sign(area);
+            if (position.y <= Settings.GroundHeight || (rotation * Vector3.forward).y >= -0.01f
+                || float.IsNaN(position.sqrMagnitude) || float.IsInfinity(position.sqrMagnitude)
+                || fov <= 0f || fov >= 179f || gameplayCamera.aspect <= 0f) return false;
+            Matrix4x4 view = Matrix4x4.Scale(new Vector3(1f, 1f, -1f))
+                * Matrix4x4.TRS(position, rotation, Vector3.one).inverse;
+            GeometryUtility.CalculateFrustumPlanes(Matrix4x4.Perspective(fov, gameplayCamera.aspect, near, far) * view, viewPlanes);
             return true;
         }
 
-        // Recorte de un rayo contra las cuatro semiplanos del encuadre expandido.
-        private bool TryFindFootprintExit(Vector2 origin, Vector2 direction, float margin, out float exit)
+        private bool TryFindViewExit(Vector3 center, Vector3 extents, Vector3 direction, out float exit)
         {
-            float entry = 0f;
             exit = float.PositiveInfinity;
             for (int i = 0; i < 4; i++)
             {
-                Vector2 edge = footprint[(i + 1) % 4] - footprint[i];
-                Vector2 inward = new Vector2(-edge.y, edge.x).normalized * footprintWinding;
-                float signedDistance = Vector2.Dot(inward, origin - footprint[i]);
-                float slope = Vector2.Dot(inward, direction);
-                if (Mathf.Abs(slope) < 0.00001f)
-                {
-                    if (signedDistance < -margin)
-                        return false;
-                    continue;
-                }
-
-                float crossing = (-margin - signedDistance) / slope;
-                if (slope > 0f)
-                    entry = Mathf.Max(entry, crossing);
-                else
-                    exit = Mathf.Min(exit, crossing);
-                if (exit < entry)
-                    return false;
+                Plane plane = viewPlanes[i];
+                float slope = Vector3.Dot(plane.normal, direction);
+                if (slope >= -0.00001f) continue;
+                float crossing = (-ViewMargin - Support(plane.normal, extents) - plane.GetDistanceToPoint(center)) / slope;
+                exit = Mathf.Min(exit, Mathf.Max(0f, crossing));
             }
-            return !float.IsInfinity(exit) && exit >= entry;
+            return !float.IsInfinity(exit);
         }
 
-        private bool OutsideExpandedFootprint(Vector2 point, float margin)
+        private static float Support(Vector3 normal, Vector3 extents) => Mathf.Abs(normal.x) * extents.x
+            + Mathf.Abs(normal.y) * extents.y + Mathf.Abs(normal.z) * extents.z;
+
+        private bool OutsideView(Bounds bounds)
         {
             for (int i = 0; i < 4; i++)
-            {
-                Vector2 edge = footprint[(i + 1) % 4] - footprint[i];
-                Vector2 inward = new Vector2(-edge.y, edge.x).normalized * footprintWinding;
-                if (Vector2.Dot(inward, point - footprint[i]) < -margin)
+                if (viewPlanes[i].GetDistanceToPoint(bounds.center) + Support(viewPlanes[i].normal, bounds.extents) < -ViewMargin)
                     return true;
-            }
             return false;
         }
 
-        private bool PositionIsClear(Vector3 position, EnemyArchetypeData data, float radius)
+        public bool IsSpawnVolumeOutsideView(EnemyArchetypeId id, Vector3 position)
         {
+            if (enemyPool == null || !BuildStableView()) return false;
+            Bounds bounds = enemyPool.GetSpawnGeometry(Settings.GetArchetype(id)).VisualBounds;
+            bounds.center += position;
+            return OutsideView(bounds);
+        }
+
+        private bool HasGround(Vector3 position, float radius)
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                Vector3 offset = i == 0 ? Vector3.zero : i == 1 ? Vector3.right * radius
+                    : i == 2 ? Vector3.left * radius : i == 3 ? Vector3.forward * radius : Vector3.back * radius;
+                Vector3 start = position + offset;
+                start.y = Settings.GroundHeight + 0.1f;
+                if (!arenaGround.Raycast(new Ray(start, Vector3.down), out RaycastHit hit, 0.2f)
+                    || Mathf.Abs(hit.point.y - Settings.GroundHeight) > 0.02f || hit.normal.y < 0.99f) return false;
+            }
+            return true;
+        }
+
+        private bool PositionIsClear(Vector3 position, EnemySpawnGeometry geometry, int plannedBefore, out DiscardReason failure)
+        {
+            failure = DiscardReason.Obstructed;
+            float radius = geometry.Radius;
             float clearance = Mathf.Max(0f, Settings.SpawnClearance);
             var active = EnemyActor.ActiveEnemies;
             for (int i = 0; i < active.Count; i++)
             {
                 EnemyActor actor = active[i];
-                if (actor == null || !actor.IsAlive || !actor.gameObject.activeInHierarchy)
-                    continue;
-                float safeDistance = radius + actor.HitRadius + clearance;
-                Vector3 offset = actor.transform.position - position;
-                offset.y = 0f;
-                if (offset.sqrMagnitude < safeDistance * safeDistance)
-                    return false;
+                if (actor == null || !actor.IsAlive || !actor.gameObject.activeInHierarchy) continue;
+                if (TooClose(position, actor.transform.position, radius + actor.HitRadius + clearance)) return false;
             }
             for (int i = 0; i < reservationCount; i++)
-            {
-                float safeDistance = radius + reservationRadii[i] + clearance;
-                Vector3 offset = reservationPositions[i] - position;
-                offset.y = 0f;
-                if (offset.sqrMagnitude < safeDistance * safeDistance)
-                    return false;
-            }
-
+                if (TooClose(position, reservationPositions[i], radius + reservationRadii[i] + clearance)) return false;
+            for (int i = 0; i < plannedBefore; i++)
+                if (TooClose(position, groupPositions[i], radius + groupGeometry[i].Radius + clearance - 0.0001f)) return false;
             if (player != null)
             {
                 float playerRadius = player.HurtboxCollider != null
-                    ? Mathf.Max(player.HurtboxCollider.bounds.extents.x, player.HurtboxCollider.bounds.extents.z)
-                    : 0.5f;
-                Vector3 offset = player.transform.position - position;
-                offset.y = 0f;
-                float safeDistance = radius + playerRadius + clearance;
-                if (offset.sqrMagnitude < safeDistance * safeDistance)
-                    return false;
+                    ? Mathf.Max(player.HurtboxCollider.bounds.extents.x, player.HurtboxCollider.bounds.extents.z) : 0.5f;
+                if (TooClose(position, player.transform.position, radius + playerRadius + clearance)) return false;
             }
-
-            float halfHeight = Mathf.Max(radius, data.ColliderHeight * Mathf.Abs(data.VisualScale.y) * 0.5f);
-            float segment = Mathf.Max(0f, halfHeight - radius);
-            int count = Physics.OverlapCapsuleNonAlloc(position - Vector3.up * segment,
-                position + Vector3.up * segment, radius + clearance, obstacleBuffer,
+            geometry.CapsuleAt(position, out Vector3 bottom, out Vector3 top);
+            int count = Physics.OverlapCapsuleNonAlloc(bottom, top, radius + clearance, obstacleBuffer,
                 Settings.ObstacleMask, QueryTriggerInteraction.Ignore);
-            if (count >= obstacleBuffer.Length)
-                return false;
+            if (count >= obstacleBuffer.Length) { failure = DiscardReason.QuerySaturated; return false; }
             for (int i = 0; i < count; i++)
-            {
-                Collider obstacle = obstacleBuffer[i];
-                if (obstacle == null || obstacle.bounds.max.y <= Settings.GroundHeight + 0.15f)
-                    continue; // El suelo no impide crear los actores de altura fija.
-                return false;
-            }
+                if (obstacleBuffer[i] != null && obstacleBuffer[i] != arenaGround) return false;
+            failure = DiscardReason.None;
             return true;
+        }
+
+        private static bool TooClose(Vector3 a, Vector3 b, float distance)
+        {
+            Vector3 offset = a - b; offset.y = 0f;
+            return offset.sqrMagnitude < distance * distance;
         }
     }
 }

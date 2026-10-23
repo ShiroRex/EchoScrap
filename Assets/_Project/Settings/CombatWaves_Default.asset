@@ -1,0 +1,114 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4fe5d7ba539a4898b84991e7194b864f, type: 3}
+  m_Name: CombatWaves_Default
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.CombatWaveSettings
+  Phases:
+  - StartTime: 0
+    InitialInterval: 1.2
+    FinalInterval: 1.2
+    GroupSize: 1
+    InitialWeights:
+      Residual: 100
+      Interceptor: 0
+      Colossus: 0
+      Mortar: 0
+      Moth: 0
+    FinalWeights:
+      Residual: 100
+      Interceptor: 0
+      Colossus: 0
+      Mortar: 0
+      Moth: 0
+  - StartTime: 60
+    InitialInterval: 0.8
+    FinalInterval: 0.8
+    GroupSize: 2
+    InitialWeights:
+      Residual: 50
+      Interceptor: 25
+      Colossus: 0
+      Mortar: 15
+      Moth: 10
+    FinalWeights:
+      Residual: 50
+      Interceptor: 25
+      Colossus: 0
+      Mortar: 15
+      Moth: 10
+  - StartTime: 120
+    InitialInterval: 0.6
+    FinalInterval: 0.6
+    GroupSize: 3
+    InitialWeights:
+      Residual: 20
+      Interceptor: 35
+      Colossus: 5
+      Mortar: 20
+      Moth: 20
+    FinalWeights:
+      Residual: 20
+      Interceptor: 35
+      Colossus: 5
+      Mortar: 20
+      Moth: 20
+  - StartTime: 180
+    InitialInterval: 0.4
+    FinalInterval: 0.32
+    GroupSize: 4
+    InitialWeights:
+      Residual: 20
+      Interceptor: 35
+      Colossus: 5
+      Mortar: 20
+      Moth: 20
+    FinalWeights:
+      Residual: 20
+      Interceptor: 30
+      Colossus: 10
+      Mortar: 20
+      Moth: 20
+  - StartTime: 300
+    InitialInterval: 0.32
+    FinalInterval: 0.2
+    GroupSize: 4
+    InitialWeights:
+      Residual: 20
+      Interceptor: 30
+      Colossus: 10
+      Mortar: 20
+      Moth: 20
+    FinalWeights:
+      Residual: 20
+      Interceptor: 25
+      Colossus: 10
+      Mortar: 25
+      Moth: 20
+  PopulationCap: 150
+  StressPopulationCap: 250
+  BossStartTime: 480
+  BossMinionInterval: 4
+  BossMinionCap: 24
+  BossMinionOrder: 01000000010000000400000005000000i
+  ArenaCenter: {x: 0, y: 0}
+  ArenaHalfExtents: {x: 60, y: 60}
+  ArenaBoundaryInset: 1
+  GroundHeight: 0
+  BaselineMinimumDistance: 14
+  BaselineMaximumDistance: 16
+  OffscreenMargin: 2
+  SpawnClearance: 0.25
+  PositionAttempts: 16
+  ObstacleMask:
+    serializedVersion: 2
+    m_Bits: 1
+  ArchetypeOverrides: []

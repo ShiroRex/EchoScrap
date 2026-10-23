@@ -20,6 +20,7 @@ namespace EchoScrap.Tests
         private Camera camera;
         private Material floorMaterial;
         private Material playerMaterial;
+        private Collider arenaGround;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -30,6 +31,7 @@ namespace EchoScrap.Tests
             testScene = SceneManager.CreateScene("GolgoraTest_" + Random.Range(10000, 99999));
             SceneManager.SetActiveScene(testScene);
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            arenaGround = floor.GetComponent<Collider>();
             floor.transform.localScale = Vector3.one * 12f;
             floorMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
             { color = new Color(0.10f, 0.13f, 0.17f) };
@@ -239,7 +241,7 @@ namespace EchoScrap.Tests
             session.Events.OnActorDied += _ => deaths++;
             encounter.OnBossActivated += _ => activations++;
             MovePlayer(Vector3.up);
-            director.Step(480f);
+            session.Clock.AdvanceGameplayTime(480f); director.Step();
             Assert.IsTrue(encounter.IsEncounterActive);
             encounter.Boss.AutoTick = false;
             Assert.AreEqual(SessionState.BossIntro, session.State);
@@ -261,7 +263,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(100f, player.CurrentHealth);
             encounter.Step(2f);
             Assert.AreEqual(1, activations);
-            director.Step(4f);
+            session.Clock.AdvanceGameplayTime(4f); director.Step();
             Assert.AreEqual(4, director.ActiveEnemyCount);
         }
 
@@ -271,7 +273,7 @@ namespace EchoScrap.Tests
             player.GetComponent<CapsuleCollider>().height = 2f;
             MovePlayer(Vector3.up);
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
-            director.Step(480f);
+            session.Clock.AdvanceGameplayTime(480f); director.Step();
             encounter.Boss.AutoTick = false;
             encounter.Step(1.5f);
             Assert.IsFalse(encounter.IntroWaitingForClearance);
@@ -286,7 +288,7 @@ namespace EchoScrap.Tests
         public void VictoryAwardsClosingXpOnce_NoDropRng_AndCinematicUsesUnscaledTime()
         {
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
-            director.Step(480f);
+            session.Clock.AdvanceGameplayTime(480f); director.Step();
             encounter.Boss.AutoTick = false;
             encounter.Step(1.5f);
             int awards = 0;
@@ -322,7 +324,7 @@ namespace EchoScrap.Tests
         public void SimultaneousDeathIsDefeat_NoVictoryGemOrClosingDraft_AndTenRestartsReuseBoss()
         {
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
-            director.Step(480f);
+            session.Clock.AdvanceGameplayTime(480f); director.Step();
             encounter.Boss.AutoTick = false;
             encounter.Step(1.5f);
             var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, 2000f);
@@ -337,7 +339,7 @@ namespace EchoScrap.Tests
             {
                 session.ResetSession();
                 MovePlayer(new Vector3(0f, 1f, 12f));
-                director.Step(480f);
+                session.Clock.AdvanceGameplayTime(480f); director.Step();
                 Assert.AreSame(pooledBoss, encounter.Boss);
                 Assert.AreEqual(1500f, encounter.Boss.CurrentHealth);
                 Assert.AreEqual(GolgoraState.Intro, encounter.Boss.State);
@@ -388,6 +390,7 @@ namespace EchoScrap.Tests
             director.AutoTick = false;
             director.BindReferences(session, enemies, player, camera);
             director.BindHazardPool(hazards);
+            director.BindSpawnContext(arenaGround);
             var encounter = new GameObject("BossEncounter").AddComponent<BossEncounter>();
             encounter.AutoTick = false;
             encounter.BindReferences(session, enemies, hazards, director, player);

@@ -152,7 +152,7 @@ namespace EchoScrap.Tests
         [Test]
         public void VictorySummaryWaitsForBossExplosionAndGem_WhileGameplayRemainsFrozen()
         {
-            game.Director.Step(480f); game.Encounter.Step(1.5f);
+            game.Session.Clock.AdvanceGameplayTime(480f); game.Director.Step(); game.Encounter.Step(1.5f);
             var boss = game.Encounter.Boss; boss.AutoTick = false;
             var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, 2000f);
             boss.ReceiveDamage(in lethal); game.Session.ResolveSimulationStepOutcome();

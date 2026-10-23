@@ -58,6 +58,8 @@ namespace EchoScrap.Tests
             Assert.IsNotNull(game.Progression);
             Assert.IsNotNull(game.Draft);
             Assert.IsNotNull(game.Encounter);
+            Assert.IsNotNull(game.WaveSettings, "The playable scene must retain an authored wave settings asset.");
+            Assert.AreSame(game.WaveSettings, game.Director.Settings);
             Assert.IsNotNull(game.Hud.CanvasRoot);
             Assert.That(game.Enemies.TotalCreatedCount, Is.GreaterThanOrEqualTo(150));
             Assert.AreEqual(0, game.Director.ActiveEnemyCount);
@@ -143,7 +145,7 @@ namespace EchoScrap.Tests
         [Test]
         public void TenRestarts_ResetBossPoolsPickupsStatsAndWeapon_WithoutCreatingMoreSceneObjects()
         {
-            game.Director.Step(480f);
+            game.Session.Clock.AdvanceGameplayTime(480f); game.Director.Step();
             game.Encounter.Step(1.5f);
             Assert.IsNotNull(game.Encounter.Boss);
             game.ResetRun(false); // Warm the boss actor and its mandatory presentation once.
@@ -156,7 +158,7 @@ namespace EchoScrap.Tests
                 game.Pickups.SpawnExperience(new Vector3(25f, 0f, 0f), 10);
                 game.Pickups.SpawnMedkit(new Vector3(25f, 0f, 5f));
                 game.Stats.SetUpgradeTier("FLASH_01", 1);
-                game.Director.Step(480f);
+                game.Session.Clock.AdvanceGameplayTime(480f); game.Director.Step();
                 game.Hazards.SpawnPuddle(1, new Vector3(20f, 0f, 0f));
                 game.Weapon.enabled = false;
                 game.Session.SetManualPause(true);
@@ -184,13 +186,32 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator SpawnSamplingUsesStableCinemachinePose_RegardlessOfDecorativeShake()
+        {
+            yield return null;
+            game.Session.ResetSession(20261022);
+            game.Session.Effects.ApplyCondition(PresentationCondition.FullEffects);
+            var feedback = game.CameraRig.GetComponent<CombatCameraFeedback>();
+            feedback.RequestShake(ShakePriority.Medium, 0.35f, 1f, 13f);
+            yield return null;
+            Assert.IsTrue(game.Director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out Vector3 full));
+            int samples = game.Session.Rng.Combat.SampleCount;
+            game.Session.ResetSession(20261022);
+            game.Session.Effects.ApplyCondition(PresentationCondition.ReducedEffects);
+            yield return null;
+            Assert.IsTrue(game.Director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out Vector3 reduced));
+            Assert.That(Vector3.Distance(full, reduced), Is.LessThan(0.001f));
+            Assert.AreEqual(samples, game.Session.Rng.Combat.SampleCount);
+        }
+
+        [UnityTest]
         public IEnumerator BossArrow_RemainsVisibleOutsideFrameWithEffectsReduced()
         {
             Vector3 position = new Vector3(50f, 1f, 50f);
             game.Player.transform.position = position;
             game.Player.GetComponent<Rigidbody>().position = position;
             game.CameraRig.PreviousStateIsValid = false;
-            game.Director.Step(480f);
+            game.Session.Clock.AdvanceGameplayTime(480f); game.Director.Step();
             game.Encounter.Step(1.5f);
             game.Session.Effects.ReducedEffectsMode = true;
             yield return null;

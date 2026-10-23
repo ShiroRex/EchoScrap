@@ -17,6 +17,7 @@ namespace EchoScrap.Editor
     public static class CombatArenaBuilder
     {
         public const string ScenePath = "Assets/_Project/Scenes/CombatArena.unity";
+        public const string WaveSettingsPath = "Assets/_Project/Settings/CombatWaves_Default.asset";
         private const string MaterialDirectory = "Assets/_Project/Materials/CombatArena";
 
         [MenuItem("EchoScrap/Combat/Rebuild Playable Arena")]
@@ -24,7 +25,14 @@ namespace EchoScrap.Editor
         {
             Directory.CreateDirectory("Assets/_Project/Scenes");
             Directory.CreateDirectory(MaterialDirectory);
+            Directory.CreateDirectory("Assets/_Project/Settings");
             AssetDatabase.Refresh();
+            CombatWaveSettings waves = AssetDatabase.LoadAssetAtPath<CombatWaveSettings>(WaveSettingsPath);
+            if (waves == null)
+            {
+                waves = ScriptableObject.CreateInstance<CombatWaveSettings>();
+                AssetDatabase.CreateAsset(waves, WaveSettingsPath);
+            }
             GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(LocomotionSandboxBuilder.PrefabPath);
             if (playerPrefab == null) throw new BuildFailedException("The player locomotion prefab is missing.");
             var retainedMaterials = new List<Material>(8);
@@ -42,7 +50,7 @@ namespace EchoScrap.Editor
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             Transform arena = new GameObject("Arena_120m").transform;
-            Cube("Floor", arena, new Vector3(0f, -0.5f, 0f), new Vector3(120f, 1f, 120f), floor);
+            Collider ground = Cube("Floor", arena, new Vector3(0f, -0.5f, 0f), new Vector3(120f, 1f, 120f), floor);
             Cube("Wall_North", arena, new Vector3(0f, 1.5f, 60.5f), new Vector3(122f, 3f, 1f), walls);
             Cube("Wall_South", arena, new Vector3(0f, 1.5f, -60.5f), new Vector3(122f, 3f, 1f), walls);
             Cube("Wall_East", arena, new Vector3(60.5f, 1.5f, 0f), new Vector3(1f, 3f, 120f), walls);
@@ -73,7 +81,7 @@ namespace EchoScrap.Editor
             RenderSettings.ambientLight = new Color(0.10f, 0.12f, 0.16f);
             RenderSettings.fog = false;
             var bootstrap = new GameObject("CombatGame").AddComponent<CombatGameBootstrap>();
-            bootstrap.AssignSceneReferences(player.GetComponent<PlayerMotor>(), camera, rig, retainedMaterials.ToArray());
+            bootstrap.AssignSceneReferences(player.GetComponent<PlayerMotor>(), camera, rig, retainedMaterials.ToArray(), waves, ground);
             EditorSceneManager.SaveScene(scene, ScenePath);
             // Los Play Mode tests cargan los dos sandboxes por nombre. La build de entrega sigue
             // usando únicamente ScenePath mediante BuildPlayerOptions.scenes más abajo.
@@ -127,6 +135,8 @@ namespace EchoScrap.Editor
             if (shader == null) throw new BuildFailedException("Missing shader: " + shaderName);
             string path = MaterialDirectory + "/" + name + ".mat";
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            // Rebuilding spawn configuration must preserve the arena's authored presentation.
+            if (material != null) return material;
             if (material == null)
             {
                 material = new Material(shader) { name = "CombatArena_" + name };
@@ -151,7 +161,7 @@ namespace EchoScrap.Editor
             return material;
         }
 
-        private static void Cube(string name, Transform parent, Vector3 position, Vector3 scale, Material material, bool collider = true)
+        private static Collider Cube(string name, Transform parent, Vector3 position, Vector3 scale, Material material, bool collider = true)
         {
             GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.name = name; cube.transform.SetParent(parent, false);
@@ -163,10 +173,44 @@ namespace EchoScrap.Editor
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
             }
+            return collider ? cube.GetComponent<Collider>() : null;
         }
 
         public static void BuildWindows() => BuildWindowsInternal(false);
         public static void BuildWindowsDevelopment() => BuildWindowsInternal(true);
+
+        public static void ValidateSpawnerSettingsAndBuildWindows()
+        {
+            CombatWaveSettings waves = AssetDatabase.LoadAssetAtPath<CombatWaveSettings>(WaveSettingsPath);
+            if (waves == null) throw new BuildFailedException("The authored wave settings asset is missing.");
+            string guid = AssetDatabase.AssetPathToGUID(WaveSettingsPath);
+            float original = waves.OffscreenMargin;
+            try
+            {
+                waves.OffscreenMargin = original + 0.125f;
+                EditorUtility.SetDirty(waves);
+                AssetDatabase.SaveAssets();
+                Rebuild();
+                var rebuilt = AssetDatabase.LoadAssetAtPath<CombatWaveSettings>(WaveSettingsPath);
+                var bootstrap = Object.FindAnyObjectByType<CombatGameBootstrap>();
+                if (AssetDatabase.AssetPathToGUID(WaveSettingsPath) != guid
+                    || rebuilt.OffscreenMargin != original + 0.125f || bootstrap.WaveSettings != rebuilt
+                    || bootstrap.ArenaGround == null)
+                    throw new BuildFailedException("Rebuilding the arena did not preserve its authored spawn context.");
+            }
+            finally
+            {
+                waves = AssetDatabase.LoadAssetAtPath<CombatWaveSettings>(WaveSettingsPath);
+                waves.OffscreenMargin = original;
+                EditorUtility.SetDirty(waves);
+                AssetDatabase.SaveAssets();
+                Rebuild();
+            }
+            Directory.CreateDirectory("Logs/SpawnerPlayableRun");
+            File.WriteAllText("Logs/SpawnerPlayableRun/SettingsPersistence.json",
+                "{\"passed\":true,\"guid\":\"" + guid + "\",\"testedNonDefaultMargin\":true,\"restored\":true}");
+            BuildWindows();
+        }
         private static void BuildWindowsInternal(bool development)
         {
             PlayerSettings.enableFrameTimingStats = true;
