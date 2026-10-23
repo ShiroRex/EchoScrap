@@ -120,7 +120,7 @@ namespace EchoScrap.Combat
             root.transform.SetParent(transform, false);
             canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 40;
+            canvas.sortingOrder = 10; // Below the HUD and its pause/result overlay (20).
             canvasRect = (RectTransform)root.transform;
             var scaler = root.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
