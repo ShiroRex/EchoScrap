@@ -157,6 +157,8 @@ public class PlayerFlashlightView : MonoBehaviour
         coneLineRenderer = outlineRenderer;
         emitterRenderer = emitter;
         useRescueLens = true;
+        // The final game's visible beam is OilLanternVolume; keep the legacy floor fan hidden.
+        showGroundCone = false;
     }
 
     public void RenderNow(bool reduced)
