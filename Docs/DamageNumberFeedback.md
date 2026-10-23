@@ -48,6 +48,8 @@ aprobado para el proyecto final:
 - Pausa congela duración y animación, conservando la reproyección si cambia la
   cámara. Efectos reducidos mantienen valores, crítico y prioridades, eliminando
   el pop y el ascenso decorativo.
+- El canvas de daño usa orden 10, por debajo del HUD y sus menús (20). Al pausar,
+  el fondo y el panel cubren las etiquetas; reanudar conserva su duración restante.
 - Reinicio, desactivación, entrada del jefe y fin de sesión limpian las etiquetas
   para no mostrarlas sobre menús o enemigos nuevos.
 
@@ -79,3 +81,9 @@ Suite completa validada en Unity 6000.6.3f1: **133/133 aprobadas**, cero fallos.
 Captura inspeccionada; etiquetas acumuladas y crítico legibles sobre las siluetas.
 XML, log y hashes de 286 fuentes en `Logs/DamageNumberFeedback/`.
 El presentador está montado en CombatGameBootstrap y se limpia con cada reinicio.
+
+Corrección de superposición en pausa — 23 de octubre de 2026: capturas antes,
+después y al reanudar inspeccionadas a 1920×1080. El menú cubre las cinco etiquetas
+activas y estas siguen visibles al reanudar. Suite completa: **187/187 Play Mode**,
+cero fallos. Capturas, resultados y fuentes en `Logs/DamageNumbersPauseFix/`.
+Se validó una copia aislada; no se generó una nueva build Windows.
