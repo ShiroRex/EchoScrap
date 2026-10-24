@@ -1,0 +1,11 @@
+{
+  "materials": [
+    {
+      "name": "Material_0",
+      "base": "Assets/_Project/Art/Mundo3D/Texturas/arbol_seco/0_base.jpg",
+      "normal": "Assets/_Project/Art/Mundo3D/Texturas/arbol_seco/0_normal.jpg",
+      "emission": "Assets/_Project/Art/Mundo3D/Texturas/arbol_seco/0_emission.jpg",
+      "metallic": "Assets/_Project/Art/Mundo3D/Texturas/arbol_seco/0_metallic.png"
+    }
+  ]
+}

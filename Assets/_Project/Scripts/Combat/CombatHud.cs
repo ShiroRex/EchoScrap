@@ -224,7 +224,7 @@ namespace EchoScrap.Combat
             var boss = game.Encounter != null ? game.Encounter.Boss : null;
             bool visible = boss != null && boss.IsAlive && game.Encounter.IsEncounterActive;
             bossPanel.SetActive(visible);
-            string phase = visible ? "VERTEDERO  /  GÓLGORA" : "VERTEDERO  /  SOBREVIVE";
+            string phase = visible ? "VERTEDERO  /  MATACOLECCIONISTA" : "VERTEDERO  /  SOBREVIVE";
             if (phaseText.text != phase) phaseText.text = phase;
             if (!visible) { previousBossHealth = -1; return; }
             bossFill.fillAmount = Mathf.Clamp01(boss.CurrentHealth / Mathf.Max(1f, boss.MaxHealth));
@@ -232,7 +232,7 @@ namespace EchoScrap.Combat
             if (hp != previousBossHealth)
             {
                 previousBossHealth = hp;
-                bossHealthText.text = $"GÓLGORA   {hp} / {Mathf.CeilToInt(boss.MaxHealth)}";
+                bossHealthText.text = $"MATACOLECCIONISTA   {hp} / {Mathf.CeilToInt(boss.MaxHealth)}";
             }
         }
 
@@ -274,7 +274,7 @@ namespace EchoScrap.Combat
                 resultTitle.text = state == SessionState.Victory ? "VICTORIA" : "DERROTA";
                 int second = Mathf.Max(0, Mathf.FloorToInt(game.Session.GameplayTime));
                 long xp = game.Progression.TotalXp + (game.Encounter != null ? game.Encounter.ClosingXpReward : 0);
-                resultSummary.text = $"{(state == SessionState.Victory ? "Gólgora ha caído." : "Tu integridad llegó a cero.")}\n\nTIEMPO   {second / 60:00}:{second % 60:00}\nNIVEL   {game.Progression.Level}\nBAJAS   {kills}\nXP OBTENIDA   {xp}";
+                resultSummary.text = $"{(state == SessionState.Victory ? "El MataColeccionista ha caído." : "Tu integridad llegó a cero.")}\n\nTIEMPO   {second / 60:00}:{second % 60:00}\nNIVEL   {game.Progression.Level}\nBAJAS   {kills}\nXP OBTENIDA   {xp}";
             }
             if (modal.activeSelf && (!wasVisible || state != previousState))
                 EventSystem.current?.SetSelectedGameObject(ended ? resultRestartButton.gameObject : resumeButton.gameObject);
@@ -346,7 +346,7 @@ namespace EchoScrap.Combat
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));
 
             bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -161f), new Vector2(720f, 72f)).gameObject;
-            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 16f), new Vector2(720f, 36f), "GÓLGORA", 26, TextAnchor.MiddleCenter, Apollo);
+            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 16f), new Vector2(720f, 36f), "MATACOLECCIONISTA", 26, TextAnchor.MiddleCenter, Apollo);
             bossFill = Fill(ImageRect(bossPanel.transform, "BossTrack", new Vector2(0f, -15f), new Vector2(720f, 12f), new Color(0.15f, 0.13f, 0.16f)).transform, "BossFill", new Color(0.91f, 0.42f, 0.22f));
             bossPanel.SetActive(false);
             bossArrow = Rect(canvasRect, "BossOffscreenArrow", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48f, 52f));

@@ -302,6 +302,7 @@ namespace EchoScrap.Combat
                     continue;
 
                 if (r.name == "Polilla Reactor Pixels") continue;
+                if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.GolgoraBoss && r.GetComponentInParent<Animator>() != null) continue;
 
                 r.sharedMaterial = r.gameObject.name.Contains("Crest") ? secondaryMat : primaryMat;
             }

@@ -82,6 +82,9 @@ namespace EchoScrap.Tests
         [Test]
         public void DefaultPhases_KeepAcceptedCadenceCompositionAndSeparateStressCap()
         {
+            // Las fases posteriores siguen siendo configurables para partidas largas.
+            // La escena jugable usa 180 s, ver WorldArtIntegrationTests.
+            settings.BossStartTime = 480f;
             CombatWavePhase phase = settings.GetPhase(0f, out int index, out float progress);
             Assert.AreEqual(0, index);
             Assert.AreEqual(1, phase.GroupSize);
@@ -256,7 +259,7 @@ namespace EchoScrap.Tests
             hazards.SpawnPuddle(1, new Vector3(20f, 0f, 0f));
             var projectile = CorrosivePuddlePool.ProjectileSpec.CreateMortarDefault(2, Vector3.up * 2f, new Vector3(20f, 0f, 0f));
             Assert.IsTrue(hazards.TryLaunchParabolicProjectile(in projectile));
-            AdvanceDirector(480f);
+            AdvanceDirector(180f);
             Assert.AreEqual(0, explosions.PendingCount, "La entrada elimina explosiones pendientes de la horda retirada.");
             Assert.IsTrue(director.IsBossPhase);
             Assert.IsFalse(director.BossActive);
@@ -281,7 +284,7 @@ namespace EchoScrap.Tests
         [Test]
         public void BossMinions_FourSecondGroupsRespectCap_RotatePartialComposition_AndNeverCatchUp()
         {
-            AdvanceDirector(480f);
+            AdvanceDirector(180f);
             director.SetBossActive(true);
             AdvanceDirector(3.99f);
             Assert.AreEqual(0, director.BossMinionWavesCount);

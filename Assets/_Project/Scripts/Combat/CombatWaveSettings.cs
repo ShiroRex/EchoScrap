@@ -83,7 +83,7 @@ namespace EchoScrap.Combat
         public CombatWavePhase[] Phases = CreateDefaultPhases();
         [Min(1)] public int PopulationCap = 150;
         [Min(1)] public int StressPopulationCap = 250;
-        [Min(0f)] public float BossStartTime = 480f;
+        [Min(0f)] public float BossStartTime = 180f;
         [Min(0.05f)] public float BossMinionInterval = 4f;
         [Min(1)] public int BossMinionCap = 24;
         public EnemyArchetypeId[] BossMinionOrder =

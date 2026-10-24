@@ -231,7 +231,7 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void MinuteEight_IntroClearsWithoutRewards_PausesAndSafelyDisplacesPlayer()
+        public void MinuteThree_IntroClearsWithoutRewards_PausesAndSafelyDisplacesPlayer()
         {
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
             enemies.Spawn(EnemyArchetypeId.Residual, new Vector3(10f, 1f, 0f));
@@ -241,7 +241,7 @@ namespace EchoScrap.Tests
             session.Events.OnActorDied += _ => deaths++;
             encounter.OnBossActivated += _ => activations++;
             MovePlayer(Vector3.up);
-            session.Clock.AdvanceGameplayTime(480f); director.Step();
+            session.Clock.AdvanceGameplayTime(180f); director.Step();
             Assert.IsTrue(encounter.IsEncounterActive);
             encounter.Boss.AutoTick = false;
             Assert.AreEqual(SessionState.BossIntro, session.State);
@@ -273,7 +273,7 @@ namespace EchoScrap.Tests
             player.GetComponent<CapsuleCollider>().height = 2f;
             MovePlayer(Vector3.up);
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
-            session.Clock.AdvanceGameplayTime(480f); director.Step();
+            session.Clock.AdvanceGameplayTime(180f); director.Step();
             encounter.Boss.AutoTick = false;
             encounter.Step(1.5f);
             Assert.IsFalse(encounter.IntroWaitingForClearance);
@@ -288,7 +288,7 @@ namespace EchoScrap.Tests
         public void VictoryAwardsClosingXpOnce_NoDropRng_AndCinematicUsesUnscaledTime()
         {
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
-            session.Clock.AdvanceGameplayTime(480f); director.Step();
+            session.Clock.AdvanceGameplayTime(180f); director.Step();
             encounter.Boss.AutoTick = false;
             encounter.Step(1.5f);
             int awards = 0;
@@ -324,7 +324,7 @@ namespace EchoScrap.Tests
         public void SimultaneousDeathIsDefeat_NoVictoryGemOrClosingDraft_AndTenRestartsReuseBoss()
         {
             BossEncounter encounter = CreateEncounter(out CombatWaveDirector director);
-            session.Clock.AdvanceGameplayTime(480f); director.Step();
+            session.Clock.AdvanceGameplayTime(180f); director.Step();
             encounter.Boss.AutoTick = false;
             encounter.Step(1.5f);
             var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, 2000f);
@@ -339,7 +339,7 @@ namespace EchoScrap.Tests
             {
                 session.ResetSession();
                 MovePlayer(new Vector3(0f, 1f, 12f));
-                session.Clock.AdvanceGameplayTime(480f); director.Step();
+                session.Clock.AdvanceGameplayTime(180f); director.Step();
                 Assert.AreSame(pooledBoss, encounter.Boss);
                 Assert.AreEqual(1500f, encounter.Boss.CurrentHealth);
                 Assert.AreEqual(GolgoraState.Intro, encounter.Boss.State);

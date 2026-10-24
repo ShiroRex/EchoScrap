@@ -22,6 +22,10 @@ Brain. Las pruebas avanzan el reloj de sesión. Los diagnósticos se conservan.
 | 180–300 | 4 | 0.40→0.32 s | 20/35/5/20/20→20/30/10/20/20 |
 | 300–480 | 4 | 0.32→0.20 s | 20/30/10/20/20→20/25/10/25/20 |
 
+La partida actual entra al jefe a los **180 s**. Los tramos 180–480 se conservan
+como configuración disponible para partidas más largas, pero no se recorren con
+el valor actual de `BossStartTime`.
+
 Los últimos tramos interpolan continuamente. Las cadencias proceden del GDD;
 los pesos conservan el balance anterior. El primer grupo espera 1.20 s. Cambiar
 de tramo programa su intervalo nuevo. Cada evaluación intenta como máximo un
@@ -31,8 +35,8 @@ Límite normal: 150 vivos, incluso lejos de cámara. Sólo el estrés habilita 2
 No se teletransportan ni reciclan vivos por distancia. Las densidades del GDD
 son orientativas, no cuotas de relleno.
 
-A los 480 s se retira la horda sin recompensas y se limpian amenazas pendientes.
-Desde la activación de Gólgora: cuatro secuaces cada 4 s, Residual–Residual–Mortero–
+A los 180 s se retira la horda sin recompensas y se limpian amenazas pendientes.
+Desde la activación del MataColeccionista: cuatro secuaces cada 4 s, Residual–Residual–Mortero–
 Polilla, cap 24 y rotación para grupos parciales. Sin timeout de victoria.
 
 ## Racimos y colocación

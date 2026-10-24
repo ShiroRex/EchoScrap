@@ -1,0 +1,11 @@
+{
+  "materials": [
+    {
+      "name": "BakedMaterial",
+      "base": "Assets/_Project/Art/MataColeccionista/Texturas/Martillo/0_base.png",
+      "normal": "Assets/_Project/Art/MataColeccionista/Texturas/Martillo/0_normal.png",
+      "emission": "",
+      "metallic": "Assets/_Project/Art/MataColeccionista/Texturas/Martillo/0_metallic.png"
+    }
+  ]
+}

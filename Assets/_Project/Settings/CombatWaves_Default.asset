@@ -95,7 +95,7 @@ MonoBehaviour:
       Moth: 20
   PopulationCap: 150
   StressPopulationCap: 250
-  BossStartTime: 480
+  BossStartTime: 180
   BossMinionInterval: 4
   BossMinionCap: 24
   BossMinionOrder: 01000000010000000400000005000000i

@@ -180,7 +180,7 @@ namespace EchoScrap.Tests
             game.Session.ResolveSimulationStepOutcome();
             game.Hud.RefreshNow();
             Assert.IsTrue(game.Hud.IsResultVisible);
-            StringAssert.Contains("Gólgora ha caído", game.Hud.DisplayedSummary);
+            StringAssert.Contains("MataColeccionista ha caído", game.Hud.DisplayedSummary);
             StringAssert.Contains("XP OBTENIDA", game.Hud.DisplayedSummary);
             game.Hud.RestartGame();
             Assert.AreEqual(SessionState.Running, game.Session.State);
@@ -200,7 +200,7 @@ namespace EchoScrap.Tests
         [Test]
         public void TenRestarts_ResetBossPoolsPickupsStatsAndWeapon_WithoutCreatingMoreSceneObjects()
         {
-            game.Session.Clock.AdvanceGameplayTime(480f); game.Director.Step();
+            game.Session.Clock.AdvanceGameplayTime(180f); game.Director.Step();
             game.Encounter.Step(1.5f);
             Assert.IsNotNull(game.Encounter.Boss);
             game.ResetRun(false); // Warm the boss actor and its mandatory presentation once.
@@ -213,7 +213,7 @@ namespace EchoScrap.Tests
                 game.Pickups.SpawnExperience(new Vector3(25f, 0f, 0f), 10);
                 game.Pickups.SpawnMedkit(new Vector3(25f, 0f, 5f));
                 game.Stats.SetUpgradeTier("FLASH_01", 1);
-                game.Session.Clock.AdvanceGameplayTime(480f); game.Director.Step();
+                game.Session.Clock.AdvanceGameplayTime(180f); game.Director.Step();
                 game.Hazards.SpawnPuddle(1, new Vector3(20f, 0f, 0f));
                 game.Weapon.enabled = false;
                 game.Session.SetManualPause(true);
@@ -266,7 +266,7 @@ namespace EchoScrap.Tests
             game.Player.transform.position = position;
             game.Player.GetComponent<Rigidbody>().position = position;
             game.CameraRig.PreviousStateIsValid = false;
-            game.Session.Clock.AdvanceGameplayTime(480f); game.Director.Step();
+            game.Session.Clock.AdvanceGameplayTime(180f); game.Director.Step();
             game.Encounter.Step(1.5f);
             game.Session.Effects.ReducedEffectsMode = true;
             yield return null;

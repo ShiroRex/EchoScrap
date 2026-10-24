@@ -32,6 +32,7 @@ namespace EchoScrap.Combat
         private bool initialized;
         private float introProgress;
         private float visualLift;
+        private MataColeccionistaView importedView;
         public bool IsWarningVisible => warningRing != null && warningRing.gameObject.activeSelf;
         public float WarningRadius => warningRing != null ? warningRing.localScale.x * 0.5f : 0f;
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
@@ -41,6 +42,8 @@ namespace EchoScrap.Combat
         {
             actor = boss;
             EnsureInitialized();
+            if (importedView == null) importedView = GetComponent<MataColeccionistaView>() ?? gameObject.AddComponent<MataColeccionistaView>();
+            importedView.Bind(boss);
             cameraFeedback = FindAnyObjectByType<CombatCameraFeedback>();
         }
 
@@ -117,6 +120,7 @@ namespace EchoScrap.Combat
             if (!initialized || actor == null)
                 return;
             age += deltaTime;
+            importedView?.Step(deltaTime, introProgress);
             bool decorative = actor.Session == null || actor.Session.Effects.DecorativeIntensity > 0f;
             Color magma = actor.EnragedVisual ? new Color(1f, 0.16f, 0.07f) : new Color(1f, 0.50f, 0.08f);
             float pulse = decorative ? 1f + Mathf.Sin(age * (actor.EnragedVisual ? 7f : 3f)) * 0.06f : 1f;
@@ -198,6 +202,7 @@ namespace EchoScrap.Combat
             leftShoulder.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
             rightShoulder.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
             actor?.VisualComposer.CacheRenderers();
+            importedView?.ResetPose();
         }
 
         private void OnDisable() => ResetPresentation();

@@ -3,7 +3,7 @@
 ## Integración
 
 `BossEncounter.BindReferences(session, enemies, hazards, director, player)` conecta la entrada solicitada
-por `CombatWaveDirector.OnBossPhaseRequested` en el minuto ocho. El director conserva la propiedad de
+por `CombatWaveDirector.OnBossPhaseRequested` en el minuto tres. El director conserva la propiedad de
 las tandas de esbirros (cada 4 s, dos Residuales, un Mortero y una Polilla; límite 24).
 
 La entrada dura 1,5 s de gameplay, limpia enemigos sin recompensas y zonas pendientes, y mantiene al
