@@ -15,6 +15,7 @@ namespace EchoScrap.Combat
         private bool hovered;
         private float sheenAmount;
         private float rarityStrength;
+        private Color sheenTint;
         private float previousIntensity;
         private Quaternion rotation = Quaternion.identity;
 
@@ -39,6 +40,7 @@ namespace EchoScrap.Combat
 
         public void SetRarity(UpgradeRarity rarity)
         {
+            sheenTint = UpgradeCatalog.RarityColor(rarity);
             rarityStrength = rarity switch { UpgradeRarity.SSR => 0.16f, UpgradeRarity.SR => 0.12f, UpgradeRarity.R => 0.09f, _ => 0.065f };
         }
 
@@ -70,7 +72,9 @@ namespace EchoScrap.Combat
             previousIntensity = power;
             sheenAmount = Mathf.Lerp(sheenAmount, hovered ? 1f : 0f, 1f - Mathf.Exp(-12f * delta));
             sheenMaterial.SetVector(PointerId, new Vector4(offset.x * 0.5f + 0.5f, offset.y * 0.5f + 0.5f, 0f, 0f));
-            sheen.color = new Color(1f, 0.95f, 0.82f, sheenAmount * rarityStrength * power);
+            Color tint = sheenTint;
+            tint.a = sheenAmount * rarityStrength * power;
+            sheen.color = tint;
         }
 
         public Vector3 Project(Vector3 point)

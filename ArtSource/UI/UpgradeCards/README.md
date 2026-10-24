@@ -78,7 +78,9 @@ archivos de arte, sus importadores Point ni la zona de clic. La inclinación
 máxima es de 6° horizontal y 4,5° vertical, escalada por la intensidad decorativa.
 
 `UpgradeCardSheen.shader` dibuja un reflejo interior con grano fijo que sigue
-el cursor. No genera halo, desenfoque ni brillo fuera de la carta. Las raras
+el cursor y toma el color de su rareza: gris para común, azul para rara, violeta
+para épica y dorado para legendaria. No genera halo, desenfoque ni brillo fuera
+de la carta. Las raras
 tienen un reflejo algo más visible. Cada carta posee una instancia de material
 que se libera al destruirla. Efectos reducidos desactivan tanto movimiento
 como reflejo; salir con el puntero o usar teclado/mando devuelve la carta a reposo.
