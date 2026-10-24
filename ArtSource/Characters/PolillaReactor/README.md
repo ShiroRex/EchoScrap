@@ -9,6 +9,15 @@ Los tres pares de patas nacen bajo el tórax, en un grupo compacto. En perfil,
 las patas cercanas rodean la carcasa por delante y las lejanas quedan parcialmente
 ocultas detrás; las uniones no se distribuyen por los lados del reactor. Durante
 el plegado se acercan codos y garras sin desplazar las raíces respecto al tórax.
+Todas las patas conservan la misma rampa de metal café/bronce en las cuatro
+vistas. La vista trasera no sustituye ese material por gris azulado: su profundidad
+se describe mediante oclusión, volumen y normales.
+
+Las vistas frontal y trasera se construyen con simetría exacta respecto al eje
+entre las columnas 31 y 32: `x' = 63 - x`. Alas, patas, antenas, carcasa y emisión
+conservan ese espejo en los 28 cuadros de vuelo/cebado de Down/Up. La ranura
+central ocupa las columnas 31 y 32. Las normales reflejadas invierten su canal
+rojo para conservar el volumen. El perfil mantiene su escorzo; Left refleja Right.
 
 ## Entrega
 

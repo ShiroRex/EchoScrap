@@ -24,6 +24,22 @@ local function norm(x,y,z)
 end
 local flat=norm(0,0,1)
 local function layer() return {c=Image(W,H,ColorMode.RGB),n=Image(W,H,ColorMode.RGB),e=Image(W,H,ColorMode.RGB)} end
+local function symmetry(layers)
+ -- Eje entre columnas31/32. El color y la geometria son bilaterales;
+ -- las normales conservan el volumen con la componente horizontal invertida.
+ for _,l in ipairs(layers) do
+  for y=0,63 do for x=0,31 do
+   local c=l.c:getPixel(x,y)
+   l.c:drawPixel(63-x,y,c)
+   l.e:drawPixel(63-x,y,l.e:getPixel(x,y))
+   if pc.rgbaA(c)>0 then
+    local n=l.n:getPixel(x,y)
+    l.n:drawPixel(63-x,y,pc.rgba(255-pc.rgbaR(n),pc.rgbaG(n),pc.rgbaB(n),255))
+   else l.n:drawPixel(63-x,y,0) end
+  end end
+ end
+ return layers
+end
 local function put(l,x,y,col,n,em)
  x,y=round(x),round(y)
  if x<0 or x>=W or y<0 or y>=H then return end
@@ -141,15 +157,17 @@ local function pose(dir,f,primed)
          ly(v[2]+(points[1][2]-v[2])*amount)+(i>2 and not primed and f>4 and 1 or 0)}
   end
   local n=norm(far and -.3 or .15,.1,1)
+  -- Misma rampa de bronce en las cuatro vistas. La profundidad se conserva
+  -- por el solape y las normales; mirar la espalda no cambia el material.
   for i=1,3 do
    local a,b=p[i],p[i+1]
    line(dst,a[1],a[2],b[1],b[2],C.ink,n,i==3 and 2 or 3)
-   line(dst,a[1],a[2],b[1],b[2],far and C.rustD or C.rust,n,i==3 and 1 or 2)
-   if i<3 then line(dst,a[1],a[2],b[1],b[2],far and C.steel or C.tan,n) end
+   line(dst,a[1],a[2],b[1],b[2],C.rust,n,i==3 and 1 or 2)
+   if i<3 then line(dst,a[1],a[2],b[1],b[2],C.tan,n) end
   end
   for i=2,3 do
    local q=p[i]
-   ellipse(dst,q[1],q[2],1.5,1.5,{C.ink,C.rustD,far and C.shade or C.rust,far and C.steel or C.light})
+   ellipse(dst,q[1],q[2],1.5,1.5,{C.ink,C.rustD,C.rust,C.light})
   end
  end
  if profile then
@@ -185,14 +203,14 @@ local function pose(dir,f,primed)
   shape(out[4],{{cx-6,cy-8},{cx-2,cy-11},{cx+4,cy-10},{cx+7,cy-6},{cx+6,cy+8},{cx,cy+11},{cx-6,cy+7}},C.steel,norm(-.2,.15,1))
   polygon(out[4],{{cx+1,cy-9},{cx+5,cy-7},{cx+5,cy+6},{cx+1,cy+9}},C.shade,norm(.4,.05,1))
   polygon(out[4],{{cx-4,cy-7},{cx-1,cy-9},{cx-1,cy+7},{cx-4,cy+5}},C.edge,norm(-.35,.1,1))
-  line(out[4],cx,cy-7,cx,cy+7,C.deep,norm(0,.05,1),2)
+  line(out[4],cx-1,cy-7,cx-1,cy+7,C.deep,norm(0,.05,1),2)
   line(out[4],cx-3,cy+6,cx,cy+9,C.shade)
   line(out[4],cx-5,cy-7,cx-3,cy-9,C.shine)
   line(out[4],cx-5,cy-6,cx-5,cy+5,C.edge)
   line(out[4],cx+5,cy-5,cx+5,cy+6,C.shade)
  end
  -- Tres respiraderos en el frente; la espalda conserva tres salidas cortas.
- local centers=profile and {-3,2} or back and {-6,6} or {-5,0,5}
+ local centers=profile and {-3,2} or back and {-6,6} or {-5,-1,4}
  for j,dx in ipairs(centers) do
   local shift=profile and round((j-2)*1) or 0
   local top=cy-(j==2 and 6 or 4)+shift
@@ -257,6 +275,7 @@ local function pose(dir,f,primed)
    line(out[5],xx,yy,xx+side*2,yy-1,C.tan)
   end
  end
+ if not profile then return symmetry(out) end
  return out
 end
 local function mirror(layers)
