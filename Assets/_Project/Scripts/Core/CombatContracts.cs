@@ -24,7 +24,8 @@ namespace EchoScrap.Core
         BossStomp = 5,
         BossBombardmentImpact = 6,
         BossBombardmentPuddle = 7,
-        DummyOrHazard = 8
+        DummyOrHazard = 8,
+        Lava = 9
     }
 
     public readonly struct DamageRequest

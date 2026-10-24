@@ -126,6 +126,36 @@ namespace EchoScrap.Tests
             if(shouldStop) { Assert.Less(puddle.CenterXZ.z,4); Assert.AreEqual(game.Player.MaxHealth,game.Player.CurrentHealth); }
             else Assert.Greater(puddle.CenterXZ.z,7.5f);
         }
+        [UnityTest] public IEnumerator LavaDamagesBothTeamsAndPausesWithTheGame()
+        {
+            var zones=Object.FindObjectsByType<LavaHazard>(FindObjectsSortMode.None);
+            Assert.AreEqual(3,zones.Length);
+            foreach(var zone in zones) zone.AutoTick=false;
+            var lava=zones[0];
+            Assert.IsTrue(lava.GetComponentInChildren<Renderer>().sharedMaterial.IsKeywordEnabled("_EMISSION"));
+            Vector3 center=ArenaSurface.OnGround(lava.transform.position,1f);
+            var body=game.Player.GetComponent<Rigidbody>(); body.position=center; game.Player.transform.position=center;
+            var enemy=game.Enemies.Spawn(EnemyArchetypeId.Residual,center+Vector3.right*0.7f);
+            float playerHp=game.Player.CurrentHealth, enemyHp=enemy.CurrentHealth;
+            lava.StepHazard(0.01f);
+            Assert.AreEqual(playerHp-5,game.Player.CurrentHealth,0.001f);
+            Assert.AreEqual(enemyHp-5,enemy.CurrentHealth,0.001f);
+            lava.StepHazard(0.2f);
+            Assert.AreEqual(playerHp-5,game.Player.CurrentHealth,0.001f,"Not damage every frame.");
+            game.Player.StepTimers(1.1f); lava.StepHazard(1.1f);
+            Assert.AreEqual(playerHp-10,game.Player.CurrentHealth,0.001f);
+            Assert.AreEqual(enemyHp-10,enemy.CurrentHealth,0.001f);
+            game.Session.SetManualPause(true); float phase=lava.AnimationTime;
+            lava.StepHazard(10f);
+            Assert.AreEqual(phase,lava.AnimationTime);
+            game.Session.SetManualPause(false);
+            body.position=Vector3.up; game.Player.transform.position=Vector3.up;
+            game.Player.StepTimers(2); lava.StepHazard(2);
+            Assert.AreEqual(playerHp-10,game.Player.CurrentHealth,0.001f,"Safe outside lava.");
+            yield return Capture("Lava",lava.transform.position+new Vector3(7,10,-9),lava.transform.position);
+            game.ResetRun(false);
+            Assert.AreEqual(0,lava.AnimationTime);
+        }
         private static IEnumerator Capture(string name,Vector3 position,Vector3 target)
         {
             var camera=new GameObject("TerrainAuditCamera").AddComponent<Camera>(); camera.transform.position=position; camera.transform.LookAt(target);
