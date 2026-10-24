@@ -14,13 +14,16 @@ namespace EchoScrap.Editor
     public static class CollectorSpriteAuthoring
     {
         public const string ArtPath = "Assets/_Project/Art/Characters/Coleccionista/";
-        public const string SetPath = ArtPath + "Coleccionista_Sprites.asset";
+        public const string SourcePath = "ArtSource/Characters/Coleccionista/";
+        public const string DataPath = ArtPath + "Data/";
+        public const string SetPath = DataPath + "Coleccionista_Sprites.asset";
         private const string MaterialPath = "Assets/_Project/Materials/Characters/";
 
         [MenuItem("EchoScrap/Art/Connect Collector To Player")]
         public static void Prepare()
         {
             Directory.CreateDirectory(MaterialPath);
+            Directory.CreateDirectory(DataPath);
             AssetDatabase.Refresh();
             ImportAtlas(ArtPath + "Coleccionista_Atlas.png", false);
             ImportAtlas(ArtPath + "Coleccionista_Normal.png", true);
@@ -42,8 +45,8 @@ namespace EchoScrap.Editor
             shadow.SetColor("_BaseColor", new Color(0.005f, 0.006f, 0.009f, 0.85f));
             Material cast = Material("Coleccionista_ProjectedShadow", "EchoScrap/Character Projected Shadow");
             cast.SetTexture("_BaseMap", color.GetTexture("_BaseMap"));
-            Mesh quad = Quad(ArtPath + "Coleccionista_Quad.asset", new Rect(-32f / set.pixelsPerUnit, -2f / set.pixelsPerUnit, 64f / set.pixelsPerUnit, 64f / set.pixelsPerUnit));
-            Mesh shadowQuad = Quad(ArtPath + "Coleccionista_ShadowQuad.asset", new Rect(-0.72f, -0.45f, 1.44f, 0.9f));
+            Mesh quad = Quad(DataPath + "Coleccionista_Quad.asset", new Rect(-32f / set.pixelsPerUnit, -2f / set.pixelsPerUnit, 64f / set.pixelsPerUnit, 64f / set.pixelsPerUnit));
+            Mesh shadowQuad = Quad(DataPath + "Coleccionista_ShadowQuad.asset", new Rect(-0.72f, -0.45f, 1.44f, 0.9f));
 
             GameObject root = PrefabUtility.LoadPrefabContents(CombatArenaAuthoring.PlayerPrefabPath);
             try
@@ -94,7 +97,7 @@ namespace EchoScrap.Editor
 
         private static void ReadManifest(CharacterSpriteSet set)
         {
-            string json = File.ReadAllText(ArtPath + "Coleccionista_Atlas.json");
+            string json = File.ReadAllText(SourcePath + "Coleccionista_Atlas.json");
             MatchCollection rects = Regex.Matches(json, "\"frame\"\\s*:\\s*\\{\\s*\"x\"\\s*:\\s*(\\d+),\\s*\"y\"\\s*:\\s*(\\d+),\\s*\"w\"\\s*:\\s*(\\d+),\\s*\"h\"\\s*:\\s*(\\d+)");
             MatchCollection durations = Regex.Matches(json, "\"duration\"\\s*:\\s*(\\d+)");
             if (rects.Count != 108 || durations.Count != 108) throw new BuildFailedException("Collector manifest must contain 108 frames and timings.");

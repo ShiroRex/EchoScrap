@@ -52,6 +52,13 @@ el GDD usa el mismo ciclo para caminar/correr. No hay un control de sprint separ
 
 ## Archivos y distribución
 
+Los editables y este documento están en `ArtSource/Characters/Coleccionista/`.
+Las previsualizaciones están en `Previews/` y los intentos anteriores en
+`Archive/`; Unity ya no los importa como texturas extra. En
+`Assets/_Project/Art/Characters/Coleccionista/` quedan únicamente el atlas de
+color y el normal map, con las mallas y datos activos dentro de `Data/`.
+Se conservaron sus GUID y los 108 cuadros: la limpieza no elimina animaciones.
+
 - `Coleccionista_Apollo.aseprite`: fuente de 7 capas y 108 fotogramas, con
   16 etiquetas delimitadas. La capa `NORMAL - OpenGL +Y` está oculta.
 - `Coleccionista_Atlas.png`: color RGBA, 512 × 1024 px, 8 columnas y 16 filas.
@@ -59,10 +66,10 @@ el GDD usa el mismo ciclo para caminar/correr. No hay un control de sprint separ
   y máscara alfa que el atlas de color. Importar como normal map lineal.
 - `Coleccionista_Atlas.json`: rectángulo y duración de cada fotograma, etiquetas,
   direcciones, referencia al normal map y pivote.
-- `Coleccionista_Preview.gif`: demostración a escala 2× de las cuatro direcciones,
+- `Previews/Coleccionista_Preview.gif`: demostración a escala 2× de las cuatro direcciones,
   pasando por Idle, Walk, Dash y Death. El bucle global del GIF solo sirve para
   revisar el arte; Dash y Death se reproducen una vez durante el juego.
-- `Coleccionista_Turnaround.png`: vista estática 2× de frente, derecha, espalda
+- `Previews/Coleccionista_Turnaround.png`: vista estática 2× de frente, derecha, espalda
   e izquierda. Los archivos de vista previa no son texturas de producción.
 
 Las filas del atlas, contadas desde arriba y empezando en cero, son:
