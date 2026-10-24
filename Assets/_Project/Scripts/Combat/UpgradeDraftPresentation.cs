@@ -205,7 +205,7 @@ namespace EchoScrap.Combat
                 }
                 else if (Mathf.Abs(axis) < 0.3f) stickLatched = false;
             }
-            bool submit = (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame)) ||
+            bool submit = (keyboard != null && keyboard.enterKey.wasPressedThisFrame) ||
                 (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame);
             if (mouse != null)
             {
@@ -272,6 +272,9 @@ namespace EchoScrap.Combat
             bool empty = controller.Offers.Count == 0;
             emptyMessage.gameObject.SetActive(empty);
             continueButton.gameObject.SetActive(empty);
+            UpgradeRarity highest = UpgradeRarity.N;
+            for (int i = 0; i < controller.Offers.Count; i++)
+                if (controller.Offers[i].Card.Rarity > highest) highest = controller.Offers[i].Card.Rarity;
             for (int i = 0; i < cards.Length; i++)
             {
                 cards[i].Root.gameObject.SetActive(i < controller.Offers.Count);
@@ -285,6 +288,7 @@ namespace EchoScrap.Combat
                 Color color = UpgradeCatalog.RarityColor(offer.Card.Rarity);
                 int rarity = (int)offer.Card.Rarity;
                 cards[i].Motion.SetRarity(offer.Card.Rarity);
+                cards[i].Motion.SetRarest(highest > UpgradeRarity.N && offer.Card.Rarity == highest);
                 cards[i].Border.sprite = skin.frames[rarity];
                 cards[i].Confirmation.sprite = skin.frames[rarity];
                 cards[i].Name.text = offer.Card.Name;
@@ -349,7 +353,7 @@ namespace EchoScrap.Combat
             continueButton = ImageRect(canvasRect, "ContinueButton", new Vector2(0f, -90f), new Vector2(430f, 80f), new Color(0.23f, 0.31f, 0.35f));
             TextRect(continueButton, "ContinueLabel", Vector2.zero, new Vector2(400f, 70f), 28, FontStyle.Bold, TextAnchor.MiddleCenter).text = "CONTINUAR";
             TextRect(canvasRect, "Controls", new Vector2(0f, -435f), new Vector2(1500f, 60f), 22, FontStyle.Normal, TextAnchor.MiddleCenter).text =
-                "A / D  o  cruceta: mover     [ 1 / 2 / 3 ]: elegir     Enter / Espacio / A: confirmar\nTambién puedes hacer clic en una tarjeta.";
+                "A / D  o  cruceta: mover     [ 1 / 2 / 3 ]: elegir     Enter / A: confirmar\nTambién puedes hacer clic en una tarjeta.";
             canvasRoot.SetActive(false);
         }
         private CardView BuildCard(int index)
@@ -368,15 +372,15 @@ namespace EchoScrap.Combat
             view.UpgradeArrow.sprite = skin.upgradeArrow;
             view.Type = TextRect(inner, "Type", new Vector2(0f, 74f), new Vector2(330f, 25f), 18, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Type.color = new Color(0.59f, 0.66f, 0.68f);
-            view.Name = TextRect(inner, "Name", new Vector2(0f, 31f), new Vector2(330f, 48f), 38, FontStyle.Bold, TextAnchor.MiddleCenter);
+            view.Name = TextRect(inner, "Name", new Vector2(0f, 31f), new Vector2(330f, 48f), 36, FontStyle.Bold, TextAnchor.MiddleCenter);
             view.Description = TextRect(inner, "Description", new Vector2(0f, -15f), new Vector2(330f, 48f), 25, FontStyle.Bold, TextAnchor.MiddleCenter);
             view.Description.color = new Color(0.91f, 0.84f, 0.69f);
             ImageRect(inner, "Divider", new Vector2(0f, -55f), new Vector2(290f, 2f), new Color(0.18f, 0.23f, 0.26f));
             view.PrimaryLabel = TextRect(inner, "PrimaryLabel", new Vector2(0f, -78f), new Vector2(330f, 28f), 18, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.PrimaryLabel.color = new Color(0.6f, 0.67f, 0.7f);
-            view.Before = TextRect(inner, "Before", new Vector2(-86f, -127f), new Vector2(144f, 68f), 28, FontStyle.Normal, TextAnchor.MiddleCenter);
+            view.Before = TextRect(inner, "Before", new Vector2(-86f, -127f), new Vector2(144f, 68f), 26, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Before.color = new Color(0.63f, 0.69f, 0.74f);
-            view.After = TextRect(inner, "After", new Vector2(86f, -127f), new Vector2(144f, 68f), 28, FontStyle.Bold, TextAnchor.MiddleCenter);
+            view.After = TextRect(inner, "After", new Vector2(86f, -127f), new Vector2(144f, 68f), 26, FontStyle.Bold, TextAnchor.MiddleCenter);
             Image arrow = ImageRect(inner, "ComparisonArrow", new Vector2(0f, -142f), new Vector2(22f, 22f), Color.white).GetComponent<Image>();
             arrow.sprite = skin.upgradeArrow; arrow.transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
             view.Detail = TextRect(inner, "Detail", new Vector2(0f, -207f), new Vector2(320f, 74f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
@@ -391,7 +395,7 @@ namespace EchoScrap.Combat
             sheen.rectTransform.sizeDelta = new Vector2(376f, 596f);
             sheen.raycastTarget = false;
             view.Motion = view.Root.gameObject.AddComponent<UpgradeCardMotion>();
-            view.Motion.Bind(sheen, skin.surfaceSheen);
+            view.Motion.Bind(sheen, skin.surfaceSheen, view.Border, view.Confirmation, skin.litFrames);
             return view;
         }
         private static void NineSlice(Image image)

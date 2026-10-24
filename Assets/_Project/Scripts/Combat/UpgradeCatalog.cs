@@ -110,7 +110,7 @@ namespace EchoScrap.Combat
                 "DASH_01" => Number(Mathf.Max(0.05f, stats.Settings.DashCooldown * (1f - tier * 0.1f))) + " s",
                 "BIO_01" => Number(stats.MaxHealth + delta * 20f) + " HP",
                 "GREED_01" => Number(stats.Settings.BaseMagnetRadius + tier * 2f) + " m",
-                "GREED_03" => Number(tier switch { 1 => 18f, 2 => 21f, 3 => 25f, _ => stats.Settings.BaseMedkitHeal }) + " HP",
+                "GREED_03" => Number(stats.Settings.MedkitHealingAtTier(tier)) + " HP",
                 _ => string.Empty
             };
         }
@@ -123,7 +123,7 @@ namespace EchoScrap.Combat
             "DASH_01" => "Recarga -10% y velocidad +8%\nde la base por nivel.",
             "BIO_01" => "+15 HP de curación al elegir.",
             "GREED_01" => "Atrae gemas y botiquines\ndesde más lejos.",
-            "GREED_03" => "Comunes: " + (current switch { 1 => "8", 2 => "11", _ => "4" }) + "% > " + (next switch { 1 => "8", 2 => "11", _ => "14" }) + "%\nÉlites: " + (current switch { 1 => "40", 2 => "50", _ => "25" }) + "% > " + (next switch { 1 => "40", 2 => "50", _ => "60" }) + "%",
+            "GREED_03" => "Comunes: " + Number(stats.Settings.MedkitChanceAtTier(current, false) * 100f) + "% > " + Number(stats.Settings.MedkitChanceAtTier(next, false) * 100f) + "%\nÉlites: " + Number(stats.Settings.MedkitChanceAtTier(current, true) * 100f) + "% > " + Number(stats.Settings.MedkitChanceAtTier(next, true) * 100f) + "%",
             _ => string.Empty
         };
 
@@ -152,9 +152,9 @@ namespace EchoScrap.Combat
                 case "BIO_01": return $"Salud máxima {Number(stats.MaxHealth + delta * 20f)} HP" + (delta > 0 ? "\nReparación inmediata +15 HP" : "");
                 case "GREED_01": return $"Recogida {Number(stats.Settings.BaseMagnetRadius + tier * 2f)} m";
                 case "GREED_03":
-                    float normal = tier switch { 1 => 8f, 2 => 11f, 3 => 14f, _ => 4f };
-                    float elite = tier switch { 1 => 40f, 2 => 50f, 3 => 60f, _ => 25f };
-                    float heal = tier switch { 1 => 18f, 2 => 21f, 3 => 25f, _ => stats.Settings.BaseMedkitHeal };
+                    float normal = stats.Settings.MedkitChanceAtTier(tier, false) * 100f;
+                    float elite = stats.Settings.MedkitChanceAtTier(tier, true) * 100f;
+                    float heal = stats.Settings.MedkitHealingAtTier(tier);
                     return $"Botiquín común {Number(normal)}%\nBotiquín élite {Number(elite)}%\nReparación {Number(heal)} HP";
                 default: return string.Empty;
             }

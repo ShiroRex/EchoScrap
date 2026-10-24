@@ -126,7 +126,7 @@ namespace EchoScrap.Combat
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280f, 720f);
             scaler.matchWidthOrHeight = 0.5f;
-            Font font = settings.Font != null ? settings.Font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Font font = settings.Font != null ? settings.Font : Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.semibold ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             font.RequestCharactersInTexture("0123456789.! ", settings.NormalFontSize, FontStyle.Bold);
             font.RequestCharactersInTexture("0123456789.! ", settings.CriticalFontSize, FontStyle.Bold);
             WarmKnownValues();

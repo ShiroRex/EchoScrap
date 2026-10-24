@@ -11,5 +11,6 @@ namespace EchoScrap.Combat
         public Font regular;
         public Font semibold;
         public Material surfaceSheen;
+        public Material[] litFrames;
     }
 }

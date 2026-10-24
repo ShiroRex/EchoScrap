@@ -84,6 +84,41 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void MortarCannotShootAcrossTheArenaOrBankShotsOutsideItsRange()
+        {
+            EnemyActor mortar = enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(0, 1, 30));
+            mortar.StepPhysics(100f);
+            Assert.That(mortar.MortarShotsFiredCount, Is.Zero);
+            Assert.That(hazards.ActiveProjectileCount, Is.Zero);
+            Move(mortar, new Vector3(0, 1, 8));
+            mortar.StepPhysics(4.9f);
+            Assert.That(mortar.MortarShotsFiredCount, Is.Zero, "Entering range starts a full attack cycle.");
+            mortar.StepPhysics(0.11f);
+            Assert.That(mortar.MortarShotsFiredCount, Is.EqualTo(1));
+            Move(mortar, new Vector3(0, 1, 30));
+            mortar.StepPhysics(100f);
+            Assert.That(mortar.MortarShotsFiredCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void EditableMortarDataControlsRangeCadenceAndItsPuddles()
+        {
+            var data = EnemyArchetypeData.CreateDefault(EnemyArchetypeId.Mortar);
+            data.MortarAttack.MaximumRange = 10f; data.MortarAttack.FireInterval = 2f;
+            data.MortarAttack.FlightDuration = 0.2f; data.MortarAttack.PuddleDuration = 1.1f;
+            data.MortarAttack.PuddleRadius = 0.8f; data.MortarAttack.TickDamage = 3f;
+            EnemyActor mortar = enemies.Spawn(data, new Vector3(0, 1, 11));
+            mortar.StepPhysics(10f); Assert.That(mortar.MortarShotsFiredCount, Is.Zero);
+            Move(mortar, new Vector3(0, 1, 8)); mortar.StepPhysics(2f);
+            Assert.That(mortar.MortarShotsFiredCount, Is.EqualTo(1));
+            hazards.StepPool(0.21f);
+            Assert.That(hazards.ActivePuddleCount, Is.EqualTo(1));
+            var puddle = hazards.GetPuddleBySequenceId(1);
+            Assert.That(puddle.Radius, Is.EqualTo(0.8f)); Assert.That(puddle.TotalDuration, Is.EqualTo(1.1f));
+            Assert.That(playerHealth.CurrentHealth, Is.EqualTo(97f));
+        }
+
+        [Test]
         public void MortarGddStats_DistanceBand_Facing_ContactAndKnockback()
         {
             EnemyActor mortar = enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(0f, 1f, 12f));
@@ -98,7 +133,7 @@ namespace EchoScrap.Tests
             mortar.StepPhysics(0.02f);
             Assert.Greater(mortar.Velocity.z, 1.9f);
             Assert.Less(mortar.FacingDirection.z, -0.99f, "Retreat keeps its emitter facing the player.");
-            Move(mortar, new Vector3(0f, 1f, 7f));
+            Move(mortar, new Vector3(0f, 1f, 6f));
             mortar.StepPhysics(0.02f);
             Assert.That(mortar.Velocity.magnitude, Is.LessThan(0.001f));
             mortar.ApplyKnockback(Vector3.forward * 10f);
@@ -116,24 +151,24 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void MortarStaggeredFirstShot_35SecondCadence_AndProjectileSurvivesShooterDeath()
+        public void MortarStaggeredFirstShot_FiveSecondCadence_AndProjectileSurvivesShooterDeath()
         {
             EnemyActor mortar = enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(0f, 1f, 7f));
             float firstDelay = EnemyActor.MortarFireInterval - mortar.AttackCooldownTimer;
-            Assert.That(firstDelay, Is.InRange(1f, 3.5f));
+            Assert.That(firstDelay, Is.InRange(1f, 5f));
             mortar.StepPhysics(firstDelay - 0.01f);
             Assert.AreEqual(0, mortar.MortarShotsFiredCount);
             mortar.StepPhysics(0.02f);
             Assert.AreEqual(1, mortar.MortarShotsFiredCount);
             Assert.AreEqual(1, hazards.ActiveProjectileCount);
             Assert.AreEqual(1, hazards.ReservedPuddleCount);
-            mortar.StepPhysics(3.49f);
+            mortar.StepPhysics(4.99f);
             Assert.AreEqual(1, mortar.MortarShotsFiredCount);
             mortar.StepPhysics(0.011f);
             Assert.AreEqual(2, mortar.MortarShotsFiredCount);
             var kill = new DamageRequest(1, DamageSourceType.FlashlightPulse, Vector3.zero, Vector3.forward, 100f);
             Assert.IsTrue(mortar.ReceiveDamage(in kill).CausedDeath);
-            hazards.StepPool(0.64f);
+            hazards.StepPool(0.84f);
             Assert.AreEqual(2, hazards.ActiveProjectileCount);
             Assert.AreEqual(0, hazards.ActivePuddleCount);
             hazards.StepPool(0.01f);

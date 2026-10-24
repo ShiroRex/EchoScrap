@@ -37,3 +37,9 @@ MonoBehaviour:
   baseMagnetRadius: 2.5
   magnetAttractSpeed: 12
   baseMedkitHeal: 15
+  upgradedMedkitHealing: {x: 17, y: 19, z: 21}
+  normalMedkitChances: {x: 0.03, y: 0.04, z: 0.05, w: 0.06}
+  eliteMedkitChances: {x: 0.08, y: 0.1, z: 0.12, w: 0.15}
+  medkitDropInterval: 6
+  maximumGroundMedkits: 5
+  medkitLifetime: 22

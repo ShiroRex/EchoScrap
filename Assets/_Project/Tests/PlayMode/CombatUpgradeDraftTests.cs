@@ -94,9 +94,9 @@ namespace EchoScrap.Tests
             Assert.That(stats.DashCooldown, Is.EqualTo(0.5f).Within(0.0001f));
             Assert.That(stats.MaxHealth, Is.EqualTo(200f));
             Assert.That(stats.MagnetRadius, Is.EqualTo(12.5f));
-            Assert.That(stats.MedkitHealAmount, Is.EqualTo(25f));
-            Assert.That(stats.GetMedkitDropChance(false), Is.EqualTo(0.14f));
-            Assert.That(stats.GetMedkitDropChance(true), Is.EqualTo(0.60f));
+            Assert.That(stats.MedkitHealAmount, Is.EqualTo(21f));
+            Assert.That(stats.GetMedkitDropChance(false), Is.EqualTo(0.06f));
+            Assert.That(stats.GetMedkitDropChance(true), Is.EqualTo(0.15f));
         }
 
         [Test]
@@ -653,7 +653,7 @@ namespace EchoScrap.Tests
                 Assert.That(icons.Add(icon), Is.True); Assert.That(icon.rect.size, Is.EqualTo(Vector2.one * 64));
                 Assert.That(icon.texture.filterMode, Is.EqualTo(FilterMode.Point));
             }
-            Assert.That(skin.regular.name, Does.StartWith("PixelifySans"));
+            Assert.That(skin.regular.name, Does.StartWith("ChakraPetch"));
             foreach (char letter in "áéíóúñÁÉÍÓÚÑ") Assert.That(skin.regular.HasCharacter(letter), Is.True);
         }
 
@@ -731,6 +731,33 @@ namespace EchoScrap.Tests
             double ms = watch.Elapsed.TotalMilliseconds / 120;
             Debug.Log($"[Pixel cards] Presentation + canvas rebuild: {ms:F3} ms mean over 120 frames.");
             Assert.That(ms, Is.LessThan(16f));
+        }
+
+        [Test]
+        public void SpaceNeverChoosesACardAfterDashEvenWhenReleasedAndPressedAgain()
+        {
+            var keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Space)); InputSystem.Update();
+                var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+                progression.AddExperience(100);
+                SetVisualOffers("BIO_01", "GREED_03", "FLASH_04"); view.RefreshOffers();
+                view.StepInput(0.016f);
+                for (int i = 0; i < 3; i++)
+                {
+                    InputSystem.QueueStateEvent(keyboard, new KeyboardState()); InputSystem.Update(); view.StepInput(0.016f);
+                    InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Space)); InputSystem.Update(); view.StepInput(0.016f);
+                    view.StepPresentation(0.3f);
+                    Assert.That(draft.IsOpen, Is.True); Assert.That(view.IsConfirming, Is.False);
+                    Assert.That(stats.GetUpgradeTier("BIO_01"), Is.Zero);
+                }
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState()); InputSystem.Update(); view.StepInput(0.016f);
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Enter)); InputSystem.Update(); view.StepInput(0.016f);
+                Assert.That(view.IsConfirming, Is.True); view.StepPresentation(0.3f);
+                Assert.That(stats.GetUpgradeTier("BIO_01"), Is.EqualTo(1));
+            }
+            finally { InputSystem.RemoveDevice(keyboard); }
         }
 
         [Test]
@@ -858,6 +885,43 @@ namespace EchoScrap.Tests
             elapsed = watch.Elapsed.TotalMilliseconds / 120;
             Debug.Log($"[Card perspective] Animated presentation + canvas: {elapsed:F3} ms mean over 120 frames.");
             Assert.That(elapsed, Is.LessThan(16f));
+        }
+
+        [UnityTest]
+        public IEnumerator FrameNormalsRespondToLightAndTheRarestOfferHasMoreSpecular()
+        {
+            var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+            progression.AddExperience(100); SetVisualOffers("BIO_01", "GREED_03", "FLASH_04"); view.RefreshOffers(); view.StepPresentation(0.8f);
+            var camera = new GameObject("Normal frame preview camera").AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.black;
+            var canvas = view.CanvasRoot.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camera; canvas.planeDistance = 1f;
+            var common = view.CanvasRoot.transform.Find("UpgradeCard_1/Frame").GetComponent<Image>();
+            var epic = view.CanvasRoot.transform.Find("UpgradeCard_3/Frame").GetComponent<Image>();
+            Assert.That(epic.material.GetFloat("_Emphasis"), Is.GreaterThan(common.material.GetFloat("_Emphasis") * 2));
+            var skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            foreach (var material in skin.litFrames)
+            {
+                var normal = (Texture2D)material.GetTexture("_NormalMap");
+                Assert.That(material.shader.isSupported, Is.True); Assert.That(normal, Is.Not.Null);
+                Assert.That(normal.filterMode, Is.EqualTo(FilterMode.Point));
+                Assert.That(UnityEngine.Experimental.Rendering.GraphicsFormatUtility.IsSRGBFormat(normal.graphicsFormat), Is.False);
+            }
+            view.enabled = false; view.CanvasRoot.SetActive(true);
+            epic.material.SetFloat("_Emphasis", 0.4f);
+            epic.material.SetVector("_LightDirection", new Vector4(-0.8f, 0.3f, 0.6f, 0));
+            yield return CapturePixelCards(camera, view, "FrameLight_Left.png", 1920, 1080);
+            epic.material.SetVector("_LightDirection", new Vector4(0.8f, 0.3f, 0.6f, 0));
+            yield return CapturePixelCards(camera, view, "FrameLight_Right.png", 1920, 1080);
+            string folder = Path.Combine(Application.dataPath, "..", "Logs", "PixelCards");
+            var left = new Texture2D(2, 2); var right = new Texture2D(2, 2);
+            left.LoadImage(File.ReadAllBytes(Path.Combine(folder, "FrameLight_Left.png")));
+            right.LoadImage(File.ReadAllBytes(Path.Combine(folder, "FrameLight_Right.png")));
+            Color32[] a = left.GetPixels32(), b = right.GetPixels32(); int changed = 0;
+            for (int i = 0; i < a.Length; i++)
+                if (Mathf.Abs(a[i].r - b[i].r) + Mathf.Abs(a[i].g - b[i].g) + Mathf.Abs(a[i].b - b[i].b) > 15) changed++;
+            Assert.That(changed, Is.InRange(200, 40000), "Opposite lights must reveal the frame bevels without changing the whole card.");
+            Object.Destroy(left); Object.Destroy(right);
         }
 
         private void SetVisualOffers(params string[] ids)
