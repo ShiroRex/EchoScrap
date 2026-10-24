@@ -245,7 +245,7 @@ namespace EchoScrap.Combat
                 return 0;
             if (kind == CombatPickupKind.Experience && xpValue <= 0)
                 return 0;
-            position.y = PickupHeight;
+            position.y = ArenaSurface.Height(position) + PickupHeight;
             if (kind == CombatPickupKind.Experience)
             {
                 for (int i = 0; i < slots.Count; i++)
@@ -327,7 +327,7 @@ namespace EchoScrap.Combat
             float speed = stats != null ? stats.MagnetAttractSpeed : 12f;
             float collectRadius = playerHealth.HitRadius + 0.12f;
             Vector3 target = playerHealth.transform.position;
-            target.y = PickupHeight;
+            target.y = ArenaSurface.Height(target) + PickupHeight;
             bool decorative = session == null || session.Effects.DecorativeIntensity > 0f;
             for (int i = 0; i < slots.Count; i++)
             {
@@ -342,6 +342,7 @@ namespace EchoScrap.Combat
                     slot.Attracted = true;
                 if (slot.Attracted)
                     slot.Position = Vector3.MoveTowards(slot.Position, target, Mathf.Max(0f, speed) * deltaTime);
+                slot.Position = ArenaSurface.OnGround(slot.Position, PickupHeight);
                 if ((slot.Position - target).sqrMagnitude <= collectRadius * collectRadius &&
                     (slot.Kind != CombatPickupKind.Experience || progression != null))
                 {
@@ -399,7 +400,7 @@ namespace EchoScrap.Combat
                 slot.Age = 0f;
                 slot.Color = color;
                 Vector3 position = playerHealth.transform.position;
-                position.y = 0.035f;
+                position.y = ArenaSurface.Height(position) + 0.035f;
                 slot.Root.position = position;
                 slot.Root.localScale = Vector3.one * 0.3f;
                 slot.Root.gameObject.SetActive(true);

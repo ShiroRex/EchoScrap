@@ -1,4 +1,5 @@
 using UnityEngine;
+using EchoScrap.Core;
 using UnityEngine.Rendering;
 
 namespace EchoScrap.Combat
@@ -119,7 +120,7 @@ namespace EchoScrap.Combat
         public void TriggerImpact(Vector3 position, Vector3 normal, bool wall)
         {
             ImpactCount++;
-            impactAge = 0f; impactPosition = position; impactPosition.y = 0.07f;
+            impactAge = 0f; impactPosition = ArenaSurface.OnGround(position, 0.07f);
             shock.transform.position = impactPosition;
             Emit(impactPosition, normal, wall ? 12 : 8, true);
             float distance = actor.TargetPlayer != null ? Vector3.Distance(actor.TargetPlayer.WorldCenter, position) : 30f;
@@ -131,7 +132,7 @@ namespace EchoScrap.Combat
         private void Emit(Vector3 position, Vector3 direction, int count, bool fragments)
         {
             if (!Decorative) return;
-            position.y = 0.12f;
+            position.y = ArenaSurface.Height(position) + 0.12f;
             for (int i = 0; i < count; i++)
             {
                 float a = i * 2.399963f;

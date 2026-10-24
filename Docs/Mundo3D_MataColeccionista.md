@@ -27,14 +27,23 @@ los caminos. Los árboles interiores y el emblema triangular siguen la composici
 de la imagen, adaptada a la arena existente de 120 × 120 m y a los modelos recibidos.
 El centro de aparición del jefe queda libre de colliders decorativos.
 
-El portal incorpora un disco animado violeta/cian y luz local. El suelo tiene
-variación terrosa sutil; se ocultan las guías y representaciones de los muros
-de prueba, conservando sus colliders.
+El portal incorpora un disco animado violeta/cian y luz local. El suelo usa cinco
+elevaciones suaves, de hasta siete metros, con el centro del combate despejado.
+`ArenaSurface` comparte el perfil con la malla del terreno y adapta la altura del
+jugador, enemigos, recogibles y avisos. El material `WastelandGround` combina tierra,
+grava, grietas y roca según la pendiente, con iluminación y sombras URP.
+
+Los modelos estáticos usan su propia malla como collider no convexo: las puertas
+y huecos conservan su forma real. Los límites exteriores ahora son muros visibles.
+La linterna comprueba obstáculos antes de elegir y dañar objetivos; los proyectiles
+parabólicos recorren su trayectoria y chocan con las superficies, pudiendo superar
+coberturas bajas. Las áreas corrosivas respetan la cobertura al aplicar daño.
 
 `WorldArtIntegration.Integrate` reconstruye **solo el grupo del mundo**, aplica los
-materiales, prepara el prefab del jefe y guarda la escena. No usarlo para conservar
+materiales, prepara el prefab del jefe, aplica relieve y colisiones y guarda la escena. No usarlo para conservar
 ediciones manuales posteriores dentro de `Mundo3D_EchoScrap`; para reparar solo
 materiales usar `Materials`. No ejecutar `Combat/Rebuild Playable Arena`.
+`TerrainCollisionAuthoring.Apply` permite regenerar únicamente relieve y colisiones.
 
 ## Animaciones del jefe
 
@@ -61,3 +70,5 @@ Gólgora se conservan para mantener las referencias; la interfaz muestra MataCol
 la frontera 179,99/180 segundos, carga del rig y martillo, ataques, pausa y reinicio.
 También genera capturas en `Logs/WorldArtIntegration/`. Los informes XML y logs de
 la ejecución completa quedan en `Logs/AssetAudit/` (archivos locales excluidos de Git).
+`TerrainCollisionTests` prueba el perfil físico, subida/bajada con controles reales,
+apoyo de enemigos, oclusión de la linterna y proyectiles contra coberturas altas y bajas.

@@ -214,7 +214,7 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void Detection_ConsidersTargetRadiusOnConeEdge_TraversesObstacles_AndDeduplicatesMultiColliderTargets()
+        public void Detection_RespectsCover_ThenConsidersRadiusAndDeduplicatesTargets()
         {
             // Colocar un muro/obstáculo directamente entre el jugador (0,1,0) y los objetivos
             var obstacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -226,9 +226,11 @@ namespace EchoScrap.Tests
             CombatDummy multiColDummy = CreateDummy("MultiColliderDummy", new Vector3(0f, 1f, 3.0f), hp: 50f);
             var extraChild1 = new GameObject("ExtraCol1");
             extraChild1.transform.SetParent(multiColDummy.transform, false);
+            extraChild1.layer = multiColDummy.gameObject.layer;
             extraChild1.AddComponent<BoxCollider>().size = new Vector3(1f, 2f, 1f);
             var extraChild2 = new GameObject("ExtraCol2");
             extraChild2.transform.SetParent(multiColDummy.transform, false);
+            extraChild2.layer = multiColDummy.gameObject.layer;
             extraChild2.AddComponent<SphereCollider>().radius = 0.6f;
 
             // Objetivo 2 cuyo centro está a 34° (> 30° semiángulo), pero cuyo radio (1.0 m a distancia 4.0 m -> ~14° radio angular) toca el borde del cono
@@ -246,8 +248,14 @@ namespace EchoScrap.Tests
             // Avanzar hasta el primer pulso (0.20 s) apuntando al objetivo más cercano (MultiColliderDummy en +Z)
             weapon.StepWeapon(0.21f);
 
+            Assert.AreEqual(50f, multiColDummy.CurrentHealth, "La cobertura bloquea el daño.");
+            Assert.AreEqual(50f, edgeDummy.CurrentHealth);
+            Object.DestroyImmediate(obstacle);
+            Physics.SyncTransforms();
+            weapon.StepWeapon(0.20f);
+
             // MultiColliderDummy (detrás del obstáculo y con 3 colliders) debe recibir exactamente 1 impacto de 3.75 HP
-            Assert.AreEqual(50f - 3.75f, multiColDummy.CurrentHealth, 0.01f, "Debe atravesar obstáculos y dañar una sola vez aunque tenga múltiples colliders.");
+            Assert.AreEqual(50f - 3.75f, multiColDummy.CurrentHealth, 0.01f, "Sin cobertura, múltiples colliders reciben un solo impacto.");
 
             // EdgeRadiusDummy debe recibir impacto gracias a su radio en el borde del cono
             Assert.AreEqual(50f - 3.75f, edgeDummy.CurrentHealth, 0.01f, "Debe considerar el radio del objetivo en los bordes del cono.");

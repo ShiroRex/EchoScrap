@@ -355,7 +355,7 @@ namespace EchoScrap.Combat
                 return;
 
             exitRingTimer = ExitRingDuration;
-            exitRingObject.transform.position = new Vector3(worldPos.x, 0.03f, worldPos.z);
+            exitRingObject.transform.position = ArenaSurface.OnGround(worldPos, 0.03f);
             if (direction.sqrMagnitude > 0.001f)
                 exitRingObject.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
             exitRingObject.transform.localScale = new Vector3(0.8f, 0.02f, 0.8f);

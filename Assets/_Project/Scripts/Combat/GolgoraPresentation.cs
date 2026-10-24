@@ -139,7 +139,8 @@ namespace EchoScrap.Combat
             if (stomp || intro)
             {
                 Vector3 position = stomp ? actor.LastStompOrigin : actor.WorldCenter;
-                position.y = 0.045f;
+                position.y = ArenaSurface.Height(position) + 0.045f;
+                warningRing.up = warningFill.up = ArenaSurface.Normal(position);
                 float diameter = stomp ? GolgoraActor.StompRadius * 2f : (actor.HitRadius + 0.5f) * 2f;
                 warningRing.position = position;
                 warningRing.localScale = Vector3.one * diameter;
@@ -169,7 +170,8 @@ namespace EchoScrap.Combat
             if (!initialized)
                 return;
             shockAge = 0f;
-            position.y = 0.055f;
+            position.y = ArenaSurface.Height(position) + 0.055f;
+            shockRing.up = ArenaSurface.Normal(position);
             shockRing.position = position;
             float distance = actor.TargetPlayer != null
                 ? Vector3.Distance(actor.TargetPlayer.WorldCenter, position) : 0f;

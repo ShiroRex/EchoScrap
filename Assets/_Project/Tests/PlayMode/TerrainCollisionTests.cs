@@ -1,0 +1,139 @@
+using System.Collections;
+using System.IO;
+using EchoScrap.Combat;
+using EchoScrap.Core;
+using EchoScrap.Player;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
+
+namespace EchoScrap.Tests
+{
+    public sealed class TerrainCollisionTests
+    {
+        private CombatGameBootstrap game;
+        private Keyboard keyboard;
+        private InputSettings.BackgroundBehavior background;
+        private InputSettings.EditorInputBehaviorInPlayMode editorInput;
+        [UnitySetUp] public IEnumerator Setup()
+        {
+            background=InputSystem.settings.backgroundBehavior;
+            editorInput=InputSystem.settings.editorInputBehaviorInPlayMode;
+            InputSystem.settings.backgroundBehavior=InputSettings.BackgroundBehavior.IgnoreFocus;
+            InputSystem.settings.editorInputBehaviorInPlayMode=InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+            keyboard=InputSystem.AddDevice<Keyboard>();
+            Time.timeScale=1;
+            yield return SceneManager.LoadSceneAsync("CombatArena"); yield return null;
+            game=Object.FindAnyObjectByType<CombatGameBootstrap>();
+            game.Director.AutoTick=false; game.Encounter.AutoTick=false; game.ResetRun(false); game.Weapon.enabled=false;
+            game.Motor.GetComponent<PlayerInputReader>().SendMessage("OnApplicationFocus",true);
+            game.Session.ResumeFromFocusLoss();
+        }
+        [UnityTearDown] public IEnumerator Cleanup()
+        {
+            Time.timeScale=1;
+            if(keyboard!=null) InputSystem.RemoveDevice(keyboard);
+            InputSystem.settings.backgroundBehavior=background; InputSystem.settings.editorInputBehaviorInPlayMode=editorInput;
+            if(game!=null)
+            {
+                var scene=game.gameObject.scene;
+                SceneManager.SetActiveScene(SceneManager.CreateScene("TerrainCleanup"));
+                yield return SceneManager.UnloadSceneAsync(scene);
+            }
+            CombatTargetRegistry.Clear();
+        }
+        [Test] public void CollisionsUseVisibleTriangles_AndTerrainMatchesItsHeightProfile()
+        {
+            var world=GameObject.Find("Mundo3D_EchoScrap");
+            Assert.AreEqual(0,world.GetComponentsInChildren<BoxCollider>().Length,"No oversized proxy boxes.");
+            foreach(var filter in world.GetComponentsInChildren<MeshFilter>())
+            {
+                if(filter.name=="PortalVortex") continue;
+                var collider=filter.GetComponent<MeshCollider>();
+                Assert.IsNotNull(collider,filter.name);
+                Assert.AreSame(filter.sharedMesh,collider.sharedMesh,filter.name);
+                Assert.IsFalse(collider.convex,filter.name+" must preserve openings.");
+            }
+            Assert.AreSame(game.ArenaGround,ArenaSurface.Active.GroundCollider);
+            for(int x=-50;x<=50;x+=5) for(int z=-50;z<=50;z+=5)
+            {
+                Assert.IsTrue(game.ArenaGround.Raycast(new Ray(new Vector3(x,25,z),Vector3.down),out RaycastHit hit,30));
+                Assert.AreEqual(ArenaSurface.Profile(x,z),hit.point.y,0.015f);
+            }
+            Assert.Greater(ArenaSurface.Profile(-24,3),5f);
+            foreach(string wall in new[]{"North","South","East","West"})
+                Assert.IsTrue(GameObject.Find("Arena_120m/Wall_"+wall).GetComponent<Renderer>().enabled);
+        }
+        [UnityTest] public IEnumerator PlayerClimbsAndDescendsActualHill_EnemyFollowsSurface()
+        {
+            var body=game.Player.GetComponent<Rigidbody>();
+            body.position=new Vector3(-9,1,3); body.linearVelocity=Vector3.zero;
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.A)); yield return null;
+            for(int i=0;i<130;i++) yield return new WaitForFixedUpdate();
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
+            Assert.Less(body.position.x,-20,"Real input must move up the hill.");
+            Assert.Greater(body.position.y,4,"Player must rise with terrain: " + body.position + " ground=" + ArenaSurface.Height(body.position) + " active=" + ArenaSurface.Active);
+            Assert.AreEqual(ArenaSurface.SupportHeight(body.position,0.45f)+1,body.position.y,0.25f);
+            var enemy=game.Enemies.Spawn(EnemyArchetypeId.Residual,new Vector3(-24,1,3));
+            Assert.Greater(enemy.transform.position.y,5f);
+            yield return Capture("Relieve",new Vector3(-4,18,-19),new Vector3(-23,3,3));
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.D)); yield return null;
+            for(int i=0;i<130;i++) yield return new WaitForFixedUpdate();
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
+            Assert.Less(body.position.y,2,"Downhill must not leave the player floating.");
+        }
+        [UnityTest] public IEnumerator SpawnAreaAllowsMovementInAllDirections()
+        {
+            var body=game.Player.GetComponent<Rigidbody>();
+            foreach(var key in new[]{Key.W,Key.A,Key.S,Key.D})
+            {
+                body.position=Vector3.up; body.linearVelocity=Vector3.zero;
+                Physics.SyncTransforms();
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState(key)); yield return null;
+                for(int i=0;i<25;i++) yield return new WaitForFixedUpdate();
+                Assert.Greater(Vector3.Distance(Vector3.up,body.position),2f,"Blocked at spawn: "+key);
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
+            }
+        }
+        [Test] public void FlashlightCannotTargetOrDamageThroughSolidGeometry()
+        {
+            var enemy=game.Enemies.Spawn(EnemyArchetypeId.Residual,new Vector3(0,1,5));
+            var wall=GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.transform.position=new Vector3(0,2,2.5f); wall.transform.localScale=new Vector3(4,4,0.4f);
+            Physics.SyncTransforms();
+            Assert.IsNull(game.Weapon.FindNearestEnemyTarget(game.Weapon.OriginPosition,12,out _));
+            float health=enemy.CurrentHealth; game.Weapon.StepWeapon(0.8f);
+            Assert.AreEqual(health,enemy.CurrentHealth);
+            Object.DestroyImmediate(wall); Physics.SyncTransforms();
+            Assert.AreSame(enemy,game.Weapon.FindNearestEnemyTarget(game.Weapon.OriginPosition,12,out _));
+            game.Weapon.StepWeapon(0.8f); Assert.Less(enemy.CurrentHealth,health);
+        }
+        [TestCase(8f,true)] [TestCase(0.5f,false)]
+        public void ProjectilesStopAtWalls_AndCanClearLowCover(float wallHeight,bool shouldStop)
+        {
+            var wall=GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.transform.position=new Vector3(0,wallHeight/2,4); wall.transform.localScale=new Vector3(6,wallHeight,0.3f);
+            game.Player.GetComponent<Rigidbody>().position=new Vector3(0,1,8);
+            game.Player.transform.position=new Vector3(0,1,8); Physics.SyncTransforms();
+            var spec=CorrosivePuddlePool.ProjectileSpec.CreateMortarDefault(99,new Vector3(0,2,0),new Vector3(0,0,8));
+            Assert.IsTrue(game.Hazards.TryLaunchParabolicProjectile(in spec));
+            game.Hazards.StepPool(0.7f);
+            Assert.AreEqual(0,game.Hazards.ActiveProjectileCount);
+            var puddle=game.Hazards.GetPuddleBySequenceId(1);
+            if(shouldStop) { Assert.Less(puddle.CenterXZ.z,4); Assert.AreEqual(game.Player.MaxHealth,game.Player.CurrentHealth); }
+            else Assert.Greater(puddle.CenterXZ.z,7.5f);
+        }
+        private static IEnumerator Capture(string name,Vector3 position,Vector3 target)
+        {
+            var camera=new GameObject("TerrainAuditCamera").AddComponent<Camera>(); camera.transform.position=position; camera.transform.LookAt(target);
+            var rt=new RenderTexture(1200,800,24); camera.targetTexture=rt; yield return null; yield return null;
+            var old=RenderTexture.active; RenderTexture.active=rt;
+            var texture=new Texture2D(1200,800,TextureFormat.RGB24,false); texture.ReadPixels(new Rect(0,0,1200,800),0,0); texture.Apply();
+            Directory.CreateDirectory("Logs/WorldArtIntegration"); File.WriteAllBytes("Logs/WorldArtIntegration/"+name+".png",texture.EncodeToPNG());
+            RenderTexture.active=old; Object.Destroy(texture); Object.Destroy(rt); Object.Destroy(camera.gameObject);
+        }
+    }
+}

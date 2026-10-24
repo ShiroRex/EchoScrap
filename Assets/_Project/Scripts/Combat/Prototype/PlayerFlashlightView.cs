@@ -261,7 +261,8 @@ public class PlayerFlashlightView : MonoBehaviour
         Vector3 direction = weapon.CurrentAimDirection;
         if (direction.sqrMagnitude > 0.001f)
             flashlightPivot.rotation = Quaternion.LookRotation(direction, Vector3.up);
-        RebuildGeometry(weapon.ActiveBurstRange, weapon.ActiveBurstAngle); // Compara valores; también detecta ediciones del Inspector.
+        coneMeshFilter.transform.localPosition = new Vector3(0f, ArenaSurface.Height(flashlightPivot.position) - flashlightPivot.position.y + 0.035f, 0f);
+        RebuildGeometry(weapon.ActiveBurstRange, weapon.ActiveBurstAngle);
         ApplyAppearance();
     }
 
@@ -443,7 +444,6 @@ public class PlayerFlashlightView : MonoBehaviour
     {
         int count = Mathf.Clamp(segments, 3, 128);
         bool resize = vertices == null || vertices.Length != count + 2;
-        if (!resize && Mathf.Approximately(range, lastRange) && Mathf.Approximately(angle, lastAngle)) return;
         lastRange = range;
         lastAngle = angle;
         flashlightLight.spotAngle = angle;
@@ -469,7 +469,14 @@ public class PlayerFlashlightView : MonoBehaviour
         {
             float radians = (-angle * 0.5f + angle * i / count) * Mathf.Deg2Rad;
             vertices[i + 1] = new Vector3(Mathf.Sin(radians) * range, 0.02f, Mathf.Cos(radians) * range);
-            outline[i + 1] = new Vector3(vertices[i + 1].x, 0.03f, vertices[i + 1].z);
+            Vector3 endpoint=coneMeshFilter.transform.TransformPoint(vertices[i+1]);
+            Vector3 aimEndpoint=endpoint;
+            aimEndpoint.y=ArenaSurface.Height(endpoint)+weapon.OriginPosition.y-ArenaSurface.Height(weapon.OriginPosition);
+            if (Physics.Linecast(weapon.OriginPosition,aimEndpoint,out RaycastHit hit,1 << PhysicsLayers.DefaultLayer,QueryTriggerInteraction.Ignore))
+                endpoint=hit.point;
+            endpoint.y=ArenaSurface.Height(endpoint)+0.055f;
+            vertices[i+1]=coneMeshFilter.transform.InverseTransformPoint(endpoint);
+            outline[i + 1] = vertices[i + 1] + Vector3.up * 0.01f;
         }
         coneMesh.vertices = vertices;
         if (resize) { coneMesh.triangles = triangles; coneMesh.normals = normals; }

@@ -148,6 +148,7 @@ namespace EchoScrap.Player
             if (isDashing)
             {
                 StepActiveDash(dt);
+                ArenaSurface.Follow(body, 0.45f, 1f, dt);
                 return;
             }
 
@@ -161,6 +162,7 @@ namespace EchoScrap.Player
             // Control arcade deliberado: PhysX resuelve las colisiones después de fijar
             // la velocidad deseada. El Transform de la raíz nunca se mueve directamente.
             body.linearVelocity = Vector3.MoveTowards(body.linearVelocity, target, rate * dt);
+            ArenaSurface.Follow(body, 0.45f, 1f, dt);
         }
 
         private void StartDashInFixedStep(Vector3 currentMoveDirection)

@@ -32,6 +32,7 @@ namespace EchoScrap.Editor
                 if (r.name.StartsWith("Wall_") || r.name.EndsWith("Boundary")) r.enabled = false;
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
+            TerrainCollisionAuthoring.Apply();
             Debug.Log("ECHOSCRAP_INTEGRATION_OK");
         }
 

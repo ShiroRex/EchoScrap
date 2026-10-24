@@ -217,11 +217,11 @@ namespace EchoScrap.Editor
             if (TryBounds(anchor, out bounds))
                 anchor.transform.position += Vector3.up * (0f - bounds.min.y);
 
-            if (p.solid && TryLocalBounds(anchor, out Bounds box))
+            foreach (var filter in anchor.GetComponentsInChildren<MeshFilter>())
             {
-                var collider = Undo.AddComponent<BoxCollider>(anchor);
-                collider.center = box.center;
-                collider.size = new Vector3(box.size.x * 0.80f, Mathf.Max(0.10f, box.size.y * 0.85f), box.size.z * 0.80f);
+                var collider = Undo.AddComponent<MeshCollider>(filter.gameObject);
+                collider.sharedMesh = filter.sharedMesh;
+                collider.convex = false;
             }
             return true;
         }

@@ -369,6 +369,8 @@ namespace EchoScrap.Combat
                 float maxAllowedDist = maxRange + Mathf.Max(0f, candidate.HitRadius);
                 if (distSqr > maxAllowedDist * maxAllowedDist)
                     continue;
+                if (Physics.Linecast(origin, candidate.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
+                    continue;
 
                 if (distSqr < nearestDistanceSqr)
                 {
@@ -415,6 +417,8 @@ namespace EchoScrap.Combat
                     continue;
 
                 if (!IsTargetInsideConeXZ(origin, forward, range, angle, target.WorldCenter, target.HitRadius, out Vector3 planarOffset))
+                    continue;
+                if (Physics.Linecast(origin, target.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
                     continue;
 
                 // Garantizar un único impacto por objetivo y pulso aunque tenga múltiples colliders

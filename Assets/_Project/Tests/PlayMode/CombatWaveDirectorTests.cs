@@ -61,6 +61,7 @@ namespace EchoScrap.Tests
             director.BindSpawnContext(floor);
             session.ResetSession(20261022);
             yield return null;
+            Physics.SyncTransforms();
             session.Clock.SetGameplayTimeForTesting(0f);
         }
 

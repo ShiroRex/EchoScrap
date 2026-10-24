@@ -243,6 +243,7 @@ namespace EchoScrap.Combat
             if (projectileIndex < 0 || (spec.PuddleDuration > 0f && spec.PuddleRadius > 0f && puddleIndex < 0)) return false;
             ProjectileSlot slot = projectiles[projectileIndex];
             slot.Spec = spec; slot.Elapsed = 0f; slot.ReservedPuddle = puddleIndex;
+            if (ArenaSurface.Active != null) slot.Spec.TargetPosition = ArenaSurface.OnGround(spec.TargetPosition);
             if (puddleIndex >= 0) puddles[puddleIndex].Reserved = true;
             slot.Active = true;
             TotalProjectilesLaunched++;
@@ -251,9 +252,10 @@ namespace EchoScrap.Combat
             slot.Trail.Clear();
             slot.Trail.emitting = DecorativeIntensity > 0f;
             float radius = Mathf.Max(spec.PuddleRadius, spec.ImpactRadius);
-            slot.Reticle.position = new Vector3(spec.TargetPosition.x, 0.035f, spec.TargetPosition.z);
+            slot.Reticle.position = ArenaSurface.OnGround(spec.TargetPosition, 0.035f);
             slot.Reticle.localScale = Vector3.one * radius * 2f;
-            slot.Fill.position = new Vector3(spec.TargetPosition.x, 0.025f, spec.TargetPosition.z);
+            slot.Fill.position = ArenaSurface.OnGround(spec.TargetPosition, 0.025f);
+            slot.Reticle.up = slot.Fill.up = ArenaSurface.Normal(spec.TargetPosition);
             slot.Fill.localScale = Vector3.one * 0.05f;
             ApplyColor(slot.ReticleRenderer, WarningColor);
             ApplyColor(slot.FillRenderer, new Color(1f, 0.56f, 0.12f, 0.16f));
@@ -284,12 +286,13 @@ namespace EchoScrap.Combat
         {
             PuddleSlot slot = puddles[index];
             slot.Reserved = false; slot.Active = true; slot.SourceId = sourceId; slot.SequenceId = ++sequenceId;
-            slot.Center = new Vector3(position.x, 0f, position.z);
+            slot.Center = ArenaSurface.OnGround(position);
             slot.Radius = Mathf.Max(0.1f, radius); slot.Duration = Mathf.Max(0.05f, duration);
             slot.Elapsed = 0f; slot.NextTickAge = 0f;
             slot.TickDamage = Mathf.Max(0f, damage); slot.TickInterval = Mathf.Max(0.05f, interval);
             slot.DamageSource = source; slot.FadeAlpha = 1f;
             slot.Root.transform.position = slot.Center + Vector3.up * 0.03f;
+            slot.Root.transform.up = ArenaSurface.Normal(position);
             slot.Root.SetActive(true);
             slot.Border.localPosition = Vector3.up * 0.003f;
             slot.Border.localScale = Vector3.one * slot.Radius * 2f;
@@ -315,12 +318,31 @@ namespace EchoScrap.Combat
                 float t = Mathf.Clamp01(slot.Elapsed / duration);
                 Vector3 position = Vector3.Lerp(slot.Spec.LaunchOrigin, slot.Spec.TargetPosition, t);
                 position.y += 4f * slot.Spec.ArcPeakHeight * t * (1f - t);
+                bool blocked = false;
+                float impactAge = duration;
+                float previousAge = Mathf.Max(0f, slot.Elapsed - deltaTime);
+                Vector3 previous = slot.Shell.position;
+                // Barrer la parábola en tramos cortos también con frames largos.
+                int slices = Mathf.Max(1, Mathf.CeilToInt((Mathf.Min(slot.Elapsed,duration)-previousAge)/0.025f));
+                for (int slice=1;slice<=slices;slice++)
+                {
+                    float age = Mathf.Lerp(previousAge, Mathf.Min(slot.Elapsed,duration),slice/(float)slices);
+                    float u = age/duration;
+                    Vector3 next=Vector3.Lerp(slot.Spec.LaunchOrigin,slot.Spec.TargetPosition,u)+Vector3.up*(4f*slot.Spec.ArcPeakHeight*u*(1f-u));
+                    if (Physics.Linecast(previous,next,out RaycastHit obstacle,1 << PhysicsLayers.DefaultLayer,QueryTriggerInteraction.Ignore))
+                    {
+                        blocked=true; impactAge=age;
+                        position=obstacle.point+obstacle.normal*0.03f;
+                        slot.Spec.TargetPosition=position; break;
+                    }
+                    previous=next;
+                }
                 slot.Shell.position = position;
                 slot.Trail.emitting = DecorativeIntensity > 0f;
                 float radius = Mathf.Max(slot.Spec.PuddleRadius, slot.Spec.ImpactRadius);
                 slot.Fill.localScale = Vector3.one * Mathf.Lerp(0.05f, radius * 2f, t);
                 ApplyColor(slot.FillRenderer, new Color(1f, Mathf.Lerp(0.64f, 0.2f, t), 0.1f, 0.16f + t * 0.14f));
-                if (slot.Elapsed + 0.00001f < duration) continue;
+                if (!blocked && slot.Elapsed + 0.00001f < duration) continue;
                 slot.Active = false; slot.Trail.emitting = false; slot.Trail.Clear(); slot.Root.SetActive(false);
                 if (slot.Spec.DirectImpactDamage > 0f)
                     DamagePlayer(slot.Spec.SourceId, slot.Spec.TargetPosition, slot.Spec.ImpactRadius,
@@ -331,7 +353,7 @@ namespace EchoScrap.Combat
                     slot.ReservedPuddle = -1;
                     ActivatePuddle(reserved, slot.Spec.SourceId, slot.Spec.TargetPosition, slot.Spec.PuddleRadius,
                         slot.Spec.PuddleDuration, slot.Spec.PuddleTickDamage, slot.Spec.PuddleTickInterval, slot.Spec.PuddleDamageSource);
-                    AdvancePuddle(puddles[reserved], Mathf.Max(0f, slot.Elapsed - duration));
+                    AdvancePuddle(puddles[reserved], Mathf.Max(0f, slot.Elapsed - impactAge));
                 }
             }
         }
@@ -359,6 +381,8 @@ namespace EchoScrap.Combat
             difference.y = 0f;
             float contactRadius = radius + targetPlayer.HitRadius;
             if (difference.sqrMagnitude > contactRadius * contactRadius) return;
+            if (Physics.Linecast(center + Vector3.up * 0.12f, targetPlayer.WorldCenter,
+                1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore)) return;
             var request = new DamageRequest(sourceId, type, center,
                 difference.sqrMagnitude > 0.0001f ? difference.normalized : Vector3.forward, amount);
             targetPlayer.ReceiveDamage(in request);

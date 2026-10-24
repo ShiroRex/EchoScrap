@@ -172,7 +172,7 @@ namespace EchoScrap.Combat
             phaseTime = 0f;
             nextStompTime = BossTime + 6f;
             stompOrigin = WorldCenter;
-            stompOrigin.y = 0f;
+            stompOrigin.y = ArenaSurface.Height(stompOrigin);
             StopBody();
         }
 
@@ -244,7 +244,7 @@ namespace EchoScrap.Combat
             Vector3 velocity = playerBody != null ? playerBody.linearVelocity : Vector3.zero;
             velocity.y = 0f;
             Vector3 predicted = TargetPlayer.WorldCenter + velocity * 0.6f;
-            predicted.y = 0f;
+            predicted.y = ArenaSurface.Height(predicted);
             Vector3 forward = predicted - WorldCenter;
             forward.y = 0f;
             forward = forward.sqrMagnitude > 0.0001f ? forward.normalized : Vector3.forward;

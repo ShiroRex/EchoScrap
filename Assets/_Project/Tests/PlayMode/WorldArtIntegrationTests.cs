@@ -57,7 +57,7 @@ namespace EchoScrap.Tests
             Assert.IsNotNull(world.transform.Find("Portal/portal_43_-40"));
             Assert.IsFalse(GameObject.Find("Arena_120m").transform.Find("FloorGuides_10m").gameObject.activeSelf);
             foreach (var collider in world.GetComponentsInChildren<Collider>())
-                Assert.Greater(Vector3.Distance(collider.ClosestPoint(new Vector3(0, 1, 0)), new Vector3(0, 1, 0)), 10f, collider.name);
+                Assert.Greater(Vector3.Distance(collider.bounds.ClosestPoint(new Vector3(0, 1, 0)), new Vector3(0, 1, 0)), 5f, collider.name);
             var camera = new GameObject("MapAuditCamera").AddComponent<Camera>();
             camera.transform.position = new Vector3(0, 115, -85);
             camera.transform.LookAt(Vector3.zero);

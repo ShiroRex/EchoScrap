@@ -495,6 +495,7 @@ namespace EchoScrap.Combat
 
             // 6. Escala, rotación, posición y MaterialPropertyBlock
             Vector3 clampedSpawn = new Vector3(spawnPosition.x, 1f, spawnPosition.z);
+            clampedSpawn.y += ArenaSurface.SupportHeight(clampedSpawn, HitRadius);
             transform.localScale = runtimeArchetype.VisualScale;
             // The heavy capsule scales to 3.2 m tall. Keep its bottom on the floor at fixed root Y=1.
             bodyCollider.center = EnemySpawnGeometry.LocalColliderCenter(runtimeArchetype);
@@ -634,7 +635,9 @@ namespace EchoScrap.Combat
                 Vector3 combined = isKnockedBack ? knockbackVelocity : (locomotionVelocity + knockbackVelocity);
                 combined.y = 0f;
                 body.linearVelocity = combined;
-                if (Mathf.Abs(body.position.y - 1f) > 0.01f)
+                if (ArenaSurface.Active != null)
+                    ArenaSurface.Follow(body, HitRadius, 1f, fixedDeltaTime);
+                else if (Mathf.Abs(body.position.y - 1f) > 0.01f)
                     body.position = new Vector3(body.position.x, 1f, body.position.z);
             }
 

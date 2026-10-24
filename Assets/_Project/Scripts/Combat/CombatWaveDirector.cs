@@ -446,11 +446,17 @@ namespace EchoScrap.Combat
                 {
                     LastMemberValidations++;
                     Vector3 position = anchor + groupOffsets[i];
+                    if (ArenaSurface.Active != null && arenaGround == ArenaSurface.Active.GroundCollider)
+                        position.y = ArenaSurface.SupportHeight(position, groupGeometry[i].Radius) + EnemySpawnGeometry.RootHeight;
                     groupPositions[i] = position;
                     if (!InsideArena(new Vector2(position.x, position.z), groupGeometry[i].Radius))
                     { failure = DiscardReason.OutsideArena; valid = false; break; }
                     if (!HasGround(position, groupGeometry[i].Radius))
                     { failure = DiscardReason.MissingGround; valid = false; break; }
+                    Bounds elevatedBounds = groupGeometry[i].VisualBounds;
+                    elevatedBounds.center += position;
+                    if (ArenaSurface.Active != null && !OutsideView(elevatedBounds))
+                    { failure = DiscardReason.InvalidCamera; valid = false; break; }
                     if (!PositionIsClear(position, groupGeometry[i], i, out failure))
                     { valid = false; break; }
                 }
@@ -539,6 +545,8 @@ namespace EchoScrap.Combat
 
         private bool HasGround(Vector3 position, float radius)
         {
+            if (ArenaSurface.Active != null && arenaGround == ArenaSurface.Active.GroundCollider)
+                return ArenaSurface.Normal(position).y >= 0.75f;
             for (int i = 0; i < 5; i++)
             {
                 Vector3 offset = i == 0 ? Vector3.zero : i == 1 ? Vector3.right * radius
