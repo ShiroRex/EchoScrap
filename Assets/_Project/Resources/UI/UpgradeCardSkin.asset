@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e6a0651b356114681af77cf3dda1fd, type: 3}
+  m_Name: UpgradeCardSkin
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.UpgradeCardSkin
+  frames:
+  - {fileID: 21300000, guid: d1a6e0b11ccb87e41938340414f79df6, type: 3}
+  - {fileID: 21300000, guid: 03b7f408c44e20046b1be0eae88f92e2, type: 3}
+  - {fileID: 21300000, guid: 68feeed2cfae9e74992407b7627176df, type: 3}
+  - {fileID: 21300000, guid: f48a43f47648adf4e88e7825661601c6, type: 3}
+  crests:
+  - {fileID: 21300000, guid: 4572744ea19439945bb93a63714cc2f5, type: 3}
+  - {fileID: 21300000, guid: f4ee398631980914bad1dbf11f5d9627, type: 3}
+  - {fileID: 21300000, guid: f2d231d6521d5064491fe4dbba38a045, type: 3}
+  - {fileID: 21300000, guid: d8d4be180c3be0543b985635881753ca, type: 3}
+  glows:
+  - {fileID: 21300000, guid: 7686435a13c6c6e4792004f4b1f7ab6b, type: 3}
+  - {fileID: 21300000, guid: 1ee54412305c3e642822bce43926bf38, type: 3}
+  - {fileID: 21300000, guid: 75e25b6e02ab9e24bb6ddbf315b08c1b, type: 3}
+  - {fileID: 21300000, guid: 52451bf58422b9a4abb1410395eae00a, type: 3}
+  icons:
+  - {fileID: 21300000, guid: 39fac0e4afc1bfa48918ee49752d1a1a, type: 3}
+  - {fileID: 21300000, guid: ccf3140e89d11124a87a75cc85f3ed63, type: 3}
+  - {fileID: 21300000, guid: 772520d69d3ae3f4ebb5fc94882272c3, type: 3}
+  - {fileID: 21300000, guid: 139110c9646bcc0468c1032216d370a9, type: 3}
+  - {fileID: 21300000, guid: 13e39bfedf969a244b09a728cfe42354, type: 3}
+  - {fileID: 21300000, guid: def40ef1a63fda341bb51516a45f3f78, type: 3}
+  - {fileID: 21300000, guid: 280dcae46a01bb648899d8e7c3d79c69, type: 3}
+  - {fileID: 21300000, guid: 344247f3af71e1a4bb6c68df65d17fed, type: 3}
+  upgradeArrow: {fileID: 21300000, guid: 301984d5d33a9864893c8cee1b61189a, type: 3}
+  regular: {fileID: 12800000, guid: 08df4fc740abaa54da290e3a9b638a10, type: 3}
+  semibold: {fileID: 12800000, guid: 918b0589665d03c498011b0443876168, type: 3}
