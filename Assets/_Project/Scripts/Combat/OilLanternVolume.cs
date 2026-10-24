@@ -6,6 +6,8 @@ namespace EchoScrap.Combat
     /// <summary>Local oil glow plus a soft 3D beam around the imported prototype's actual spotlight.</summary>
     public sealed class OilLanternVolume : MonoBehaviour
     {
+        [Tooltip("Desactivar cuando el sprite ya contiene la llama y su farol.")]
+        [SerializeField] private bool drawFlameMesh = true;
         private FlashlightWeapon weapon;
         private Light keyLight;
         private CombatSession session;
@@ -88,7 +90,7 @@ namespace EchoScrap.Combat
             bool decorative = session == null || session.Effects.DecorativeIntensity > 0f;
             oilGlow.enabled = visible;
             flicker.enabled = visible && !reduced && decorative;
-            flame.gameObject.SetActive(visible);
+            flame.gameObject.SetActive(visible && drawFlameMesh);
             beamRenderer.enabled = visible && decorative && !reduced;
             float range = weapon.ActiveBurstRange;
             float angle = Mathf.Min(150f, weapon.ActiveBurstAngle);

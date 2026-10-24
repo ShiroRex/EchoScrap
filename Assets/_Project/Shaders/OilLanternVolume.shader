@@ -10,6 +10,7 @@ Shader "EchoScrap/Oil Lantern Volume"
             ZWrite Off
             ZTest LEqual
             Cull Off
+            Stencil { Ref 1 ReadMask 1 Comp NotEqual Pass Keep }
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag

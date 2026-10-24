@@ -56,6 +56,80 @@ namespace EchoScrap.Tests
         private static DamageRequest Lethal() => new DamageRequest(555, DamageSourceType.FlashlightPulse,
             Vector3.up, Vector3.forward, 100f);
 
+        [TestCase(5f, 0f, CharacterFacing.Left)]
+        [TestCase(-5f, 0f, CharacterFacing.Right)]
+        [TestCase(0f, 5f, CharacterFacing.Down)]
+        [TestCase(0f, -5f, CharacterFacing.Up)]
+        public void ReactorUsesApprovedAtlasNormalsEmissionAndHidesPlaceholderMeshes(float x, float z, CharacterFacing facing)
+        {
+            EnemyActor moth = Spawn(new Vector3(x, 1f, z));
+            var view = moth.GetComponent<MothSpriteView>(); view.Advance(0f);
+            Assert.That(view.CharacterRenderer.sharedMaterial.shader.name, Is.EqualTo("EchoScrap/Character Pixel Lit"));
+            Assert.That(view.CharacterRenderer.sharedMaterial.GetTexture("_BaseMap").name, Is.EqualTo("PolillaReactor_Atlas"));
+            Assert.That(view.CharacterRenderer.sharedMaterial.GetTexture("_BumpMap").name, Is.EqualTo("PolillaReactor_Normal"));
+            Assert.That(view.CharacterRenderer.sharedMaterial.GetTexture("_GlowMap").name, Is.EqualTo("PolillaReactor_Emission"));
+            foreach (Renderer renderer in moth.VisualComposer.PresentationPivot.GetComponentsInChildren<Renderer>(true))
+                Assert.That(renderer.enabled, Is.EqualTo(renderer == view.CharacterRenderer));
+            Assert.That(view.Facing, Is.EqualTo(facing));
+            Assert.That(Quaternion.Angle(view.CharacterRenderer.transform.rotation, Quaternion.identity), Is.LessThan(0.01f));
+            var block = new MaterialPropertyBlock(); view.CharacterRenderer.GetPropertyBlock(block);
+            Assert.That(block.GetVector("_FrameRect").z, Is.EqualTo(0.125f));
+            Assert.That(block.GetFloat("_GlowStrength"), Is.GreaterThan(0.8f));
+        }
+
+        [Test]
+        public void DamageFlashAndFuseWarningKeepTheCorrectAtlasCellAndReactorGlow()
+        {
+            EnemyActor moth = Spawn(new Vector3(-5f, 1f, 0f));
+            var view = moth.GetComponent<MothSpriteView>();
+            var hit = new DamageRequest(555, DamageSourceType.FlashlightPulse, Vector3.up, Vector3.forward, 1f);
+            moth.ReceiveDamage(in hit); view.Advance(0f);
+            var block = new MaterialPropertyBlock(); view.CharacterRenderer.GetPropertyBlock(block);
+            Assert.That(moth.VisualComposer.IsFlashActive, Is.True);
+            Assert.That(block.GetVector("_FrameRect").z, Is.EqualTo(0.125f));
+            Assert.That(block.GetColor("_EmissionColor").r, Is.GreaterThan(1f));
+            moth.StepVisuals(0.3f); moth.ArmMoth(); moth.StepPhysics(0.3f); view.Advance(0f);
+            view.CharacterRenderer.GetPropertyBlock(block);
+            Assert.That(block.GetVector("_FrameRect"), Is.EqualTo(MothSpriteSet.Load().GetClip(true, view.Facing).frames[view.FrameIndex].uvRect));
+            Assert.That(block.GetFloat("_GlowStrength"), Is.GreaterThan(1.2f));
+            Assert.That(block.GetColor("_BaseColor"), Is.EqualTo(Color.white));
+        }
+
+        [TestCase(false, 0.45f)]
+        [TestCase(true, 0.6f)]
+        public void PrimePosesFollowBothGameplayFusesAndPause(bool lethal, float halfFuse)
+        {
+            EnemyActor moth = Spawn(new Vector3(10f, 1f, 0f));
+            var view = moth.GetComponent<MothSpriteView>();
+            moth.ArmMoth(lethal); moth.StepPhysics(halfFuse); view.Advance(0f);
+            Assert.That(moth.GetComponent<EchoScrap.Combat.Prototype.EnemyMoth>().FuseProgress, Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(view.FrameIndex, Is.EqualTo(3));
+            session.SetManualPause(true);
+            float clock = view.ClipTime; moth.StepPhysics(1f); view.Advance(1f);
+            Assert.That(view.ClipTime, Is.EqualTo(clock)); Assert.That(view.FrameIndex, Is.EqualTo(3));
+            session.SetManualPause(false);
+            enemies.ReturnToPool(moth);
+            var reused = Spawn(new Vector3(-10f, 1f, 0f)).GetComponent<MothSpriteView>();
+            reused.Advance(0f);
+            Assert.That(reused, Is.SameAs(view)); Assert.That(reused.IsPrimed, Is.False);
+            Assert.That(reused.FrameIndex, Is.Zero); Assert.That(reused.ClipTime, Is.Zero);
+        }
+
+        [Test]
+        public void LightBudgetAndBurstAreReusedWithoutKeepingReturnedMothsAlive()
+        {
+            for (int i = 0; i < 20; i++) Spawn(new Vector3(10f + i, 1f, 3f));
+            CombatReadabilityLights lights = session.GetComponent<CombatReadabilityLights>(); lights.RefreshLights();
+            Assert.That(lights.ActiveLightCount, Is.EqualTo(CombatReadabilityLights.Capacity));
+            explosions.Enqueue(555, new Vector3(50f, 1f, 0f)); explosions.FlushExplosions();
+            Assert.That(explosions.GetComponentsInChildren<MothBurstSprite>().Length, Is.EqualTo(1));
+            explosions.StepVisuals(0.31f);
+            Assert.That(explosions.GetComponentsInChildren<MothBurstSprite>().Length, Is.Zero);
+            enemies.DespawnAllActive(); lights.RefreshLights();
+            Assert.That(lights.ActiveLightCount, Is.Zero);
+            Assert.That(lights.GetComponentsInChildren<Light>().Length, Is.EqualTo(CombatReadabilityLights.Capacity));
+        }
+
         [Test]
         public void ProximityArmsOnce_StopsPursuit_AndUsesPrototypeNineTenthsFuse()
         {

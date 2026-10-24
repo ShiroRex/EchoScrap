@@ -54,6 +54,7 @@ namespace EchoScrap.Combat
         private int spawnedThisDash;
         private bool initialized;
         private CombatSession subscribedSession;
+        private CollectorSpriteView spriteView;
 
         public int ActiveAfterimageCount
         {
@@ -87,6 +88,7 @@ namespace EchoScrap.Combat
                 motor = GetComponent<PlayerMotor>();
             if (session == null)
                 session = FindAnyObjectByType<CombatSession>();
+            spriteView = GetComponent<CollectorSpriteView>();
 
             propertyBlock = new MaterialPropertyBlock();
             Shader unlitShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Universal Render Pipeline/Lit");
@@ -97,12 +99,25 @@ namespace EchoScrap.Combat
 
             for (int i = 0; i < MaxAfterimages; i++)
             {
-                GameObject ghost = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                GameObject ghost;
+                Renderer rend;
+                if (spriteView != null)
+                {
+                    ghost = new GameObject("Collector Afterimage");
+                    ghost.AddComponent<MeshFilter>().sharedMesh = spriteView.CharacterMesh;
+                    rend = ghost.AddComponent<MeshRenderer>();
+                    rend.sharedMaterial = spriteView.AfterimageMaterial;
+                    rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+                else
+                {
+                    ghost = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                    DestroyImmediate(ghost.GetComponent<Collider>());
+                    rend = ghost.GetComponent<Renderer>();
+                    rend.sharedMaterial = ghostSharedMaterial;
+                }
                 ghost.name = $"DashAfterimage_{i}";
                 ghost.transform.SetParent(container.transform, false);
-                DestroyImmediate(ghost.GetComponent<Collider>());
-                var rend = ghost.GetComponent<Renderer>();
-                rend.sharedMaterial = ghostSharedMaterial;
                 ghost.SetActive(false);
                 afterimages[i] = new AfterimageSlot { Root = ghost, Renderer = rend, RemainingTime = 0f, Active = false };
             }
@@ -229,7 +244,12 @@ namespace EchoScrap.Combat
         private void Update()
         {
             if (Time.timeScale <= 0f || (session != null && session.IsPaused))
+            {
+                if (spriteView != null && spriteView.Motion == CharacterMotion.Death && session != null &&
+                    (session.Clock.ActiveReasons & ~PauseReason.SessionEnded) == PauseReason.None)
+                    StepPresentation(Time.unscaledDeltaTime);
                 return;
+            }
 
             StepPresentation(Time.deltaTime);
         }
@@ -324,6 +344,7 @@ namespace EchoScrap.Combat
             if (direction.sqrMagnitude > 0.001f)
                 slot.Root.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
             slot.Root.transform.localScale = new Vector3(0.82f, 0.85f, 1.15f);
+            if (spriteView != null) spriteView.CopyAfterimageTo(slot.Root.transform, slot.Renderer);
             ApplyColor(slot.Renderer, afterimageColor);
             slot.Root.SetActive(true);
         }

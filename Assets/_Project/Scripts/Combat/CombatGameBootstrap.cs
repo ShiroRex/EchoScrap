@@ -87,6 +87,7 @@ namespace EchoScrap.Combat
             Player = GetOrAdd<PlayerHealth>(playerObject);
             Session = SystemObject<CombatSession>("CombatSession");
             Player.BindSession(Session);
+            playerObject.GetComponent<CollectorSpriteView>()?.Bind(gameplayCamera, Session);
             Session.ResolvePlayerReferences();
             Progression = SystemObject<CombatProgression>("Progression");
             Progression.BindSession(Session);

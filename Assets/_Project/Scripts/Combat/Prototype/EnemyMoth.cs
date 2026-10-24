@@ -27,6 +27,7 @@ namespace EchoScrap.Combat.Prototype
         public bool IsPrimed { get; private set; }
         public bool HasDetonated { get; private set; }
         public float FuseRemaining { get; private set; }
+        public float FuseProgress => IsPrimed ? Mathf.Clamp01(1f - FuseRemaining / activeFuseDuration) : 0f;
         public bool WarningVisible => telegraph != null && telegraph.gameObject.activeSelf;
 
         public void Bind(EnemyActor owner)
