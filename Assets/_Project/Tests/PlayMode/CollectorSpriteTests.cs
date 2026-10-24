@@ -116,6 +116,29 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator ApolloMedkitRendersInThePlayableArenaAndKeepsItsHealingBehavior()
+        {
+            game.Pickups.AutoTick = false;
+            Vector3 drop = game.Motor.transform.position + new Vector3(2.2f, 0f, -0.3f);
+            int id = game.Pickups.SpawnMedkit(drop);
+            Assert.That(game.Pickups.TryGetPickupInfo(id, out _), Is.True);
+            game.Session.SetManualPause(true);
+            yield return Capture(game.GameplayCamera, "MedkitArena.png");
+            var close = new GameObject("Apollo medkit close-up camera").AddComponent<Camera>();
+            close.CopyFrom(game.GameplayCamera);
+            close.transform.rotation = game.GameplayCamera.transform.rotation;
+            close.transform.position = game.Motor.transform.position + new Vector3(0.8f, 0.7f, 0f) - close.transform.forward * 10f;
+            close.fieldOfView = 42f;
+            yield return Capture(close, "MedkitCloseUp.png");
+            Object.Destroy(close.gameObject);
+            game.Session.SetManualPause(false);
+            game.Player.ForceSetHealthForTesting(40f);
+            game.Pickups.Step(0.3f);
+            Assert.That(game.Pickups.TryGetPickupInfo(id, out _), Is.False);
+            Assert.That(game.Player.CurrentHealth, Is.EqualTo(55f));
+        }
+
+        [UnityTest]
         public IEnumerator CameraAngleDoesNotRotateOrReshapeTheStandingPlane()
         {
             var camera = new GameObject("Collector angle validation camera").AddComponent<Camera>();

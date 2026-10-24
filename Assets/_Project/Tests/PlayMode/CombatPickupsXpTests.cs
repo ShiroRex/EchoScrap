@@ -169,6 +169,38 @@ namespace EchoScrap.Tests
             Assert.That(healingConfirmations, Is.Zero);
         }
 
+        [UnityTest]
+        public IEnumerator MedkitUsesApolloColorAndNormalsAndKeepsItsShadowOnTheFloor()
+        {
+            pickups.SpawnMedkit(new Vector3(4f, 0f, 0f));
+            Transform medkit = null;
+            foreach (Transform child in pickups.transform)
+                if (child.name == "PooledMedkit" && child.gameObject.activeSelf) { medkit = child; break; }
+            Assert.That(medkit, Is.Not.Null);
+            Transform visual = medkit.Find("Visual");
+            Transform sprite = visual.Find("Botiquin Apollo Sprite");
+            Transform shadow = medkit.Find("Botiquin Contact Shadow");
+            Assert.That(sprite, Is.Not.Null);
+            Assert.That(shadow, Is.Not.Null);
+            Assert.That(visual.Find("Case"), Is.Null, "The old procedural medkit box must be replaced.");
+            Material material = sprite.GetComponent<MeshRenderer>().sharedMaterial;
+            Assert.That(material.shader.isSupported, Is.True);
+            Assert.That(material.shader.name, Is.EqualTo("EchoScrap/Character Pixel Lit"));
+            Assert.That(material.GetTexture("_BaseMap").name, Is.EqualTo("Botiquin_Apollo"));
+            Assert.That(material.GetTexture("_BumpMap").name, Is.EqualTo("Botiquin_Apollo_Normal"));
+            Assert.That(material.GetVector("_FrameRect"), Is.EqualTo(new Vector4(0, 0, 1, 1)));
+            pickups.Step(0.2f);
+            Assert.That(Quaternion.Angle(visual.rotation, Quaternion.identity), Is.LessThan(0.01f),
+                "A flat pickup must not rotate edge-on while waiting to be collected.");
+            Assert.That(shadow.position.y, Is.EqualTo(0.035f).Within(0.001f));
+            pickups.SpawnMedkit(new Vector3(-4f, 0f, 0f));
+            foreach (Transform child in pickups.transform)
+                if (child.name == "PooledMedkit" && child.gameObject.activeSelf)
+                    Assert.That(child.Find("Visual/Botiquin Apollo Sprite").GetComponent<MeshRenderer>().sharedMaterial,
+                        Is.SameAs(material), "Medkits share their imported material across the pool.");
+            yield return null;
+        }
+
         [Test]
         public void DeathRewardUsesExactRecordedExperienceAndMedkitWithoutRerollingCombatRng()
         {

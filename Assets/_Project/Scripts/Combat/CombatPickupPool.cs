@@ -73,12 +73,13 @@ namespace EchoScrap.Combat
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private Mesh crystalMesh;
-        private Mesh cubeMesh;
+        private Mesh medkitMesh;
+        private Mesh medkitShadowMesh;
         private Mesh ringMesh;
         private Material crystalMaterial;
         private Material darkMaterial;
         private Material medkitMaterial;
-        private Material crossMaterial;
+        private Material medkitShadowMaterial;
         private Material absorptionMaterial;
         private CombatSession subscribedSession;
         private int nextId = 1;
@@ -108,12 +109,12 @@ namespace EchoScrap.Combat
         {
             Unsubscribe();
             Destroy(crystalMesh);
-            Destroy(cubeMesh);
+            Destroy(medkitMesh);
+            Destroy(medkitShadowMesh);
             Destroy(ringMesh);
             Destroy(crystalMaterial);
             Destroy(darkMaterial);
-            Destroy(medkitMaterial);
-            Destroy(crossMaterial);
+            // Imported medkit materials are shared Unity assets, not runtime instances.
             Destroy(absorptionMaterial);
         }
 
@@ -170,12 +171,16 @@ namespace EchoScrap.Combat
                 return;
             initialized = true;
             crystalMesh = CreateCrystalMesh();
-            cubeMesh = CreateCubeMesh();
+            // Fixed upright proportions keep the case readable under the arena's high camera.
+            medkitMesh = CreatePickupQuad("Botiquin Apollo Quad", 1f, 1.5f, -PickupHeight - 0.045f);
+            medkitShadowMesh = CreatePickupQuad("Botiquin Contact Shadow Quad", 0.9f, 0.5f, -0.25f);
             ringMesh = CreateRingMesh();
             crystalMaterial = CreateMaterial("XP_Cyan", new Color(0.35f, 0.95f, 1f));
             darkMaterial = CreateMaterial("Pickup_DarkOutline", new Color(0.025f, 0.07f, 0.11f));
-            medkitMaterial = CreateMaterial("Medkit_Green", new Color(0.12f, 0.68f, 0.30f));
-            crossMaterial = CreateMaterial("Medkit_Cross", new Color(0.94f, 1f, 0.85f));
+            medkitMaterial = Resources.Load<Material>("Pickups/Botiquin");
+            medkitShadowMaterial = Resources.Load<Material>("Pickups/BotiquinShadow");
+            if (medkitMaterial == null || medkitShadowMaterial == null)
+                Debug.LogError("Missing Apollo medkit materials. Run EchoScrap/Art/Connect Medkit Sprite.", this);
             absorptionMaterial = CreateMaterial("Pickup_Absorption", new Color(0.35f, 0.95f, 1f), true);
             for (int i = 0; i < InitialExperienceSlots; i++)
                 CreateSlot(CombatPickupKind.Experience);
@@ -203,11 +208,11 @@ namespace EchoScrap.Combat
             }
             else
             {
-                CreateMeshObject("Outline", visual, cubeMesh, darkMaterial, new Vector3(0.62f, 0.24f, 0.50f));
-                CreateMeshObject("Case", visual, cubeMesh, medkitMaterial, new Vector3(0.54f, 0.25f, 0.42f));
-                Transform crossA = CreateMeshObject("CrossLong", visual, cubeMesh, crossMaterial, new Vector3(0.12f, 0.03f, 0.31f));
-                Transform crossB = CreateMeshObject("CrossShort", visual, cubeMesh, crossMaterial, new Vector3(0.31f, 0.03f, 0.12f));
-                crossA.localPosition = crossB.localPosition = Vector3.up * 0.15f;
+                CreateMeshObject("Botiquin Apollo Sprite", visual, medkitMesh, medkitMaterial, Vector3.one);
+                Transform shadow = CreateMeshObject("Botiquin Contact Shadow", root.transform,
+                    medkitShadowMesh, medkitShadowMaterial, Vector3.one);
+                shadow.localPosition = Vector3.up * (0.035f - PickupHeight);
+                shadow.localRotation = Quaternion.Euler(90f, 0f, 0f);
             }
             root.SetActive(false);
             var slot = new PickupSlot { Root = root, Visual = visual, Kind = kind };
@@ -332,7 +337,8 @@ namespace EchoScrap.Combat
                 slot.Root.transform.position = slot.Position;
                 float bob = decorative ? Mathf.Sin(slot.Age * 4f + slot.BobPhase) * 0.045f : 0f;
                 slot.Visual.localPosition = Vector3.up * bob;
-                slot.Visual.localRotation = Quaternion.Euler(0f, decorative ? slot.Age * 50f : 0f, 0f);
+                slot.Visual.localRotation = slot.Kind == CombatPickupKind.Experience
+                    ? Quaternion.Euler(0f, decorative ? slot.Age * 50f : 0f, 0f) : Quaternion.identity;
                 float pop = !decorative ? 1f : (slot.Age < 0.06f
                     ? Mathf.Lerp(0.7f, 1.12f, slot.Age / 0.06f)
                     : Mathf.Lerp(1.12f, 1f, (slot.Age - 0.06f) / 0.10f));
@@ -512,16 +518,16 @@ namespace EchoScrap.Combat
             return mesh;
         }
 
-        private static Mesh CreateCubeMesh()
+        private static Mesh CreatePickupQuad(string name, float width, float height, float bottom)
         {
-            var mesh = new Mesh { name = "Pickup_Cube" };
-            mesh.vertices = new[] { new Vector3(-0.5f, -0.5f, -0.5f), new Vector3(0.5f, -0.5f, -0.5f),
-                new Vector3(0.5f, 0.5f, -0.5f), new Vector3(-0.5f, 0.5f, -0.5f),
-                new Vector3(-0.5f, -0.5f, 0.5f), new Vector3(0.5f, -0.5f, 0.5f),
-                new Vector3(0.5f, 0.5f, 0.5f), new Vector3(-0.5f, 0.5f, 0.5f) };
-            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2, 1, 2, 6, 1, 6, 5, 5, 6, 7, 5, 7, 4,
-                4, 7, 3, 4, 3, 0, 3, 7, 6, 3, 6, 2, 4, 0, 1, 4, 1, 5 };
-            mesh.RecalculateNormals();
+            var mesh = new Mesh { name = name };
+            mesh.vertices = new[] { new Vector3(-width * 0.5f, bottom), new Vector3(width * 0.5f, bottom),
+                new Vector3(-width * 0.5f, bottom + height), new Vector3(width * 0.5f, bottom + height) };
+            mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.up, Vector2.one };
+            mesh.triangles = new[] { 0, 2, 1, 2, 3, 1 };
+            mesh.normals = new[] { Vector3.back, Vector3.back, Vector3.back, Vector3.back };
+            mesh.tangents = new[] { new Vector4(1, 0, 0, -1), new Vector4(1, 0, 0, -1),
+                new Vector4(1, 0, 0, -1), new Vector4(1, 0, 0, -1) };
             mesh.RecalculateBounds();
             return mesh;
         }
