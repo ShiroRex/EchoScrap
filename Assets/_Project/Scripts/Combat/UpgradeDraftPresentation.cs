@@ -17,8 +17,6 @@ namespace EchoScrap.Combat
             public Image Border;
             public Image Confirmation;
             public Image Glow;
-            public Image Crest;
-            public Image LowerCrest;
             public Image Icon;
             public Image UpgradeArrow;
             public Image Button;
@@ -251,7 +249,6 @@ namespace EchoScrap.Combat
                 int rarity = (int)offer.Card.Rarity;
                 cards[i].Border.sprite = skin.frames[rarity];
                 cards[i].Glow.sprite = skin.glows[rarity];
-                cards[i].Crest.sprite = cards[i].LowerCrest.sprite = skin.crests[rarity];
                 cards[i].Confirmation.sprite = skin.frames[rarity];
                 cards[i].Name.text = offer.Card.Name;
                 cards[i].Rarity.text = UpgradeCatalog.RarityName(offer.Card.Rarity);
@@ -321,14 +318,11 @@ namespace EchoScrap.Combat
         {
             var view = new CardView();
             view.Root = ImageRect(canvasRect, $"UpgradeCard_{index + 1}", Vector2.zero, new Vector2(400f, 620f), Color.clear);
-            view.Glow = ImageRect(view.Root, "RarityGlow", Vector2.zero, new Vector2(424f, 644f), Color.clear).GetComponent<Image>();
+            view.Glow = ImageRect(view.Root, "RarityGlow", Vector2.zero, new Vector2(424f, 644f), Color.clear, true).GetComponent<Image>();
             NineSlice(view.Glow);
             RectTransform inner = ImageRect(view.Root, "Panel", Vector2.zero, new Vector2(380f, 600f), new Color(0.035f, 0.045f, 0.07f));
-            view.Border = ImageRect(view.Root, "Frame", Vector2.zero, new Vector2(400f, 620f), Color.white).GetComponent<Image>();
+            view.Border = ImageRect(view.Root, "Frame", Vector2.zero, new Vector2(400f, 620f), Color.white, true).GetComponent<Image>();
             NineSlice(view.Border);
-            view.Crest = ImageRect(view.Root, "TopCrest", new Vector2(0f, 310f), new Vector2(128f, 32f), Color.white).GetComponent<Image>();
-            view.LowerCrest = ImageRect(view.Root, "BottomCrest", new Vector2(0f, -310f), new Vector2(128f, 32f), Color.white).GetComponent<Image>();
-            view.LowerCrest.transform.localRotation = Quaternion.Euler(0f, 0f, 180f);
             view.Number = TextRect(view.Root, "Selection", new Vector2(0f, -346f), new Vector2(400f, 30f), 21, FontStyle.Bold, TextAnchor.MiddleCenter);
             view.Icon = ImageRect(inner, "TypeIcon", new Vector2(0f, 151f), new Vector2(128f, 128f), Color.white).GetComponent<Image>();
             view.Icon.preserveAspect = true;
@@ -354,7 +348,7 @@ namespace EchoScrap.Combat
             view.Button = ImageRect(inner, "ChooseButton", new Vector2(0f, -268f), new Vector2(280f, 42f), Color.white).GetComponent<Image>();
             view.ButtonLabel = TextRect(view.Button.transform, "Label", Vector2.zero, new Vector2(260f, 38f), 22, FontStyle.Bold, TextAnchor.MiddleCenter);
             view.ButtonLabel.color = new Color(0.035f, 0.045f, 0.07f);
-            view.Confirmation = ImageRect(view.Root, "ConfirmationFlash", Vector2.zero, new Vector2(400f, 620f), Color.clear).GetComponent<Image>();
+            view.Confirmation = ImageRect(view.Root, "ConfirmationFlash", Vector2.zero, new Vector2(400f, 620f), Color.clear, true).GetComponent<Image>();
             NineSlice(view.Confirmation);
             return view;
         }
@@ -364,9 +358,9 @@ namespace EchoScrap.Combat
             image.fillCenter = false;
             image.pixelsPerUnitMultiplier = 0.5f;
         }
-        private static RectTransform ImageRect(Transform parent, string name, Vector2 position, Vector2 size, Color color)
+        private static RectTransform ImageRect(Transform parent, string name, Vector2 position, Vector2 size, Color color, bool frame = false)
         {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            var go = new GameObject(name, typeof(RectTransform), frame ? typeof(UpgradeCardFrame) : typeof(Image));
             var rect = (RectTransform)go.transform;
             rect.SetParent(parent, false); rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = position; rect.sizeDelta = size;

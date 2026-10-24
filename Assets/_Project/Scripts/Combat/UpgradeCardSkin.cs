@@ -6,7 +6,6 @@ namespace EchoScrap.Combat
     public sealed class UpgradeCardSkin : ScriptableObject
     {
         public Sprite[] frames;
-        public Sprite[] crests;
         public Sprite[] glows;
         public Sprite[] icons;
         public Sprite upgradeArrow;

@@ -30,7 +30,8 @@ vez por adquisición. El incremento de salud máxima no rellena automáticamente
 tres tarjetas con nombre, rareza, tier, descripción y valores antes/después. Cada
 tarjeta utiliza un icono pixel art de tipo, un marco por rareza y Pixelify Sans;
 la selección también se identifica por texto y borde. Los marcos usan 9-slice
-con esquinas fijas y crestas separadas. Un CanvasScaler conserva las proporciones
+con esquinas fijas y adornos originales sin estirar. Se reutilizan los marcos del
+prototipo y el común gris entregado por el usuario, uno por rareza. Un CanvasScaler conserva las proporciones
 a partir de 1920 × 1080.
 
 Los nombres de pantalla se acortaron y el beneficio principal se separó del

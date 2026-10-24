@@ -1,4 +1,4 @@
--- EchoScrap: eight type emblems, four nine-slice frames and a level-up arrow.
+-- EchoScrap: eight type emblems and a level-up arrow. Existing frames are exported separately.
 -- All drawing/export runs in Aseprite. The supplied reference is never overwritten.
 local pc=app.pixelColor
 local root=app.params['root'] or '.'
@@ -131,88 +131,9 @@ for f,name in ipairs(names) do
 end
 s:saveAs(source..'UpgradeIcons_Apollo.aseprite');sheet:saveAs(source..'Previews/UpgradeIcons.png')
 
-local original=app.open(source..'References/MarcoComun_Original.ase')
-local originals={image(),image()};originals[1]:drawSprite(original,1);originals[2]:drawSprite(original,2)
-local frames=Sprite(64,64,ColorMode.RGB);frames.colorSpace=ColorSpace{sRGB=true};palette(frames)
-local base=frames.layers[1];base.name='Marco - 9 slice 16 px'
-local ornament=frames:newLayer();ornament.name='Cresta - overlay sin estirar'
-local glowLayer=frames:newLayer();glowLayer.name='Halo - FX alfa intencional'
-local rarities={'Common','Rare','Epic','Legendary'}
-for f,name in ipairs(rarities) do
- if f>1 then frames:newEmptyFrame() end
- local src=originals[f==1 and 2 or 1];local im=image();local crest=image()
- for y=0,63 do for x=0,63 do
-  local sx=x>=16 and x<48 and 20 or x;local sy=y>=16 and y<48 and 22 or y
-  local v=src:getPixel(sx,sy)
-  if pc.rgbaA(v)>0 then
-   if f==1 then
-    -- Lift the supplied graphite frame just enough for the dark card background.
-    v=P[(x<=3 or y<=3) and C.light or C.steel]
-   elseif f>=3 then
-    local brightness=(pc.rgbaR(v)+pc.rgbaG(v)+pc.rgbaB(v))/3
-    local pal=f==3 and {'402751','7a367b','a23e8c','df84a5','e7d5b3'} or {'884b2b','be772b','de9e41','e8c170','e7d5b3'}
-    local index=brightness<55 and 1 or brightness<95 and 2 or brightness<145 and 3 or brightness<205 and 4 or 5
-    v=P[pal[index]]
-   end
-   im:drawPixel(x,y,v)
-  end
- end end
- -- Clear the interior; the only scalable portions are straight rails, not gems or corners.
- rect(im,16,16,32,32,0)
- if f==1 then
-  im=image()
-  shape(im,{{8,1},{55,1},{62,8},{62,55},{55,62},{8,62},{1,55},{1,8}},C.steel)
-  shape(im,{{10,7},{53,7},{56,10},{56,53},{53,56},{10,56},{7,53},{7,10}},0,C.ink)
-  line(im,8,2,55,2,C.light);line(im,2,8,2,55,C.mid)
-  line(im,8,60,55,60,C.dark);line(im,60,8,60,55,C.dark)
-  for _,x in ipairs({7,56}) do for _,y in ipairs({7,56}) do
-   rect(im,x-1,y-1,3,3,C.dark);put(im,x-1,y-1,C.pale)
-  end end
- elseif f>=3 then
-  local corner=image()
-  if f==3 then
-   poly(corner,{{0,10},{10,0},{16,0},{16,3},{10,3},{3,10},{3,16},{0,16}},'402751')
-   diamond(corner,8,8,4,C.pink)
-  else
-   poly(corner,{{1,11},{11,1},{16,1},{16,4},{11,4},{4,11},{4,16},{1,16}},'884b2b')
-   line(corner,4,10,10,4,C.ivory,2);diamond(corner,8,8,3,C.gold)
-  end
-  for y=0,15 do for x=0,15 do local v=corner:getPixel(x,y)
-   if pc.rgbaA(v)>0 then
-    im:drawPixel(x,y,v);im:drawPixel(63-x,y,v);im:drawPixel(x,63-y,v);im:drawPixel(63-x,63-y,v)
-   end
-  end end
- end
- if f==1 then
-  line(crest,24,4,31,10,C.light,2);line(crest,32,10,39,4,C.light,2)
-  line(crest,26,3,31,7,C.pale);line(crest,32,7,37,3,C.pale)
- elseif f==2 then diamond(crest,32,7,7,C.blue);poly(crest,{{32,2},{28,7},{32,10}},C.ice)
- elseif f==3 then
-  diamond(crest,18,7,5,C.purple);diamond(crest,32,7,7,C.pink);diamond(crest,46,7,5,C.purple)
-  line(crest,21,7,25,7,C.copper);line(crest,39,7,42,7,C.copper)
- else
-  diamond(crest,32,7,7,C.gold)
-  for i=0,2 do line(crest,24-i*4,10,19-i*4,4+i,C.gold,2);line(crest,40+i*4,10,45+i*4,4+i,C.gold,2) end
-  poly(crest,{{32,2},{29,7},{32,10}},C.white)
- end
- local halo=image()
- for y=0,63 do for x=0,63 do
-  local best=6
-  for yy=math.max(0,y-5),math.min(63,y+5) do for xx=math.max(0,x-5),math.min(63,x+5) do
-   if pc.rgbaA(im:getPixel(xx,yy))>0 then best=math.min(best,math.sqrt((x-xx)^2+(y-yy)^2)) end
-  end end
-  if best<6 then halo:drawPixel(x,y,pc.rgba(255,255,255,math.floor((1-best/6)^2*180))) end
- end end
- frames:newCel(base,frames.frames[f],im,Point(0,0));frames:newCel(ornament,frames.frames[f],crest,Point(0,0));frames:newCel(glowLayer,frames.frames[f],halo,Point(0,0))
- local tag=frames:newTag(f,f);tag.name=name
- im:saveAs(out..'Frame_'..name..'.png');Image(crest,Rectangle(0,0,64,16)):saveAs(out..'Crest_'..name..'.png');halo:saveAs(out..'Glow_'..name..'.png')
-end
-ornament.isVisible=false;glowLayer.isVisible=false
-local slice=frames:newSlice(Rectangle(0,0,64,64));slice.name='Frame_9Slice';slice.center=Rectangle(16,16,32,32)
-frames:saveAs(source..'UpgradeFrames.aseprite')
 local arrow=Sprite(16,16,ColorMode.RGB);arrow.colorSpace=ColorSpace{sRGB=true};palette(arrow);local ai=image(16,16)
 shape(ai,{{8,1},{15,8},{11,8},{11,14},{5,14},{5,8},{1,8}},C.green)
 line(ai,8,3,3,8,C.lime);rect(ai,7,7,2,6,C.lime)
 arrow.layers[1].name='Flecha de nivel';arrow:newCel(arrow.layers[1],arrow.frames[1],ai,Point(0,0));ai:saveAs(out..'UpgradeArrow.png');arrow:saveAs(source..'UpgradeArrow.aseprite')
 app.sprite=s;app.frame=s.frames[1];app.refresh()
-print('Upgrade cards: eight 64px Apollo icons, four 16px-bordered frames, separate crests/halos, native sources saved.')
+print('Upgrade cards: eight 64px Apollo icons and level-up arrow saved. Frames are not redrawn.')

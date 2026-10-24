@@ -17,11 +17,6 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 03b7f408c44e20046b1be0eae88f92e2, type: 3}
   - {fileID: 21300000, guid: 68feeed2cfae9e74992407b7627176df, type: 3}
   - {fileID: 21300000, guid: f48a43f47648adf4e88e7825661601c6, type: 3}
-  crests:
-  - {fileID: 21300000, guid: 4572744ea19439945bb93a63714cc2f5, type: 3}
-  - {fileID: 21300000, guid: f4ee398631980914bad1dbf11f5d9627, type: 3}
-  - {fileID: 21300000, guid: f2d231d6521d5064491fe4dbba38a045, type: 3}
-  - {fileID: 21300000, guid: d8d4be180c3be0543b985635881753ca, type: 3}
   glows:
   - {fileID: 21300000, guid: 7686435a13c6c6e4792004f4b1f7ab6b, type: 3}
   - {fileID: 21300000, guid: 1ee54412305c3e642822bce43926bf38, type: 3}

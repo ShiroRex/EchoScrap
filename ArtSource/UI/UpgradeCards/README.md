@@ -22,22 +22,33 @@ mejoras que ya tienen implementación. No cambia sus fórmulas, rarezas ni pesos
 
 ## Marcos y 9-slice
 
-`References/MarcoComun_Original.ase` conserva intacto el archivo entregado por el
-usuario. Contiene dos variantes, azul y grafito. El autor no venía indicado.
-Los marcos de producción adaptan sus esquinas y lenguaje visual: común de metal,
-raro azul, épico con gemas violetas y legendario dorado. Los dos últimos tienen
-adornos distintos, además de su color. Referencias de composición proporcionadas
-por el usuario: capturas de las cartas y de los aumentos de ARAM Caos.
+Se reutilizan los marcos existentes, sin redibujarlos ni cambiar sus colores:
 
-`UpgradeFrames.aseprite` contiene cuatro cuadros y capas separadas de marco,
-cresta y halo. La slice `Frame_9Slice` tiene borde **16/16/16/16 px**. Unity importa
-`Frame_*.png` como Sprite FullRect y los dibuja con `Image.Type.Sliced`, centro
-vacío y `pixelsPerUnitMultiplier=0.5`: las esquinas miden 32 unidades de UI, con
-independencia del ancho y alto de la tarjeta. Solo se estiran los raíles rectos.
+| Rareza | Fuente original | Exportación |
+| --- | --- | --- |
+| Común | `References/MarcoComun_Original.ase`, cuadro gris (segundo) | `Frame_Common.png`, 64×64 |
+| Rara | `Frames/Marco_Rarooo.aseprite` | `Frame_Rare.png`, 64×64 |
+| Épica | `Frames/marco_epico.aseprite` | `Frame_Epic.png`, 72×64 |
+| Legendaria | `Frames/marco_legendario.aseprite` | `Frame_Legendary.png`, 64×70 |
 
-Las crestas superior e inferior son sprites separados: sus gemas no se estiran.
-Los halos se reservan a FX, usan alfa parcial intencional y filtrado bilineal.
-Marcos, crestas, iconos y flechas usan Point/Clamp, sin mipmaps ni compresión.
+Los tres archivos de `Frames/` son copias byte por byte de los que ya estaban en
+`../Echoscrap_Game/Assets/_Project/Art/Sprites/`. El prototipo no se modifica.
+El común conserva intacto el archivo entregado; solo se utiliza el cuadro gris.
+Hay **un único marco por rareza**. Se retiraron `UpgradeFrames.aseprite` y las
+crestas añadidas en la primera implementación.
+
+Las cuatro exportaciones conservan todos los píxeles y las medidas originales.
+Unity las importa como Sprite FullRect con borde **12/12/12/12 px**, Point/Clamp,
+sin mipmaps ni compresión. `UpgradeCardFrame`, una extensión de `Image` en modo
+Sliced, conserva las esquinas y los adornos centrales de los cuatro lados. Solo
+extiende muestras de los raíles para unirlos. Con `pixelsPerUnitMultiplier=0.5`,
+las esquinas miden 24 unidades de UI y los adornos centrales 80; ninguno cambia
+al redimensionar la tarjeta. El área interior no genera geometría.
+
+El épico conserva incluso el píxel que sobresale de su región principal de 64 px;
+el legendario conserva el margen transparente de su lienzo de 70 px. Los halos
+son máscaras blancas de alfa derivadas de los originales, reservadas a FX, con
+filtrado bilineal. No son marcos adicionales ni variantes de rareza.
 
 ## Fuente e integración
 
@@ -68,28 +79,31 @@ Desde la raíz del repositorio:
 & 'C:/Users/david/Documents/Aseprite v1.3.17-dev/aseprite.exe' --batch --script-param 'root=C:/Users/david/Documents/EchoscrapGame+GDD/EchoScrap' --script Tools/Aseprite/UpgradeCards.lua
 ```
 
-El script reemplaza las fuentes generadas y los PNG de producción; conservar
-antes las ediciones manuales que deban mantenerse. Después ejecutar en Unity
-`EchoScrap/Art/Prepare Upgrade Cards`. Las pruebas `CombatUpgradeDraftTests`
-revisan la interfaz, las cuatro rarezas, las esquinas al redimensionar, las fuentes,
-la flecha de repetición, los valores y el desbordamiento del texto. Capturan
-1280×720, 1920×1080 y 2560×1080 en `Logs/PixelCards` dentro del proyecto probado.
+Ese script solo regenera los iconos y la flecha. Para volver a exportar los
+marcos existentes, sin modificar sus fuentes:
+
+```powershell
+& 'C:/Users/david/Documents/Aseprite v1.3.17-dev/aseprite.exe' --batch --script-param 'root=C:/Users/david/Documents/EchoscrapGame+GDD/EchoScrap' --script Tools/Aseprite/ExportExistingCardFrames.lua
+```
+
+Después ejecutar en Unity `EchoScrap/Art/Prepare Upgrade Cards`. Las pruebas
+`CombatUpgradeDraftTests` revisan la interfaz, las cuatro rarezas, las esquinas
+y los adornos al redimensionar, las fuentes, la flecha de repetición, los valores
+y el desbordamiento de texto. Capturan 1280×720, 1920×1080 y 2560×1080 en
+`Logs/PixelCards` dentro del proyecto probado.
 
 El auditor de la skill no encontró errores técnicos en los ocho iconos. Sus
 avisos de componentes separados corresponden a rayos solares, trazos de
 velocidad y fragmentos atraídos por el imán. Los vacíos de anillos, ojo, escudo
 y emblemas se revisaron como parte del dibujo; no se eliminaron automáticamente.
 
-Validación del 24 de octubre de 2026: **212/212 pruebas Play Mode**, más una
-repetición final de las 18 pruebas de draft con comprobaciones de la entrada
-legendaria. Build Windows x86_64 correcta. Los ocho PNG de iconos y los cuatro
-marcos coinciden píxel por píxel con nuevas exportaciones de las fuentes nativas
-guardadas. La referencia entregada conserva su SHA-256 original.
+La corrección de marcos se valida con una nueva exportación independiente de las
+fuentes originales y una comparación completa de RGBA. El informe y las pruebas
+quedan en `Logs/OriginalCardFrames`. Se utiliza una copia de QA para conservar
+abierto el editor principal y respetar sus cambios locales.
 
-Los vértices de Unity mantuvieron esquinas de 32 unidades al cambiar el marco a
-300×460, 400×620 y 480×700. No hubo desbordamiento de textos en las capturas de
-720p, 1080p y ultrapanorámica. La medición de presentación y reconstrucción de
-Canvas promedió 0,054 ms de CPU en 120 cuadros; no es una medición del tiempo
-total de render del juego. Los informes completos quedan en `Logs/PixelCards*`
-y `Logs/CardArtReview`. Se usó una copia de QA para mantener abierto el editor
-principal y conservar sus cambios locales.
+Validación de esta corrección: 18/18 pruebas de cartas Play Mode. Las cuatro
+rarezas se comprobaron a 300×460, 400×620 y 480×700; las esquinas conservaron
+24 unidades y los adornos 80. Las capturas de 720p, 1080p y ultrapanorámica
+no tuvieron desbordamientos de texto. Presentación y reconstrucción del Canvas:
+0,079 ms medios de CPU en 120 cuadros (no mide el render completo del juego).

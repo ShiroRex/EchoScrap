@@ -637,10 +637,15 @@ namespace EchoScrap.Tests
             UpgradeCardSkin skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
             Assert.That(skin, Is.Not.Null);
             Assert.That(skin.frames.Length, Is.EqualTo(4)); Assert.That(skin.icons.Length, Is.EqualTo(8));
+            Assert.That(new HashSet<Sprite>(skin.frames).Count, Is.EqualTo(4));
+            Assert.That(skin.frames[0].rect.size, Is.EqualTo(new Vector2(64, 64)));
+            Assert.That(skin.frames[1].rect.size, Is.EqualTo(new Vector2(64, 64)));
+            Assert.That(skin.frames[2].rect.size, Is.EqualTo(new Vector2(72, 64)), "Preserve the original epic canvas.");
+            Assert.That(skin.frames[3].rect.size, Is.EqualTo(new Vector2(64, 70)), "Preserve the original legendary canvas.");
             var icons = new HashSet<Sprite>();
             foreach (Sprite frame in skin.frames)
             {
-                Assert.That(frame.border, Is.EqualTo(Vector4.one * 16));
+                Assert.That(frame.border, Is.EqualTo(Vector4.one * 12));
                 Assert.That(frame.texture.filterMode, Is.EqualTo(FilterMode.Point));
             }
             foreach (Sprite icon in skin.icons)
@@ -689,13 +694,19 @@ namespace EchoScrap.Tests
             yield return CapturePixelCards(camera, view, "Common_Rare_Epic_1080.png", 1920, 1080);
             Image frame = view.CanvasRoot.transform.Find("UpgradeCard_1/Frame").GetComponent<Image>();
             Mesh mesh;
+            Sprite originalFrame = frame.sprite;
+            foreach (Sprite rarityFrame in Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").frames)
             foreach (Vector2 size in new[] { new Vector2(300f, 460f), new Vector2(400f, 620f), new Vector2(480f, 700f) })
             {
+                frame.sprite = rarityFrame;
                 frame.rectTransform.sizeDelta = size; Canvas.ForceUpdateCanvases(); mesh = frame.canvasRenderer.GetMesh();
-                Assert.That(mesh.vertexCount, Is.EqualTo(32), "Eight nine-slice cells; the center is omitted.");
-                Assert.That(mesh.vertices[2].x - mesh.vertices[0].x, Is.EqualTo(32f).Within(1f));
-                Assert.That(mesh.vertices[1].y - mesh.vertices[0].y, Is.EqualTo(32f).Within(1f));
+                Assert.That(mesh.vertexCount, Is.EqualTo(64), "Nine-slice corners, straight rails and four intact edge ornaments; no center.");
+                Assert.That(mesh.vertices[2].x - mesh.vertices[0].x, Is.EqualTo(24f).Within(1f));
+                Assert.That(mesh.vertices[1].y - mesh.vertices[0].y, Is.EqualTo(24f).Within(1f));
+                Assert.That(mesh.vertices[50].x - mesh.vertices[48].x, Is.EqualTo(80f).Within(1f), "The original top/bottom ornament must not stretch.");
+                Assert.That(mesh.vertices[61].y - mesh.vertices[60].y, Is.EqualTo(80f).Within(1f), "The original side ornament must not stretch.");
             }
+            frame.sprite = originalFrame;
             frame.rectTransform.sizeDelta = new Vector2(400f, 620f);
             SetVisualOffers("FLASH_05", "DASH_01", "GREED_01"); view.RefreshOffers();
             view.StepPresentation(0.08f);
