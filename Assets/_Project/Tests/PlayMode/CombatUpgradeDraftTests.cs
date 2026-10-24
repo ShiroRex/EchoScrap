@@ -630,5 +630,119 @@ namespace EchoScrap.Tests
             foreach (var offer in draft.Offers) value += offer.Card.Id + ";";
             return value;
         }
+
+        [Test]
+        public void PixelCardSkinContainsFourSlicedFramesEightDistinctIconsAndSpanishFonts()
+        {
+            UpgradeCardSkin skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            Assert.That(skin, Is.Not.Null);
+            Assert.That(skin.frames.Length, Is.EqualTo(4)); Assert.That(skin.icons.Length, Is.EqualTo(8));
+            var icons = new HashSet<Sprite>();
+            foreach (Sprite frame in skin.frames)
+            {
+                Assert.That(frame.border, Is.EqualTo(Vector4.one * 16));
+                Assert.That(frame.texture.filterMode, Is.EqualTo(FilterMode.Point));
+            }
+            foreach (Sprite icon in skin.icons)
+            {
+                Assert.That(icons.Add(icon), Is.True); Assert.That(icon.rect.size, Is.EqualTo(Vector2.one * 64));
+                Assert.That(icon.texture.filterMode, Is.EqualTo(FilterMode.Point));
+            }
+            Assert.That(skin.regular.name, Does.StartWith("PixelifySans"));
+            foreach (char letter in "áéíóúñÁÉÍÓÚÑ") Assert.That(skin.regular.HasCharacter(letter), Is.True);
+        }
+
+        [Test]
+        public void RepeatCardShowsGreenUpgradeArrowAndEffectiveHealthComparisonWithoutAcquiringIt()
+        {
+            stats.SetUpgradeTier("BIO_01", 1);
+            var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+            progression.AddExperience(100);
+            SetVisualOffers("BIO_01", "GREED_03", "FLASH_04"); view.RefreshOffers();
+            Transform panel = view.CanvasRoot.transform.Find("UpgradeCard_1/Panel");
+            Assert.That(panel.Find("UpgradeArrow").gameObject.activeSelf, Is.True);
+            Assert.That(panel.Find("UpgradeBadge").GetComponent<Text>().text, Is.EqualTo("SUBE A NIVEL 2 / 5"));
+            Assert.That(panel.Find("Before").GetComponent<Text>().text, Does.Contain("120 HP"));
+            Assert.That(panel.Find("After").GetComponent<Text>().text, Does.Contain("140 HP"));
+            Assert.That(view.CanvasRoot.transform.Find("UpgradeCard_2/Panel/UpgradeArrow").gameObject.activeSelf, Is.False);
+            Assert.That(stats.GetUpgradeTier("BIO_01"), Is.EqualTo(1));
+            session.Effects.ReducedEffectsMode = true; view.StepPresentation(0.5f);
+            Vector3 rest = panel.parent.localPosition;
+            view.StepPresentation(0.1f);
+            Assert.That(panel.parent.localPosition, Is.EqualTo(rest));
+            Assert.That(panel.parent.localRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(panel.parent.localScale, Is.EqualTo(Vector3.one));
+        }
+
+        [UnityTest]
+        public IEnumerator PixelCardsRenderEveryRarityAndPreserveCornersWhenResized()
+        {
+            stats.SetUpgradeTier("BIO_01", 1); stats.SetUpgradeTier("DASH_01", 2);
+            var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+            progression.AddExperience(100);
+            SetVisualOffers("BIO_01", "GREED_03", "FLASH_04"); view.RefreshOffers(); view.StepPresentation(0.8f);
+            var camera = new GameObject("Pixel cards preview camera").AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(0.03f, 0.04f, 0.06f);
+            camera.transform.position = new Vector3(0f, 15f, -8f); camera.transform.LookAt(Vector3.zero);
+            Canvas canvas = view.CanvasRoot.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camera; canvas.planeDistance = 1f;
+            yield return CapturePixelCards(camera, view, "Common_Rare_Epic_1080.png", 1920, 1080);
+            Image frame = view.CanvasRoot.transform.Find("UpgradeCard_1/Frame").GetComponent<Image>();
+            Mesh mesh;
+            foreach (Vector2 size in new[] { new Vector2(300f, 460f), new Vector2(400f, 620f), new Vector2(480f, 700f) })
+            {
+                frame.rectTransform.sizeDelta = size; Canvas.ForceUpdateCanvases(); mesh = frame.canvasRenderer.GetMesh();
+                Assert.That(mesh.vertexCount, Is.EqualTo(32), "Eight nine-slice cells; the center is omitted.");
+                Assert.That(mesh.vertices[2].x - mesh.vertices[0].x, Is.EqualTo(32f).Within(1f));
+                Assert.That(mesh.vertices[1].y - mesh.vertices[0].y, Is.EqualTo(32f).Within(1f));
+            }
+            frame.rectTransform.sizeDelta = new Vector2(400f, 620f);
+            SetVisualOffers("FLASH_05", "DASH_01", "GREED_01"); view.RefreshOffers();
+            view.StepPresentation(0.08f);
+            Transform legendary = view.CanvasRoot.transform.Find("UpgradeCard_1");
+            Assert.That(Quaternion.Angle(legendary.localRotation, Quaternion.identity), Is.GreaterThan(0.05f));
+            Assert.That(legendary.Find("RarityGlow").GetComponent<Image>().color.a,
+                Is.GreaterThan(view.CanvasRoot.transform.Find("UpgradeCard_2/RarityGlow").GetComponent<Image>().color.a * 3f));
+            view.StepPresentation(0.8f);
+            Assert.That(legendary.localRotation, Is.EqualTo(Quaternion.identity));
+            yield return CapturePixelCards(camera, view, "Legendary_Dash_Magnet_1080.png", 1920, 1080);
+            yield return CapturePixelCards(camera, view, "Legendary_720.png", 1280, 720);
+            yield return CapturePixelCards(camera, view, "Legendary_Ultrawide.png", 2560, 1080);
+            SetVisualOffers("FLASH_01", "FLASH_02", "GREED_03"); view.RefreshOffers(); view.StepPresentation(0.8f);
+            yield return CapturePixelCards(camera, view, "Range_Cadence_Supplies_1080.png", 1920, 1080);
+            // Warm then measure the real presentation and canvas rebuild, with the same paused UI.
+            for (int i = 0; i < 10; i++) { view.StepPresentation(1f / 60f); Canvas.ForceUpdateCanvases(); }
+            var watch = new System.Diagnostics.Stopwatch();
+            for (int i = 0; i < 120; i++)
+            {
+                watch.Start(); view.StepPresentation(1f / 60f); Canvas.ForceUpdateCanvases(); watch.Stop(); yield return null;
+            }
+            double ms = watch.Elapsed.TotalMilliseconds / 120;
+            Debug.Log($"[Pixel cards] Presentation + canvas rebuild: {ms:F3} ms mean over 120 frames.");
+            Assert.That(ms, Is.LessThan(16f));
+        }
+
+        private void SetVisualOffers(params string[] ids)
+        {
+            var offers = (List<UpgradeOffer>)typeof(UpgradeDraftController).GetField("offers", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(draft);
+            offers.Clear();
+            foreach (string id in ids) { Assert.That(UpgradeCatalog.TryGet(id, out var card), Is.True); offers.Add(new UpgradeOffer(card, stats)); }
+        }
+
+        private static IEnumerator CapturePixelCards(Camera camera, UpgradeDraftPresentation view, string name, int width, int height)
+        {
+            var target = new RenderTexture(width, height, 24); camera.targetTexture = target;
+            yield return null; yield return null; yield return null;
+            Canvas.ForceUpdateCanvases();
+            foreach (Text text in view.CanvasRoot.GetComponentsInChildren<Text>())
+                Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1f), "Text must fit: " + text.name + " / " + text.text);
+            RenderTexture previous = RenderTexture.active; RenderTexture.active = target;
+            var texture = new Texture2D(width, height, TextureFormat.RGB24, false);
+            texture.ReadPixels(new Rect(0, 0, width, height), 0, 0); texture.Apply();
+            string output = Path.Combine(Application.dataPath, "..", "Logs", "PixelCards"); Directory.CreateDirectory(output);
+            File.WriteAllBytes(Path.Combine(output, name), texture.EncodeToPNG());
+            camera.targetTexture = null; RenderTexture.active = previous;
+            target.Release(); Object.Destroy(target); Object.Destroy(texture);
+        }
     }
 }

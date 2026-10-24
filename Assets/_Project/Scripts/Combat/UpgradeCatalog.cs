@@ -32,6 +32,9 @@ namespace EchoScrap.Combat
         public readonly int NextTier;
         public readonly string Before;
         public readonly string After;
+        public readonly string PrimaryBefore;
+        public readonly string PrimaryAfter;
+        public readonly string Detail;
 
         public UpgradeOffer(UpgradeCardDefinition card, PlayerRuntimeStats stats)
         {
@@ -40,6 +43,9 @@ namespace EchoScrap.Combat
             NextTier = CurrentTier + 1;
             Before = UpgradeCatalog.DescribeValues(card.Id, stats, CurrentTier);
             After = UpgradeCatalog.DescribeValues(card.Id, stats, NextTier);
+            PrimaryBefore = UpgradeCatalog.PrimaryValue(card.Id, stats, CurrentTier);
+            PrimaryAfter = UpgradeCatalog.PrimaryValue(card.Id, stats, NextTier);
+            Detail = UpgradeCatalog.QuickDetail(card.Id, stats, CurrentTier, NextTier);
         }
     }
 
@@ -48,22 +54,14 @@ namespace EchoScrap.Combat
     {
         private static readonly UpgradeCardDefinition[] cards =
         {
-            new UpgradeCardDefinition("FLASH_01", "Lente de Cuarzo Reforzado", UpgradeRarity.N, 5, UpgradeIcon.Lens,
-                "+1 m de alcance y +10° de apertura por nivel."),
-            new UpgradeCardDefinition("FLASH_02", "Balasto de Alta Frecuencia", UpgradeRarity.N, 5, UpgradeIcon.Cadence,
-                "+15% de velocidad de ataque por nivel. Acelera pulsos y descanso."),
-            new UpgradeCardDefinition("FLASH_04", "Foco Sobrecargado", UpgradeRarity.SR, 3, UpgradeIcon.Overload,
-                "Concentra el cono: −20° una vez. Daño +50/80/120%; empuje +8/14/20 m/s."),
-            new UpgradeCardDefinition("FLASH_05", "Hiper-Rayo Solar", UpgradeRarity.SSR, 1, UpgradeIcon.Solar,
-                "Haz continuo, alcance base de 14 m y daño ×2,5. Conserva cuatro pulsos y su empuje."),
-            new UpgradeCardDefinition("DASH_01", "Servomotores de Evasión", UpgradeRarity.N, 5, UpgradeIcon.Dash,
-                "Recarga del dash −10% y velocidad +8% por nivel."),
-            new UpgradeCardDefinition("BIO_01", "Aleación Bio-Compuesta", UpgradeRarity.N, 5, UpgradeIcon.Health,
-                "+20 HP máximos y reparación inmediata de 15 HP por adquisición."),
-            new UpgradeCardDefinition("GREED_01", "Núcleo Supermagnético", UpgradeRarity.N, 5, UpgradeIcon.Magnet,
-                "+2 m de radio de recogida por nivel."),
-            new UpgradeCardDefinition("GREED_03", "Suministro Médico de Emergencia", UpgradeRarity.R, 3, UpgradeIcon.Medkit,
-                "Aumenta la aparición de botiquines y su reparación: 18/21/25 HP.")
+            new UpgradeCardDefinition("FLASH_01", "Más alcance", UpgradeRarity.N, 5, UpgradeIcon.Lens, "+1 m de alcance"),
+            new UpgradeCardDefinition("FLASH_02", "Pulso rápido", UpgradeRarity.N, 5, UpgradeIcon.Cadence, "+15% velocidad de ataque"),
+            new UpgradeCardDefinition("FLASH_04", "Golpe potente", UpgradeRarity.SR, 3, UpgradeIcon.Overload, "Más daño y empuje"),
+            new UpgradeCardDefinition("FLASH_05", "Rayo solar", UpgradeRarity.SSR, 1, UpgradeIcon.Solar, "Disparo sin descanso"),
+            new UpgradeCardDefinition("DASH_01", "Dash ágil", UpgradeRarity.N, 5, UpgradeIcon.Dash, "Dash más frecuente"),
+            new UpgradeCardDefinition("BIO_01", "Más vida", UpgradeRarity.N, 5, UpgradeIcon.Health, "+20 HP máximos"),
+            new UpgradeCardDefinition("GREED_01", "Imán", UpgradeRarity.N, 5, UpgradeIcon.Magnet, "+2 m de recogida"),
+            new UpgradeCardDefinition("GREED_03", "Botiquín mejor", UpgradeRarity.R, 3, UpgradeIcon.Medkit, "Más curación por botiquín")
         };
         private static readonly IReadOnlyList<UpgradeCardDefinition> readOnlyCards = Array.AsReadOnly(cards);
         public static IReadOnlyList<UpgradeCardDefinition> Cards => readOnlyCards;
@@ -85,6 +83,48 @@ namespace EchoScrap.Combat
             UpgradeRarity.R => new Color(0.24f, 0.69f, 0.97f),
             UpgradeRarity.SR => new Color(0.77f, 0.45f, 1f),
             UpgradeRarity.SSR => new Color(1f, 0.77f, 0.30f), _ => Color.white
+        };
+
+        public static string RarityName(UpgradeRarity rarity) => rarity switch
+        { UpgradeRarity.N => "COMÚN", UpgradeRarity.R => "RARA", UpgradeRarity.SR => "ÉPICA", _ => "LEGENDARIA" };
+        public static string TypeName(UpgradeIcon icon) => icon switch
+        {
+            UpgradeIcon.Lens => "ALCANCE", UpgradeIcon.Cadence => "CADENCIA", UpgradeIcon.Overload => "POTENCIA",
+            UpgradeIcon.Solar => "EVOLUCIÓN", UpgradeIcon.Dash => "EVASIÓN", UpgradeIcon.Health => "VITALIDAD",
+            UpgradeIcon.Magnet => "RECOGIDA", _ => "SUMINISTROS"
+        };
+        public static string PrimaryLabel(string id) => id switch
+        {
+            "FLASH_01" => "ALCANCE", "FLASH_02" => "BONO DE ATAQUE", "FLASH_04" or "FLASH_05" => "DAÑO POR PULSO",
+            "DASH_01" => "RECARGA DE DASH", "BIO_01" => "VIDA MÁXIMA", "GREED_01" => "RADIO DE RECOGIDA", _ => "CURACIÓN"
+        };
+        public static string PrimaryValue(string id, PlayerRuntimeStats stats, int tier)
+        {
+            int delta = tier - stats.GetUpgradeTier(id);
+            return id switch
+            {
+                "FLASH_01" => Number(stats.FlashlightRange + delta) + " m",
+                "FLASH_02" => "+" + Number(tier * 15f) + "%",
+                "FLASH_04" => Number(stats.Settings.DamagePerPulse * OverloadDamage(tier) * (stats.IsSolarActive ? 2.5f : 1f)),
+                "FLASH_05" => Number(stats.Settings.DamagePerPulse * OverloadDamage(stats.OverloadTier) * (tier > 0 ? 2.5f : 1f)),
+                "DASH_01" => Number(Mathf.Max(0.05f, stats.Settings.DashCooldown * (1f - tier * 0.1f))) + " s",
+                "BIO_01" => Number(stats.MaxHealth + delta * 20f) + " HP",
+                "GREED_01" => Number(stats.Settings.BaseMagnetRadius + tier * 2f) + " m",
+                "GREED_03" => Number(tier switch { 1 => 18f, 2 => 21f, 3 => 25f, _ => stats.Settings.BaseMedkitHeal }) + " HP",
+                _ => string.Empty
+            };
+        }
+        public static string QuickDetail(string id, PlayerRuntimeStats stats, int current, int next) => id switch
+        {
+            "FLASH_01" => "+10° de apertura por nivel.",
+            "FLASH_02" => "Acelera los pulsos y su descanso.",
+            "FLASH_04" => (current == 0 ? "Cono -20° una vez.\n" : "Conserva el cono actual.\n") + "Empuje +" + Number(OverloadImpulse(next) - OverloadImpulse(current)) + " m/s al elegir.",
+            "FLASH_05" => "Alcance " + Number(stats.Settings.SolarBaseRange + stats.LensTier) + " m. Daño x2.5.\n4 pulsos con empuje.",
+            "DASH_01" => "Recarga -10% y velocidad +8%\nde la base por nivel.",
+            "BIO_01" => "+15 HP de curación al elegir.",
+            "GREED_01" => "Atrae gemas y botiquines\ndesde más lejos.",
+            "GREED_03" => "Comunes: " + (current switch { 1 => "8", 2 => "11", _ => "4" }) + "% > " + (next switch { 1 => "8", 2 => "11", _ => "14" }) + "%\nÉlites: " + (current switch { 1 => "40", 2 => "50", _ => "25" }) + "% > " + (next switch { 1 => "40", 2 => "50", _ => "60" }) + "%",
+            _ => string.Empty
         };
 
         private static float OverloadDamage(int tier) => tier switch { 1 => 1.5f, 2 => 1.8f, 3 => 2.2f, _ => 1f };
