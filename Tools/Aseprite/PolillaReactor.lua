@@ -130,20 +130,42 @@ local function pose(dir,f,primed)
  if profile then cx=31 end
  if primed and f>=5 then cy=cy+1 end
  local function ly(n) return n+bob end
- -- Patas: tres pares conectados a la carcasa, con arcos propios de vuelo.
+ -- Los tres pares nacen juntos bajo el torax. La carcasa ocluye las patas
+ -- lejanas; las cercanas solapan su borde, sin tapar los respiraderos.
  local tuck=primed and round(heat*3) or round((1-spread)*2)
- for _,side in ipairs({-1,1}) do
-  local far=profile and side==1
-  for j=0,2 do
-   local x,y=cx+side*7,ly(31+j*6)
-   local ex=x+side*((far and 4 or 8)-tuck)
-   local ey=y+4+(primed and -1 or (f<=4 and 0 or 1))
-   line(out[3],x,y,ex,ey,C.ink,nil,3)
-   line(out[3],ex,ey,ex-side*1,ey+6-tuck,C.ink,nil,2)
-   line(out[3],x,y,ex,ey,C.rust,nil,1)
-   line(out[3],ex,ey,ex-side,ey+4-tuck,C.tan,nil,1)
-   line(out[3],ex-side,ey+4-tuck,ex-side*3,ey+5-tuck,C.rustD,nil,1)
-   ellipse(out[3],ex,ey,1.5,1.5,{C.ink,C.rustD,C.rust,C.light})
+ local function leg(dst,points,far)
+  local p={}
+  for i,v in ipairs(points) do
+   local amount=i==1 and 0 or tuck*.075
+   p[i]={v[1]+(points[1][1]-v[1])*amount,
+         ly(v[2]+(points[1][2]-v[2])*amount)+(i>2 and not primed and f>4 and 1 or 0)}
+  end
+  local n=norm(far and -.3 or .15,.1,1)
+  for i=1,3 do
+   local a,b=p[i],p[i+1]
+   line(dst,a[1],a[2],b[1],b[2],C.ink,n,i==3 and 2 or 3)
+   line(dst,a[1],a[2],b[1],b[2],far and C.rustD or C.rust,n,i==3 and 1 or 2)
+   if i<3 then line(dst,a[1],a[2],b[1],b[2],far and C.steel or C.tan,n) end
+  end
+  for i=2,3 do
+   local q=p[i]
+   ellipse(dst,q[1],q[2],1.5,1.5,{C.ink,C.rustD,far and C.shade or C.rust,far and C.steel or C.light})
+  end
+ end
+ if profile then
+  -- Right: femures anteriores bajo la cabeza; la trasera rodea el otro hombro.
+  leg(out[3],{{39,28},{42,32},{42,36},{40,38}},true)
+  leg(out[3],{{36,29},{38,34},{36,40},{34,41}},true)
+  leg(out[3],{{32,30},{24,34},{22,40},{24,42}},true)
+  leg(out[5],{{37,29},{43,34},{45,40},{42,43}},false)
+  leg(out[5],{{34,30},{40,38},{39,46},{36,48}},false)
+  leg(out[5],{{30,31},{22,38},{21,46},{24,48}},false)
+ else
+  for _,side in ipairs({-1,1}) do
+   local dst=back and out[3] or out[5]
+   leg(dst,{{cx+side*3,29},{cx+side*11,34},{cx+side*12,40},{cx+side*10,43}},back)
+   leg(dst,{{cx+side*4,30},{cx+side*14,38},{cx+side*13,45},{cx+side*10,48}},back)
+   leg(dst,{{cx+side*4,32},{cx+side*12,43},{cx+side*10,50},{cx+side*7,52}},back)
   end
  end
  -- Alas posteriores y anteriores: bisagras fijas; la placa cambia de escorzo.
@@ -277,7 +299,7 @@ s.colorSpace=ColorSpace{ sRGB=true }
 local pal=Palette(#hex+1);pal:setColor(0,Color{r=0,g=0,b=0,a=0})
 for i,h in ipairs(hex) do pal:setColor(i,Color{r=tonumber(h:sub(1,2),16),g=tonumber(h:sub(3,4),16),b=tonumber(h:sub(5,6),16),a=255}) end
 s:setPalette(pal)
-local names={'Alas - posteriores','Alas - anteriores','Chasis y patas','Reactor - carcasa','Cabeza y antenas','Reactor - brasa','Ruptura - fragmentos'}
+local names={'Alas - posteriores','Alas - anteriores','Chasis y patas lejanas','Reactor - carcasa','Cabeza y patas cercanas','Reactor - brasa','Ruptura - fragmentos'}
 local layers={s.layers[1]};layers[1].name=names[1]
 for i=2,#names do layers[i]=s:newLayer();layers[i].name=names[i] end
 local normal=s:newLayer();normal.name='NORMAL - OpenGL +Y'

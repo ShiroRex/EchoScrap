@@ -5,6 +5,11 @@ antenas de peine y abdomen de horno con tres respiraderos. En perfil se ven dos
 ranuras; detrás, la carcasa cerrada conserva escapes a ambos lados. El brillo de
 cebado aumenta junto con el plegado de las alas y la contracción de las patas.
 
+Los tres pares de patas nacen bajo el tórax, en un grupo compacto. En perfil,
+las patas cercanas rodean la carcasa por delante y las lejanas quedan parcialmente
+ocultas detrás; las uniones no se distribuyen por los lados del reactor. Durante
+el plegado se acercan codos y garras sin desplazar las raíces respecto al tórax.
+
 ## Entrega
 
 - `PolillaReactor_Apollo.aseprite`: fuente RGB de 64×64, 62 cuadros, nueve capas y
@@ -54,9 +59,9 @@ La implementación actual usa **0,9 s por proximidad y 1,2 s por daño letal**, 
 
 1. Alas - posteriores.
 2. Alas - anteriores.
-3. Chasis y patas.
+3. Chasis y patas lejanas.
 4. Reactor - carcasa.
-5. Cabeza y antenas.
+5. Cabeza y patas cercanas (incluye las antenas).
 6. Reactor - brasa.
 7. Ruptura - fragmentos.
 8. NORMAL - OpenGL +Y (oculta).
@@ -113,6 +118,8 @@ cuantizar ni eliminar píxeles del arte. Los GIF conservan sus colores exactos.
   está vacío de forma intencional. Los huecos entre patas y chasis se revisaron
   como espacios del diseño, no se eliminaron automáticamente.
 - Ningún cuadro toca el borde del lienzo tras recoger las puntas del último batido.
+- Revisadas de nuevo las raíces y oclusiones de patas en los extremos de vuelo
+  y cebado: quedan bajo el tórax y las ranuras del reactor conservan su lectura.
 - La luz diagonal de `LightingPreview` es una revisión CPU, no una captura de
   Unity. El normal map y la emisión aún necesitan ajustarse al material del juego.
 
