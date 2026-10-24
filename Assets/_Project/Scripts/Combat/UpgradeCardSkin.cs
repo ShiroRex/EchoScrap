@@ -10,5 +10,6 @@ namespace EchoScrap.Combat
         public Sprite upgradeArrow;
         public Font regular;
         public Font semibold;
+        public Material surfaceSheen;
     }
 }

@@ -16,6 +16,7 @@ namespace EchoScrap.Combat
             public RectTransform Root;
             public Image Border;
             public Image Confirmation;
+            public UpgradeCardMotion Motion;
             public Image Icon;
             public Image UpgradeArrow;
             public Image Button;
@@ -35,6 +36,7 @@ namespace EchoScrap.Combat
         private readonly CardView[] cards = new CardView[3];
         private GameObject canvasRoot;
         private RectTransform canvasRect;
+        private Canvas cardCanvas;
         private RectTransform continueButton;
         private Text title;
         private Text subtitle;
@@ -50,6 +52,7 @@ namespace EchoScrap.Combat
         private bool stickLatched;
         private float navigationRepeat;
         private bool pointerKnown;
+        private bool pointerMotionActive;
         private Vector2 lastPointerPosition;
 
         public int SelectedIndex => selectedIndex;
@@ -69,6 +72,7 @@ namespace EchoScrap.Combat
         {
             Unsubscribe();
             confirmationIndex = -1;
+            ResetCardMotion();
             if (canvasRoot != null) canvasRoot.SetActive(false);
         }
         public void BindReferences(CombatSession combatSession, UpgradeDraftController draftController)
@@ -99,6 +103,8 @@ namespace EchoScrap.Combat
             stickLatched = false;
             navigationRepeat = 0f;
             pointerKnown = false;
+            pointerMotionActive = false;
+            ResetCardMotion();
         }
         public void StepPresentation(float unscaledDeltaTime)
         {
@@ -143,12 +149,14 @@ namespace EchoScrap.Combat
                 if (confirmationIndex != i) card.Root.localScale = Vector3.one * scale;
                 float shake = !reduced && rarity == UpgradeRarity.SSR && t < 1f ? Mathf.Sin(t * 36f) * (1f - t) * 1.1f : 0f;
                 card.Root.localRotation = Quaternion.Euler(0f, 0f, shake);
+                card.Motion.Step(delta, reduced, session != null ? session.Effects.DecorativeIntensity : 1f);
             }
         }
         public void MoveSelection(int direction)
         {
             if (controller == null || !controller.IsOpen || IsConfirming || controller.Offers.Count == 0) return;
             selectedIndex = (selectedIndex + (direction < 0 ? -1 : 1) + controller.Offers.Count) % controller.Offers.Count;
+            ClearPointerTargets();
             ApplySelection();
         }
         public bool ConfirmSelection()
@@ -156,6 +164,7 @@ namespace EchoScrap.Combat
             if (controller == null || !controller.IsOpen || IsConfirming) return false;
             confirmationIndex = controller.Offers.Count == 0 ? 3 : selectedIndex;
             confirmationTime = 0f;
+            ClearPointerTargets();
             inputArmed = false;
             return true;
         }
@@ -166,6 +175,7 @@ namespace EchoScrap.Combat
             Keyboard keyboard = Keyboard.current;
             Gamepad gamepad = Gamepad.current;
             Mouse mouse = Mouse.current;
+            bool pointerMoved = TrackPointer(mouse);
             bool held = (keyboard != null && (keyboard.enterKey.isPressed || keyboard.spaceKey.isPressed ||
                 keyboard.digit1Key.isPressed || keyboard.digit2Key.isPressed || keyboard.digit3Key.isPressed)) ||
                 (gamepad != null && gamepad.buttonSouth.isPressed) || (mouse != null && mouse.leftButton.isPressed);
@@ -200,20 +210,51 @@ namespace EchoScrap.Combat
             if (mouse != null)
             {
                 Vector2 position = mouse.position.ReadValue();
-                bool pointerMoved = pointerKnown && (position - lastPointerPosition).sqrMagnitude > 0.01f;
-                lastPointerPosition = position;
-                pointerKnown = true;
                 for (int i = 0; i < controller.Offers.Count; i++)
                 {
-                    if (!RectTransformUtility.RectangleContainsScreenPoint(cards[i].Root, position)) continue;
+                    if (!RectTransformUtility.RectangleContainsScreenPoint(cards[i].Root, position, InputCamera)) continue;
                     if (!pointerMoved && !mouse.leftButton.wasPressedThisFrame) continue;
-                    selectedIndex = i; ApplySelection();
+                    if (selectedIndex != i) { selectedIndex = i; ApplySelection(); }
                     if (mouse.leftButton.wasPressedThisFrame) submit = true;
                 }
                 if (controller.Offers.Count == 0 && mouse.leftButton.wasPressedThisFrame &&
-                    RectTransformUtility.RectangleContainsScreenPoint(continueButton, position)) submit = true;
+                    RectTransformUtility.RectangleContainsScreenPoint(continueButton, position, InputCamera)) submit = true;
             }
             if (submit) ConfirmSelection();
+        }
+
+        private Camera InputCamera => cardCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : cardCanvas.worldCamera;
+
+        private bool TrackPointer(Mouse mouse)
+        {
+            if (mouse == null) { ClearPointerTargets(); return false; }
+            Vector2 position = mouse.position.ReadValue();
+            bool moved = pointerKnown && (position - lastPointerPosition).sqrMagnitude > 0.01f;
+            pointerKnown = true; lastPointerPosition = position;
+            if (moved) pointerMotionActive = true;
+            Camera inputCamera = InputCamera;
+            for (int i = 0; i < controller.Offers.Count; i++)
+            {
+                RectTransform rect = cards[i].Root;
+                bool hit = RectTransformUtility.ScreenPointToLocalPointInRectangle(rect, position, inputCamera, out Vector2 local)
+                    && rect.rect.Contains(local) && pointerMotionActive && !IsConfirming;
+                Vector2 normalized = new Vector2(local.x / (rect.rect.width * 0.5f), local.y / (rect.rect.height * 0.5f));
+                cards[i].Motion.SetPointer(normalized, hit);
+            }
+            return moved;
+        }
+
+        private void ClearPointerTargets()
+        {
+            pointerMotionActive = false;
+            for (int i = 0; i < cards.Length; i++)
+                if (cards[i]?.Motion != null) cards[i].Motion.SetPointer(Vector2.zero, false);
+        }
+
+        private void ResetCardMotion()
+        {
+            for (int i = 0; i < cards.Length; i++)
+                if (cards[i]?.Motion != null) cards[i].Motion.ResetState();
         }
 
         public void RefreshOffers()
@@ -221,6 +262,8 @@ namespace EchoScrap.Combat
             EnsureInterface();
             confirmationIndex = -1; confirmationTime = 0f; selectedIndex = 0; inputArmed = false;
             revealAge = 0f;
+            pointerMotionActive = false;
+            ResetCardMotion();
             stickLatched = false; navigationRepeat = 0f; pointerKnown = false;
             canvasRoot.SetActive(isActiveAndEnabled && controller != null && controller.IsOpen);
             if (!canvasRoot.activeSelf) return;
@@ -241,6 +284,7 @@ namespace EchoScrap.Combat
                 cards[i].Root.anchoredPosition = cards[i].RestPosition;
                 Color color = UpgradeCatalog.RarityColor(offer.Card.Rarity);
                 int rarity = (int)offer.Card.Rarity;
+                cards[i].Motion.SetRarity(offer.Card.Rarity);
                 cards[i].Border.sprite = skin.frames[rarity];
                 cards[i].Confirmation.sprite = skin.frames[rarity];
                 cards[i].Name.text = offer.Card.Name;
@@ -284,9 +328,10 @@ namespace EchoScrap.Combat
             font = skin.regular;
             canvasRoot = new GameObject("UpgradeDraftCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             canvasRoot.transform.SetParent(transform, false);
-            canvasRoot.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasRoot.GetComponent<Canvas>().sortingOrder = 100;
-            canvasRoot.GetComponent<Canvas>().pixelPerfect = true;
+            cardCanvas = canvasRoot.GetComponent<Canvas>();
+            cardCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            cardCanvas.sortingOrder = 100;
+            cardCanvas.pixelPerfect = true;
             var scaler = canvasRoot.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
@@ -341,6 +386,12 @@ namespace EchoScrap.Combat
             view.ButtonLabel.color = new Color(0.035f, 0.045f, 0.07f);
             view.Confirmation = ImageRect(view.Root, "ConfirmationFlash", Vector2.zero, new Vector2(400f, 620f), Color.clear, true).GetComponent<Image>();
             NineSlice(view.Confirmation);
+            var sheen = new GameObject("SurfaceSheen", typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();
+            sheen.rectTransform.SetParent(view.Root, false);
+            sheen.rectTransform.sizeDelta = new Vector2(376f, 596f);
+            sheen.raycastTarget = false;
+            view.Motion = view.Root.gameObject.AddComponent<UpgradeCardMotion>();
+            view.Motion.Bind(sheen, skin.surfaceSheen);
             return view;
         }
         private static void NineSlice(Image image)

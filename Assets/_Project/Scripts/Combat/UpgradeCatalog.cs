@@ -118,7 +118,7 @@ namespace EchoScrap.Combat
         {
             "FLASH_01" => "+10° de apertura por nivel.",
             "FLASH_02" => "Acelera los pulsos y su descanso.",
-            "FLASH_04" => (current == 0 ? "Cono -20° una vez.\n" : "Conserva el cono actual.\n") + "Empuje +" + Number(OverloadImpulse(next) - OverloadImpulse(current)) + " m/s al elegir.",
+            "FLASH_04" => (current == 0 ? "Menos área de ataque.\n" : "Misma área de ataque.\n") + "Empuje +" + Number(OverloadImpulse(next) - OverloadImpulse(current)) + " m/s al elegir.",
             "FLASH_05" => "Alcance " + Number(stats.Settings.SolarBaseRange + stats.LensTier) + " m. Daño x2.5.\n4 pulsos con empuje.",
             "DASH_01" => "Recarga -10% y velocidad +8%\nde la base por nivel.",
             "BIO_01" => "+15 HP de curación al elegir.",

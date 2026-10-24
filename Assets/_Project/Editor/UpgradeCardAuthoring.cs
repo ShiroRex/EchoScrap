@@ -29,6 +29,17 @@ namespace EchoScrap.Editor
             skin.regular = AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/UI/Fonts/PixelifySans-Regular.ttf");
             skin.semibold = AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/UI/Fonts/PixelifySans-SemiBold.ttf");
             if (skin.regular == null || skin.semibold == null) throw new BuildFailedException("Pixelify Sans font assets are required.");
+            const string sheenPath = "Assets/_Project/Resources/UI/UpgradeCardSheen.mat";
+            Shader sheenShader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/_Project/Shaders/UpgradeCardSheen.shader");
+            if (sheenShader == null) throw new BuildFailedException("Missing card surface sheen shader.");
+            skin.surfaceSheen = AssetDatabase.LoadAssetAtPath<Material>(sheenPath);
+            if (skin.surfaceSheen == null)
+            {
+                skin.surfaceSheen = new Material(sheenShader);
+                AssetDatabase.CreateAsset(skin.surfaceSheen, sheenPath);
+            }
+            skin.surfaceSheen.shader = sheenShader;
+            EditorUtility.SetDirty(skin.surfaceSheen);
             EditorUtility.SetDirty(skin); AssetDatabase.SaveAssets();
             Debug.Log("[EchoScrap] Upgrade cards: four 9-sliced frames, eight Apollo icons and Pixelify Sans ready.");
         }

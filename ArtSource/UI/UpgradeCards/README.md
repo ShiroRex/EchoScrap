@@ -70,6 +70,33 @@ La selección y confirmación mantienen sus propios acentos nítidos.
 Efectos reducidos eliminan el movimiento; la
 rareza y el cambio de nivel siguen identificados por forma y texto.
 
+El efecto de superficie toma como referencia el reel de Teufelskreis facilitado
+por el usuario: `https://www.instagram.com/reel/De4DkmKtPjm/`. La perspectiva se
+aplica mediante `UpgradeCardPerspective` a las mallas de los elementos de UI,
+con un estado y resorte compartidos en `UpgradeCardMotion`. No modifica los
+archivos de arte, sus importadores Point ni la zona de clic. La inclinación
+máxima es de 6° horizontal y 4,5° vertical, escalada por la intensidad decorativa.
+
+`UpgradeCardSheen.shader` dibuja un reflejo interior con grano fijo que sigue
+el cursor. No genera halo, desenfoque ni brillo fuera de la carta. Las raras
+tienen un reflejo algo más visible. Cada carta posee una instancia de material
+que se libera al destruirla. Efectos reducidos desactivan tanto movimiento
+como reflejo; salir con el puntero o usar teclado/mando devuelve la carta a reposo.
+
+Las capturas `Previews/Runtime_Perspective.png` y `Runtime_CardMotion.gif` muestran
+la UI renderizada por Unity. El GIF codifica 30 capturas a 1280×720 en un bucle
+de ida y vuelta. La prueba compara el reflejo activado/desactivado con la misma
+geometría para comprobar que el shader produce una diferencia visible.
+
+Validación del efecto: 215/215 pruebas Play Mode y una revisión final de las
+21 pruebas de cartas, incluyendo clic sobre la carta inclinada, retorno al salir,
+navegación con cursor inmóvil, intensidad parcial y efectos reducidos. La
+presentación animada y reconstrucción del Canvas promediaron 0,458 ms de CPU
+en 120 cuadros; no es una medición de GPU ni del tiempo total del juego.
+Los resultados y la comparación de capturas quedan en `Logs/CardPerspective`.
+La comprobación final de entrada verifica además cero asignaciones administradas
+en 30 movimientos dentro de la carta seleccionada, sin reconstruir sus etiquetas.
+
 ## Regenerar y revisar
 
 Desde la raíz del repositorio:
