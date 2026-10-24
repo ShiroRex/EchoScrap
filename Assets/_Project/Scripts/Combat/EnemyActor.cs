@@ -301,6 +301,8 @@ namespace EchoScrap.Combat
                 if (r == null)
                     continue;
 
+                if (r.name == "Polilla Reactor Pixels") continue;
+
                 r.sharedMaterial = r.gameObject.name.Contains("Crest") ? secondaryMat : primaryMat;
             }
             presentedArchetypeId = runtimeArchetype.ArchetypeId;
@@ -352,20 +354,24 @@ namespace EchoScrap.Combat
                 EnsurePuddlePool();
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
             {
+                transform.localScale = runtimeArchetype.VisualScale;
                 mothPresentation = GetComponent<MothFusePresentation>() ?? gameObject.AddComponent<MothFusePresentation>();
                 mothPresentation.ResetPresentation();
                 prototypeMoth = GetComponent<Prototype.EnemyMoth>() ?? gameObject.AddComponent<Prototype.EnemyMoth>();
                 prototypeMoth.Bind(this);
                 mothExplosions = MothExplosionPool.GetOrCreate(session, targetPlayer);
+                (GetComponent<MothSpriteView>() ?? gameObject.AddComponent<MothSpriteView>()).Bind(this);
             }
         }
 
         public Bounds CaptureSpawnModelBounds()
         {
+            visualComposer.PresentationPivot.GetComponentsInChildren(true, archetypeRenderers);
             Bounds bounds = new Bounds(Vector3.zero, Vector3.zero);
             for (int i = 0; i < archetypeRenderers.Count; i++)
             {
                 Renderer view = archetypeRenderers[i];
+                if (view == null || !view.enabled) continue;
                 if (!(view is MeshRenderer) && !(view is SkinnedMeshRenderer)) continue;
                 Bounds local = view.localBounds;
                 Matrix4x4 toActor = transform.worldToLocalMatrix * view.transform.localToWorldMatrix;
@@ -468,6 +474,7 @@ namespace EchoScrap.Combat
                 prototypeMoth = GetComponent<Prototype.EnemyMoth>() ?? gameObject.AddComponent<Prototype.EnemyMoth>();
                 prototypeMoth.Bind(this);
                 mothExplosions = MothExplosionPool.GetOrCreate(session, targetPlayer);
+                (GetComponent<MothSpriteView>() ?? gameObject.AddComponent<MothSpriteView>()).Bind(this);
             }
 
             // 5. Colliders, triggers y capas
@@ -532,6 +539,8 @@ namespace EchoScrap.Combat
             if (!activeEnemies.Contains(this))
                 activeEnemies.Add(this);
             CombatTargetRegistry.Register(this);
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
+                GetComponent<MothSpriteView>()?.Advance(0f);
             Physics.SyncTransforms();
         }
 

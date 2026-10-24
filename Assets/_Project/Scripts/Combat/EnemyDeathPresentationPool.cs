@@ -187,6 +187,8 @@ namespace EchoScrap.Combat
                 return;
 
             EnemyArchetypeId archId = (EnemyArchetypeId)evt.ArchetypeId;
+            // Moths use their authored Burst and the pooled reactor explosion instead of generic cubes.
+            if (archId == EnemyArchetypeId.ExplosiveMoth) return;
             EnemyArchetypeData data = EnemyArchetypeData.CreateDefault(archId);
             SpawnDeathRupture(evt.WorldPosition, evt.HitDirection, data.SecondaryColor, data.VisualScale.x);
         }

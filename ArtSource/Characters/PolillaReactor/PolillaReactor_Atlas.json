@@ -1416,10 +1416,10 @@
       "Burst": {
         "mode": "one-shot",
         "intentionalTransparentLastFrame": true,
-        "consumer": "explosion presentation outside EnemyActor",
-        "integratedInGame": false
+        "consumer": "MothExplosionPool / MothBurstSprite",
+        "integratedInGame": true
       }
     },
-    "notes": "Prime is a progress-driven one-shot: six poses retimed to FuseTimer (0.9 s proximity / 1.2 s lethal), clamping the final pose. Preview GIFs repeat only for demonstration. Burst ends with an intentional transparent cell and must be consumed by explosion presentation outside EnemyActor; it is not integrated in game yet."
+    "notes": "Prime is a progress-driven one-shot: six poses retimed to FuseTimer (0.9 s proximity / 1.2 s lethal), clamping the final pose. Preview GIFs repeat only for demonstration. MothExplosionPool / MothBurstSprite plays Burst outside EnemyActor; its last cell is intentionally transparent."
   }
 }

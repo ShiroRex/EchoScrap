@@ -129,11 +129,42 @@ cuantizar ni eliminar píxeles del arte. Los GIF conservan sus colores exactos.
 - Ningún cuadro toca el borde del lienzo tras recoger las puntas del último batido.
 - Revisadas de nuevo las raíces y oclusiones de patas en los extremos de vuelo
   y cebado: quedan bajo el tórax y las ranuras del reactor conservan su lectura.
-- La luz diagonal de `LightingPreview` es una revisión CPU, no una captura de
-  Unity. El normal map y la emisión aún necesitan ajustarse al material del juego.
+- La luz diagonal de `LightingPreview` es una revisión CPU. Las capturas reales
+  de Unity se guardan en `Logs/CollectorIntegration/ReactorAndMedkit*.png` al
+  ejecutar `CollectorSpriteTests`.
 
-Esta entrega incorpora el arte y sus ajustes de importación, **no sustituye la
-presentación 3D de la IA actual**. Su conexión requiere un reproductor de Fly/Prime
-que conserve UV, flash y emisión al actualizar los bloques de materiales. El
-actor se recicla al detonar: Burst debe reproducirse mediante una presentación
-de explosión separada, sin retrasar daño, recompensas ni reciclaje del enemigo.
+## Conexión al juego
+
+`EchoScrap/Art/Connect Reactor Moth` importa el manifiesto y prepara el recurso
+`Resources/Characters/PolillaReactor.asset`. El material usa color, normales y
+emisión en el mismo rectángulo UV; la brasa no sustituye la iluminación ambiental.
+
+`MothSpriteView` sustituye las figuras provisionales durante el precalentamiento
+del pool. Reproduce `Fly` en las cuatro direcciones y `Prime` por el progreso real
+de ambas mechas. Conserva el destello de daño y recupera sus UV después de las
+actualizaciones del compositor. El plano permanece vertical en el mundo y la
+sombra queda sobre el suelo. Pausa y efectos reducidos mantienen su aviso legible.
+
+`MothExplosionPool` reproduce `Burst` durante 0,3 s en 32 instancias separadas del
+actor, junto con la explosión existente. Daño, recompensas, radio, mechas y retorno
+del enemigo al pool conservan sus tiempos. No se emiten los cubos de muerte
+genéricos para este enemigo.
+
+El núcleo emite luz naranja. `CombatReadabilityLights` comparte ocho luces reales
+entre polillas y botiquines cercanos a la cámara, dando prioridad a reactores
+armados y botiquines. La brasa y los haces verdes siguen visibles cuando se ocupa
+ese presupuesto. Los botiquines usan su sprite un 30 % más grande, sombra de apoyo,
+luz verde y un haz que termina al recogerlos o reiniciar la partida.
+
+Validación de la integración (2026-10-24): **209/209 pruebas de Play Mode**,
+build Windows x86_64 correcta y comparación renderizada con/sin las luces locales
+(181.752 píxeles distintos en el encuadre de revisión). Informes regenerables en
+`Logs/ReactorFinalAllTests.xml`, `Logs/ReactorIntegrationBuild.log` y
+`Logs/ReactorLightingBenchmark/Summary.json`.
+
+En la build, a 1920×1080, con el director activo y efectos completos, la muestra
+de 5 s midió 9,58 ms de media / 12,33 ms p95 con 150 enemigos. La prueba de estrés
+de 250 midió 19,16 ms / 23,38 ms p95; esa carga supera el objetivo de 60 FPS.
+Equipo de la medición: Ryzen 7 5700X y Radeon RX 6650 XT. La build release no
+dispone de la muestra de GC por cuadro; no se infiere ausencia de asignaciones
+a partir de ese informe.

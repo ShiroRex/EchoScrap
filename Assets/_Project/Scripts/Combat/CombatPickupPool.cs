@@ -34,6 +34,7 @@ namespace EchoScrap.Combat
     {
         public const float ExperienceMergeRadius = 0.75f;
         public const float PickupHeight = 0.32f;
+        public const float MedkitVisualScale = 1.3f;
         private const int InitialExperienceSlots = 96;
         private const int InitialMedkitSlots = 32;
         private const int AbsorptionEffectSlots = 8;
@@ -76,6 +77,8 @@ namespace EchoScrap.Combat
         private Mesh medkitMesh;
         private Mesh medkitShadowMesh;
         private Mesh ringMesh;
+        private Mesh beaconMesh;
+        private Material beaconMaterial;
         private Material crystalMaterial;
         private Material darkMaterial;
         private Material medkitMaterial;
@@ -112,6 +115,7 @@ namespace EchoScrap.Combat
             Destroy(medkitMesh);
             Destroy(medkitShadowMesh);
             Destroy(ringMesh);
+            Destroy(beaconMesh);
             Destroy(crystalMaterial);
             Destroy(darkMaterial);
             // Imported medkit materials are shared Unity assets, not runtime instances.
@@ -127,6 +131,8 @@ namespace EchoScrap.Combat
             stats = runtimeStats != null ? runtimeStats : (player != null ? player.Stats : null);
             progression = combatProgression;
             EnsureInitialized();
+            foreach (PickupSlot slot in slots)
+                if (slot.Kind == CombatPickupKind.Medkit) slot.Root.GetComponent<CombatGlowSource>().Bind(session);
             Subscribe();
         }
 
@@ -172,8 +178,10 @@ namespace EchoScrap.Combat
             initialized = true;
             crystalMesh = CreateCrystalMesh();
             // Fixed upright proportions keep the case readable under the arena's high camera.
-            medkitMesh = CreatePickupQuad("Botiquin Apollo Quad", 1f, 1.5f, -PickupHeight - 0.045f);
-            medkitShadowMesh = CreatePickupQuad("Botiquin Contact Shadow Quad", 0.9f, 0.5f, -0.25f);
+            medkitMesh = CreatePickupQuad("Botiquin Apollo Quad", 1f * MedkitVisualScale, 1.5f * MedkitVisualScale, (-PickupHeight - 0.045f) * MedkitVisualScale);
+            medkitShadowMesh = CreatePickupQuad("Botiquin Contact Shadow Quad", 0.9f * MedkitVisualScale, 0.5f * MedkitVisualScale, -0.25f * MedkitVisualScale);
+            beaconMesh = CreatePickupQuad("Medkit green beacon quad", 0.48f, 3.5f, -PickupHeight + 0.04f);
+            beaconMaterial = Resources.Load<Material>("Pickups/MedkitBeacon");
             ringMesh = CreateRingMesh();
             crystalMaterial = CreateMaterial("XP_Cyan", new Color(0.35f, 0.95f, 1f));
             darkMaterial = CreateMaterial("Pickup_DarkOutline", new Color(0.025f, 0.07f, 0.11f));
@@ -213,6 +221,12 @@ namespace EchoScrap.Combat
                     medkitShadowMesh, medkitShadowMaterial, Vector3.one);
                 shadow.localPosition = Vector3.up * (0.035f - PickupHeight);
                 shadow.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                Transform beam = CreateMeshObject("Medkit Green Beacon", root.transform, beaconMesh, beaconMaterial, Vector3.one);
+                beam.localPosition = Vector3.forward * 0.08f;
+                CombatGlowSource glow = root.AddComponent<CombatGlowSource>();
+                glow.Color = new Color(0.24f, 1f, 0.36f); glow.Range = 3.3f;
+                glow.Intensity = 2.4f; glow.Priority = 2f; glow.Offset = Vector3.up * 0.3f;
+                glow.Bind(session);
             }
             root.SetActive(false);
             var slot = new PickupSlot { Root = root, Visual = visual, Kind = kind };

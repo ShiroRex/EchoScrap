@@ -139,6 +139,45 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator ReactorAndLargerMedkitRenderWithRealLocalLightAndGreenBeacon()
+        {
+            game.Pickups.AutoTick = false;
+            Vector3 origin = game.Motor.transform.position;
+            EnemyActor moth = game.Enemies.Spawn(EnemyArchetypeId.ExplosiveMoth, origin + new Vector3(-3f, 0f, 1f));
+            var reactor = moth.GetComponent<MothSpriteView>(); reactor.Advance(0.16f);
+            int id = game.Pickups.SpawnMedkit(origin + new Vector3(3f, 0f, 0.5f));
+            game.Pickups.Step(0.17f);
+            Assert.That(game.Pickups.TryGetPickupInfo(id, out _), Is.True);
+            Transform medkit = null;
+            foreach (Transform child in game.Pickups.transform)
+                if (child.name == "PooledMedkit" && child.gameObject.activeSelf) { medkit = child; break; }
+            Assert.That(medkit, Is.Not.Null);
+            var mesh = medkit.Find("Visual/Botiquin Apollo Sprite").GetComponent<MeshFilter>().sharedMesh;
+            Assert.That(mesh.bounds.size.x, Is.EqualTo(1.3f).Within(0.001f));
+            Assert.That(mesh.bounds.size.y, Is.EqualTo(1.95f).Within(0.001f));
+            Assert.That(medkit.Find("Medkit Green Beacon").gameObject.activeInHierarchy, Is.True);
+            Assert.That(medkit.GetComponent<CombatGlowSource>().Color.g, Is.GreaterThan(0.9f));
+            game.Session.SetManualPause(true);
+            var lighting = game.Session.GetComponent<CombatReadabilityLights>(); lighting.RefreshLights();
+            Assert.That(lighting.ActiveLightCount, Is.EqualTo(2));
+            yield return Capture(game.GameplayCamera, "ReactorAndMedkitArena.png");
+            var camera = new GameObject("Reactor and medkit close-up").AddComponent<Camera>();
+            camera.CopyFrom(game.GameplayCamera); camera.transform.rotation = game.GameplayCamera.transform.rotation;
+            camera.transform.position = origin + new Vector3(0f, 0.9f, 0.5f) - camera.transform.forward * 12f;
+            camera.fieldOfView = 42f;
+            Color32[] lit = null, dark = null;
+            yield return Capture(camera, "ReactorAndMedkitLit.png", p => lit = p);
+            lighting.enabled = false;
+            yield return Capture(camera, "ReactorAndMedkitWithoutLocalLight.png", p => dark = p);
+            int changed = ChangedPixels(lit, dark);
+            Assert.That(changed, Is.GreaterThan(200), "Their real point lights must affect the rendered floor and nearby geometry.");
+            Debug.Log($"[Reactor/medkit] Local lights change {changed} pixels; medkit mesh is 1.3 x 1.95 m.");
+            lighting.enabled = true;
+            Object.Destroy(camera.gameObject);
+            game.Session.SetManualPause(false);
+        }
+
+        [UnityTest]
         public IEnumerator CameraAngleDoesNotRotateOrReshapeTheStandingPlane()
         {
             var camera = new GameObject("Collector angle validation camera").AddComponent<Camera>();

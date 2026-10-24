@@ -130,9 +130,9 @@ def build_manifest() -> dict:
             "Prime": {"mode": "progress-driven one-shot", "clampLastFrame": True,
                       "authoredDurationMs": 900, "gameplayFuseSeconds": {"proximity": 0.9, "lethal": 1.2}},
             "Burst": {"mode": "one-shot", "intentionalTransparentLastFrame": True,
-                      "consumer": "explosion presentation outside EnemyActor", "integratedInGame": False},
+                      "consumer": "MothExplosionPool / MothBurstSprite", "integratedInGame": True},
         },
-        "notes": "Prime is a progress-driven one-shot: six poses retimed to FuseTimer (0.9 s proximity / 1.2 s lethal), clamping the final pose. Preview GIFs repeat only for demonstration. Burst ends with an intentional transparent cell and must be consumed by explosion presentation outside EnemyActor; it is not integrated in game yet.",
+        "notes": "Prime is a progress-driven one-shot: six poses retimed to FuseTimer (0.9 s proximity / 1.2 s lethal), clamping the final pose. Preview GIFs repeat only for demonstration. MothExplosionPool / MothBurstSprite plays Burst outside EnemyActor; its last cell is intentionally transparent.",
     }}
 
 

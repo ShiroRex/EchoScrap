@@ -6,6 +6,9 @@ Shader "EchoScrap/Character Pixel Lit"
         [Normal] _BumpMap("OpenGL normal atlas", 2D) = "bump" {}
         [MainColor] _BaseColor("Tint / damage flash", Color) = (1,1,1,1)
         _EmissionColor("Damage accent", Color) = (0,0,0,0)
+        _GlowMap("Reactor emission mask", 2D) = "black" {}
+        [HDR] _GlowColor("Reactor glow", Color) = (0,0,0,0)
+        _GlowStrength("Reactor intensity", Float) = 0
         _FrameRect("Frame UV rect", Vector) = (0,0.9375,0.125,0.0625)
         _NormalStrength("Relief", Range(0,2)) = 1
     }
@@ -34,11 +37,13 @@ Shader "EchoScrap/Character Pixel Lit"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
             TEXTURE2D(_BumpMap); SAMPLER(sampler_BumpMap);
+            TEXTURE2D(_GlowMap); SAMPLER(sampler_GlowMap);
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_TexelSize;
                 float4 _FrameRect;
                 half4 _BaseColor, _EmissionColor;
-                half _NormalStrength;
+                half4 _GlowColor;
+                half _NormalStrength, _GlowStrength;
             CBUFFER_END
             struct Attributes { float4 positionOS:POSITION; float3 normalOS:NORMAL; float4 tangentOS:TANGENT; float2 uv:TEXCOORD0; };
             struct Varyings { float4 positionCS:SV_POSITION; float3 positionWS:TEXCOORD0; half3 normalWS:TEXCOORD1; half3 tangentWS:TEXCOORD2; half3 bitangentWS:TEXCOORD3; float2 uv:TEXCOORD4; half3 vertexLighting:TEXCOORD5; };
@@ -77,7 +82,8 @@ Shader "EchoScrap/Character Pixel Lit"
                 surface.alpha=color.a;
                 surface.normalTS=normalTS;
                 surface.occlusion=1;
-                surface.emission=_EmissionColor.rgb*flash;
+                surface.emission=_EmissionColor.rgb*flash
+                    + SAMPLE_TEXTURE2D(_GlowMap,sampler_GlowMap,uv).r * _GlowColor.rgb * _GlowStrength;
                 // URP Simple Lit: scene ambient/probes, directional and local lights, shadows and AO.
                 // No permanent color fill, light clamp or specular sheen on the cloth.
                 half4 result=UniversalFragmentBlinnPhong(inputData,surface);

@@ -19,6 +19,7 @@ namespace EchoScrap.Combat
         private readonly IDamageTarget[] targets = new IDamageTarget[512];
 
         private readonly Prototype.ProceduralExplosionVfx[] prototypeEffects = new Prototype.ProceduralExplosionVfx[VisualCapacity];
+        private readonly MothBurstSprite[] spriteBursts = new MothBurstSprite[VisualCapacity];
 
         private CombatSession session;
         private PlayerHealth player;
@@ -76,6 +77,7 @@ namespace EchoScrap.Combat
             {
 
                 prototypeEffects[i] = Prototype.ProceduralExplosionVfx.CreatePooled(transform, BlastRadius);
+                spriteBursts[i] = MothBurstSprite.Create(transform);
             }
         }
 
@@ -153,6 +155,7 @@ namespace EchoScrap.Combat
                 if (prototypeEffects[i].gameObject.activeSelf) continue;
                 uint seed = (uint)(session != null ? session.Rng.Presentation.Range(1, int.MaxValue) : 8181);
                 prototypeEffects[i].PlayPooled(position, seed);
+                spriteBursts[i].Play(position);
                 return;
             }
         }
@@ -161,8 +164,11 @@ namespace EchoScrap.Combat
         {
             if (delta <= 0f) return;
             for (int i = 0; i < prototypeEffects.Length; i++)
+            {
                 if (prototypeEffects[i] != null && prototypeEffects[i].gameObject.activeSelf)
                     prototypeEffects[i].Step(delta);
+                if (spriteBursts[i] != null && spriteBursts[i].gameObject.activeSelf) spriteBursts[i].Step(delta);
+            }
         }
 
         public void ClearAll()
@@ -174,7 +180,10 @@ namespace EchoScrap.Combat
         private void ClearVisuals()
         {
             for (int i = 0; i < prototypeEffects.Length; i++)
+            {
                 if (prototypeEffects[i] != null) prototypeEffects[i].ClearPooled();
+                if (spriteBursts[i] != null) spriteBursts[i].gameObject.SetActive(false);
+            }
         }
 
         private void OnDisable() { ClearAll(); }
