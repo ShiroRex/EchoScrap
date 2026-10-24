@@ -630,5 +630,257 @@ namespace EchoScrap.Tests
             foreach (var offer in draft.Offers) value += offer.Card.Id + ";";
             return value;
         }
+
+        [Test]
+        public void PixelCardSkinContainsFourSlicedFramesEightDistinctIconsAndSpanishFonts()
+        {
+            UpgradeCardSkin skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            Assert.That(skin, Is.Not.Null);
+            Assert.That(skin.frames.Length, Is.EqualTo(4)); Assert.That(skin.icons.Length, Is.EqualTo(8));
+            Assert.That(new HashSet<Sprite>(skin.frames).Count, Is.EqualTo(4));
+            Assert.That(skin.frames[0].rect.size, Is.EqualTo(new Vector2(64, 64)));
+            Assert.That(skin.frames[1].rect.size, Is.EqualTo(new Vector2(64, 64)));
+            Assert.That(skin.frames[2].rect.size, Is.EqualTo(new Vector2(72, 64)), "Preserve the original epic canvas.");
+            Assert.That(skin.frames[3].rect.size, Is.EqualTo(new Vector2(64, 70)), "Preserve the original legendary canvas.");
+            var icons = new HashSet<Sprite>();
+            foreach (Sprite frame in skin.frames)
+            {
+                Assert.That(frame.border, Is.EqualTo(Vector4.one * 12));
+                Assert.That(frame.texture.filterMode, Is.EqualTo(FilterMode.Point));
+            }
+            foreach (Sprite icon in skin.icons)
+            {
+                Assert.That(icons.Add(icon), Is.True); Assert.That(icon.rect.size, Is.EqualTo(Vector2.one * 64));
+                Assert.That(icon.texture.filterMode, Is.EqualTo(FilterMode.Point));
+            }
+            Assert.That(skin.regular.name, Does.StartWith("PixelifySans"));
+            foreach (char letter in "áéíóúñÁÉÍÓÚÑ") Assert.That(skin.regular.HasCharacter(letter), Is.True);
+        }
+
+        [Test]
+        public void RepeatCardShowsGreenUpgradeArrowAndEffectiveHealthComparisonWithoutAcquiringIt()
+        {
+            stats.SetUpgradeTier("BIO_01", 1);
+            var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+            progression.AddExperience(100);
+            SetVisualOffers("BIO_01", "GREED_03", "FLASH_04"); view.RefreshOffers();
+            Transform panel = view.CanvasRoot.transform.Find("UpgradeCard_1/Panel");
+            Assert.That(panel.Find("UpgradeArrow").gameObject.activeSelf, Is.True);
+            Assert.That(panel.Find("UpgradeBadge").GetComponent<Text>().text, Is.EqualTo("SUBE A NIVEL 2 / 5"));
+            Assert.That(panel.Find("Before").GetComponent<Text>().text, Does.Contain("120 HP"));
+            Assert.That(panel.Find("After").GetComponent<Text>().text, Does.Contain("140 HP"));
+            Assert.That(view.CanvasRoot.transform.Find("UpgradeCard_2/Panel/UpgradeArrow").gameObject.activeSelf, Is.False);
+            Assert.That(stats.GetUpgradeTier("BIO_01"), Is.EqualTo(1));
+            session.Effects.ReducedEffectsMode = true; view.StepPresentation(0.5f);
+            Vector3 rest = panel.parent.localPosition;
+            view.StepPresentation(0.1f);
+            Assert.That(panel.parent.localPosition, Is.EqualTo(rest));
+            Assert.That(panel.parent.localRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(panel.parent.localScale, Is.EqualTo(Vector3.one));
+        }
+
+        [UnityTest]
+        public IEnumerator PixelCardsRenderEveryRarityAndPreserveCornersWhenResized()
+        {
+            stats.SetUpgradeTier("BIO_01", 1); stats.SetUpgradeTier("DASH_01", 2);
+            var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+            progression.AddExperience(100);
+            SetVisualOffers("BIO_01", "GREED_03", "FLASH_04"); view.RefreshOffers(); view.StepPresentation(0.8f);
+            var camera = new GameObject("Pixel cards preview camera").AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(0.03f, 0.04f, 0.06f);
+            camera.transform.position = new Vector3(0f, 15f, -8f); camera.transform.LookAt(Vector3.zero);
+            Canvas canvas = view.CanvasRoot.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camera; canvas.planeDistance = 1f;
+            yield return CapturePixelCards(camera, view, "Common_Rare_Epic_1080.png", 1920, 1080);
+            Image frame = view.CanvasRoot.transform.Find("UpgradeCard_1/Frame").GetComponent<Image>();
+            Mesh mesh;
+            Sprite originalFrame = frame.sprite;
+            foreach (Sprite rarityFrame in Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").frames)
+            foreach (Vector2 size in new[] { new Vector2(300f, 460f), new Vector2(400f, 620f), new Vector2(480f, 700f) })
+            {
+                frame.sprite = rarityFrame;
+                frame.rectTransform.sizeDelta = size; Canvas.ForceUpdateCanvases(); mesh = frame.canvasRenderer.GetMesh();
+                Assert.That(mesh.vertexCount, Is.EqualTo(64), "Nine-slice corners, straight rails and four intact edge ornaments; no center.");
+                Assert.That(mesh.vertices[2].x - mesh.vertices[0].x, Is.EqualTo(24f).Within(1f));
+                Assert.That(mesh.vertices[1].y - mesh.vertices[0].y, Is.EqualTo(24f).Within(1f));
+                Assert.That(mesh.vertices[50].x - mesh.vertices[48].x, Is.EqualTo(80f).Within(1f), "The original top/bottom ornament must not stretch.");
+                Assert.That(mesh.vertices[61].y - mesh.vertices[60].y, Is.EqualTo(80f).Within(1f), "The original side ornament must not stretch.");
+            }
+            frame.sprite = originalFrame;
+            frame.rectTransform.sizeDelta = new Vector2(400f, 620f);
+            SetVisualOffers("FLASH_05", "DASH_01", "GREED_01"); view.RefreshOffers();
+            view.StepPresentation(0.08f);
+            Transform legendary = view.CanvasRoot.transform.Find("UpgradeCard_1");
+            Assert.That(Quaternion.Angle(legendary.localRotation, Quaternion.identity), Is.GreaterThan(0.05f));
+            for (int i = 1; i <= 3; i++)
+                Assert.That(view.CanvasRoot.transform.Find($"UpgradeCard_{i}/RarityGlow"), Is.Null, "Cards must have no blurred outer border.");
+            view.StepPresentation(0.8f);
+            Assert.That(legendary.localRotation, Is.EqualTo(Quaternion.identity));
+            yield return CapturePixelCards(camera, view, "Legendary_Dash_Magnet_1080.png", 1920, 1080);
+            yield return CapturePixelCards(camera, view, "Legendary_720.png", 1280, 720);
+            yield return CapturePixelCards(camera, view, "Legendary_Ultrawide.png", 2560, 1080);
+            SetVisualOffers("FLASH_01", "FLASH_02", "GREED_03"); view.RefreshOffers(); view.StepPresentation(0.8f);
+            yield return CapturePixelCards(camera, view, "Range_Cadence_Supplies_1080.png", 1920, 1080);
+            // Warm then measure the real presentation and canvas rebuild, with the same paused UI.
+            for (int i = 0; i < 10; i++) { view.StepPresentation(1f / 60f); Canvas.ForceUpdateCanvases(); }
+            var watch = new System.Diagnostics.Stopwatch();
+            for (int i = 0; i < 120; i++)
+            {
+                watch.Start(); view.StepPresentation(1f / 60f); Canvas.ForceUpdateCanvases(); watch.Stop(); yield return null;
+            }
+            double ms = watch.Elapsed.TotalMilliseconds / 120;
+            Debug.Log($"[Pixel cards] Presentation + canvas rebuild: {ms:F3} ms mean over 120 frames.");
+            Assert.That(ms, Is.LessThan(16f));
+        }
+
+        [Test]
+        public void EpicCopyExplainsTheTradeoffAndDoesNotRepeatTheAreaPenalty()
+        {
+            UpgradeCatalog.TryGet("FLASH_04", out var card);
+            var first = new UpgradeOffer(card, stats);
+            Assert.That(first.Detail, Does.StartWith("Menos área de ataque."));
+            Assert.That(first.Detail, Does.Not.Contain("°").And.Not.Contain("Cono"));
+            float originalAngle = stats.FlashlightAngle;
+            Assert.That(stats.GetUpgradeTier(card.Id), Is.Zero);
+            stats.SetUpgradeTier(card.Id, 1);
+            Assert.That(stats.FlashlightAngle, Is.EqualTo(originalAngle - 20f));
+            var repeat = new UpgradeOffer(card, stats);
+            Assert.That(repeat.Detail, Does.StartWith("Misma área de ataque."));
+            Assert.That(repeat.PrimaryBefore, Is.Not.EqualTo(repeat.PrimaryAfter));
+            Assert.That(stats.FlashlightAngle, Is.EqualTo(originalAngle - 20f));
+            Assert.That(stats.GetUpgradeTier(card.Id), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void PointerProjectsTheWholeCardKeepsItsHitAreaAndRespectsReducedEffects()
+        {
+            var mouse = InputSystem.AddDevice<Mouse>();
+            try
+            {
+                var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+                progression.AddExperience(100); SetVisualOffers("BIO_01", "GREED_03", "FLASH_04");
+                view.RefreshOffers(); view.StepPresentation(0.8f); Canvas.ForceUpdateCanvases();
+                var root = (RectTransform)view.CanvasRoot.transform.Find("UpgradeCard_1");
+                var motion = root.GetComponent<UpgradeCardMotion>();
+                var frame = root.Find("Frame").GetComponent<Image>();
+                Vector3 corner = frame.canvasRenderer.GetMesh().vertices[0];
+                Rect hitRect = root.rect; Vector3 rootPosition = root.position;
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = new Vector2(5, 5) }); InputSystem.Update(); view.StepInput(0.016f);
+                Vector2 hover = RectTransformUtility.WorldToScreenPoint(null, root.TransformPoint(new Vector3(150f, 0f)));
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = hover }); InputSystem.Update(); view.StepInput(0.016f);
+                view.StepPresentation(0.3f); Canvas.ForceUpdateCanvases();
+                Assert.That(motion.Tilt.x, Is.GreaterThan(0.5f));
+                Assert.That(motion.SheenAlpha, Is.GreaterThan(0.01f));
+                Assert.That(root.rect, Is.EqualTo(hitRect)); Assert.That(root.position, Is.EqualTo(rootPosition));
+                Assert.That(RectTransformUtility.RectangleContainsScreenPoint(root, hover), Is.True);
+                Assert.That(Vector3.Distance(frame.canvasRenderer.GetMesh().vertices[0], corner), Is.GreaterThan(1f));
+                float near = motion.Project(new Vector3(200, 300)).y - motion.Project(new Vector3(200, -300)).y;
+                float far = motion.Project(new Vector3(-200, 300)).y - motion.Project(new Vector3(-200, -300)).y;
+                Assert.That(near, Is.GreaterThan(far + 5f), "The near side must grow: actual perspective, not a flat skew.");
+                Assert.That(root.GetComponentsInChildren<UpgradeCardPerspective>().Length, Is.GreaterThan(10));
+                Assert.That(root.Find("SurfaceSheen").GetComponent<RawImage>().material.shader.isSupported, Is.True);
+                long inputAllocations = 0;
+                for (int i = 0; i < 30; i++)
+                {
+                    InputSystem.QueueStateEvent(mouse, new MouseState { position = hover + new Vector2(i * 0.1f, 0f) }); InputSystem.Update();
+                    long allocated = System.GC.GetAllocatedBytesForCurrentThread();
+                    view.StepInput(0.016f);
+                    inputAllocations += System.GC.GetAllocatedBytesForCurrentThread() - allocated;
+                }
+                Assert.That(inputAllocations, Is.Zero, "Moving inside the selected card must not rebuild labels or allocate each frame.");
+                float fullDeformation = Vector3.Distance(frame.canvasRenderer.GetMesh().vertices[0], corner);
+                session.Effects.DecorativeIntensity = 0.25f; view.StepPresentation(0.016f); Canvas.ForceUpdateCanvases();
+                Assert.That(Vector3.Distance(frame.canvasRenderer.GetMesh().vertices[0], corner), Is.LessThan(fullDeformation * 0.5f));
+                session.Effects.DecorativeIntensity = 1f;
+
+                view.MoveSelection(1); view.StepInput(0.016f); view.StepPresentation(1f);
+                Assert.That(view.SelectedIndex, Is.EqualTo(1), "A stationary cursor must not steal keyboard/controller selection.");
+                Assert.That(motion.Tilt.magnitude, Is.LessThan(0.001f));
+                Assert.That(motion.SheenAlpha, Is.LessThan(0.001f));
+                motion.SetPointer(new Vector2(0.8f, 0.8f), true); view.StepPresentation(0.3f);
+                session.Effects.ReducedEffectsMode = true; view.StepPresentation(0.016f);
+                Assert.That(motion.Tilt, Is.EqualTo(Vector2.zero)); Assert.That(motion.SheenAlpha, Is.Zero);
+                session.Effects.ReducedEffectsMode = false;
+                motion.SetPointer(Vector2.right, true); view.StepPresentation(0.3f);
+                session.Effects.DecorativeIntensity = 0f; view.StepPresentation(0.016f);
+                Assert.That(motion.Tilt, Is.EqualTo(Vector2.zero)); Assert.That(motion.SheenAlpha, Is.Zero);
+                session.Effects.DecorativeIntensity = 1f;
+                Vector2 clickPoint = hover + new Vector2(5, 5);
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = clickPoint }); InputSystem.Update(); view.StepInput(0.016f);
+                view.StepPresentation(0.3f);
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = clickPoint }.WithButton(MouseButton.Left)); InputSystem.Update(); view.StepInput(0.016f);
+                Assert.That(view.IsConfirming, Is.True);
+                view.StepPresentation(0.3f);
+                Assert.That(stats.GetUpgradeTier("BIO_01"), Is.EqualTo(1), "A tilted card must still accept the stable click target exactly once.");
+            }
+            finally { InputSystem.RemoveDevice(mouse); }
+        }
+
+        [UnityTest]
+        public IEnumerator CardPerspectiveAndSurfaceReflectionRenderWithoutAnOuterHalo()
+        {
+            stats.SetUpgradeTier("BIO_01", 1);
+            var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+            progression.AddExperience(100); SetVisualOffers("BIO_01", "GREED_03", "FLASH_04");
+            view.RefreshOffers(); view.StepPresentation(0.8f);
+            view.MoveSelection(1); view.MoveSelection(1);
+            var camera = new GameObject("Card surface preview camera").AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(0.03f, 0.04f, 0.06f);
+            Canvas canvas = view.CanvasRoot.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camera; canvas.planeDistance = 1f;
+            var root = view.CanvasRoot.transform.Find("UpgradeCard_3");
+            var motion = root.GetComponent<UpgradeCardMotion>();
+            var sheen = root.Find("SurfaceSheen").GetComponent<RawImage>();
+            motion.SetPointer(new Vector2(0.75f, 0.6f), true); view.StepPresentation(1f);
+            sheen.enabled = false;
+            yield return CapturePixelCards(camera, view, "Perspective_NoReflection.png", 1920, 1080);
+            sheen.enabled = true;
+            yield return CapturePixelCards(camera, view, "Perspective_Reflection.png", 1920, 1080);
+            var before = new Texture2D(2, 2); var after = new Texture2D(2, 2);
+            string folder = Path.Combine(Application.dataPath, "..", "Logs", "PixelCards");
+            before.LoadImage(File.ReadAllBytes(Path.Combine(folder, "Perspective_NoReflection.png")));
+            after.LoadImage(File.ReadAllBytes(Path.Combine(folder, "Perspective_Reflection.png")));
+            Color32[] a = before.GetPixels32(), b = after.GetPixels32(); int brighter = 0;
+            for (int i = 0; i < a.Length; i++)
+                if (b[i].r > a[i].r + 2 && b[i].g > a[i].g + 2) brighter++;
+            Assert.That(brighter, Is.InRange(500, 150000), "The shader must visibly reflect light on the card surface.");
+            Object.Destroy(before); Object.Destroy(after);
+
+            double elapsed = 0;
+            var watch = new System.Diagnostics.Stopwatch();
+            for (int i = 0; i < 120; i++)
+            {
+                motion.SetPointer(new Vector2(Mathf.Sin(i * 0.08f) * 0.8f, Mathf.Cos(i * 0.08f) * 0.6f), true);
+                watch.Start(); view.StepPresentation(1f / 60f); Canvas.ForceUpdateCanvases(); watch.Stop();
+                if (i % 4 == 0) yield return CapturePixelCards(camera, view, $"Motion_{i / 4:D2}.png", 1280, 720);
+                yield return null;
+            }
+            elapsed = watch.Elapsed.TotalMilliseconds / 120;
+            Debug.Log($"[Card perspective] Animated presentation + canvas: {elapsed:F3} ms mean over 120 frames.");
+            Assert.That(elapsed, Is.LessThan(16f));
+        }
+
+        private void SetVisualOffers(params string[] ids)
+        {
+            var offers = (List<UpgradeOffer>)typeof(UpgradeDraftController).GetField("offers", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(draft);
+            offers.Clear();
+            foreach (string id in ids) { Assert.That(UpgradeCatalog.TryGet(id, out var card), Is.True); offers.Add(new UpgradeOffer(card, stats)); }
+        }
+
+        private static IEnumerator CapturePixelCards(Camera camera, UpgradeDraftPresentation view, string name, int width, int height)
+        {
+            var target = new RenderTexture(width, height, 24); camera.targetTexture = target;
+            yield return null; yield return null; yield return null;
+            Canvas.ForceUpdateCanvases();
+            foreach (Text text in view.CanvasRoot.GetComponentsInChildren<Text>())
+                Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1f), "Text must fit: " + text.name + " / " + text.text);
+            RenderTexture previous = RenderTexture.active; RenderTexture.active = target;
+            var texture = new Texture2D(width, height, TextureFormat.RGB24, false);
+            texture.ReadPixels(new Rect(0, 0, width, height), 0, 0); texture.Apply();
+            string output = Path.Combine(Application.dataPath, "..", "Logs", "PixelCards"); Directory.CreateDirectory(output);
+            File.WriteAllBytes(Path.Combine(output, name), texture.EncodeToPNG());
+            camera.targetTexture = null; RenderTexture.active = previous;
+            target.Release(); Object.Destroy(target); Object.Destroy(texture);
+        }
     }
 }
