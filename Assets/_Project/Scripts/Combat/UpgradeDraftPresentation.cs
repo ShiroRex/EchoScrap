@@ -16,7 +16,6 @@ namespace EchoScrap.Combat
             public RectTransform Root;
             public Image Border;
             public Image Confirmation;
-            public Image Glow;
             public Image Icon;
             public Image UpgradeArrow;
             public Image Button;
@@ -144,11 +143,6 @@ namespace EchoScrap.Combat
                 if (confirmationIndex != i) card.Root.localScale = Vector3.one * scale;
                 float shake = !reduced && rarity == UpgradeRarity.SSR && t < 1f ? Mathf.Sin(t * 36f) * (1f - t) * 1.1f : 0f;
                 card.Root.localRotation = Quaternion.Euler(0f, 0f, shake);
-                Color glow = UpgradeCatalog.RarityColor(rarity);
-                float pulse = reduced ? 1f : 1f + Mathf.Sin(revealAge * 2.7f + i) * (rarity >= UpgradeRarity.SR ? 0.15f : 0.04f);
-                float intensity = rarity switch { UpgradeRarity.SSR => 0.85f, UpgradeRarity.SR => 0.52f, UpgradeRarity.R => 0.3f, _ => 0.13f };
-                glow.a = intensity * pulse * (i == selectedIndex ? 1f : 0.65f);
-                card.Glow.color = glow;
             }
         }
         public void MoveSelection(int direction)
@@ -248,7 +242,6 @@ namespace EchoScrap.Combat
                 Color color = UpgradeCatalog.RarityColor(offer.Card.Rarity);
                 int rarity = (int)offer.Card.Rarity;
                 cards[i].Border.sprite = skin.frames[rarity];
-                cards[i].Glow.sprite = skin.glows[rarity];
                 cards[i].Confirmation.sprite = skin.frames[rarity];
                 cards[i].Name.text = offer.Card.Name;
                 cards[i].Rarity.text = UpgradeCatalog.RarityName(offer.Card.Rarity);
@@ -318,8 +311,6 @@ namespace EchoScrap.Combat
         {
             var view = new CardView();
             view.Root = ImageRect(canvasRect, $"UpgradeCard_{index + 1}", Vector2.zero, new Vector2(400f, 620f), Color.clear);
-            view.Glow = ImageRect(view.Root, "RarityGlow", Vector2.zero, new Vector2(424f, 644f), Color.clear, true).GetComponent<Image>();
-            NineSlice(view.Glow);
             RectTransform inner = ImageRect(view.Root, "Panel", Vector2.zero, new Vector2(380f, 600f), new Color(0.035f, 0.045f, 0.07f));
             view.Border = ImageRect(view.Root, "Frame", Vector2.zero, new Vector2(400f, 620f), Color.white, true).GetComponent<Image>();
             NineSlice(view.Border);

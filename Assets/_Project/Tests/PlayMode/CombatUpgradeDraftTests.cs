@@ -712,8 +712,8 @@ namespace EchoScrap.Tests
             view.StepPresentation(0.08f);
             Transform legendary = view.CanvasRoot.transform.Find("UpgradeCard_1");
             Assert.That(Quaternion.Angle(legendary.localRotation, Quaternion.identity), Is.GreaterThan(0.05f));
-            Assert.That(legendary.Find("RarityGlow").GetComponent<Image>().color.a,
-                Is.GreaterThan(view.CanvasRoot.transform.Find("UpgradeCard_2/RarityGlow").GetComponent<Image>().color.a * 3f));
+            for (int i = 1; i <= 3; i++)
+                Assert.That(view.CanvasRoot.transform.Find($"UpgradeCard_{i}/RarityGlow"), Is.Null, "Cards must have no blurred outer border.");
             view.StepPresentation(0.8f);
             Assert.That(legendary.localRotation, Is.EqualTo(Quaternion.identity));
             yield return CapturePixelCards(camera, view, "Legendary_Dash_Magnet_1080.png", 1920, 1080);

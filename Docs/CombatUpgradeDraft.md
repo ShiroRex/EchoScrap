@@ -41,9 +41,10 @@ de la estadística principal, sin modificar al jugador. Las ofertas con
 IDs, efectos, rarezas, probabilidades ni exclusión de cartas saturadas.
 
 La aparición de las cartas dura 0,42 s con un pequeño escalonado. La legendaria
-añade una sacudida local de entrada y el halo más intenso; después queda quieta.
+añade una sacudida local de entrada; después queda quieta. Los marcos se dibujan
+nítidos, sin halo exterior ni borde borroso.
 Los efectos reducidos conservan la identificación estática y eliminan esos
-movimientos y pulsaciones. Arte, fuentes, procedencia y regeneración están
+movimientos. Arte, fuentes, procedencia y regeneración están
 documentados en `ArtSource/UI/UpgradeCards/README.md`.
 
 - Izquierda/derecha o A/D, cruceta y stick: cambiar selección.

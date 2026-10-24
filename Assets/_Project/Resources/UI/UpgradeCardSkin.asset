@@ -17,11 +17,6 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 03b7f408c44e20046b1be0eae88f92e2, type: 3}
   - {fileID: 21300000, guid: 68feeed2cfae9e74992407b7627176df, type: 3}
   - {fileID: 21300000, guid: f48a43f47648adf4e88e7825661601c6, type: 3}
-  glows:
-  - {fileID: 21300000, guid: 7686435a13c6c6e4792004f4b1f7ab6b, type: 3}
-  - {fileID: 21300000, guid: 1ee54412305c3e642822bce43926bf38, type: 3}
-  - {fileID: 21300000, guid: 75e25b6e02ab9e24bb6ddbf315b08c1b, type: 3}
-  - {fileID: 21300000, guid: 52451bf58422b9a4abb1410395eae00a, type: 3}
   icons:
   - {fileID: 21300000, guid: 39fac0e4afc1bfa48918ee49752d1a1a, type: 3}
   - {fileID: 21300000, guid: ccf3140e89d11124a87a75cc85f3ed63, type: 3}

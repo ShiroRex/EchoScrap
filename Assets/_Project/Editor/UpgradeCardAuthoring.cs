@@ -18,12 +18,11 @@ namespace EchoScrap.Editor
             Directory.CreateDirectory(Path.GetDirectoryName(Resource)); AssetDatabase.Refresh();
             UpgradeCardSkin skin = AssetDatabase.LoadAssetAtPath<UpgradeCardSkin>(Resource);
             if (skin == null) { skin = ScriptableObject.CreateInstance<UpgradeCardSkin>(); AssetDatabase.CreateAsset(skin, Resource); }
-            skin.frames = new Sprite[4]; skin.glows = new Sprite[4]; skin.icons = new Sprite[8];
+            skin.frames = new Sprite[4]; skin.icons = new Sprite[8];
             string[] rarities = { "Common", "Rare", "Epic", "Legendary" };
             for (int i = 0; i < rarities.Length; i++)
             {
                 skin.frames[i] = Import("Frame_" + rarities[i], 12);
-                skin.glows[i] = Import("Glow_" + rarities[i], 12, true);
             }
             for (int i = 0; i < skin.icons.Length; i++) skin.icons[i] = Import("Icon_" + (UpgradeIcon)i);
             skin.upgradeArrow = Import("UpgradeArrow");
@@ -33,7 +32,7 @@ namespace EchoScrap.Editor
             EditorUtility.SetDirty(skin); AssetDatabase.SaveAssets();
             Debug.Log("[EchoScrap] Upgrade cards: four 9-sliced frames, eight Apollo icons and Pixelify Sans ready.");
         }
-        private static Sprite Import(string name, int border = 0, bool soft = false)
+        private static Sprite Import(string name, int border = 0)
         {
             string path = Art + name + ".png";
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
@@ -43,7 +42,7 @@ namespace EchoScrap.Editor
             var settings = new TextureImporterSettings(); importer.ReadTextureSettings(settings);
             settings.spriteMeshType = SpriteMeshType.FullRect; importer.SetTextureSettings(settings);
             importer.alphaIsTransparency = true; importer.sRGBTexture = true;
-            importer.filterMode = soft ? FilterMode.Bilinear : FilterMode.Point;
+            importer.filterMode = FilterMode.Point;
             importer.wrapMode = TextureWrapMode.Clamp; importer.mipmapEnabled = false;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.npotScale = TextureImporterNPOTScale.None;

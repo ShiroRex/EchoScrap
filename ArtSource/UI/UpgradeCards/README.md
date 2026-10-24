@@ -46,9 +46,8 @@ las esquinas miden 24 unidades de UI y los adornos centrales 80; ninguno cambia
 al redimensionar la tarjeta. El área interior no genera geometría.
 
 El épico conserva incluso el píxel que sobresale de su región principal de 64 px;
-el legendario conserva el margen transparente de su lienzo de 70 px. Los halos
-son máscaras blancas de alfa derivadas de los originales, reservadas a FX, con
-filtrado bilineal. No son marcos adicionales ni variantes de rareza.
+el legendario conserva el margen transparente de su lienzo de 70 px. Las cartas
+no usan halo exterior ni borde borroso; todo el marco se filtra con Point.
 
 ## Fuente e integración
 
@@ -66,9 +65,9 @@ estadísticas efectivas, por ejemplo **120 HP → 140 HP**, sin adquirir la mejo
 durante la previsualización. Los nombres cortos son presentación: los IDs se
 conservan para los estados y el balance.
 
-La legendaria tiene el halo más intenso y una sacudida local breve al entrar.
-La épica tiene una pulsación más suave. La selección y confirmación mantienen
-sus propios acentos. Efectos reducidos eliminan movimiento y pulsación; la
+La legendaria tiene una sacudida local breve al entrar.
+La selección y confirmación mantienen sus propios acentos nítidos.
+Efectos reducidos eliminan el movimiento; la
 rareza y el cambio de nivel siguen identificados por forma y texto.
 
 ## Regenerar y revisar
