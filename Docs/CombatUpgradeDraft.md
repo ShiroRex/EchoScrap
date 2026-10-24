@@ -28,9 +28,41 @@ vez por adquisición. El incremento de salud máxima no rellena automáticamente
 
 `UpgradeDraftPresentation.BindReferences(session, controller)` crea una interfaz de
 tres tarjetas con nombre, rareza, tier, descripción y valores antes/después. Cada
-tarjeta utiliza un icono geométrico y el color de rareza; la selección también se
-identifica por texto y borde. Un CanvasScaler conserva las proporciones a partir
-de 1920 × 1080.
+tarjeta utiliza un icono pixel art de tipo, un marco por rareza y Pixelify Sans;
+la selección también se identifica por texto y borde. Los marcos usan 9-slice
+con esquinas fijas y adornos originales sin estirar. Se reutilizan los marcos del
+prototipo y el común gris entregado por el usuario, uno por rareza. Un CanvasScaler conserva las proporciones
+a partir de 1920 × 1080.
+
+Los nombres de pantalla se acortaron y el beneficio principal se separó del
+detalle. `UpgradeOffer.PrimaryBefore/PrimaryAfter` muestran el cambio efectivo
+de la estadística principal, sin modificar al jugador. Las ofertas con
+`CurrentTier > 0` incluyen flecha verde y el siguiente nivel. No se cambiaron
+IDs, efectos, rarezas, probabilidades ni exclusión de cartas saturadas.
+
+La aparición de las cartas dura 0,42 s con un pequeño escalonado. La legendaria
+añade una sacudida local de entrada; después queda quieta. Los marcos se dibujan
+nítidos, sin halo exterior ni borde borroso.
+Los efectos reducidos conservan la identificación estática y eliminan esos
+movimientos. Arte, fuentes, procedencia y regeneración están
+documentados en `ArtSource/UI/UpgradeCards/README.md`.
+
+El puntero inclina la superficie con perspectiva: hasta 6° horizontal y 4,5°
+vertical, con retorno por resorte amortiguado. Marco, icono, texto y flechas usan
+la misma proyección; el rectángulo de selección permanece fijo. Un reflejo
+tenue con grano fijo sigue el cursor dentro de la superficie, sin halo exterior.
+Al salir el puntero o navegar con teclado/mando, vuelve a reposo. Efectos
+reducidos o intensidad decorativa cero desactivan inclinación y reflejo.
+
+La épica `FLASH_04` resume la desventaja como «Menos área de ataque» en la
+primera adquisición y «Misma área de ataque» al repetirla. Se conserva la
+reducción de apertura de 20° una sola vez y todos los valores de daño y empuje.
+La descripción técnica sigue disponible en `UpgradeOffer.Before/After`.
+
+Contexto para una actividad posterior: la demo de feria escolar necesita un
+máximo de cinco minutos por persona, con al menos 3000 visitantes previstos.
+Esta actividad simplifica la lectura de cartas; no implementa ese formato ni
+altera los ocho minutos de horda y el combate de jefe del GDD actual.
 
 - Izquierda/derecha o A/D, cruceta y stick: cambiar selección.
 - 1/2/3: elegir directamente la tarjeta correspondiente.
