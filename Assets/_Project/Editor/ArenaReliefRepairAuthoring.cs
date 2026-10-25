@@ -72,10 +72,13 @@ namespace EchoScrap.Editor
             EditorUtility.SetDirty(settings);
             GameObject.Find("ArenaDirectionalLight").GetComponent<Light>().intensity = 0.22f;
             RenderSettings.ambientIntensity = 0.22f;
-            // Trilight uses its colors directly, so scale these as well as the inspector multiplier.
-            RenderSettings.ambientSkyColor = new Color(0.44f, 0.48f, 0.56f) * 0.22f;
-            RenderSettings.ambientEquatorColor = new Color(0.35f, 0.29f, 0.22f) * 0.22f;
-            RenderSettings.ambientGroundColor = new Color(0.19f, 0.14f, 0.10f) * 0.22f;
+            // Retain the lighting palette of an authored sky when updating terrain/colliders.
+            if (!AssetDatabase.GetAssetPath(RenderSettings.skybox).StartsWith("Assets/"))
+            {
+                RenderSettings.ambientSkyColor = new Color(0.44f, 0.48f, 0.56f) * 0.22f;
+                RenderSettings.ambientEquatorColor = new Color(0.35f, 0.29f, 0.22f) * 0.22f;
+                RenderSettings.ambientGroundColor = new Color(0.19f, 0.14f, 0.10f) * 0.22f;
+            }
             Physics.SyncTransforms();
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
