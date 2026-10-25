@@ -156,6 +156,18 @@ namespace EchoScrap.Tests
             game.ResetRun(false);
             Assert.AreEqual(0,lava.AnimationTime);
         }
+        [UnityTest] public IEnumerator EnergyArtworkTracksActualDashAndRecharge()
+        {
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W,Key.Space));
+            yield return null; yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
+            Assert.IsTrue(game.Motor.IsDashing);
+            game.Hud.RefreshNow();
+            var fill=game.Hud.CanvasRoot.transform.Find("Dash/ArtworkTrack/DashFill").GetComponent<UnityEngine.UI.Image>();
+            Assert.AreEqual(0f,fill.fillAmount,0.001f);
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState());
+            yield return new WaitForSeconds(1.5f);
+            game.Hud.RefreshNow(); Assert.AreEqual(1f,fill.fillAmount,0.001f);
+        }
         [Test] public void ImportedVaultWallsAreSymmetric_AndStairsCoverTheCorridor()
         {
             var passage=GameObject.Find("WarehouseConnection/PasilloDescendente").transform;

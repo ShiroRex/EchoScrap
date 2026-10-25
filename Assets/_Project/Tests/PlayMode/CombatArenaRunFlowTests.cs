@@ -277,6 +277,23 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator ImportedHudUsesOriginalFramesAndPortrait_AndFreezesAnimationWhenPaused()
+        {
+            var root=game.Hud.CanvasRoot.transform;
+            var energy=root.Find("Dash").GetComponent<HudBarArtwork>();
+            Assert.AreEqual(5,energy.FrameCount);
+            Assert.IsNotNull(root.Find("Integrity/Portrait").GetComponent<UnityEngine.UI.Image>().sprite);
+            game.Session.ResumeFromFocusLoss();
+            var seen=new System.Collections.Generic.HashSet<int>();
+            for(int i=0;i<30;i++) { seen.Add(energy.FrameIndex); yield return new WaitForSeconds(.04f); }
+            Assert.Greater(seen.Count,1,"The supplied animation must play.");
+            game.Session.SetManualPause(true);
+            int held=energy.FrameIndex;
+            yield return new WaitForSecondsRealtime(.3f);
+            Assert.AreEqual(held,energy.FrameIndex);
+            game.Session.SetManualPause(false);
+        }
+        [UnityTest]
         public IEnumerator HudPreview_CapturesReadable720pAnd1080p_WithAllEightAcquiredCards()
         {
             foreach (UpgradeCardDefinition card in UpgradeCatalog.Cards)
