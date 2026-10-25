@@ -67,7 +67,7 @@ namespace EchoScrap.Tests
             for (int i = 0; i < 115; i++)
             {
                 yield return new WaitForFixedUpdate();
-                Assert.AreEqual(1.3f, view.CharacterRenderer.transform.localScale.x, 0.0001f);
+                Assert.AreEqual(1.1f, view.CharacterRenderer.transform.localScale.x, 0.0001f);
                 if (i < 15) continue;
                 var b = view.CharacterRenderer.bounds;
                 float h = Mathf.Abs(game.GameplayCamera.WorldToScreenPoint(b.max).y - game.GameplayCamera.WorldToScreenPoint(b.min).y);

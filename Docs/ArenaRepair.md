@@ -4,8 +4,9 @@ La escena CombatArena conserva el combate, los modelos del equipo y el encuentro
 con MataColeccionista. Se corrigieron el apoyo en el terreno, las rutas, el
 perímetro y la presentación del vertedero.
 
-- **Jugador:** escala visual fija de 1,3. La subida de una colina ya no cambia
-  de golpe su escala para ajustarla a píxeles de pantalla. El ajuste al píxel
+- **Jugador:** escala visual fija de 1,1 (tamaño original más un 10 %).
+  La subida de una colina ya no cambia de golpe su escala para ajustarla a píxeles
+  de pantalla. El ajuste al píxel
   afecta a la posición de los pies; el cuerpo permanece vertical.
 - **Terreno y objetos:** cinco elevaciones de hasta 2,6 m. Se apoyan los modelos
   usando vértices de sus bases y la pendiente local. La disposición tiene 76
@@ -66,7 +67,9 @@ real de mortero y apoyo de los tres depósitos. Comprueban también conectividad
 del terreno y cero asignaciones en 500 consultas de dirección de navegación.
 Los resultados locales se guardan en `Logs/ArenaRepair/`.
 
-Resultado final: **239/239 pruebas correctas**, en `ReleaseTests.xml`. La build
+La corrección de la arena pasó **239/239 pruebas**, en `ReleaseTests.xml`.
+El ajuste posterior del Coleccionista a escala 1,1 pasó las **3/3 pruebas** de
+tamaño, apoyo y subida de pendientes, en `Collector10Tests.xml`. La build
 Windows x86_64 se compiló correctamente y se copió a `Builds/Windows`; se comprobó
 el hash de su ensamblado de combate contra la copia validada.
 

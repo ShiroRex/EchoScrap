@@ -79,15 +79,15 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator BalancedArenaUsesFiftyDegreeCameraAndThirtyPercentLargerSprite()
+        public IEnumerator BalancedArenaUsesFiftyDegreeCameraAndTenPercentLargerSprite()
         {
             var rig = Object.FindAnyObjectByType<Unity.Cinemachine.CinemachineCamera>();
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, rig.transform.eulerAngles.x)), Is.LessThan(0.01f));
             var field = typeof(CollectorSpriteView).GetField("visualScale", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            Assert.That((float)field.GetValue(view), Is.EqualTo(1.3f).Within(0.001f));
+            Assert.That((float)field.GetValue(view), Is.EqualTo(1.1f).Within(0.001f));
             for (int i = 0; i < 3; i++) game.Enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(-4 + i * 4, 1, 8));
             yield return Capture(game.GameplayCamera, "Balance50Degrees.png");
-            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.GreaterThan(1.1f));
+            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(1.1f).Within(0.001f));
         }
 
         [UnityTest]
@@ -116,8 +116,8 @@ namespace EchoScrap.Tests
             foreach (Transform child in game.Motor.GetComponentsInChildren<Transform>(true))
                 if (child.name == "Placeholder Body" || child.name == "Facing Marker") Assert.That(child.gameObject.activeSelf, Is.False);
             yield return Capture(game.GameplayCamera, "Arena.png");
-            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(1.3f).Within(0.001f),
-                "Keep the authored 30% enlargement independent of screen-pixel rounding.");
+            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(1.1f).Within(0.001f),
+                "Keep the authored 10% enlargement independent of screen-pixel rounding.");
             var close = new GameObject("Collector close-up camera").AddComponent<Camera>();
             close.CopyFrom(game.GameplayCamera);
             close.transform.rotation = game.GameplayCamera.transform.rotation;

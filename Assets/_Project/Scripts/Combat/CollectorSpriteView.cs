@@ -23,7 +23,7 @@ namespace EchoScrap.Combat
         [SerializeField] private Vector3 footOffset = Vector3.down;
         [SerializeField] private Transform pulseIndicator;
         [SerializeField] private bool snapToPixelGrid = true;
-        [SerializeField, Min(0.5f)] private float visualScale = 1.3f;
+        [SerializeField, Min(0.5f)] private float visualScale = 1.1f;
         [Tooltip("Fixed world-space proportions of the upright plane; never compensated against the camera.")]
         [SerializeField, Min(0.5f)] private float standingHeight = 1.6f;
         private FlashlightPresentation flashlight;

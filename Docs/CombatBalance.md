@@ -63,7 +63,8 @@ Las cartas muestran estos mismos valores del asset, sin tablas duplicadas.
   botón sur del mando, clic o los accesos directos 1/2/3. Se mantiene la barrera
   de soltar los botones al abrir una elección.
 - Cámara de combate a **50°**, conservando la distancia al punto seguido.
-- Sprite del protagonista con escala visual **1,3**; colisión y alcance intactos.
+- Sprite del protagonista con escala visual **1,1** (original más un 10 %);
+  colisión y alcance intactos.
 - **Chakra Petch** Regular/SemiBold en cartas, HUD y números de daño por defecto.
   Su licencia OFL se incluye en StreamingAssets.
 - Los cuatro marcos originales mantienen su 9-slice y reciben normales con
