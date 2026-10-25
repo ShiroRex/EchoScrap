@@ -21,6 +21,8 @@ namespace EchoScrap.Combat
 
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
+        private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
+        private static readonly int GlowStrengthId = Shader.PropertyToID("_GlowStrength");
         private static readonly Color WarningColor = new Color(1f, 0.74f, 0.16f, 0.95f);
         private static readonly Color AcidBorderColor = new Color(0.68f, 1f, 0.22f, 0.95f);
         [SerializeField] private CombatSession session;
@@ -77,6 +79,8 @@ namespace EchoScrap.Combat
             public Renderer ReticleRenderer;
             public Transform Fill;
             public Renderer FillRenderer;
+            public GroundPatch ReticlePatch;
+            public GroundPatch FillPatch;
             public TrailRenderer Trail;
             public ProjectileSpec Spec;
             public float Elapsed;
@@ -92,6 +96,9 @@ namespace EchoScrap.Combat
             public Renderer BorderRenderer;
             public Transform ImpactRing;
             public Renderer ImpactRenderer;
+            public GroundPatch CorePatch;
+            public GroundPatch BorderPatch;
+            public GroundPatch ImpactPatch;
             public int SourceId;
             public int SequenceId;
             public Vector3 Center;
@@ -107,11 +114,23 @@ namespace EchoScrap.Combat
             public bool Reserved;
         }
 
+        // Each slot owns reusable vertices. Sampling ArenaSurface preserves the true XZ
+        // radius on hills instead of shrinking a tilted circle or burying it in the floor.
+        private sealed class GroundPatch
+        {
+            public Mesh Mesh;
+            public Vector3[] UnitVertices;
+            public Vector3[] Vertices;
+        }
+
         private readonly ProjectileSlot[] projectiles = new ProjectileSlot[MaxInFlightProjectiles];
         private readonly PuddleSlot[] puddles = new PuddleSlot[MaxActivePuddles];
         private Material acidMaterial;
         private Mesh ringMesh;
         private Mesh discMesh;
+        private Mesh shellMesh;
+        private MortarAcidSet acidArt;
+        private Camera presentationCamera;
         private MaterialPropertyBlock block;
         private CombatSession subscribedSession;
         private int sequenceId;
@@ -153,19 +172,30 @@ namespace EchoScrap.Combat
             acidMaterial.SetFloat("_ZWrite", 0f);
             acidMaterial.SetFloat("_Cull", (float)CullMode.Off);
             acidMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            acidArt = MortarAcidSet.Load();
+            if (acidArt != null && !acidArt.IsReady) acidArt = null;
+            presentationCamera = Camera.main;
+            if (presentationCamera == null) presentationCamera = FindAnyObjectByType<Camera>();
             ringMesh = CreateGroundMesh(true);
             discMesh = CreateGroundMesh(false);
+            if (acidArt != null) shellMesh = CreateShellMesh();
             for (int i = 0; i < projectiles.Length; i++)
             {
                 var root = new GameObject($"MortarProjectileSlot_{i}");
                 root.transform.SetParent(transform, false);
-                var shell = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                var shell = acidArt != null ? new GameObject() : GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 shell.name = "ParabolicShell";
                 shell.transform.SetParent(root.transform, false);
-                shell.transform.localScale = Vector3.one * 0.34f;
-                DestroyImmediate(shell.GetComponent<Collider>());
+                shell.transform.localScale = Vector3.one * (acidArt != null ? acidArt.projectileSize : 0.34f);
+                if (acidArt != null)
+                {
+                    shell.AddComponent<MeshFilter>().sharedMesh = shellMesh;
+                    shell.AddComponent<MeshRenderer>();
+                }
+                else DestroyImmediate(shell.GetComponent<Collider>());
                 Renderer shellRenderer = shell.GetComponent<Renderer>();
                 ConfigureRenderer(shellRenderer);
+                if (acidArt != null) shellRenderer.sharedMaterial = acidArt.projectileMaterial;
                 var trail = shell.AddComponent<TrailRenderer>();
                 ConfigureRenderer(trail);
                 // URP/Unlit ignores the per-vertex trail gradient. The imported material preserves its acid colour and fade.
@@ -174,13 +204,14 @@ namespace EchoScrap.Combat
                 trail.startColor = new Color(0.65f, 1f, 0.18f, 0.7f);
                 trail.endColor = new Color(0.35f, 0.85f, 0.15f, 0f);
                 trail.emitting = false;
-                Transform reticle = CreateGroundVisual(root.transform, "GroundReticleOuter", ringMesh, out Renderer reticleRenderer);
-                Transform fill = CreateGroundVisual(root.transform, "GroundReticleFill", discMesh, out Renderer fillRenderer);
+                Transform reticle = CreateGroundVisual(root.transform, "GroundReticleOuter", ringMesh, out Renderer reticleRenderer, out GroundPatch reticlePatch);
+                Transform fill = CreateGroundVisual(root.transform, "GroundReticleFill", discMesh, out Renderer fillRenderer, out GroundPatch fillPatch);
                 projectiles[i] = new ProjectileSlot
                 {
                     Root = root, Shell = shell.transform, ShellRenderer = shellRenderer,
                     Reticle = reticle, ReticleRenderer = reticleRenderer,
-                    Fill = fill, FillRenderer = fillRenderer, Trail = trail
+                    Fill = fill, FillRenderer = fillRenderer, Trail = trail,
+                    ReticlePatch = reticlePatch, FillPatch = fillPatch
                 };
                 root.SetActive(false);
             }
@@ -188,13 +219,19 @@ namespace EchoScrap.Combat
             {
                 var root = new GameObject($"CorrosivePuddleSlot_{i}");
                 root.transform.SetParent(transform, false);
-                Transform core = CreateGroundVisual(root.transform, "AcidCoreFill", discMesh, out Renderer coreRenderer);
-                Transform border = CreateGroundVisual(root.transform, "SharpOuterBorder", ringMesh, out Renderer borderRenderer);
-                Transform impact = CreateGroundVisual(root.transform, "LandingRipple", ringMesh, out Renderer impactRenderer);
+                Transform core = CreateGroundVisual(root.transform, "AcidCoreFill", discMesh, out Renderer coreRenderer, out GroundPatch corePatch);
+                Transform border = CreateGroundVisual(root.transform, "SharpOuterBorder", ringMesh, out Renderer borderRenderer, out GroundPatch borderPatch);
+                Transform impact = CreateGroundVisual(root.transform, "LandingRipple", acidArt != null ? discMesh : ringMesh, out Renderer impactRenderer, out GroundPatch impactPatch);
+                if (acidArt != null)
+                {
+                    coreRenderer.sharedMaterial = acidArt.puddleMaterial;
+                    impactRenderer.sharedMaterial = acidArt.impactMaterial;
+                }
                 puddles[i] = new PuddleSlot
                 {
                     Root = root, Core = core, CoreRenderer = coreRenderer, Border = border, BorderRenderer = borderRenderer,
-                    ImpactRing = impact, ImpactRenderer = impactRenderer
+                    ImpactRing = impact, ImpactRenderer = impactRenderer,
+                    CorePatch = corePatch, BorderPatch = borderPatch, ImpactPatch = impactPatch
                 };
                 root.SetActive(false);
             }
@@ -228,10 +265,32 @@ namespace EchoScrap.Combat
             if (acidMaterial != null) Destroy(acidMaterial);
             if (ringMesh != null) Destroy(ringMesh);
             if (discMesh != null) Destroy(discMesh);
+            if (shellMesh != null) Destroy(shellMesh);
+            foreach (var slot in projectiles)
+            {
+                if (slot == null) continue;
+                Destroy(slot.ReticlePatch.Mesh); Destroy(slot.FillPatch.Mesh);
+            }
+            foreach (var slot in puddles)
+            {
+                if (slot == null) continue;
+                Destroy(slot.CorePatch.Mesh); Destroy(slot.BorderPatch.Mesh); Destroy(slot.ImpactPatch.Mesh);
+            }
         }
         private bool CanSimulate => isActiveAndEnabled && Time.timeScale > 0f &&
             (session == null || (!session.IsPaused && session.IsGameplayFlowActive()));
         private void Update() => StepPool(Time.deltaTime);
+        private void LateUpdate()
+        {
+            if (acidArt == null) return;
+            if (presentationCamera == null)
+            {
+                presentationCamera = Camera.main;
+                if (presentationCamera == null) return;
+            }
+            Quaternion rotation = presentationCamera.transform.rotation;
+            foreach (var slot in projectiles) if (slot.Active) slot.Shell.rotation = rotation;
+        }
 
         public bool LaunchParabolicProjectile(in ProjectileSpec spec) => TryLaunchParabolicProjectile(in spec);
         public bool TryLaunchParabolicProjectile(in ProjectileSpec spec)
@@ -249,17 +308,15 @@ namespace EchoScrap.Combat
             TotalProjectilesLaunched++;
             slot.Root.SetActive(true);
             slot.Shell.position = spec.LaunchOrigin;
+            if (acidArt != null && presentationCamera != null) slot.Shell.rotation = presentationCamera.transform.rotation;
             slot.Trail.Clear();
             slot.Trail.emitting = DecorativeIntensity > 0f;
             float radius = Mathf.Max(spec.PuddleRadius, spec.ImpactRadius);
-            slot.Reticle.position = ArenaSurface.OnGround(spec.TargetPosition, 0.035f);
-            slot.Reticle.localScale = Vector3.one * radius * 2f;
-            slot.Fill.position = ArenaSurface.OnGround(spec.TargetPosition, 0.025f);
-            slot.Reticle.up = slot.Fill.up = ArenaSurface.Normal(spec.TargetPosition);
-            slot.Fill.localScale = Vector3.one * 0.05f;
+            ProjectGroundVisual(slot.Reticle, slot.ReticlePatch, slot.Spec.TargetPosition, radius * 2f, 0.035f);
+            ProjectGroundVisual(slot.Fill, slot.FillPatch, slot.Spec.TargetPosition, 0.05f, 0.025f);
             ApplyColor(slot.ReticleRenderer, WarningColor);
             ApplyColor(slot.FillRenderer, new Color(1f, 0.56f, 0.12f, 0.16f));
-            ApplyColor(slot.ShellRenderer, new Color(0.75f, 1f, 0.27f, 1f));
+            UpdateProjectileVisual(slot);
             return true;
         }
 
@@ -294,11 +351,9 @@ namespace EchoScrap.Combat
             slot.Root.transform.position = slot.Center + Vector3.up * 0.03f;
             slot.Root.transform.up = ArenaSurface.Normal(position);
             slot.Root.SetActive(true);
-            slot.Border.localPosition = Vector3.up * 0.003f;
-            slot.Border.localScale = Vector3.one * slot.Radius * 2f;
-            slot.Core.localPosition = Vector3.zero;
-            slot.Core.localScale = Vector3.one * slot.Radius * 1.85f;
-            slot.ImpactRing.localPosition = Vector3.up * 0.008f;
+            ProjectGroundVisual(slot.Border, slot.BorderPatch, slot.Center, slot.Radius * 2f, 0.033f);
+            ProjectGroundVisual(slot.Core, slot.CorePatch, slot.Center, slot.Radius * 1.85f, 0.03f);
+            ProjectGroundVisual(slot.ImpactRing, slot.ImpactPatch, slot.Center, slot.Radius * 2f, 0.038f);
             TotalPuddlesCreated++;
             UpdatePuddleVisuals(slot);
             return slot.SequenceId;
@@ -338,9 +393,10 @@ namespace EchoScrap.Combat
                     previous=next;
                 }
                 slot.Shell.position = position;
+                UpdateProjectileVisual(slot);
                 slot.Trail.emitting = DecorativeIntensity > 0f;
                 float radius = Mathf.Max(slot.Spec.PuddleRadius, slot.Spec.ImpactRadius);
-                slot.Fill.localScale = Vector3.one * Mathf.Lerp(0.05f, radius * 2f, t);
+                ProjectGroundVisual(slot.Fill, slot.FillPatch, slot.Spec.TargetPosition, Mathf.Lerp(0.05f, radius * 2f, t), 0.025f);
                 ApplyColor(slot.FillRenderer, new Color(1f, Mathf.Lerp(0.64f, 0.2f, t), 0.1f, 0.16f + t * 0.14f));
                 if (!blocked && slot.Elapsed + 0.00001f < duration) continue;
                 slot.Active = false; slot.Trail.emitting = false; slot.Trail.Clear(); slot.Root.SetActive(false);
@@ -389,14 +445,43 @@ namespace EchoScrap.Combat
         }
         private float DecorativeIntensity => session == null ? 1f :
             (session.Effects.ReducedEffectsMode ? 0f : session.Effects.DecorativeIntensity);
+        private void UpdateProjectileVisual(ProjectileSlot slot)
+        {
+            if (acidArt == null)
+            {
+                ApplyColor(slot.ShellRenderer, new Color(0.75f, 1f, 0.27f, 1f));
+                return;
+            }
+            ApplySpriteFrame(slot.ShellRenderer,
+                MortarAcidSet.LoopFrame(slot.Elapsed, MortarAcidSet.ProjectileFrameDuration, MortarAcidSet.ProjectileFrames),
+                MortarAcidSet.ProjectileFrames, Color.white, 0.85f * DecorativeIntensity);
+        }
         private void UpdatePuddleVisuals(PuddleSlot slot)
         {
             // Fade only the core; the damaging boundary stays fully readable until expiry.
             ApplyColor(slot.BorderRenderer, AcidBorderColor);
+            if (acidArt != null)
+            {
+                // Frame phase differs per pooled landing, avoiding synchronized bubbling.
+                int frame = (MortarAcidSet.LoopFrame(slot.Elapsed, MortarAcidSet.PuddleFrameDuration, MortarAcidSet.PuddleFrames)
+                    + slot.SequenceId) % MortarAcidSet.PuddleFrames;
+                float drying = Mathf.Lerp(0.28f, 1f, slot.FadeAlpha);
+                ApplySpriteFrame(slot.CoreRenderer, frame, MortarAcidSet.PuddleFrames,
+                    new Color(drying, drying, drying, Mathf.Lerp(0.35f, 0.88f, slot.FadeAlpha)),
+                    0.45f * slot.FadeAlpha * DecorativeIntensity);
+                bool landingActive = slot.Elapsed < MortarAcidSet.ImpactFrames * MortarAcidSet.ImpactFrameDuration && DecorativeIntensity > 0f;
+                slot.ImpactRing.gameObject.SetActive(landingActive);
+                if (landingActive)
+                    ApplySpriteFrame(slot.ImpactRenderer, Mathf.Min(MortarAcidSet.ImpactFrames - 1,
+                        Mathf.FloorToInt(slot.Elapsed / MortarAcidSet.ImpactFrameDuration)), MortarAcidSet.ImpactFrames,
+                        new Color(1f, 1f, 1f, DecorativeIntensity), 0.7f * DecorativeIntensity);
+                return;
+            }
             ApplyColor(slot.CoreRenderer, new Color(0.22f, 0.62f, 0.10f, Mathf.Lerp(0.22f, 0.6f, slot.FadeAlpha)));
             float landing = Mathf.Clamp01(slot.Elapsed / 0.22f);
             slot.ImpactRing.gameObject.SetActive(landing < 1f && DecorativeIntensity > 0f);
-            slot.ImpactRing.localScale = Vector3.one * slot.Radius * 2f * Mathf.Lerp(0.15f, 1f, landing);
+            ProjectGroundVisual(slot.ImpactRing, slot.ImpactPatch, slot.Center,
+                slot.Radius * 2f * Mathf.Lerp(0.15f, 1f, landing), 0.038f);
             ApplyColor(slot.ImpactRenderer, new Color(0.78f, 1f, 0.32f, (1f - landing) * DecorativeIntensity));
         }
         private int FindFreeProjectile()
@@ -469,11 +554,15 @@ namespace EchoScrap.Combat
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
         }
-        private Transform CreateGroundVisual(Transform parent, string name, Mesh mesh, out Renderer renderer)
+        private Transform CreateGroundVisual(Transform parent, string name, Mesh mesh, out Renderer renderer, out GroundPatch patch)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
-            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            Mesh instance = Instantiate(mesh);
+            instance.name = name + "Surface";
+            instance.MarkDynamic();
+            patch = new GroundPatch { Mesh = instance, UnitVertices = mesh.vertices, Vertices = new Vector3[mesh.vertexCount] };
+            go.AddComponent<MeshFilter>().sharedMesh = instance;
             renderer = go.AddComponent<MeshRenderer>();
             ConfigureRenderer(renderer);
             return go.transform;
@@ -483,23 +572,84 @@ namespace EchoScrap.Combat
             block.Clear(); block.SetColor(BaseColorId, color); block.SetColor(ColorId, color);
             renderer.SetPropertyBlock(block);
         }
+        private void ApplySpriteFrame(Renderer renderer, int frame, int count, Color tint, float glow)
+        {
+            block.Clear();
+            block.SetColor(BaseColorId, tint);
+            block.SetVector(FrameRectId, MortarAcidSet.FrameRect(frame, count));
+            block.SetFloat(GlowStrengthId, glow);
+            renderer.SetPropertyBlock(block);
+        }
+
+        private static void ProjectGroundVisual(Transform visual, GroundPatch patch, Vector3 center, float diameter, float height)
+        {
+            visual.position = ArenaSurface.OnGround(center, height);
+            visual.up = ArenaSurface.Normal(center);
+            visual.localScale = Vector3.one * diameter;
+            Matrix4x4 worldToLocal = visual.worldToLocalMatrix;
+            for (int i = 0; i < patch.UnitVertices.Length; i++)
+            {
+                Vector3 unit = patch.UnitVertices[i];
+                Vector3 point = new Vector3(center.x + unit.x * diameter, 0f, center.z + unit.z * diameter);
+                patch.Vertices[i] = worldToLocal.MultiplyPoint3x4(ArenaSurface.OnGround(point, height));
+            }
+            patch.Mesh.SetVertices(patch.Vertices);
+            patch.Mesh.RecalculateBounds();
+        }
+
+        private static Mesh CreateShellMesh()
+        {
+            return new Mesh
+            {
+                name = "MortarAcidBillboard",
+                vertices = new[] { new Vector3(-0.5f, -0.5f), new Vector3(0.5f, -0.5f), new Vector3(-0.5f, 0.5f), new Vector3(0.5f, 0.5f) },
+                uv = new[] { Vector2.zero, Vector2.right, Vector2.up, Vector2.one },
+                triangles = new[] { 0, 2, 1, 2, 3, 1 },
+                bounds = new Bounds(Vector3.zero, Vector3.one)
+            };
+        }
         private static Mesh CreateGroundMesh(bool ring)
         {
             const int segments = 64;
-            var vertices = new Vector3[segments * 2];
-            var triangles = new int[segments * 6];
+            // Extra interior rings keep drawn pools supported on curved hills.
+            const int radialRings = 4;
+            var vertices = new Vector3[ring ? segments * 2 : segments * radialRings + 1];
+            var uv = new Vector2[vertices.Length];
+            var triangles = new int[ring ? segments * 6 : segments * 3 + (radialRings - 1) * segments * 6];
             for (int i = 0; i < segments; i++)
             {
                 float angle = i * Mathf.PI * 2f / segments;
                 var direction = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
-                vertices[i * 2] = direction * 0.5f;
-                vertices[i * 2 + 1] = direction * (ring ? 0.465f : 0f);
-                int next = ((i + 1) % segments) * 2;
-                int start = i * 2; int tri = i * 6;
-                triangles[tri] = start; triangles[tri + 1] = start + 1; triangles[tri + 2] = next;
-                triangles[tri + 3] = next; triangles[tri + 4] = start + 1; triangles[tri + 5] = next + 1;
+                if (ring)
+                {
+                    vertices[i * 2] = direction * 0.5f;
+                    vertices[i * 2 + 1] = direction * 0.465f;
+                    int next = ((i + 1) % segments) * 2;
+                    int start = i * 2; int tri = i * 6;
+                    triangles[tri] = start; triangles[tri + 1] = start + 1; triangles[tri + 2] = next;
+                    triangles[tri + 3] = next; triangles[tri + 4] = start + 1; triangles[tri + 5] = next + 1;
+                }
+                else
+                {
+                    int next = (i + 1) % segments;
+                    int center = vertices.Length - 1;
+                    triangles[i * 3] = center; triangles[i * 3 + 1] = i; triangles[i * 3 + 2] = next;
+                    for (int r = 0; r < radialRings; r++)
+                    {
+                        int current = r * segments + i;
+                        vertices[current] = direction * (0.5f * (r + 1) / radialRings);
+                        if (r == 0) continue;
+                        int previous = (r - 1) * segments + i;
+                        int nextCurrent = r * segments + next;
+                        int nextPrevious = (r - 1) * segments + next;
+                        int tri = segments * 3 + ((r - 1) * segments + i) * 6;
+                        triangles[tri] = current; triangles[tri + 1] = previous; triangles[tri + 2] = nextCurrent;
+                        triangles[tri + 3] = nextCurrent; triangles[tri + 4] = previous; triangles[tri + 5] = nextPrevious;
+                    }
+                }
             }
-            var mesh = new Mesh { name = ring ? "HazardUnitRing" : "HazardUnitDisc", vertices = vertices, triangles = triangles };
+            for (int i = 0; i < vertices.Length; i++) uv[i] = new Vector2(vertices[i].x + 0.5f, vertices[i].z + 0.5f);
+            var mesh = new Mesh { name = ring ? "HazardUnitRing" : "HazardUnitDisc", vertices = vertices, triangles = triangles, uv = uv };
             mesh.RecalculateNormals(); mesh.RecalculateBounds();
             return mesh;
         }

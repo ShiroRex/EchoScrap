@@ -66,6 +66,7 @@ namespace EchoScrap.Combat
         private MothFusePresentation mothPresentation;
         private Prototype.EnemyMoth prototypeMoth;
         private MothExplosionPool mothExplosions;
+        private MortarSpriteView mortarView;
         private Transform mortarEmitter;
         private Vector3 mortarEmitterRestPosition;
         private Vector3 mortarEmitterRestScale;
@@ -99,6 +100,9 @@ namespace EchoScrap.Combat
         public float FuseTimer => fuseTimer;
         public float AttackCooldownTimer => attackCooldownTimer;
         public float TelegraphTimer => telegraphTimer;
+        public bool IsMortarCharging => ArchetypeId == EnemyArchetypeId.Mortar && telegraphTimer > 0f;
+        public float MortarChargeProgress => Mathf.Clamp01(telegraphTimer /
+            Mathf.Clamp(MortarAttack.WarningDuration, 0.1f, Mathf.Max(0.5f, MortarAttack.FireInterval)));
         public bool IsFuseActive => isFuseActive;
         public Vector3 WorldCenter => transform.position;
         public CapsuleCollider BodyCollider => bodyCollider;
@@ -303,7 +307,7 @@ namespace EchoScrap.Combat
                 if (r == null)
                     continue;
 
-                if (r.name == "Polilla Reactor Pixels") continue;
+                if (r.name == "Polilla Reactor Pixels" || r.name == "Mortero Campana Pixels") continue;
                 if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.GolgoraBoss && r.GetComponentInParent<Animator>() != null) continue;
 
                 r.sharedMaterial = r.gameObject.name.Contains("Crest") ? secondaryMat : primaryMat;
@@ -354,7 +358,12 @@ namespace EchoScrap.Combat
             bodyCollider.enabled = false;
             body.isKinematic = true;
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+            {
                 EnsurePuddlePool();
+                transform.localScale = runtimeArchetype.VisualScale;
+                mortarView = GetComponent<MortarSpriteView>() ?? gameObject.AddComponent<MortarSpriteView>();
+                mortarView.Bind(this);
+            }
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
             {
                 transform.localScale = runtimeArchetype.VisualScale;
@@ -546,6 +555,11 @@ namespace EchoScrap.Combat
             CombatTargetRegistry.Register(this);
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
                 GetComponent<MothSpriteView>()?.Advance(0f);
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+            {
+                mortarView = GetComponent<MortarSpriteView>() ?? gameObject.AddComponent<MortarSpriteView>();
+                mortarView.Bind(this);
+            }
             Physics.SyncTransforms();
         }
 
@@ -644,7 +658,7 @@ namespace EchoScrap.Combat
                     body.position = new Vector3(body.position.x, 1f, body.position.z);
             }
 
-            // 4. Mortero: cadencia de 3,5 s, vuelo de 0,65 s y charco con reserva propia.
+            // 4. Mortero: cadencia editable y charco con reserva propia.
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
             {
                 StepMortarAttack(fixedDeltaTime);
@@ -682,7 +696,9 @@ namespace EchoScrap.Combat
 
             if (attackCooldownTimer >= interval && hasCapacity)
             {
-                Vector3 launchOrigin = transform.position + new Vector3(0f, 0.65f, 0f) + facingDirection * 0.25f;
+                Vector3 launchOrigin = mortarView != null && mortarView.IsReady
+                    ? mortarView.LaunchOrigin
+                    : transform.position + new Vector3(0f, 1.5f, 0f);
                 var spec = CorrosivePuddlePool.ProjectileSpec.CreateMortarDefault(
                     TargetId,
                     launchOrigin,
@@ -698,6 +714,7 @@ namespace EchoScrap.Combat
                     telegraphTimer = 0f;
                     mortarRecoilRemaining = 0.16f;
                     MortarShotsFiredCount++;
+                    mortarView?.NotifyProjectileLaunched();
                 }
             }
         }
@@ -1035,6 +1052,8 @@ namespace EchoScrap.Combat
             activeEnemies.Remove(this);
 
             // Desactivar inmediatamente daño, selección y colisión del actor
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+                mortarView?.PlayDeath();
             if (bodyCollider != null)
                 bodyCollider.enabled = false;
             if (body != null && !body.isKinematic)
