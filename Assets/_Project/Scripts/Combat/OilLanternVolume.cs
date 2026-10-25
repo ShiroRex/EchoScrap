@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using EchoScrap.Core;
 
 namespace EchoScrap.Combat
 {
@@ -9,6 +10,8 @@ namespace EchoScrap.Combat
     {
         [Tooltip("Desactivar cuando el sprite ya contiene la llama y su farol.")]
         [SerializeField] private bool drawFlameMesh = true;
+        [Tooltip("Distancia del terreno que ilumina la linterna cuando no hay un enemigo seleccionado.")]
+        [SerializeField, Min(0.25f)] private float terrainAimDistance = 3f;
         private FlashlightWeapon weapon;
         private CollectorSpriteView collector;
         private Light keyLight;
@@ -93,6 +96,21 @@ namespace EchoScrap.Combat
                 // The weapon pivot is a gameplay origin. Its old height/forward offset no
                 // longer matches the resized art, so attach only the visible light and beam.
                 keyLight.transform.position = lanternPosition;
+                Vector3 aimPoint;
+                IDamageTarget target = weapon.CurrentTarget;
+                bool targetExists = target != null && (!(target is Object unityTarget) || unityTarget != null);
+                if (targetExists && target.IsAlive)
+                    aimPoint = target.WorldCenter;
+                else
+                {
+                    Vector3 direction = Vector3.ProjectOnPlane(weapon.CurrentAimDirection, Vector3.up).normalized;
+                    if (direction.sqrMagnitude < 0.001f) direction = Vector3.forward;
+                    aimPoint = weapon.OriginPosition + direction * Mathf.Min(terrainAimDistance, weapon.ActiveBurstRange);
+                    aimPoint.y = ArenaSurface.Height(aimPoint) + 0.05f;
+                }
+                Vector3 aimDirection = aimPoint - lanternPosition;
+                if (aimDirection.sqrMagnitude > 0.0001f)
+                    keyLight.transform.rotation = Quaternion.LookRotation(aimDirection, Vector3.up);
                 oilGlow.transform.localPosition = Vector3.zero;
                 flame.localPosition = Vector3.zero;
             }
