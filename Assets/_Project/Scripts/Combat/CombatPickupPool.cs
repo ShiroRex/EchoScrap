@@ -86,6 +86,7 @@ namespace EchoScrap.Combat
         private Material absorptionMaterial;
         private CombatSession subscribedSession;
         private int nextId = 1;
+        private float nextMedkitDropTime;
         private bool initialized;
 
         public bool AutoTick { get; set; } = true;
@@ -240,6 +241,7 @@ namespace EchoScrap.Combat
         /// <returns>Identificador activo; al agrupar XP devuelve el identificador de la gema receptora.</returns>
         public int SpawnPickup(CombatPickupKind kind, Vector3 position, int xpValue = 0)
         {
+            if (kind == CombatPickupKind.Medkit && ActiveMedkitCount >= (stats != null ? stats.Settings.MaximumGroundMedkits : 5)) return 0;
             EnsureInitialized();
             if (kind != CombatPickupKind.Experience && kind != CombatPickupKind.Medkit)
                 return 0;
@@ -305,8 +307,10 @@ namespace EchoScrap.Combat
                 return;
             if (death.XpReward > 0)
                 SpawnExperience(death.WorldPosition, death.XpReward);
-            if (death.DroppedMedkit)
-                SpawnMedkit(death.WorldPosition + Vector3.right * 0.35f);
+            float now = session != null ? session.GameplayTime : Time.time;
+            if (death.DroppedMedkit && now >= nextMedkitDropTime
+                && SpawnMedkit(death.WorldPosition + Vector3.right * 0.35f) != 0)
+                nextMedkitDropTime = now + (stats != null ? stats.Settings.MedkitDropInterval : 6f);
         }
 
         private bool CanAdvance => playerHealth != null && playerHealth.IsAlive &&
@@ -337,6 +341,12 @@ namespace EchoScrap.Combat
                 if (!slot.Active)
                     continue;
                 slot.Age += deltaTime;
+                if (slot.Kind == CombatPickupKind.Medkit && slot.Age >= (stats != null ? stats.Settings.MedkitLifetime : 22f))
+                {
+                    slot.Active = slot.Attracted = false; slot.Root.SetActive(false);
+                    ActivePickupCount--; ActiveMedkitCount--;
+                    continue;
+                }
                 float distanceSquared = (slot.Position - target).sqrMagnitude;
                 if (distanceSquared <= magnetRadius * magnetRadius)
                     slot.Attracted = true;
@@ -486,6 +496,7 @@ namespace EchoScrap.Combat
             ActivePickupCount = ActiveExperienceCount = ActiveMedkitCount = 0;
             TotalSpawnedExperience = TotalCollectedExperience = 0;
             TotalCollectedMedkits = 0;
+            nextMedkitDropTime = 0f;
         }
 
         private static Material CreateMaterial(string materialName, Color color, bool transparent = false)

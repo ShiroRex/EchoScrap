@@ -81,6 +81,24 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void MortarPopulationCapReplacesExtraArtilleryWithoutRemovingWavePressure()
+        {
+            var mortarOnly = new EnemyWaveWeights(0, 0, 0, 100, 0);
+            settings.Phases = new[] { new CombatWavePhase(0f, 0.1f, 0.1f, 2, mortarOnly, mortarOnly) };
+            settings.MortarPopulationCap = 2; director.Settings = settings;
+            for (int i = 0; i < 12; i++) AdvanceDirector(0.11f);
+            int mortars = 0, residuals = 0;
+            foreach (EnemyActor actor in EnemyActor.ActiveEnemies)
+            {
+                if (actor.Session != session || !actor.IsAlive || !actor.gameObject.activeInHierarchy) continue;
+                if (actor.ArchetypeId == EnemyArchetypeId.Mortar) mortars++;
+                if (actor.ArchetypeId == EnemyArchetypeId.Residual) residuals++;
+            }
+            Assert.That(mortars, Is.EqualTo(2));
+            Assert.That(residuals, Is.GreaterThan(4), "Capping artillery must not cancel the rest of the horde.");
+        }
+
+        [Test]
         public void DefaultPhases_KeepAcceptedCadenceCompositionAndSeparateStressCap()
         {
             // Las fases posteriores siguen siendo configurables para partidas largas.

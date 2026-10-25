@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3432e92fc7fbb48408aba49cbbf6058e, type: 3}
+  m_Name: Mortar
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.EnemyArchetypeSettings
+  data:
+    ArchetypeId: 4
+    DisplayName: Mortero
+    MaxHealth: 25
+    BaseMoveSpeed: 2.2
+    SpeedVarianceFraction: 0.1
+    ContactDamage: 5
+    ContactCooldown: 0.5
+    XpReward: 25
+    IsEliteDropTier: 1
+    KnockbackSusceptibility: 0.8
+    KnockbackBraking: 18
+    VisualScale: {x: 1.15, y: 1.05, z: 1.15}
+    ColliderRadius: 0.48
+    ColliderHeight: 1.8
+    PrimaryColor: {r: 0.32, g: 0.68, b: 0.3, a: 1}
+    SecondaryColor: {r: 0.58, g: 0.92, b: 0.36, a: 1}
+    IsHeavyMass: 0
+    MortarAttack:
+      MaximumRange: 12
+      RetreatDistance: 5.5
+      HoldDistance: 6.5
+      FireInterval: 5
+      WarningDuration: 0.45
+      FlightDuration: 0.85
+      PuddleRadius: 1.2
+      PuddleDuration: 3
+      TickDamage: 5
+      TickInterval: 0.5

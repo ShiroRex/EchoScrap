@@ -15,10 +15,12 @@ namespace EchoScrap.Combat
     [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider))]
     public class EnemyActor : MonoBehaviour, IDamageTarget
     {
-        public const float MortarMinBandRange = 6.5f;
-        public const float MortarMaxBandRange = 7.5f;
-        public const float MortarFireInterval = 3.5f;
-        public const float MortarTelegraphLeadTime = 0.25f;
+        public const float MortarMinBandRange = 5.5f;
+        public const float MortarMaxBandRange = 6.5f;
+        public const float MortarFireInterval = 5f;
+        public const float MortarTelegraphLeadTime = 0.45f;
+        private MortarAttackData MortarAttack => runtimeArchetype.MortarAttack.FireInterval > 0f
+            ? runtimeArchetype.MortarAttack : MortarAttackData.Default;
         public const float MothFuseDuration = 0.9f;
         public const float MothArmDistance = 2f;
 
@@ -454,7 +456,8 @@ namespace EchoScrap.Combat
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
             {
                 DeterministicRandom attackRng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
-                attackCooldownTimer = MortarFireInterval - attackRng.Range(1f, MortarFireInterval);
+                float interval = Mathf.Max(0.5f, MortarAttack.FireInterval);
+                attackCooldownTimer = interval - attackRng.Range(Mathf.Min(1f, interval), interval);
                 EnsurePuddlePool();
                 mortarRecoilRemaining = 0f;
                 if (mortarEmitter != null)
@@ -660,20 +663,35 @@ namespace EchoScrap.Combat
                 return;
             }
 
-            attackCooldownTimer = Mathf.Min(MortarFireInterval, attackCooldownTimer + fixedDeltaTime);
-            float remaining = MortarFireInterval - attackCooldownTimer;
+            MortarAttackData attack = MortarAttack;
+            Vector3 offset = targetPlayer.transform.position - transform.position; offset.y = 0f;
+            float maximumRange = Mathf.Max(1f, attack.MaximumRange);
+            if (offset.sqrMagnitude > maximumRange * maximumRange)
+            {
+                attackCooldownTimer = 0f; telegraphTimer = 0f;
+                return;
+            }
+            float interval = Mathf.Max(0.5f, attack.FireInterval);
+            float warning = Mathf.Clamp(attack.WarningDuration, 0.1f, interval);
+            attackCooldownTimer = Mathf.Min(interval, attackCooldownTimer + fixedDeltaTime);
+            float remaining = interval - attackCooldownTimer;
             bool hasCapacity = puddlePool != null && puddlePool.CanLaunchProjectile;
-            telegraphTimer = hasCapacity && remaining <= MortarTelegraphLeadTime && remaining > 0f
-                ? (MortarTelegraphLeadTime - remaining)
+            telegraphTimer = hasCapacity && remaining <= warning && remaining > 0f
+                ? (warning - remaining)
                 : 0f;
 
-            if (attackCooldownTimer >= MortarFireInterval && hasCapacity)
+            if (attackCooldownTimer >= interval && hasCapacity)
             {
                 Vector3 launchOrigin = transform.position + new Vector3(0f, 0.65f, 0f) + facingDirection * 0.25f;
                 var spec = CorrosivePuddlePool.ProjectileSpec.CreateMortarDefault(
                     TargetId,
                     launchOrigin,
                     targetPlayer.transform.position);
+                spec.FlightDuration = Mathf.Max(0.1f, attack.FlightDuration);
+                spec.PuddleRadius = spec.ImpactRadius = Mathf.Max(0.1f, attack.PuddleRadius);
+                spec.PuddleDuration = Mathf.Max(0.1f, attack.PuddleDuration);
+                spec.PuddleTickDamage = Mathf.Max(0f, attack.TickDamage);
+                spec.PuddleTickInterval = Mathf.Max(0.1f, attack.TickInterval);
                 if (puddlePool.TryLaunchParabolicProjectile(in spec))
                 {
                     attackCooldownTimer = 0f;
@@ -702,10 +720,10 @@ namespace EchoScrap.Combat
             Vector3 seekDir;
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
             {
-                // Mantiene 6,5–7,5 m, retrocediendo sin dejar de mirar al jugador.
-                if (dist > MortarMaxBandRange)
+                // Conserva la banda editable, retrocediendo sin dejar de mirar al jugador.
+                if (dist > Mathf.Max(MortarAttack.RetreatDistance, MortarAttack.HoldDistance))
                     seekDir = dirToPlayer;
-                else if (dist < MortarMinBandRange)
+                else if (dist < Mathf.Max(0f, MortarAttack.RetreatDistance))
                     seekDir = -dirToPlayer;
                 else
                     seekDir = Vector3.zero;
@@ -899,7 +917,7 @@ namespace EchoScrap.Combat
             {
                 mortarRecoilRemaining = Mathf.Max(0f, mortarRecoilRemaining - deltaTime);
                 float intensity = reduced ? 0f : decIntensity;
-                float charge = Mathf.Clamp01(telegraphTimer / MortarTelegraphLeadTime) * intensity;
+                float charge = Mathf.Clamp01(telegraphTimer / Mathf.Max(0.1f, MortarAttack.WarningDuration)) * intensity;
                 float recoil = Mathf.Clamp01(mortarRecoilRemaining / 0.16f) * intensity;
                 mortarEmitter.localPosition = mortarEmitterRestPosition + Vector3.back * (0.08f * recoil);
                 mortarEmitter.localScale = Vector3.Scale(mortarEmitterRestScale,

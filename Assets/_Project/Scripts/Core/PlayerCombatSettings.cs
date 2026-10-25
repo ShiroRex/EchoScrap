@@ -39,6 +39,14 @@ namespace EchoScrap.Core
         [SerializeField, Min(0.1f)] private float baseMagnetRadius = 2.5f;
         [SerializeField, Min(0.1f)] private float magnetAttractSpeed = 12f;
         [SerializeField, Min(1f)] private float baseMedkitHeal = 15f;
+        [SerializeField] private Vector3 upgradedMedkitHealing = new Vector3(17f, 19f, 21f);
+        [SerializeField, Tooltip("Probabilidad normal por nivel 0/1/2/3.")]
+        private Vector4 normalMedkitChances = new Vector4(0.03f, 0.04f, 0.05f, 0.06f);
+        [SerializeField, Tooltip("Probabilidad de enemigos fuertes por nivel 0/1/2/3.")]
+        private Vector4 eliteMedkitChances = new Vector4(0.08f, 0.10f, 0.12f, 0.15f);
+        [SerializeField, Min(0f)] private float medkitDropInterval = 6f;
+        [SerializeField, Min(1)] private int maximumGroundMedkits = 5;
+        [SerializeField, Min(1f)] private float medkitLifetime = 22f;
 
         public float MaxHealth => Mathf.Max(1f, maxHealth);
         public float DamageProtectionDuration => Mathf.Max(0f, damageProtectionDuration);
@@ -68,5 +76,10 @@ namespace EchoScrap.Core
         public float BaseMagnetRadius => Mathf.Max(0.1f, baseMagnetRadius);
         public float MagnetAttractSpeed => Mathf.Max(0.1f, magnetAttractSpeed);
         public float BaseMedkitHeal => Mathf.Max(1f, baseMedkitHeal);
+        public float MedkitDropInterval => Mathf.Max(0f, medkitDropInterval);
+        public int MaximumGroundMedkits => Mathf.Max(1, maximumGroundMedkits);
+        public float MedkitLifetime => Mathf.Max(1f, medkitLifetime);
+        public float MedkitHealingAtTier(int tier) => tier <= 0 ? BaseMedkitHeal : Mathf.Max(1f, upgradedMedkitHealing[Mathf.Clamp(tier - 1, 0, 2)]);
+        public float MedkitChanceAtTier(int tier, bool elite) => Mathf.Clamp01((elite ? eliteMedkitChances : normalMedkitChances)[Mathf.Clamp(tier, 0, 3)]);
     }
 }

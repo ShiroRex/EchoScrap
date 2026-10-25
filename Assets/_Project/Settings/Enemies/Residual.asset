@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3432e92fc7fbb48408aba49cbbf6058e, type: 3}
+  m_Name: Residual
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.EnemyArchetypeSettings
+  data:
+    ArchetypeId: 1
+    DisplayName: Residual
+    MaxHealth: 15
+    BaseMoveSpeed: 3.5
+    SpeedVarianceFraction: 0.15
+    ContactDamage: 10
+    ContactCooldown: 0.5
+    XpReward: 10
+    IsEliteDropTier: 0
+    KnockbackSusceptibility: 1
+    KnockbackBraking: 18
+    VisualScale: {x: 1, y: 1, z: 1}
+    ColliderRadius: 0.45
+    ColliderHeight: 1.8
+    PrimaryColor: {r: 0.76, g: 0.28, b: 0.22, a: 1}
+    SecondaryColor: {r: 0.92, g: 0.48, b: 0.24, a: 1}
+    IsHeavyMass: 0
+    MortarAttack:
+      MaximumRange: 0
+      RetreatDistance: 0
+      HoldDistance: 0
+      FireInterval: 0
+      WarningDuration: 0
+      FlightDuration: 0
+      PuddleRadius: 0
+      PuddleDuration: 0
+      TickDamage: 0
+      TickInterval: 0

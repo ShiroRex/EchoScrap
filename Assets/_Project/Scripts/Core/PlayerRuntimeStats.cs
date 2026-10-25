@@ -118,34 +118,11 @@ namespace EchoScrap.Core
         public float MagnetRadius => Settings.BaseMagnetRadius + magnetCoreTier * 2f;
         public float MagnetAttractSpeed => Settings.MagnetAttractSpeed;
 
-        public float MedkitHealAmount => emergencyMedTier switch
-        {
-            1 => 18f,
-            2 => 21f,
-            3 => 25f,
-            _ => Settings.BaseMedkitHeal
-        };
+        public float MedkitHealAmount => Settings.MedkitHealingAtTier(emergencyMedTier);
 
         public float GetMedkitDropChance(bool isEliteOrColossusOrMortar)
         {
-            if (isEliteOrColossusOrMortar)
-            {
-                return emergencyMedTier switch
-                {
-                    1 => 0.40f,
-                    2 => 0.50f,
-                    3 => 0.60f,
-                    _ => 0.25f
-                };
-            }
-
-            return emergencyMedTier switch
-            {
-                1 => 0.08f,
-                2 => 0.11f,
-                3 => 0.14f,
-                _ => 0.04f
-            };
+            return Settings.MedkitChanceAtTier(emergencyMedTier, isEliteOrColossusOrMortar);
         }
 
         public int LensTier => lensTier;
