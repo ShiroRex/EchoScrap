@@ -75,6 +75,7 @@ namespace EchoScrap.Editor
             Gateway(root.transform,travel,true,new Vector3(180,2,returnBounds.max.z+0.6f));
             travel.WarehouseArrival=Marker(root.transform,"LlegadaAlmacen",new Vector3(180,1,-2.5f));
             Light(warehouse.transform,new Vector3(180,6,1),new Color(0.5f,0.75f,1f),18,4);
+            PassageFinishAuthoring.Decorate();
             Physics.SyncTransforms(); EditorSceneManager.SaveScene(scene); AssetDatabase.SaveAssets();
             Debug.Log("WAREHOUSE_OK stairs=12 portals=2 return=preserved");
         }

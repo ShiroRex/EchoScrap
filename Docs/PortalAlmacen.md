@@ -29,3 +29,8 @@ Validación en `TerrainCollisionTests`: ida/vuelta por triggers, reloj detenido,
 enemigos conservados, movimiento en el almacén, reinicio, subida/bajada, límites
 de 200 m, paso perimetral y hueco físico del portal. Capturas locales en
 `Logs/WorldArtIntegration/`.
+
+El acceso usa ahora un revestimiento modular de piedra gris, remates, pilares,
+faroles y losas. Puede reaplicarse con `PassageFinishAuthoring.Apply` sin reconstruir
+el mundo. Referencias y prompts de las piezas artísticas pendientes en
+[Acceso_Boveda_Meshy.md](Acceso_Boveda_Meshy.md).
