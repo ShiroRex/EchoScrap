@@ -11,10 +11,11 @@ permanecen en `Assets/_Project/Art/Mundo3D/Modelos`.
 | `CompactedSoil.blend` | Tierra compactada con color y normal, horneada sin costuras de repetición. |
 | `WornCirculation.blend` | Marcas de circulación adaptadas al relieve del mapa; sin colisión. |
 
-Los grupos reutilizan geometría original, reducida antes de hornear sus atlas.
-Cada grupo usa una malla y un material. El color lleva oclusión de proximidad;
-las luces y sombras de la partida se calculan en Unity. Las imágenes usadas por
-los `.blend` se referencian mediante rutas relativas dentro del repositorio.
+Los grupos reutilizan geometría original reducida, conservando sus UV y sus
+cinco materiales originales. No se reduce su detalle a un atlas compartido ni
+se desatura el color. El árbol nuevo conserva su atlas propio. Las luces,
+sombras y oclusión de contacto se calculan en Unity. Las imágenes usadas por los
+`.blend` se referencian mediante rutas relativas dentro del repositorio.
 
 `Tools/EchoScrap3D/crear_kit_vertedero.py` permite reconstruir las fuentes, los
 FBX y las texturas. Ejecutarlo desde la raíz de EchoScrap, con Blender:
@@ -34,10 +35,12 @@ Los originales sustituidos se conservan con sus renderers desactivados; sus
 materiales y mallas no se alteran. Las colisiones de los árboles se ajustan al
 tronco nuevo. La navegación y la cobertura siguen activas.
 
-El suelo usa URP/Lit con la textura y normal de Blender para recibir luces,
-sombras y oclusión de contacto. La iluminación combina una luz principal cálida
-con ambiente frío; los materiales del resto del escenario tienen un acabado
-menos brillante. El personaje conserva su escala 1,1.
+El suelo recupera `EchoScrap/WastelandGround` con su paleta original, conservando
+la recepción de luces, sombras y oclusión de contacto. La textura horneada de
+`CompactedSoil.blend` queda como fuente de referencia y no se aplica en la escena.
+Los coches y las estructuras usan directamente sus materiales originales; no
+se les fuerza otro tinte, brillo ni intensidad de normales. El personaje
+conserva su escala 1,1.
 
 ## Revisión
 
@@ -50,7 +53,15 @@ incluyendo apoyo, presupuesto de geometría, iluminación renderizada, tamaño d
 jugador, rutas, mortero y perímetro. Los FBX decorativos mantienen desactivada
 la copia de malla en CPU durante la partida.
 
-El ejecutable release se midió a 1920 × 1080 en Ryzen 7 5700X / RX 6650 XT,
+La restauración posterior de texturas pasó **240/240 pruebas** en
+`Logs/TextureRestore/VerifiedTests.xml`. La revisión comprueba que cada material
+de escombro proceda de `Mundo3D/Texturas`, además de apoyo, presupuesto de
+geometría y capturas desde la cámara real. Una ejecución anterior falló en la
+calibración del contador de heap de una prueba existente al coincidir con GC;
+la reejecución completa pasó sin modificar esa prueba.
+
+Antes de restaurar los materiales originales, el ejecutable release se midió
+a 1920 × 1080 en Ryzen 7 5700X / RX 6650 XT,
 con el editor abierto: nueve casos de 5 s después de 3 s de preparación,
 movimiento, dash y todas las mejoras al máximo. Con 150 enemigos y todos los
 efectos: 10,55 ms de media (94,8 FPS), percentil 95 de 13,69 ms. Con 250 forzados:

@@ -13,6 +13,7 @@ Shader "EchoScrap/WastelandGround"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
             #pragma multi_compile_fog
@@ -49,9 +50,9 @@ Shader "EchoScrap/WastelandGround"
                 float crack=1-smoothstep(0.008,0.035,second-first);
                 float pebble=pow(saturate(noise(p*7.2)),9)*3;
                 float rock=smoothstep(0.08,0.35,1-normalize(i.normalWS).y);
-                half3 dirt=lerp(half3(0.12,0.135,0.14),half3(0.235,0.235,0.21),broad);
+                half3 dirt=lerp(half3(0.30,0.20,0.11),half3(0.56,0.41,0.24),broad);
                 dirt*=lerp(0.90,1.09,grit); dirt*=1-crack*0.20;
-                dirt=lerp(dirt,half3(0.25,0.255,0.25),saturate(pebble+rock*0.65));
+                dirt=lerp(dirt,half3(0.37,0.34,0.28),saturate(pebble+rock*0.65));
                 InputData data=(InputData)0;
                 data.positionWS=i.positionWS; data.normalWS=normalize(i.normalWS);
                 data.viewDirectionWS=GetWorldSpaceNormalizeViewDir(i.positionWS);

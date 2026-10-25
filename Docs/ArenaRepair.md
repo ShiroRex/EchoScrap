@@ -5,9 +5,9 @@ con MataColeccionista. Se corrigieron el apoyo en el terreno, las rutas, el
 perímetro y la presentación del vertedero.
 
 La pasada visual posterior sustituye los árboles y agrupa el escombro con un
-[kit editable de Blender](../ArtSource/World/YardKit/README.md). El suelo actual
-usa las texturas horneadas de ese kit con URP/Lit, iluminación cálida y oclusión
-de contacto. Las capturas y cifras de rendimiento siguientes documentan la
+[kit editable de Blender](../ArtSource/World/YardKit/README.md). Tras la revisión
+de texturas, los objetos conservan sus mapas y materiales originales y el suelo
+recupera su paleta anterior, con oclusión de contacto. Las capturas y cifras de rendimiento siguientes documentan la
 primera corrección de la arena.
 
 - **Jugador:** escala visual fija de 1,1 (tamaño original más un 10 %).

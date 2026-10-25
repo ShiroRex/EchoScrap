@@ -31,14 +31,20 @@ namespace EchoScrap.Tests
                 if (filter.name.Contains("DeadTree")) trees++; else pockets++;
                 var renderer = filter.GetComponent<MeshRenderer>();
                 Assert.IsTrue(renderer.enabled); Assert.IsTrue(renderer.sharedMaterial.shader.isSupported);
-                Assert.IsNotNull(renderer.sharedMaterial.GetTexture("_BumpMap"));
+                foreach (var material in renderer.sharedMaterials)
+                {
+                    Assert.IsNotNull(material.GetTexture("_BumpMap"));
+                    if (filter.name.Contains("ScrapPocket"))
+                        Assert.That(UnityEditor.AssetDatabase.GetAssetPath(material), Does.StartWith("Assets/_Project/Art/Mundo3D/Texturas/"),
+                            "Clutter must retain its original UVs, textures and material settings.");
+                }
                 uint indices = 0;
                 for (int sub = 0; sub < filter.sharedMesh.subMeshCount; sub++) indices += filter.sharedMesh.GetIndexCount(sub);
                 Assert.Less(indices / 3, 11000, "Decoration must fit the geometry budget.");
                 Assert.That(renderer.bounds.min.y - ArenaSurface.Height(renderer.bounds.center), Is.InRange(-.5f, .3f));
             }
             Assert.AreEqual(4, trees); Assert.AreEqual(12, pockets);
-            Assert.AreEqual("Universal Render Pipeline/Lit", game.ArenaGround.GetComponent<Renderer>().sharedMaterial.shader.name);
+            Assert.AreEqual("EchoScrap/WastelandGround", game.ArenaGround.GetComponent<Renderer>().sharedMaterial.shader.name);
             Vector3[] positions = { new Vector3(-24,0,12), new Vector3(32,0,22), new Vector3(-39,0,26) };
             string[] names = { "TreeAndScrap", "Industrial", "WestYard" };
             Directory.CreateDirectory("Logs/YardArtReview");

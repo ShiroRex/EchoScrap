@@ -13,7 +13,6 @@ namespace EchoScrap.Editor
     public static class YardArtAuthoring
     {
         private const string Kit = "Assets/_Project/Art/Mundo3D/YardKit/";
-        private static readonly Dictionary<Material, Material> looks = new Dictionary<Material, Material>();
 
         [MenuItem("EchoScrap/Mapa/Aplicar arte de Blender")]
         public static void Apply() => ApplyScene("Assets/_Project/Scenes/CombatArena.unity");
@@ -21,8 +20,8 @@ namespace EchoScrap.Editor
         public static void ApplyScene(string scenePath)
         {
             var scene = EditorSceneManager.OpenScene(scenePath);
-            ImportTextures(); looks.Clear();
-            Material tree = KitMaterial("DeadTree"), a = KitMaterial("ScrapPocket0"), b = KitMaterial("ScrapPocket1");
+            ImportTextures();
+            Material tree = KitMaterial("DeadTree");
             Transform world = GameObject.Find("Mundo3D_EchoScrap").transform;
             var anchors = new List<Transform>(); foreach (Transform child in world) anchors.Add(child);
             int trees = 0, pockets = 0;
@@ -41,7 +40,7 @@ namespace EchoScrap.Editor
                 }
                 if (!anchor.name.StartsWith("escombros_")) continue;
                 DisableOriginal(anchor);
-                Transform pocket = Install(anchor, "ScrapPocket" + (pockets % 2), pockets % 2 == 0 ? a : b, 2.8f, false);
+                Transform pocket = Install(anchor, "ScrapPocket" + (pockets % 2), null, 2.8f, false);
                 Ground(pocket); pockets++;
                 foreach (Transform other in anchors)
                 {
@@ -58,28 +57,18 @@ namespace EchoScrap.Editor
                 for (int i = 0; i < materials.Length; i++)
                 {
                     Material original = materials[i]; string path = AssetDatabase.GetAssetPath(original);
-                    if (!path.Contains("/Mundo3D/Texturas/")) continue;
-                    if (!looks.TryGetValue(original, out Material look))
+                    if (path.StartsWith(Kit + "Look_"))
                     {
-                        string guid = AssetDatabase.AssetPathToGUID(path);
-                        string target = Kit + "Look_" + guid + ".mat";
-                        look = AssetDatabase.LoadAssetAtPath<Material>(target);
-                        if (look == null) { look = new Material(original); AssetDatabase.CreateAsset(look, target); }
-                        look.CopyPropertiesFromMaterial(original); look.name = "Dusty " + Path.GetFileName(Path.GetDirectoryName(path));
-                        look.SetColor("_BaseColor", new Color(.80f, .78f, .74f));
-                        look.SetFloat("_Smoothness", .32f); look.SetFloat("_BumpScale", .55f);
-                        EditorUtility.SetDirty(look); looks.Add(original, look);
+                        string guid = Path.GetFileNameWithoutExtension(path).Substring("Look_".Length);
+                        materials[i] = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
+                        if (materials[i] == null) throw new FileNotFoundException("Original material: " + guid);
                     }
-                    materials[i] = look;
                 }
                 renderer.sharedMaterials = materials;
             }
             Material soil = GameObject.Find("Arena_120m/Floor").GetComponent<Renderer>().sharedMaterial;
-            soil.shader = Shader.Find("Universal Render Pipeline/Lit");
-            soil.SetTexture("_BaseMap", Texture("CompactedSoil_Color"));
-            soil.SetTexture("_BumpMap", Texture("CompactedSoil_Normal"));
-            soil.SetTextureScale("_BaseMap", Vector2.one * 3f); soil.SetTextureScale("_BumpMap", Vector2.one * 3f);
-            soil.EnableKeyword("_NORMALMAP"); soil.SetFloat("_BumpScale", .45f); soil.SetFloat("_Smoothness", .08f);
+            soil.shader = Shader.Find("EchoScrap/WastelandGround");
+            soil.SetTexture("_BaseMap", null); soil.SetTexture("_BumpMap", null); soil.DisableKeyword("_NORMALMAP");
             soil.SetColor("_BaseColor", Color.white); EditorUtility.SetDirty(soil);
             GroundMarks(world); Lighting(); RebindOcclusion(world);
             AssetDatabase.SaveAssets(); EditorSceneManager.SaveScene(scene);
@@ -101,7 +90,20 @@ namespace EchoScrap.Editor
             var renderers = instance.GetComponentsInChildren<MeshRenderer>();
             Bounds bounds = renderers[0].bounds; foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
             t.localScale *= size / (height ? bounds.size.y : Mathf.Max(bounds.size.x, bounds.size.z));
-            foreach (var renderer in renderers) renderer.sharedMaterial = material;
+            foreach (var renderer in renderers)
+            {
+                if (material != null) { renderer.sharedMaterial = material; continue; }
+                var slots = renderer.sharedMaterials;
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    string source = slots[i].name;
+                    if (!source.StartsWith("Source_")) throw new System.InvalidOperationException("Native texture slot: " + source);
+                    string nativePath = "Assets/_Project/Art/Mundo3D/Texturas/" + source.Substring(7) + "/Material_0.mat";
+                    slots[i] = AssetDatabase.LoadAssetAtPath<Material>(nativePath);
+                    if (slots[i] == null) throw new FileNotFoundException(nativePath);
+                }
+                renderer.sharedMaterials = slots;
+            }
             return t;
         }
 
@@ -193,14 +195,14 @@ namespace EchoScrap.Editor
         private static void Lighting()
         {
             var sun = GameObject.Find("ArenaDirectionalLight").GetComponent<Light>();
-            sun.color = new Color(.94f, .87f, .74f); sun.intensity = 1.25f;
-            sun.transform.rotation = Quaternion.Euler(43, -35, 0);
-            sun.shadowStrength = .85f; sun.shadowBias = .025f; sun.shadowNormalBias = .12f;
+            sun.color = new Color(.80f,.88f,1f); sun.intensity = 1.1f;
+            sun.transform.rotation = Quaternion.Euler(48, -35, 0);
+            sun.shadowStrength = .8f; sun.shadowBias = .03f; sun.shadowNormalBias = .2f;
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(.18f,.21f,.26f);
-            RenderSettings.ambientEquatorColor = new Color(.13f,.14f,.16f);
-            RenderSettings.ambientGroundColor = new Color(.07f,.06f,.05f);
-            RenderSettings.fogColor = new Color(.11f,.105f,.10f); RenderSettings.fogDensity = .007f;
+            RenderSettings.ambientSkyColor = new Color(.17f,.21f,.28f);
+            RenderSettings.ambientEquatorColor = new Color(.11f,.14f,.18f);
+            RenderSettings.ambientGroundColor = new Color(.06f,.075f,.09f);
+            RenderSettings.fogColor = new Color(.11f,.14f,.18f); RenderSettings.fogDensity = .009f;
             GameObject.Find("Main Camera").GetComponent<Camera>().backgroundColor = RenderSettings.fogColor;
         }
         private static void RebindOcclusion(Transform world)

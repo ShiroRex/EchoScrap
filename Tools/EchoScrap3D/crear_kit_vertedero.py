@@ -21,6 +21,7 @@ random.seed(731)
 def clear():
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False)
+    bpy.data.orphans_purge(do_recursive=True)
 
 
 def material(name, color, roughness=.9):
@@ -123,10 +124,16 @@ def original_prop(asset, width, position, yaw, tilt=0):
     image_path = next(p for p in (ROOT/f'Assets/_Project/Art/Mundo3D/Texturas/{asset}').glob('0_base.*') if p.suffix != '.meta')
     base.image = bpy.data.images.load(str(image_path), check_existing=True)
     links.new(uv.outputs[0], base.inputs['Vector'])
-    muted = nodes.new('ShaderNodeHueSaturation'); muted.inputs['Saturation'].default_value = .62
-    muted.inputs['Value'].default_value = .80
-    links.new(base.outputs['Color'], muted.inputs['Color'])
-    links.new(muted.outputs['Color'], shader.inputs['Base Color'])
+    links.new(base.outputs['Color'], shader.inputs['Base Color'])
+    normal_path = next((p for p in (ROOT/f'Assets/_Project/Art/Mundo3D/Texturas/{asset}').glob('0_normal.*') if p.suffix != '.meta'), None)
+    if normal_path:
+        normal_tex = nodes.new('ShaderNodeTexImage')
+        normal_tex.image = bpy.data.images.load(str(normal_path), check_existing=True)
+        normal_tex.image.colorspace_settings.name = 'Non-Color'
+        normal_map = nodes.new('ShaderNodeNormalMap')
+        links.new(uv.outputs[0], normal_tex.inputs['Vector'])
+        links.new(normal_tex.outputs['Color'], normal_map.inputs['Color'])
+        links.new(normal_map.outputs['Normal'], shader.inputs['Normal'])
     for obj in meshes:
         matrix = obj.matrix_world.copy()
         obj.parent = None; obj.matrix_world = Matrix.Identity(4)
@@ -151,6 +158,25 @@ def make_pocket(variant):
     original_prop('llanta', .70, (.15,-.63,.02), 16, 8)
     original_prop('cajas', .62, (-.26,.36,.12), -18)
     return [o for o in bpy.context.scene.objects if o.type == 'MESH']
+
+
+def export_pocket(name, objects):
+    """Retain native UVs and per-object maps instead of a reduced/recoloured atlas."""
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in objects: obj.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
+    bpy.ops.object.join()
+    obj = bpy.context.object; obj.name = name
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    decimate = obj.modifiers.new('GameGeometry', 'DECIMATE'); decimate.ratio = .25
+    bpy.ops.object.modifier_apply(modifier=decimate.name)
+    bpy.ops.export_scene.fbx(filepath=str(OUT/(name+'.fbx')), use_selection=True, object_types={'MESH'},
+                             bake_anim=False, add_leaf_bones=False, path_mode='STRIP', apply_scale_options='FBX_SCALE_ALL')
+    bpy.data.orphans_purge(do_recursive=True)
+    for image in bpy.data.images:
+        if image.filepath: image.filepath = bpy.path.relpath(image.filepath, start=str(SOURCE))
+    bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/(name+'.blend')), compress=True)
+    print('NATIVE_TEXTURE_POCKET_OK', name, [m.name for m in obj.data.materials], flush=True)
 
 
 def bake_asset(name, objects, resolution=1024, atlas=True):
@@ -295,9 +321,11 @@ def tracks():
     print('YARD_TRACKS_OK',len(faces)*2,flush=True)
 
 
-clear(); bake_asset('DeadTree',make_tree())
+if '--pockets-only' not in sys.argv:
+    clear(); bake_asset('DeadTree',make_tree())
 for variant in range(2):
-    clear(); bake_asset('ScrapPocket'+str(variant),make_pocket(variant))
-soil()
-tracks()
+    clear(); export_pocket('ScrapPocket'+str(variant),make_pocket(variant))
+if '--pockets-only' not in sys.argv:
+    soil()
+    tracks()
 print('YARD_KIT_COMPLETE', str(OUT), flush=True)
