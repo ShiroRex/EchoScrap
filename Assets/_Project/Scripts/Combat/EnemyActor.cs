@@ -108,6 +108,9 @@ namespace EchoScrap.Combat
         public Vector3 WorldCenter => transform.position;
         public CapsuleCollider BodyCollider => bodyCollider;
         public Rigidbody Body => body;
+        /// <summary>Runtime overrides used by the laboratory; reset whenever this actor is reused.</summary>
+        public bool PreventLethalDamage { get; set; }
+        public bool SimulationSuspended { get; set; }
         public ActorVisualComposer VisualComposer => visualComposer;
         public CombatSession Session => session;
         public PlayerHealth TargetPlayer => targetPlayer;
@@ -433,6 +436,8 @@ namespace EchoScrap.Combat
         public virtual void ResetForSpawn(Vector3 spawnPosition)
         {
             EnsureInitialized();
+            PreventLethalDamage = false;
+            SimulationSuspended = false;
             PhysicsLayers.EnsureConfigured();
 
             // 1. Salud máxima y estado de muerte/recompensas
@@ -572,8 +577,11 @@ namespace EchoScrap.Combat
         private void FixedUpdate()
         {
             EnsureInitialized();
-            if (isDead)
+            if (isDead || SimulationSuspended)
+            {
+                if (body != null && !body.isKinematic) body.linearVelocity = Vector3.zero;
                 return;
+            }
 
             if ((session != null && session.IsPaused) || Time.timeScale <= 0f)
             {
@@ -974,7 +982,7 @@ namespace EchoScrap.Combat
                 : request.BaseDamage;
 
             float previous = currentHealth;
-            currentHealth = Mathf.Max(0f, currentHealth - resolvedDamage);
+            currentHealth = Mathf.Max(PreventLethalDamage ? 1f : 0f, currentHealth - resolvedDamage);
             float lost = previous - currentHealth;
             bool lethal = currentHealth <= 0f;
             bool moth = runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth;
