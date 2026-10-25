@@ -4,6 +4,12 @@ La escena CombatArena conserva el combate, los modelos del equipo y el encuentro
 con MataColeccionista. Se corrigieron el apoyo en el terreno, las rutas, el
 perímetro y la presentación del vertedero.
 
+La pasada visual posterior sustituye los árboles y agrupa el escombro con un
+[kit editable de Blender](../ArtSource/World/YardKit/README.md). El suelo actual
+usa las texturas horneadas de ese kit con URP/Lit, iluminación cálida y oclusión
+de contacto. Las capturas y cifras de rendimiento siguientes documentan la
+primera corrección de la arena.
+
 - **Jugador:** escala visual fija de 1,1 (tamaño original más un 10 %).
   La subida de una colina ya no cambia de golpe su escala para ajustarla a píxeles
   de pantalla. El ajuste al píxel

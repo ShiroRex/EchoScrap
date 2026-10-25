@@ -18,6 +18,11 @@ se convierte a R=metalizado, A=1-rugosidad para URP. Unity limita las texturas a
 al 3,5 % de su geometría original. El remapeo se hace mediante
 `EchoScrap.Editor.WorldArtIntegration.Materials` en Unity; no requiere mover objetos.
 
+La apariencia actual añade el [kit de Blender](../ArtSource/World/YardKit/README.md):
+cuatro árboles sustituidos, doce grupos compactos de escombro, suelo horneado y
+marcas de tránsito. Sus fuentes nuevas están fuera de Assets; los FBX, texturas
+y materiales de juego están en `Assets/_Project/Art/Mundo3D/YardKit`.
+
 ## Plano del vertedero
 
 `ArenaRepairAuthoring` contiene la disposición actual, con coordenadas explícitas:
