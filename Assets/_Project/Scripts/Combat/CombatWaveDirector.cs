@@ -344,11 +344,21 @@ namespace EchoScrap.Combat
             int size = Mathf.Min(requested, Mathf.Max(0, cap - ActiveEnemyCount - reservationCount));
             RecordDiscard(requested - size, DiscardReason.PopulationCap);
             if (size == 0) return;
+            int mortarCount = 0;
+            var activeEnemies = EnemyActor.ActiveEnemies;
+            for (int i = 0; i < activeEnemies.Count; i++)
+                if (activeEnemies[i] != null && activeEnemies[i].IsAlive && activeEnemies[i].gameObject.activeInHierarchy
+                    && (session == null || activeEnemies[i].Session == session) && activeEnemies[i].ArchetypeId == EnemyArchetypeId.Mortar) mortarCount++;
             for (int i = 0; i < size; i++)
             {
                 EnemyArchetypeId id = minions
                     ? Settings.BossMinionOrder[(i + minionOrderOffset) % Settings.BossMinionOrder.Length]
                     : weights.Choose(RandomSource.NextFloat());
+                if (id == EnemyArchetypeId.Mortar)
+                {
+                    if (mortarCount >= Mathf.Max(0, Settings.MortarPopulationCap)) id = EnemyArchetypeId.Residual;
+                    else mortarCount++;
+                }
                 groupData[i] = Settings.GetArchetype(id);
                 groupGeometry[i] = enemyPool.GetSpawnGeometry(groupData[i]);
             }

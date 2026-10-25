@@ -82,6 +82,8 @@ namespace EchoScrap.Combat
     {
         public CombatWavePhase[] Phases = CreateDefaultPhases();
         [Min(1)] public int PopulationCap = 150;
+        [Min(0), Tooltip("Morteros simultáneos. Al llegar al límite se generan residuales.")]
+        public int MortarPopulationCap = 6;
         [Min(1)] public int StressPopulationCap = 250;
         [Min(0f)] public float BossStartTime = 180f;
         [Min(0.05f)] public float BossMinionInterval = 4f;

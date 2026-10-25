@@ -117,13 +117,13 @@ namespace EchoScrap.Editor
             brain.BlendUpdateMethod = CinemachineBrain.BrainUpdateMethods.LateUpdate;
             rig = new GameObject("CombatFollowCamera").AddComponent<CinemachineCamera>();
             rig.Follow = target;
-            rig.transform.rotation = Quaternion.Euler(60f, 0f, 0f);
+            rig.transform.rotation = Quaternion.Euler(50f, 0f, 0f);
             rig.Lens.FieldOfView = 60f;
             rig.Lens.NearClipPlane = 0.1f;
             rig.Lens.FarClipPlane = 250f;
             rig.Lens.ModeOverride = LensSettings.OverrideModes.Perspective;
             var follow = rig.gameObject.AddComponent<CinemachineFollow>();
-            follow.FollowOffset = new Vector3(0f, 18f, -18f / Mathf.Tan(60f * Mathf.Deg2Rad));
+            follow.FollowOffset = new Vector3(0f, 15.922f, -15.922f / Mathf.Tan(50f * Mathf.Deg2Rad));
             follow.TrackerSettings.BindingMode = BindingMode.WorldSpace;
             follow.TrackerSettings.PositionDamping = new Vector3(0.25f, 0f, 0.25f);
             rig.transform.position = target.position + follow.FollowOffset;

@@ -18,7 +18,8 @@ Cada etiqueta de `UpgradeIcons_Apollo.aseprite` representa un icono estático.
 Los símbolos representan familias de efectos. No son miniaturas literales de los
 objetos que daban nombre a las cartas. El catálogo de 35 cartas del GDD se consultó
 en `GDD ECHOSCRAP/02 - Diseño/05 - Progresión.md`; esta entrega conecta las ocho
-mejoras que ya tienen implementación. No cambia sus fórmulas, rarezas ni pesos.
+mejoras que ya tienen implementación. Los valores actuales de botiquines se
+documentan en `Docs/CombatBalance.md`; las rarezas y los pesos se conservan.
 
 ## Marcos y 9-slice
 
@@ -51,11 +52,27 @@ no usan halo exterior ni borde borroso; todo el marco se filtra con Point.
 
 ## Fuente e integración
 
-Pixelify Sans Regular y SemiBold se obtuvieron del repositorio de su autor,
-`https://github.com/eifetx/Pixelify-Sans/tree/main/fonts/ttf`, indicado por los
-metadatos de Google Fonts. Se mantienen los archivos sin modificar y su OFL en
-`Assets/_Project/Art/UI/Fonts`. La build incluye una copia de la licencia en
-`StreamingAssets/Licenses/PixelifySans-OFL.txt`.
+La fuente activa es **Chakra Petch Regular y SemiBold**, de Cadson Demak,
+obtenida del repositorio oficial de Google Fonts:
+`https://github.com/google/fonts/tree/main/ofl/chakrapetch`. Sustituye a Pixelify
+Sans para distinguir mejor el 5. Se mantienen los TTF sin modificar y su OFL en
+`Assets/_Project/Art/UI/Fonts`. La build incluye la licencia en
+`StreamingAssets/Licenses/ChakraPetch-OFL.txt`. Los archivos anteriores de
+Pixelify se conservan como fuente histórica.
+
+Los cuatro `Frame_*_Normal.png` tienen las mismas dimensiones y alfa que sus
+marcos. `Tools/Aseprite/CardFrameNormals.lua` deriva un bisel y relieve de los
+píxeles originales, sin cambiar el arte de color. Cada fuente editable
+`Frames/Frame_*_Normal.aseprite` incluye normales visibles y una guía de altura
+oculta. Son datos lineales OpenGL, importados Default/Point/Clamp, sin sRGB,
+mipmaps ni compresión. Sus colores no pertenecen a Apollo porque codifican
+vectores de superficie.
+
+`UpgradeCardFrameLit.shader` aplica luz difusa y especular a esos normales en
+la UI. La mayor rareza ofrecida por encima de común tiene el reflejo más fuerte
+y un barrido lento; los empates comparten el acento. La luz responde también a
+la inclinación del puntero. No depende de las luces 3D de la arena ni produce
+un halo exterior. Efectos reducidos conservan el relieve estático.
 
 `UpgradeCardAuthoring.Prepare` importa el arte y construye
 `Resources/UI/UpgradeCardSkin.asset`. La interfaz consume ese recurso, mantiene
@@ -90,7 +107,7 @@ la UI renderizada por Unity. El GIF codifica 30 capturas a 1280×720 en un bucle
 de ida y vuelta. La prueba compara el reflejo activado/desactivado con la misma
 geometría para comprobar que el shader produce una diferencia visible.
 
-Validación del efecto: 215/215 pruebas Play Mode y una revisión final de las
+Validación anterior del efecto: 215/215 pruebas Play Mode y una revisión final de las
 21 pruebas de cartas, incluyendo clic sobre la carta inclinada, retorno al salir,
 navegación con cursor inmóvil, intensidad parcial y efectos reducidos. La
 presentación animada y reconstrucción del Canvas promediaron 0,458 ms de CPU
@@ -119,6 +136,20 @@ Después ejecutar en Unity `EchoScrap/Art/Prepare Upgrade Cards`. Las pruebas
 y los adornos al redimensionar, las fuentes, la flecha de repetición, los valores
 y el desbordamiento de texto. Capturan 1280×720, 1920×1080 y 2560×1080 en
 `Logs/PixelCards` dentro del proyecto probado.
+
+Para regenerar solamente los normales y sus fuentes editables:
+
+```powershell
+& 'C:/Users/david/Documents/Aseprite v1.3.17-dev/aseprite.exe' --batch --script-param 'root=C:/Users/david/Documents/EchoscrapGame+GDD/EchoScrap' --script Tools/Aseprite/CardFrameNormals.lua
+```
+
+Validación actual: **223/223 pruebas Play Mode**. Incluye texto sin recortes con
+la nueva fuente, normales de las cuatro rarezas, énfasis de la oferta más rara y
+comparación de render con dos luces opuestas. Capturas reales:
+`Previews/Runtime_FrameLight_Left.png` y `Runtime_FrameLight_Right.png`.
+La presentación animada y el Canvas promediaron 0,472 ms de CPU en 120 cuadros;
+no representa el rendimiento completo del juego. El informe técnico de normales
+se guarda localmente en `Logs/BalanceQA/NormalAudit.json`.
 
 El auditor de la skill no encontró errores técnicos en los ocho iconos. Sus
 avisos de componentes separados corresponden a rayos solares, trazos de

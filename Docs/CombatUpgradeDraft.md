@@ -28,7 +28,7 @@ vez por adquisición. El incremento de salud máxima no rellena automáticamente
 
 `UpgradeDraftPresentation.BindReferences(session, controller)` crea una interfaz de
 tres tarjetas con nombre, rareza, tier, descripción y valores antes/después. Cada
-tarjeta utiliza un icono pixel art de tipo, un marco por rareza y Pixelify Sans;
+tarjeta utiliza un icono pixel art de tipo, un marco por rareza y Chakra Petch;
 la selección también se identifica por texto y borde. Los marcos usan 9-slice
 con esquinas fijas y adornos originales sin estirar. Se reutilizan los marcos del
 prototipo y el común gris entregado por el usuario, uno por rareza. Un CanvasScaler conserva las proporciones
@@ -38,11 +38,15 @@ Los nombres de pantalla se acortaron y el beneficio principal se separó del
 detalle. `UpgradeOffer.PrimaryBefore/PrimaryAfter` muestran el cambio efectivo
 de la estadística principal, sin modificar al jugador. Las ofertas con
 `CurrentTier > 0` incluyen flecha verde y el siguiente nivel. No se cambiaron
-IDs, efectos, rarezas, probabilidades ni exclusión de cartas saturadas.
+IDs, rarezas, pesos de oferta ni exclusión de cartas saturadas. El balance actual
+de botiquines se documenta en `CombatBalance.md`; sus cifras salen del asset.
 
 La aparición de las cartas dura 0,42 s con un pequeño escalonado. La legendaria
 añade una sacudida local de entrada; después queda quieta. Los marcos se dibujan
 nítidos, sin halo exterior ni borde borroso.
+Cada marco tiene un normal map y material de iluminación de UI. La mayor rareza
+ofrecida, si supera común, recibe un reflejo especular más intenso y un barrido
+lento. Los efectos reducidos conservan el relieve estático.
 Los efectos reducidos conservan la identificación estática y eliminan esos
 movimientos. Arte, fuentes, procedencia y regeneración están
 documentados en `ArtSource/UI/UpgradeCards/README.md`.
@@ -66,7 +70,7 @@ altera los ocho minutos de horda y el combate de jefe del GDD actual.
 
 - Izquierda/derecha o A/D, cruceta y stick: cambiar selección.
 - 1/2/3: elegir directamente la tarjeta correspondiente.
-- Enter, Espacio o botón sur: confirmar.
+- Enter o botón sur: confirmar. Espacio nunca confirma una mejora.
 - Ratón: seleccionar al moverlo sobre una tarjeta y confirmar al hacer clic.
 
 El puntero inmóvil no anula una selección hecha con teclado o mando. Al abrir cada

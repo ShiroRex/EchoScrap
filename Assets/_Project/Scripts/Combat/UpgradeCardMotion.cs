@@ -11,6 +11,12 @@ namespace EchoScrap.Combat
         private Graphic[] surfaces;
         private RawImage sheen;
         private Material sheenMaterial;
+        private Material frameMaterial;
+        private Material[] framePrototypes;
+        private bool rarest;
+        private float lightAge;
+        private static readonly int LightId = Shader.PropertyToID("_LightDirection");
+        private static readonly int EmphasisId = Shader.PropertyToID("_Emphasis");
         private Vector2 target, offset, velocity;
         private bool hovered;
         private float sheenAmount;
@@ -22,8 +28,11 @@ namespace EchoScrap.Combat
         public Vector2 Tilt => offset;
         public float SheenAlpha => sheen != null ? sheen.color.a : 0f;
 
-        public void Bind(RawImage surfaceSheen, Material material)
+        public void Bind(RawImage surfaceSheen, Material material, Image border, Image confirmation, Material[] litFrames)
         {
+            framePrototypes = litFrames;
+            frameMaterial = new Material(litFrames[0]) { name = "Card bevel lighting" };
+            border.material = confirmation.material = frameMaterial;
             sheen = surfaceSheen;
             sheenMaterial = new Material(material) { name = "Upgrade card surface reflection" };
             sheen.material = sheenMaterial;
@@ -40,9 +49,11 @@ namespace EchoScrap.Combat
 
         public void SetRarity(UpgradeRarity rarity)
         {
+            frameMaterial.CopyPropertiesFromMaterial(framePrototypes[(int)rarity]);
             sheenTint = UpgradeCatalog.RarityColor(rarity);
             rarityStrength = rarity switch { UpgradeRarity.SSR => 0.16f, UpgradeRarity.SR => 0.12f, UpgradeRarity.R => 0.09f, _ => 0.065f };
         }
+        public void SetRarest(bool value) => rarest = value;
 
         public void SetPointer(Vector2 normalizedPosition, bool isHovered)
         {
@@ -52,6 +63,10 @@ namespace EchoScrap.Combat
 
         public void Step(float delta, bool reduced, float intensity)
         {
+            if (!reduced && intensity > 0f) lightAge += Mathf.Max(0f, delta);
+            float sweep = rarest && !reduced && intensity > 0f ? Mathf.Sin(lightAge * 1.7f) * 0.3f : 0f;
+            frameMaterial.SetVector(LightId, new Vector4(-0.35f + offset.x * 0.35f + sweep, 0.45f + offset.y * 0.25f, 0.85f, 0f));
+            frameMaterial.SetFloat(EmphasisId, rarest ? 0.42f : 0.12f);
             if (reduced || intensity <= 0f) { ResetState(); return; }
             if (delta <= 0f) return;
             Vector2 previous = offset;
@@ -103,6 +118,7 @@ namespace EchoScrap.Combat
         private void OnDestroy()
         {
             if (sheenMaterial != null) Destroy(sheenMaterial);
+            if (frameMaterial != null) Destroy(frameMaterial);
         }
     }
 }

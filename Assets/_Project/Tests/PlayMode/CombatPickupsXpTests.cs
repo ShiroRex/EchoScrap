@@ -59,6 +59,38 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void MedkitSupplyIsBoundedAndExpiresWithoutDiscardingExperience()
+        {
+            int first = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                int id = pickups.SpawnMedkit(new Vector3(30 + i, 0, 30));
+                if (i == 0) first = id;
+            }
+            Assert.That(pickups.ActiveMedkitCount, Is.EqualTo(stats.Settings.MaximumGroundMedkits));
+            int xp = pickups.SpawnExperience(new Vector3(30, 0, 30), 10);
+            pickups.Step(stats.Settings.MedkitLifetime + 0.01f);
+            Assert.That(pickups.ActiveMedkitCount, Is.Zero);
+            Assert.That(pickups.TryGetPickupInfo(first, out _), Is.False);
+            Assert.That(pickups.TryGetPickupInfo(xp, out _), Is.True);
+            Assert.That(pickups.TotalCollectedMedkits, Is.Zero);
+        }
+
+        [Test]
+        public void RewardMedkitsHaveASessionClockCooldownAndResetWithTheRun()
+        {
+            var death = new ActorDeathEvent(800, 3, false, false, new Vector3(20, 1, 20), Vector3.forward,
+                DamageSourceType.FlashlightPulse, 0, true, true);
+            for (int i = 0; i < 100; i++) session.Events.PublishDeath(in death);
+            Assert.That(pickups.ActiveMedkitCount, Is.EqualTo(1));
+            session.Clock.AdvanceGameplayTime(stats.Settings.MedkitDropInterval);
+            session.Events.PublishDeath(in death);
+            Assert.That(pickups.ActiveMedkitCount, Is.EqualTo(2));
+            pickups.ResetForSession(); session.Events.PublishDeath(in death);
+            Assert.That(pickups.ActiveMedkitCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void ExperienceThresholdsFollowGddRecurrenceAndQueueEveryChoice()
         {
             int[] thresholds = { 100, 150, 225, 338, 507, 760 };
@@ -153,7 +185,7 @@ namespace EchoScrap.Tests
             stats.SetUpgradeTier("GREED_03", 3);
             pickups.SpawnMedkit(Vector3.zero);
             pickups.Step(0.01f);
-            Assert.That(health.CurrentHealth, Is.EqualTo(65f));
+            Assert.That(health.CurrentHealth, Is.EqualTo(61f));
             health.Heal(1000f);
             int healingConfirmations = 0;
             health.OnHealed += result =>

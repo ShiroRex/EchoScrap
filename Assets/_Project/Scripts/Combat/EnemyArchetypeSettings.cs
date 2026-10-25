@@ -15,15 +15,36 @@ namespace EchoScrap.Combat
     }
 
     [Serializable]
+    public struct MortarAttackData
+    {
+        [InspectorName("Alcance máximo (m)"), Min(1f)] public float MaximumRange;
+        [InspectorName("Retroceder a menos de (m)"), Min(0f)] public float RetreatDistance;
+        [InspectorName("Avanzar a más de (m)"), Min(0f)] public float HoldDistance;
+        [InspectorName("Segundos entre disparos"), Min(0.5f)] public float FireInterval;
+        [InspectorName("Aviso antes del disparo (s)"), Min(0.1f)] public float WarningDuration;
+        [InspectorName("Tiempo de vuelo (s)"), Min(0.1f)] public float FlightDuration;
+        [InspectorName("Radio del ácido (m)"), Min(0.1f)] public float PuddleRadius;
+        [InspectorName("Duración del ácido (s)"), Min(0.1f)] public float PuddleDuration;
+        [InspectorName("Daño por tick"), Min(0f)] public float TickDamage;
+        [InspectorName("Segundos entre ticks"), Min(0.1f)] public float TickInterval;
+        public static MortarAttackData Default => new MortarAttackData
+        {
+            MaximumRange = 12f, RetreatDistance = 5.5f, HoldDistance = 6.5f,
+            FireInterval = 5f, WarningDuration = 0.45f, FlightDuration = 0.85f,
+            PuddleRadius = 1.2f, PuddleDuration = 3f, TickDamage = 5f, TickInterval = 0.5f
+        };
+    }
+
+    [Serializable]
     public struct EnemyArchetypeData
     {
         public EnemyArchetypeId ArchetypeId;
         public string DisplayName;
-        public float MaxHealth;
-        public float BaseMoveSpeed;
+        [InspectorName("Vida máxima"), Min(1f)] public float MaxHealth;
+        [InspectorName("Velocidad (m/s)"), Min(0f)] public float BaseMoveSpeed;
         public float SpeedVarianceFraction;
-        public float ContactDamage;
-        public float ContactCooldown;
+        [InspectorName("Daño de contacto"), Min(0f)] public float ContactDamage;
+        [InspectorName("Intervalo de contacto (s)"), Min(0.05f)] public float ContactCooldown;
         public int XpReward;
         public bool IsEliteDropTier;
         public float KnockbackSusceptibility;
@@ -34,6 +55,8 @@ namespace EchoScrap.Combat
         public Color PrimaryColor;
         public Color SecondaryColor;
         public bool IsHeavyMass;
+        [Header("Ataque del mortero (metros y segundos)")]
+        public MortarAttackData MortarAttack;
 
         public static EnemyArchetypeData CreateDefault(EnemyArchetypeId id)
         {
@@ -115,6 +138,7 @@ namespace EchoScrap.Combat
                     {
                         ArchetypeId = EnemyArchetypeId.Mortar,
                         DisplayName = "Mortero",
+                        MortarAttack = MortarAttackData.Default,
                         MaxHealth = 25f,
                         BaseMoveSpeed = 2.2f,
                         SpeedVarianceFraction = 0.10f,
