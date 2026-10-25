@@ -54,17 +54,31 @@ namespace EchoScrap.Tests
                     Assert.IsNotNull(material.GetTexture("_BaseMap"), renderer.name);
                 }
             Assert.IsNotNull(world.transform.Find("Emblema_triangular"));
-            Assert.IsNotNull(world.transform.Find("Portal/portal_43_-40"));
+            Transform portal=world.transform.Find("Portal/portal_43_-40");
+            Assert.IsNotNull(portal);
+            Vector3 portalPosition=ArenaSurface.ReferenceToWorld(new Vector3(43f,0f,-40f));
+            Assert.AreEqual(portalPosition.x,portal.position.x,0.01f,"The larger map must retain the landmark's relative X position.");
+            Assert.AreEqual(portalPosition.z,portal.position.z,0.01f,"The larger map must retain the landmark's relative Z position.");
+            Assert.AreEqual(200f,ArenaSurface.Active.WorldSize,0.001f);
             Assert.IsFalse(GameObject.Find("Arena_120m").transform.Find("FloorGuides_10m").gameObject.activeSelf);
             foreach (var collider in world.GetComponentsInChildren<Collider>())
                 Assert.Greater(Vector3.Distance(collider.bounds.ClosestPoint(new Vector3(0, 1, 0)), new Vector3(0, 1, 0)), 5f, collider.name);
             var camera = new GameObject("MapAuditCamera").AddComponent<Camera>();
-            camera.transform.position = new Vector3(0, 115, -85);
+            camera.transform.position = ArenaSurface.ReferenceToWorld(new Vector3(0, 190, -85));
             camera.transform.LookAt(Vector3.zero);
-            camera.orthographic = true; camera.orthographicSize = 80;
+            camera.orthographic = true; camera.orthographicSize = 125;
             camera.farClipPlane = 400;
             yield return Capture(camera, "Mapa", 1200, 1200);
             Object.Destroy(camera.gameObject);
+        }
+
+        [Test]
+        public void EnvironmentUsesRequestedPointTwentyTwoLightIntensity()
+        {
+            Light sun=GameObject.Find("ArenaDirectionalLight").GetComponent<Light>();
+            Assert.That(sun.type,Is.EqualTo(LightType.Directional));
+            Assert.That(sun.intensity,Is.EqualTo(0.22f).Within(0.001f));
+            Assert.That(RenderSettings.ambientIntensity,Is.EqualTo(0.22f).Within(0.001f));
         }
 
         [UnityTest]

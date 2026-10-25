@@ -492,24 +492,27 @@ namespace EchoScrap.Tests
         [Test]
         public void WarmPlacementSamplingReusesBuffersWithoutGrowingPoolsOrManagedHeap()
         {
-            long probeBefore = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
+            // Unity's Mono thread allocation counter returns zero. Record actual GC.Alloc
+            // samples instead: a collection of an earlier scene cannot hide those samples.
+            var options = Unity.Profiling.ProfilerRecorderOptions.StartImmediately
+                | Unity.Profiling.ProfilerRecorderOptions.CollectOnlyOnCurrentThread;
+            using var calibration = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC.Alloc", 4096, options);
             byte[] probe = new byte[1048576];
-            long probeSize = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() - probeBefore;
             System.GC.KeepAlive(probe);
-            Assert.GreaterOrEqual(probeSize, 1048576L, "Calibrate the native heap counter before trusting it.");
+            calibration.Stop();
+            // GC.Alloc is an event marker; its Value is marker duration, not allocation size.
+            Assert.GreaterOrEqual(calibration.Count, 1, "The marker must detect the calibration allocation.");
             for (int i = 0; i < 20; i++) director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out _);
             int created = enemies.TotalCreatedCount;
-            int collections = System.GC.CollectionCount(0) + System.GC.CollectionCount(1) + System.GC.CollectionCount(2);
-            long before = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
             int found = 0;
+            using var allocations = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC.Alloc", 4096, options);
             for (int i = 0; i < 1024; i++)
                 if (director.TryFindSpawnPosition(EnemyArchetypeId.Colossus, out _)) found++;
-            long growth = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() - before;
+            allocations.Stop();
+            Assert.Less(allocations.Count, allocations.Capacity, "An overflowing recorder must not hide allocations.");
             Assert.AreEqual(1024, found);
             Assert.AreEqual(created, enemies.TotalCreatedCount);
-            Assert.AreEqual(collections, System.GC.CollectionCount(0) + System.GC.CollectionCount(1) + System.GC.CollectionCount(2),
-                "A collection must not hide allocations during measurement.");
-            Assert.LessOrEqual(growth, 2048L);
+            Assert.AreEqual(0, allocations.Count, "Warmed placement sampling must not emit any GC.Alloc events.");
         }
 
         private void AdvanceDirector(float deltaTime)

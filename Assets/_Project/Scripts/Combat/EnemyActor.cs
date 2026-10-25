@@ -7,7 +7,7 @@ namespace EchoScrap.Combat
 {
     /// <summary>
     /// Base compartida de enemigos (Residual, Interceptor, Coloso, Mortero, Polilla Explosiva).
-    /// Resuelve locomoción con Rigidbody en FixedUpdate, altura fija, separación local, evitación sencilla,
+    /// Resuelve locomoción con Rigidbody en FixedUpdate, apoyo sobre el relieve, separación y rutas compartidas,
     /// daño por contacto de colliders reales, empuje (impulso * susceptibilidad y frenado),
     /// reacción visual / hit-stop local mediante ActorVisualComposer y reciclaje íntegro en pool.
     /// </summary>
@@ -48,6 +48,7 @@ namespace EchoScrap.Combat
         private Rigidbody body;
         private CapsuleCollider bodyCollider;
         private Rigidbody targetBody;
+        private readonly EnemyObstacleNavigator obstacleNavigator = new EnemyObstacleNavigator();
 
         private float currentHealth;
         private float assignedMoveSpeed;
@@ -66,6 +67,7 @@ namespace EchoScrap.Combat
         private MothFusePresentation mothPresentation;
         private Prototype.EnemyMoth prototypeMoth;
         private MothExplosionPool mothExplosions;
+        private MortarSpriteView mortarView;
         private Transform mortarEmitter;
         private Vector3 mortarEmitterRestPosition;
         private Vector3 mortarEmitterRestScale;
@@ -99,10 +101,16 @@ namespace EchoScrap.Combat
         public float FuseTimer => fuseTimer;
         public float AttackCooldownTimer => attackCooldownTimer;
         public float TelegraphTimer => telegraphTimer;
+        public bool IsMortarCharging => ArchetypeId == EnemyArchetypeId.Mortar && telegraphTimer > 0f;
+        public float MortarChargeProgress => Mathf.Clamp01(telegraphTimer /
+            Mathf.Clamp(MortarAttack.WarningDuration, 0.1f, Mathf.Max(0.5f, MortarAttack.FireInterval)));
         public bool IsFuseActive => isFuseActive;
         public Vector3 WorldCenter => transform.position;
         public CapsuleCollider BodyCollider => bodyCollider;
         public Rigidbody Body => body;
+        /// <summary>Runtime overrides used by the laboratory; reset whenever this actor is reused.</summary>
+        public bool PreventLethalDamage { get; set; }
+        public bool SimulationSuspended { get; set; }
         public ActorVisualComposer VisualComposer => visualComposer;
         public CombatSession Session => session;
         public PlayerHealth TargetPlayer => targetPlayer;
@@ -303,7 +311,7 @@ namespace EchoScrap.Combat
                 if (r == null)
                     continue;
 
-                if (r.name == "Polilla Reactor Pixels") continue;
+                if (r.name == "Polilla Reactor Pixels" || r.name == "Mortero Campana Pixels") continue;
                 if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.GolgoraBoss && r.GetComponentInParent<Animator>() != null) continue;
 
                 r.sharedMaterial = r.gameObject.name.Contains("Crest") ? secondaryMat : primaryMat;
@@ -325,6 +333,7 @@ namespace EchoScrap.Combat
 
         private void OnDisable()
         {
+            obstacleNavigator.Reset();
             activeEnemies.Remove(this);
             CombatTargetRegistry.Unregister(this);
             if (body != null && !body.isKinematic)
@@ -354,7 +363,12 @@ namespace EchoScrap.Combat
             bodyCollider.enabled = false;
             body.isKinematic = true;
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+            {
                 EnsurePuddlePool();
+                transform.localScale = runtimeArchetype.VisualScale;
+                mortarView = GetComponent<MortarSpriteView>() ?? gameObject.AddComponent<MortarSpriteView>();
+                mortarView.Bind(this);
+            }
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
             {
                 transform.localScale = runtimeArchetype.VisualScale;
@@ -422,6 +436,8 @@ namespace EchoScrap.Combat
         public virtual void ResetForSpawn(Vector3 spawnPosition)
         {
             EnsureInitialized();
+            PreventLethalDamage = false;
+            SimulationSuspended = false;
             PhysicsLayers.EnsureConfigured();
 
             // 1. Salud máxima y estado de muerte/recompensas
@@ -449,6 +465,7 @@ namespace EchoScrap.Combat
             knockbackVelocity = Vector3.zero;
             currentDesiredVelocity = Vector3.zero;
             facingDirection = Vector3.forward;
+            obstacleNavigator.Reset();
 
             // 4. Temporizadores de contacto, disparo, mecha y telegrafía a cero
             nextContactReadyTime = 0f;
@@ -457,7 +474,10 @@ namespace EchoScrap.Combat
             {
                 DeterministicRandom attackRng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
                 float interval = Mathf.Max(0.5f, MortarAttack.FireInterval);
-                attackCooldownTimer = interval - attackRng.Range(Mathf.Min(1f, interval), interval);
+                float warning = Mathf.Clamp(MortarAttack.WarningDuration, 0.1f, interval);
+                float minimumDelay = Mathf.Max(warning, Mathf.Min(1f, interval));
+                float maximumDelay = Mathf.Max(minimumDelay, Mathf.Min(2f, interval));
+                attackCooldownTimer = interval - attackRng.Range(minimumDelay, maximumDelay);
                 EnsurePuddlePool();
                 mortarRecoilRemaining = 0f;
                 if (mortarEmitter != null)
@@ -546,14 +566,22 @@ namespace EchoScrap.Combat
             CombatTargetRegistry.Register(this);
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
                 GetComponent<MothSpriteView>()?.Advance(0f);
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+            {
+                mortarView = GetComponent<MortarSpriteView>() ?? gameObject.AddComponent<MortarSpriteView>();
+                mortarView.Bind(this);
+            }
             Physics.SyncTransforms();
         }
 
         private void FixedUpdate()
         {
             EnsureInitialized();
-            if (isDead)
+            if (isDead || SimulationSuspended)
+            {
+                if (body != null && !body.isKinematic) body.linearVelocity = Vector3.zero;
                 return;
+            }
 
             if ((session != null && session.IsPaused) || Time.timeScale <= 0f)
             {
@@ -644,7 +672,7 @@ namespace EchoScrap.Combat
                     body.position = new Vector3(body.position.x, 1f, body.position.z);
             }
 
-            // 4. Mortero: cadencia de 3,5 s, vuelo de 0,65 s y charco con reserva propia.
+            // 4. Mortero: cadencia editable y charco con reserva propia.
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
             {
                 StepMortarAttack(fixedDeltaTime);
@@ -666,23 +694,26 @@ namespace EchoScrap.Combat
             MortarAttackData attack = MortarAttack;
             Vector3 offset = targetPlayer.transform.position - transform.position; offset.y = 0f;
             float maximumRange = Mathf.Max(1f, attack.MaximumRange);
-            if (offset.sqrMagnitude > maximumRange * maximumRange)
-            {
-                attackCooldownTimer = 0f; telegraphTimer = 0f;
-                return;
-            }
             float interval = Mathf.Max(0.5f, attack.FireInterval);
             float warning = Mathf.Clamp(attack.WarningDuration, 0.1f, interval);
-            attackCooldownTimer = Mathf.Min(interval, attackCooldownTimer + fixedDeltaTime);
-            float remaining = interval - attackCooldownTimer;
+            float readyForWarning = interval - warning;
             bool hasCapacity = puddlePool != null && puddlePool.CanLaunchProjectile;
-            telegraphTimer = hasCapacity && remaining <= warning && remaining > 0f
-                ? (warning - remaining)
-                : 0f;
+            if (offset.sqrMagnitude > maximumRange * maximumRange || !hasCapacity)
+            {
+                // Reload while approaching. Only the final warning needs range and a reserved shot.
+                // Resetting the entire cooldown here prevented slow mortars from ever firing at a moving player.
+                attackCooldownTimer = Mathf.Min(readyForWarning, attackCooldownTimer + fixedDeltaTime);
+                telegraphTimer = 0f;
+                return;
+            }
+            attackCooldownTimer = Mathf.Min(interval, attackCooldownTimer + fixedDeltaTime);
+            telegraphTimer = Mathf.Clamp(attackCooldownTimer - readyForWarning, 0f, warning);
 
             if (attackCooldownTimer >= interval && hasCapacity)
             {
-                Vector3 launchOrigin = transform.position + new Vector3(0f, 0.65f, 0f) + facingDirection * 0.25f;
+                Vector3 launchOrigin = mortarView != null && mortarView.IsReady
+                    ? mortarView.LaunchOrigin
+                    : transform.position + new Vector3(0f, 1.5f, 0f);
                 var spec = CorrosivePuddlePool.ProjectileSpec.CreateMortarDefault(
                     TargetId,
                     launchOrigin,
@@ -698,6 +729,7 @@ namespace EchoScrap.Combat
                     telegraphTimer = 0f;
                     mortarRecoilRemaining = 0.16f;
                     MortarShotsFiredCount++;
+                    mortarView?.NotifyProjectileLaunched();
                 }
             }
         }
@@ -754,8 +786,12 @@ namespace EchoScrap.Combat
             else
                 return Vector3.zero;
 
-            // Evitación sencilla de obstáculos estáticos (capa Default = 0)
-            combinedDir = ApplySimpleObstacleAvoidance(myPos, combinedDir);
+            Vector3 navigationGoal = targetPlayer.transform.position;
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Interceptor && targetBody != null && dist > interceptorDirectPursuitDistance)
+                navigationGoal += Vector3.ClampMagnitude(targetBody.linearVelocity, interceptorPredictionSpeedCap) * interceptorPredictionSeconds;
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar && dist < Mathf.Max(0f, MortarAttack.RetreatDistance))
+                navigationGoal = myPos - dirToPlayer * Mathf.Max(3f, MortarAttack.HoldDistance - dist);
+            combinedDir = obstacleNavigator.Steer(this, combinedDir, navigationGoal, obstacleLookAhead, fixedDeltaTime);
 
             return combinedDir * assignedMoveSpeed;
         }
@@ -796,30 +832,11 @@ namespace EchoScrap.Combat
             return push;
         }
 
+        // Shared by specialised pursuit implementations, including Gólgora.
         protected Vector3 ApplySimpleObstacleAvoidance(Vector3 origin, Vector3 desiredDir)
         {
-            if (desiredDir.sqrMagnitude < 0.001f)
-                return desiredDir;
-
-            int defaultLayerMask = 1 << PhysicsLayers.DefaultLayer;
-            if (Physics.SphereCast(
-                new Vector3(origin.x, 1f, origin.z),
-                HitRadius * 0.85f,
-                desiredDir,
-                out RaycastHit hit,
-                obstacleLookAhead,
-                defaultLayerMask,
-                QueryTriggerInteraction.Ignore))
-            {
-                if (Mathf.Abs(hit.normal.y) < 0.4f)
-                {
-                    Vector3 slide = Vector3.ProjectOnPlane(desiredDir, new Vector3(hit.normal.x, 0f, hit.normal.z).normalized);
-                    if (slide.sqrMagnitude > 0.01f)
-                        return slide.normalized;
-                }
-            }
-
-            return desiredDir;
+            Vector3 goal = targetPlayer != null ? targetPlayer.transform.position : origin + desiredDir * 8f;
+            return obstacleNavigator.Steer(this, desiredDir, goal, obstacleLookAhead, Time.fixedDeltaTime);
         }
 
         public bool TryDealContactDamage()
@@ -965,7 +982,7 @@ namespace EchoScrap.Combat
                 : request.BaseDamage;
 
             float previous = currentHealth;
-            currentHealth = Mathf.Max(0f, currentHealth - resolvedDamage);
+            currentHealth = Mathf.Max(PreventLethalDamage ? 1f : 0f, currentHealth - resolvedDamage);
             float lost = previous - currentHealth;
             bool lethal = currentHealth <= 0f;
             bool moth = runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth;
@@ -1035,6 +1052,8 @@ namespace EchoScrap.Combat
             activeEnemies.Remove(this);
 
             // Desactivar inmediatamente daño, selección y colisión del actor
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
+                mortarView?.PlayDeath();
             if (bodyCollider != null)
                 bodyCollider.enabled = false;
             if (body != null && !body.isKinematic)

@@ -23,7 +23,8 @@ namespace EchoScrap.Combat
         [SerializeField] private Vector3 footOffset = Vector3.down;
         [SerializeField] private Transform pulseIndicator;
         [SerializeField] private bool snapToPixelGrid = true;
-        [SerializeField, Min(0.5f)] private float visualScale = 1.3f;
+        // Match the capsule's visible height at the authored 50-degree camera pitch.
+        [SerializeField, Min(0.1f)] private float visualScale = 0.65f;
         [Tooltip("Fixed world-space proportions of the upright plane; never compensated against the camera.")]
         [SerializeField, Min(0.5f)] private float standingHeight = 1.6f;
         private FlashlightPresentation flashlight;
@@ -197,14 +198,12 @@ namespace EchoScrap.Combat
             if (snapToPixelGrid && viewCamera.pixelHeight > 0)
             {
                 Vector3 screen = viewCamera.WorldToScreenPoint(position);
-                float worldPerPixel = viewCamera.orthographic ? viewCamera.orthographicSize * 2f / viewCamera.pixelHeight
-                    : 2f * screen.z * Mathf.Tan(viewCamera.fieldOfView * Mathf.Deg2Rad * 0.5f) / viewCamera.pixelHeight;
-                if (worldPerPixel > 0f)
+                if (screen.z > viewCamera.nearClipPlane)
                 {
-                    float stride = Mathf.Max(1f, Mathf.Round(visualScale / (sprites.pixelsPerUnit * worldPerPixel)));
-                    scale = stride * sprites.pixelsPerUnit * worldPerPixel;
-                    screen.x = Mathf.Round(screen.x / stride) * stride;
-                    screen.y = Mathf.Round(screen.y / stride) * stride;
+                    // Snap only the pivot. Quantizing the entire sprite to an integer number of
+                    // screen pixels resized it whenever camera depth, relief or resolution changed.
+                    screen.x = Mathf.Round(screen.x);
+                    screen.y = Mathf.Round(screen.y);
                     // Keep the foot on its floor plane rather than moving it vertically with screen snapping.
                     Ray snappedRay = viewCamera.ScreenPointToRay(screen);
                     var floor = new Plane(Vector3.up, position);
@@ -236,11 +235,20 @@ namespace EchoScrap.Combat
             }
             if (flashlight != null && flashlight.OilLantern != null && flashlight.OilLantern.OilGlow != null)
             {
-                float lanternX = Facing == CharacterFacing.Down ? 10f : Facing == CharacterFacing.Up ? 48f
-                    : Facing == CharacterFacing.Left ? 17f : 46f;
-                flashlight.OilLantern.OilGlow.transform.position = characterRenderer.transform.TransformPoint(
-                    new Vector3((lanternX - 32f) / sprites.pixelsPerUnit, 16f / sprites.pixelsPerUnit, -0.08f));
+                if (TryGetLanternWorldPosition(out Vector3 lantern))
+                    flashlight.OilLantern.OilGlow.transform.position = lantern;
             }
+        }
+
+        public bool TryGetLanternWorldPosition(out Vector3 position)
+        {
+            position = transform.position;
+            if (characterRenderer == null || sprites == null) return false;
+            float lanternX = Facing == CharacterFacing.Down ? 10f : Facing == CharacterFacing.Up ? 48f
+                : Facing == CharacterFacing.Left ? 17f : 46f;
+            position = characterRenderer.transform.TransformPoint(
+                new Vector3((lanternX - 32f) / sprites.pixelsPerUnit, 16f / sprites.pixelsPerUnit, -0.08f));
+            return true;
         }
 
         public void CopyAfterimageTo(Transform target, Renderer renderer)

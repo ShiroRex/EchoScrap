@@ -1,14 +1,19 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using EchoScrap.Core;
 
 namespace EchoScrap.Combat
 {
     /// <summary>Local oil glow plus a soft 3D beam around the imported prototype's actual spotlight.</summary>
+    [DefaultExecutionOrder(350)]
     public sealed class OilLanternVolume : MonoBehaviour
     {
         [Tooltip("Desactivar cuando el sprite ya contiene la llama y su farol.")]
         [SerializeField] private bool drawFlameMesh = true;
+        [Tooltip("Distancia del terreno que ilumina la linterna cuando no hay un enemigo seleccionado.")]
+        [SerializeField, Min(0.25f)] private float terrainAimDistance = 3f;
         private FlashlightWeapon weapon;
+        private CollectorSpriteView collector;
         private Light keyLight;
         private CombatSession session;
         private Light oilGlow;
@@ -32,6 +37,7 @@ namespace EchoScrap.Combat
         public void Bind(FlashlightWeapon source, Light spotlight, CombatSession owner)
         {
             weapon = source; keyLight = spotlight; session = owner;
+            collector = source != null ? source.GetComponent<CollectorSpriteView>() : null;
             if (beamRenderer == null) Build();
             Refresh();
         }
@@ -85,6 +91,29 @@ namespace EchoScrap.Combat
         public void Refresh()
         {
             if (beamRenderer == null || weapon == null) return;
+            if (collector != null && collector.TryGetLanternWorldPosition(out Vector3 lanternPosition))
+            {
+                // The weapon pivot is a gameplay origin. Its old height/forward offset no
+                // longer matches the resized art, so attach only the visible light and beam.
+                keyLight.transform.position = lanternPosition;
+                Vector3 aimPoint;
+                IDamageTarget target = weapon.CurrentTarget;
+                bool targetExists = target != null && (!(target is Object unityTarget) || unityTarget != null);
+                if (targetExists && target.IsAlive)
+                    aimPoint = target.WorldCenter;
+                else
+                {
+                    Vector3 direction = Vector3.ProjectOnPlane(weapon.CurrentAimDirection, Vector3.up).normalized;
+                    if (direction.sqrMagnitude < 0.001f) direction = Vector3.forward;
+                    aimPoint = weapon.OriginPosition + direction * Mathf.Min(terrainAimDistance, weapon.ActiveBurstRange);
+                    aimPoint.y = ArenaSurface.Height(aimPoint) + 0.05f;
+                }
+                Vector3 aimDirection = aimPoint - lanternPosition;
+                if (aimDirection.sqrMagnitude > 0.0001f)
+                    keyLight.transform.rotation = Quaternion.LookRotation(aimDirection, Vector3.up);
+                oilGlow.transform.localPosition = Vector3.zero;
+                flame.localPosition = Vector3.zero;
+            }
             bool visible = isActiveAndEnabled && weapon.isActiveAndEnabled;
             bool reduced = session != null && session.Effects.ReducedEffectsMode;
             bool decorative = session == null || session.Effects.DecorativeIntensity > 0f;
