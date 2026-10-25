@@ -9,7 +9,7 @@ namespace EchoScrap.Editor
     /// <summary>Updates the collector's authored proportions and the saved arena camera together.</summary>
     public static class CollectorCameraAdjustmentAuthoring
     {
-        private const float CollectorScale = 0.45f;
+        private const float CollectorScale = 0.65f;
         private const float CameraPitch = 50f;
 
         [MenuItem("EchoScrap/Art/Collector capsule height and camera 50 degrees")]
@@ -50,7 +50,7 @@ namespace EchoScrap.Editor
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
-            Debug.Log("[EchoScrap] Collector visible height 1.74–1.83 m; camera pitch 50 degrees. Camera distance, FOV and arena lighting preserved.");
+            Debug.Log("[EchoScrap] Collector scale 0.65 matches the visible capsule height at camera pitch 50 degrees. Camera distance, FOV and arena lighting preserved.");
         }
 
         private static void ConfigureView(CollectorSpriteView view)

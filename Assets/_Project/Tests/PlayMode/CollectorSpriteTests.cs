@@ -84,11 +84,11 @@ namespace EchoScrap.Tests
             var rig = Object.FindAnyObjectByType<Unity.Cinemachine.CinemachineCamera>();
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, rig.transform.eulerAngles.x)), Is.LessThan(0.01f));
             var field = typeof(CollectorSpriteView).GetField("visualScale", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            Assert.That((float)field.GetValue(view), Is.EqualTo(0.45f).Within(0.001f));
+            Assert.That((float)field.GetValue(view), Is.EqualTo(0.65f).Within(0.001f));
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, game.GameplayCamera.transform.eulerAngles.x)), Is.LessThan(0.01f));
             for (int i = 0; i < 3; i++) game.Enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(-4 + i * 4, 1, 8));
             yield return Capture(game.GameplayCamera, "Balance50Degrees.png");
-            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.45f).Within(0.001f));
+            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.65f).Within(0.001f));
         }
 
         [UnityTest]
@@ -117,7 +117,7 @@ namespace EchoScrap.Tests
             foreach (Transform child in game.Motor.GetComponentsInChildren<Transform>(true))
                 if (child.name == "Placeholder Body" || child.name == "Facing Marker") Assert.That(child.gameObject.activeSelf, Is.False);
             yield return Capture(game.GameplayCamera, "Arena.png");
-            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.45f).Within(0.001f),
+            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.65f).Within(0.001f),
                 "Render resolution must preserve the authored world scale.");
             var close = new GameObject("Collector close-up camera").AddComponent<Camera>();
             close.CopyFrom(game.GameplayCamera);
@@ -245,7 +245,7 @@ namespace EchoScrap.Tests
             camera.cullingMask = 1 << 31;
             camera.orthographic = true;
             // Keep the isolated lighting comparison framed around the resized collector.
-            camera.orthographicSize = 2.4f * 0.45f / 1.3f;
+            camera.orthographicSize = 2.4f * 0.65f / 1.3f;
             camera.transform.rotation = Quaternion.Euler(25, 0, 0);
             camera.transform.position = renderer.bounds.center - camera.transform.forward * 12f;
             renderer.gameObject.layer = 31;

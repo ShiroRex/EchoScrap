@@ -80,7 +80,7 @@ namespace EchoScrap.Tests
             var body = game.Motor.GetComponent<Rigidbody>();
             body.interpolation = RigidbodyInterpolation.None;
             Vector3 expectedBounds = view.CharacterMesh.bounds.size;
-            expectedBounds = Vector3.Scale(expectedBounds, new Vector3(0.45f, 0.45f * 1.6f, 0.45f));
+            expectedBounds = Vector3.Scale(expectedBounds, new Vector3(0.65f, 0.65f * 1.6f, 0.65f));
             foreach (int renderHeight in new[] { 180, 360, 1080 })
             {
                 var target = new RenderTexture(renderHeight * 16 / 9, renderHeight, 24);
@@ -96,7 +96,7 @@ namespace EchoScrap.Tests
                         camera.transform.position = point - camera.transform.forward * depth;
                         view.AlignToCamera();
                         string context = $"height={point.y}, depth={depth}, renderHeight={renderHeight}";
-                        Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.45f).Within(0.001f), context);
+                        Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.65f).Within(0.001f), context);
                         Assert.That(view.CharacterRenderer.bounds.size.x, Is.EqualTo(expectedBounds.x).Within(0.001f), context);
                         Assert.That(view.CharacterRenderer.bounds.size.y, Is.EqualTo(expectedBounds.y).Within(0.001f), context);
                         Assert.That(view.CharacterRenderer.transform.position.y, Is.EqualTo(point.y - 0.975f).Within(0.001f), context);
@@ -124,7 +124,7 @@ namespace EchoScrap.Tests
                 Vector3 offset = game.GameplayCamera.transform.position - body.position;
                 if (sample++ == 0) referenceOffset = offset;
                 Assert.That(offset.y, Is.EqualTo(referenceOffset.y).Within(0.15f), "The camera must follow the elevated ground immediately.");
-                Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.45f).Within(0.001f));
+                Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.65f).Within(0.001f));
             }
         }
 
@@ -134,10 +134,22 @@ namespace EchoScrap.Tests
             EnemyActor residual = game.Enemies.Spawn(EnemyArchetypeId.Residual,
                 game.Motor.transform.position + Vector3.right * 3f);
             Assert.That(residual, Is.Not.Null);
-            float referenceHeight = residual.BodyCollider.bounds.size.y;
-            Assert.That(referenceHeight, Is.EqualTo(1.8f).Within(0.01f));
+            Assert.That(residual.BodyCollider.bounds.size.y, Is.EqualTo(1.8f).Within(0.01f));
             view.AlignToCamera();
-            // Measure the opaque authored art, excluding its transparent frame padding.
+            // Compare projected silhouettes. A 3D capsule's depth remains visible at 50 degrees,
+            // while the upright sprite's height is foreshortened by the same camera.
+            MeshFilter capsuleMesh = null;
+            foreach (var mesh in residual.GetComponentsInChildren<MeshFilter>())
+                if (mesh.name == "BodyMesh") capsuleMesh = mesh;
+            Assert.That(capsuleMesh, Is.Not.Null);
+            float referenceBottom = float.PositiveInfinity, referenceTop = float.NegativeInfinity;
+            foreach (Vector3 vertex in capsuleMesh.sharedMesh.vertices)
+            {
+                float screenY = game.GameplayCamera.WorldToScreenPoint(capsuleMesh.transform.TransformPoint(vertex)).y;
+                referenceBottom = Mathf.Min(referenceBottom, screenY);
+                referenceTop = Mathf.Max(referenceTop, screenY);
+            }
+            float referenceHeight = referenceTop - referenceBottom;
             var atlas = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             temporaryObjects.Add(atlas);
             Assert.That(atlas.LoadImage(File.ReadAllBytes(Path.Combine(Application.dataPath,
@@ -147,9 +159,14 @@ namespace EchoScrap.Tests
                 foreach (CharacterMotion motion in new[] { CharacterMotion.Idle, CharacterMotion.Walk })
                     foreach (CharacterSpriteSet.Frame frame in view.Sprites.GetClip(motion, facing).frames)
                     {
-                        float height = OpaquePixelHeight(pixels, atlas.width, atlas.height, frame.uvRect)
-                            / view.Sprites.pixelsPerUnit * view.CharacterRenderer.transform.lossyScale.y;
-                        Assert.That(height, Is.EqualTo(referenceHeight).Within(0.1f), $"{motion} {facing}");
+                        OpaquePixelRows(pixels, atlas.width, atlas.height, frame.uvRect, out int bottom, out int top);
+                        Vector3 bottomWorld = view.CharacterRenderer.transform.TransformPoint(
+                            new Vector3(0f, (bottom - 2f) / view.Sprites.pixelsPerUnit, 0f));
+                        Vector3 topWorld = view.CharacterRenderer.transform.TransformPoint(
+                            new Vector3(0f, (top + 1f - 2f) / view.Sprites.pixelsPerUnit, 0f));
+                        float height = game.GameplayCamera.WorldToScreenPoint(topWorld).y
+                            - game.GameplayCamera.WorldToScreenPoint(bottomWorld).y;
+                        Assert.That(height / referenceHeight, Is.InRange(0.90f, 1.15f), $"{motion} {facing}: projected capsule ratio");
                     }
 
             var ghost = new GameObject("Collector resized dash ghost regression");
@@ -174,11 +191,11 @@ namespace EchoScrap.Tests
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, game.GameplayCamera.transform.eulerAngles.x)), Is.LessThan(0.01f));
         }
 
-        private static int OpaquePixelHeight(Color32[] pixels, int width, int height, Vector4 frame)
+        private static void OpaquePixelRows(Color32[] pixels, int width, int height, Vector4 frame, out int bottom, out int top)
         {
             int x0 = Mathf.RoundToInt(frame.x * width), y0 = Mathf.RoundToInt(frame.y * height);
             int columns = Mathf.RoundToInt(frame.z * width), rows = Mathf.RoundToInt(frame.w * height);
-            int bottom = rows, top = -1;
+            bottom = rows; top = -1;
             for (int y = 0; y < rows; y++)
                 for (int x = 0; x < columns; x++)
                     if (pixels[(y0 + y) * width + x0 + x].a > 0)
@@ -187,7 +204,6 @@ namespace EchoScrap.Tests
                         top = Mathf.Max(top, y);
                     }
             Assert.That(top, Is.GreaterThanOrEqualTo(bottom), "Sprite frame must contain visible art.");
-            return top - bottom + 1;
         }
 
         [UnityTest]
