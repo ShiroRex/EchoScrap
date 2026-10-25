@@ -1,11 +1,11 @@
 # Piezas para completar el acceso a la bóveda
 
 Las tres piezas GLB entregadas ya están integradas con sus texturas en
-`Assets/_Project/Art/Boveda/Piezas/`. La escalera original se ensanchó a 12.2 m;
+`Assets/_Project/Art/Boveda/Piezas/`. La escalera original se ensanchó a 14 m;
 los muros se repiten simétricamente y solapan sus extremos para cerrar juntas.
 El rellano usa losas superpuestas ligeramente, con soporte físico continuo.
 La colisión de la escalera conserva sus bordes y regulariza doce peldaños entre
-0 y -4.2 m por el carril útil, evitando los huecos y salientes del modelo
+0 y -8 m por el carril útil, evitando los huecos y salientes del modelo
 escaneado. Se prueba la subida y bajada con entrada real en tres carriles.
 Los GLB originales de Descargas no se modifican. El script
 `Tools/EchoScrap3D/importar_piezas_boveda.py` suelda vértices coincidentes,

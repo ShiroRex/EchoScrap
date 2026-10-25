@@ -162,30 +162,32 @@ namespace EchoScrap.Tests
             var west=passage.Find("MuroOeste").GetComponent<BoxCollider>().bounds;
             var east=passage.Find("MuroEste").GetComponent<BoxCollider>().bounds;
             Assert.AreEqual(140f,west.center.x+east.center.x,0.01f);
-            Assert.AreEqual(west.size,east.size);
+            Assert.Less(Vector3.Distance(west.size,east.size),0.001f);
             var stairs=passage.Find("EscaleraImportada").GetComponentInChildren<MeshCollider>().bounds;
             Assert.LessOrEqual(stairs.min.x,west.max.x);
             Assert.GreaterOrEqual(stairs.max.x,east.min.x);
             foreach(float x in new[]{67f,70f,73f})
-                for(float z=-48;z>=-62;z-=1)
+                for(float z=-48;z>=-60;z-=1)
                     Assert.IsTrue(WalkableStairs.Active.TryHeight(new Vector3(x,0,z),out _),"Missing tread at "+x+","+z);
             Assert.IsNotNull(passage.Find("PiezasImportadas/Fondo"));
         }
         [UnityTest] public IEnumerator PortalStairsAllowDescentAndAscent()
         {
+            // Este recorrido prueba escalones; el viaje por trigger tiene su propia prueba.
+            foreach(var gateway in Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None)) gateway.GetComponent<Collider>().enabled=false;
             var body=game.Player.GetComponent<Rigidbody>();
             foreach(float lane in new[]{67f,70f,73f})
             {
             body.position=new Vector3(lane,1,-44); body.linearVelocity=Vector3.zero;
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.S)); yield return null;
-            for(int i=0;i<300 && body.position.z>-66;i++) yield return new WaitForFixedUpdate();
+            for(int i=0;i<300 && body.position.z>-62;i++) yield return new WaitForFixedUpdate();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
-            if(body.position.z>=-65.5f)
+            if(body.position.z>=-61.5f)
                 foreach(var contact in Physics.OverlapSphere(body.position,2))
                     Debug.Log("STAIR_BLOCK lane="+lane+" body="+body.position+" height="+ArenaSurface.Height(body.position)+" collider="+contact.name+" bounds="+contact.bounds);
-            Assert.Less(body.position.z,-65.5f,"The stairs must be reachable without invisible blockers, lane="+lane+" body="+body.position);
-            Assert.Less(body.position.y,-2.8f);
-            yield return Capture("PasilloPortal",new Vector3(87,20,-37),new Vector3(70,-1,-65));
+            Assert.Less(body.position.z,-61.5f,"The stairs must be reachable without invisible blockers, lane="+lane+" body="+body.position);
+            Assert.Less(body.position.y,-6.5f);
+            yield return Capture("PasilloPortal",new Vector3(88,18,-32),new Vector3(70,-3,-56));
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W)); yield return null;
             for(int i=0;i<300 && body.position.z<-44;i++) yield return new WaitForFixedUpdate();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
@@ -272,7 +274,7 @@ namespace EchoScrap.Tests
                 Assert.IsNotNull(vfx.GetComponentInChildren<ParticleSystem>());
                 Assert.IsNotNull(vfx.SparkMaterial);
             }
-            yield return Capture("PortalGalaxia",new Vector3(70,2,-69),new Vector3(70,0,-81));
+            yield return Capture("PortalGalaxia",new Vector3(70,-3,-58),new Vector3(70,-4,-65.5f));
         }
         [UnityTest] public IEnumerator ResetFromWarehouseReturnsToOriginalSpawn()
         {

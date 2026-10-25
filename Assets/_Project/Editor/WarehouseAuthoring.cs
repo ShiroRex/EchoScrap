@@ -27,7 +27,7 @@ namespace EchoScrap.Editor
             var previous=world.Find("Portal/portal_43_-40");
             if(previous!=null) Object.DestroyImmediate(previous.gameObject);
             // Despejar solo el acceso: los modelos desplazados siguen siendo visibles y sólidos.
-            Bounds corridor=new Bounds(new Vector3(70,0,-64),new Vector3(16,30,42));
+            Bounds corridor=new Bounds(new Vector3(70,0,-56),new Vector3(20,30,28));
             foreach(Transform group in world)
             foreach(Transform anchor in group)
             {
@@ -41,14 +41,14 @@ namespace EchoScrap.Editor
             }
             var passage=new GameObject("PasilloDescendente"); passage.transform.SetParent(root.transform,false);
             BuildStairs(passage.transform);
-            Box("Rellano",passage.transform,new Vector3(70,-4.32f,-74),new Vector3(12,0.24f,20),stone);
+            Box("Rellano",passage.transform,new Vector3(70,-8.12f,-64.5f),new Vector3(12,0.24f,7),stone);
             Box("MuroOeste",passage.transform,new Vector3(63.6f,-2.4f,-64.5f),new Vector3(0.8f,6,39),stone);
             Box("MuroEste",passage.transform,new Vector3(76.4f,-2.4f,-64.5f),new Vector3(0.8f,6,39),stone);
             Box("MuroFondo",passage.transform,new Vector3(70,-2.4f,-84),new Vector3(13.6f,6,0.8f),stone);
-            var combatPortal=Portal(world.Find("Portal"),"portal_43_-40",new Vector3(70,-4.2f,-81),9f);
+            var combatPortal=Portal(world.Find("Portal"),"portal_43_-40",new Vector3(70,-8f,-65.5f),9f);
             var combatBounds=BoundsOf(combatPortal);
-            Gateway(root.transform,travel,false,new Vector3(70,-2.2f,combatBounds.max.z+0.6f));
-            travel.CombatArrival=Marker(root.transform,"RegresoCombate",new Vector3(70,-3.2f,-75));
+            Gateway(root.transform,travel,false,new Vector3(70,-6f,combatBounds.max.z+0.6f));
+            travel.CombatArrival=Marker(root.transform,"RegresoCombate",new Vector3(70,-7f,-62f));
 
             var warehouse=new GameObject("Almacen"); warehouse.transform.SetParent(root.transform,false);
             Box("SueloAlmacen",warehouse.transform,new Vector3(180,-0.25f,0),new Vector3(24,0.5f,26),stone);
@@ -123,14 +123,14 @@ namespace EchoScrap.Editor
             model.transform.SetParent(anchor.transform,false);
             var renderer=model.GetComponentInChildren<Renderer>(); renderer.sharedMaterial=material;
             Bounds b=BoundsOf(model);
-            anchor.transform.localScale=new Vector3(10f/b.size.x,1f,19f/b.size.z);
-            b=BoundsOf(model); anchor.transform.position=new Vector3(70-b.center.x,-b.center.y,-54.5f-b.center.z);
+            anchor.transform.localScale=new Vector3(14f/b.size.x,1f,16f/b.size.z);
+            b=BoundsOf(model); anchor.transform.position=new Vector3(70-b.center.x,-b.center.y,-53f-b.center.z);
             var collider=model.GetComponentInChildren<MeshFilter>().gameObject.AddComponent<MeshCollider>(); collider.sharedMesh=model.GetComponentInChildren<MeshFilter>().sharedMesh;
             Physics.SyncTransforms();
-            float north=StairHeight(collider,-45.5f),south=StairHeight(collider,-63.5f);
-            if(north<south) { anchor.transform.Rotate(0,180,0,Space.World); Physics.SyncTransforms(); north=StairHeight(collider,-45.5f); south=StairHeight(collider,-63.5f); }
+            float north=StairHeight(collider,-45.5f),south=StairHeight(collider,-60.5f);
+            if(north<south) { anchor.transform.Rotate(0,180,0,Space.World); Physics.SyncTransforms(); north=StairHeight(collider,-45.5f); south=StairHeight(collider,-60.5f); }
             StairRange(collider,out float low,out float high);
-            float scale=4.2f/Mathf.Max(0.05f,high-low);
+            float scale=8f/Mathf.Max(0.05f,high-low);
             anchor.transform.localScale=Vector3.Scale(anchor.transform.localScale,new Vector3(1,scale,1)); Physics.SyncTransforms();
             StairRange(collider,out low,out high);
             anchor.transform.position-=Vector3.up*high;
@@ -144,7 +144,7 @@ namespace EchoScrap.Editor
         private static void StairRange(MeshCollider collider,out float low,out float high)
         {
             low=float.PositiveInfinity; high=float.NegativeInfinity;
-            for(float z=-63.8f;z< -45.2f;z+=0.1f)
+            for(float z=-60.8f;z< -45.2f;z+=0.1f)
             { float y=StairHeight(collider,z); low=Mathf.Min(low,y); high=Mathf.Max(high,y); }
         }
         private static Material SparkMaterial()

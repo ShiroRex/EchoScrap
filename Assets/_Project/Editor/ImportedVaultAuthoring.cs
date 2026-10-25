@@ -25,36 +25,90 @@ namespace EchoScrap.Editor
             var root=new GameObject("PiezasImportadas").transform; root.SetParent(passage,false);
             var stairs=passage.Find("EscaleraImportada");
             var stairBounds=BoundsOf(stairs.gameObject);
-            stairs.localScale=Vector3.Scale(stairs.localScale,new Vector3(12.2f/stairBounds.size.x,1,1));
+            stairs.localScale=Vector3.Scale(stairs.localScale,new Vector3(14f/stairBounds.size.x,1,1));
             stairBounds=BoundsOf(stairs.gameObject); stairs.position+=Vector3.right*(70-stairBounds.center.x);
             FitStairCollision(stairs);
+            FitStairRails(stairs);
             // Reflejar solo la geometría para alinear también pilares y faroles.
             foreach(int side in new[]{-1,1})
                 for(int i=0;i<4;i++)
-                    Piece("Muro",root,new Vector3(70+side*6.1f,-5.4f,-45-(i+0.5f)*9.75f),new Vector3(1.2f,6.4f,9.9f),-90,side>0);
+                    Piece("Muro",root,new Vector3(70+side*6.7f,-8.8f,-45-(i+0.5f)*5.75f),new Vector3(2.6f,9.8f,5.9f),-90,side>0);
             foreach(int side in new[]{-1,1})
             {
                 var wall=passage.Find(side<0?"MuroOeste":"MuroEste");
-                wall.localPosition=new Vector3(70+side*6.1f,-2.2f,-64.5f);
-                wall.localScale=new Vector3(1.2f,6.4f,39);
+                wall.localPosition=new Vector3(70+side*6.7f,-3.9f,-56.5f);
+                wall.localScale=new Vector3(2.6f,9.8f,23);
             }
-            for(int row=0;row<5;row++)
+            for(int row=0;row<2;row++)
                 for(int column=0;column<3;column++)
-                    Piece("Losas",root,new Vector3(66+column*4,-4.38f,-66-row*4),new Vector3(4.08f,0.20f,4.08f),0);
-            var backdrop=Piece("Fondo",root,new Vector3(70,-4.4f,-82.6f),new Vector3(13.6f,8.3f,1.3f),180);
+                    Piece("Losas",root,new Vector3(66+column*4,-8.18f,-62.75f-row*3.5f),new Vector3(4.08f,0.20f,3.58f),0);
+            var backdrop=Piece("Fondo",root,new Vector3(70,-8.2f,-67.1f),new Vector3(15.2f,8.3f,1.3f),180);
             foreach(var filter in backdrop.GetComponentsInChildren<MeshFilter>()) filter.gameObject.AddComponent<MeshCollider>().sharedMesh=filter.sharedMesh;
             // El fondo sólido queda detrás del hueco y del disparador de viaje.
-            var back=passage.Find("MuroFondo"); back.localPosition=new Vector3(70,0.3f,-84); back.localScale=new Vector3(13.6f,9.4f,0.8f);
+            var back=passage.Find("MuroFondo"); back.localPosition=new Vector3(70,-3.5f,-68); back.localScale=new Vector3(15.2f,9.4f,0.8f);
+            BuildCave(root);
             Physics.SyncTransforms();
+        }
+        static void BuildCave(Transform root)
+        {
+            // Cubierta alta sobre el fondo: entrada y escalera abiertas a la cámara.
+            foreach(int side in new[]{-1,1})
+                for(int i=0;i<3;i++) CaveProp(root,"chatarra_alta",new Vector3(70+side*8.7f,0,-53-i*5),new Vector3(7,5,7),side*25);
+            CaveProp(root,"vigas",new Vector3(70,0.8f,-65),new Vector3(17,3,8),0);
+            CaveProp(root,"chatarra_baja",new Vector3(70,2.5f,-66),new Vector3(16,3,7),15);
+            CaveProp(root,"roca_baja",new Vector3(62,0,-47),new Vector3(5,3,5),20);
+            CaveProp(root,"roca_baja",new Vector3(78,0,-47),new Vector3(5,3,5),-20);
+        }
+        static void CaveProp(Transform parent,string name,Vector3 bottom,Vector3 size,float yaw)
+        {
+            var anchor=new GameObject("Cueva_"+name); anchor.transform.SetParent(parent,false);
+            var model=(GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Art/Mundo3D/Modelos/"+name+".fbx"));
+            model.transform.SetParent(anchor.transform,false); model.transform.rotation=Quaternion.Euler(0,yaw,0)*model.transform.rotation;
+            var b=BoundsOf(anchor); anchor.transform.localScale=new Vector3(size.x/b.size.x,size.y/b.size.y,size.z/b.size.z);
+            b=BoundsOf(anchor); anchor.transform.position+=new Vector3(bottom.x-b.center.x,bottom.y-b.min.y,bottom.z-b.center.z);
+            foreach(var filter in model.GetComponentsInChildren<MeshFilter>()) filter.gameObject.AddComponent<MeshCollider>().sharedMesh=filter.sharedMesh;
+        }
+        static void FitStairRails(Transform stairs)
+        {
+            var filter=stairs.GetComponentInChildren<MeshFilter>();
+            // La mayor profundidad no debe convertir las barandillas en torres.
+            var original=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Art/Boveda/Escaleras.fbx").GetComponentInChildren<MeshFilter>().sharedMesh;
+            var mesh=Object.Instantiate(original); mesh.name="EscaleraProfunda";
+            var vertices=mesh.vertices;
+            for(int i=0;i<vertices.Length;i++)
+            {
+                var p=filter.transform.TransformPoint(vertices[i]);
+                // Deformación continua: no cortar las caras que cruzan el borde del carril.
+                {
+                    float floor=-8*Mathf.Clamp01((-p.z-45)/16);
+                    if(p.y>floor+1.3f) p.y=floor+1.3f+(p.y-floor-1.3f)*.18f;
+                    vertices[i]=filter.transform.InverseTransformPoint(p);
+                }
+            }
+            mesh.vertices=vertices; mesh.RecalculateBounds(); mesh.RecalculateNormals();
+            string path=Folder+"EscaleraProfunda.asset"; var saved=AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if(saved==null) { AssetDatabase.CreateAsset(mesh,path); saved=mesh; }
+            else { EditorUtility.CopySerialized(mesh,saved); Object.DestroyImmediate(mesh); }
+            filter.sharedMesh=saved;
         }
         static void FitStairCollision(Transform stairs)
         {
             var collider=stairs.GetComponentInChildren<MeshCollider>();
             // Muestrear siempre la fuente visual, evitando acumular aproximaciones al reaplicar.
-            collider.sharedMesh=collider.GetComponent<MeshFilter>().sharedMesh;
+            collider.sharedMesh=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Art/Boveda/Escaleras.fbx").GetComponentInChildren<MeshFilter>().sharedMesh;
             Physics.SyncTransforms();
             var original=collider.sharedMesh;
             var vertices=new List<Vector3>(original.vertices); var triangles=new List<int>();
+            for(int i=0;i<vertices.Count;i++)
+            {
+                var p=collider.transform.TransformPoint(vertices[i]);
+                // Deformación continua: no cortar las caras que cruzan el borde del carril.
+                {
+                    float floor=-8*Mathf.Clamp01((-p.z-45)/16);
+                    if(p.y>floor+1.3f) p.y=floor+1.3f+(p.y-floor-1.3f)*.18f;
+                    vertices[i]=collider.transform.InverseTransformPoint(p);
+                }
+            }
             var indices=original.triangles;
             for(int i=0;i<indices.Length;i+=3)
             {
@@ -66,12 +120,12 @@ namespace EchoScrap.Editor
                 }
                 if(maxX<=65.4f || minX>=74.6f) { triangles.Add(indices[i]); triangles.Add(indices[i+1]); triangles.Add(indices[i+2]); }
             }
-            for(int i=0;i<=190;i++)
+            for(int i=0;i<=160;i++)
             {
                 float z=-45-i*.1f;
                 // El escaneo contiene caras inferiores: el apoyo nunca debe bajar
-                // bajo el terreno. Regularizar los doce peldaños entre 0 y -4.2 m.
-                float y=-Mathf.Floor(i/190f*12)*0.35f;
+                // bajo el terreno. Regularizar los doce peldaños entre 0 y -8 m.
+                float y=-Mathf.Floor(i/160f*12)*(8f/12f);
                 vertices.Add(collider.transform.InverseTransformPoint(new Vector3(65.4f,y,z)));
                 vertices.Add(collider.transform.InverseTransformPoint(new Vector3(74.6f,y,z)));
                 if(i==0) continue;

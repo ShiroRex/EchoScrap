@@ -13,8 +13,8 @@ namespace EchoScrap.Core
         public static float Profile(float x, float z)
         {
             // Excavación bajo la escalera importada y el rellano del portal.
-            if (x >= 64f && x <= 76f && z <= -45f && z >= -84f)
-                return z > -64f ? Mathf.Lerp(-0.25f,-4.45f,Mathf.Clamp01((-z-45f)/19f)) : -4.2f;
+            if (x >= 64f && x <= 76f && z <= -45f && z >= -68f)
+                return z > -61f ? Mathf.Lerp(-0.25f,-8.25f,Mathf.Clamp01((-z-45f)/16f)) : -8f;
             float height = Hill(x,z,-24,3,5.5f,19,22) + Hill(x,z,23,29,4.5f,21,19)
                 + Hill(x,z,-12,-39,4,20,18) + Hill(x,z,-37,50,7,24,19)
                 + Hill(x,z,46,-8,3.5f,18,23);
