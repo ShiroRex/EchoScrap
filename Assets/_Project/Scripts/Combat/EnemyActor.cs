@@ -552,7 +552,7 @@ namespace EchoScrap.Combat
             if (isDead)
                 return;
 
-            if ((session != null && session.IsPaused) || Time.timeScale <= 0f)
+            if ((session != null && (session.IsPaused || !session.IsGameplayFlowActive())) || Time.timeScale <= 0f)
             {
                 if (body != null && !body.isKinematic)
                     body.linearVelocity = Vector3.zero;

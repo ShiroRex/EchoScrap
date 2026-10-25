@@ -12,6 +12,9 @@ namespace EchoScrap.Core
 
         public static float Profile(float x, float z)
         {
+            // Excavación bajo la escalera importada y el rellano del portal.
+            if (x >= 64f && x <= 76f && z <= -45f && z >= -84f)
+                return z > -64f ? Mathf.Lerp(-0.25f,-4.45f,Mathf.Clamp01((-z-45f)/19f)) : -4.2f;
             float height = Hill(x,z,-24,3,5.5f,19,22) + Hill(x,z,23,29,4.5f,21,19)
                 + Hill(x,z,-12,-39,4,20,18) + Hill(x,z,-37,50,7,24,19)
                 + Hill(x,z,46,-8,3.5f,18,23);
@@ -23,7 +26,12 @@ namespace EchoScrap.Core
             float r = (x-cx)*(x-cx)/(rx*rx)+(z-cz)*(z-cz)/(rz*rz);
             return height * Mathf.SmoothStep(0,1,Mathf.Clamp01(1-r));
         }
-        public static float Height(Vector3 position) => Active != null ? Profile(position.x,position.z) : 0f;
+        public static float Height(Vector3 position)
+        {
+            if(Active==null) return 0f;
+            if(WalkableStairs.Active!=null && WalkableStairs.Active.TryHeight(position,out float height)) return height;
+            return Profile(position.x,position.z);
+        }
         public static Vector3 OnGround(Vector3 position, float offset = 0f)
         { position.y = Height(position)+offset; return position; }
         public static Vector3 Normal(Vector3 position)
@@ -52,6 +60,11 @@ namespace EchoScrap.Core
             Vector3 position=body.position;
             Vector3 ahead=position + body.linearVelocity*deltaTime;
             position.y=SupportHeight(ahead,radius)+rootHeight;
+            // Anticipar el siguiente peldaño evita chocar con su cara vertical.
+            if(WalkableStairs.Active!=null && velocity.sqrMagnitude>0.01f &&
+                WalkableStairs.Active.TryHeight(ahead+velocity.normalized*radius,out float step) &&
+                step<=position.y-rootHeight+0.75f)
+                position.y=Mathf.Max(position.y,step+rootHeight);
             body.position=position;
         }
     }

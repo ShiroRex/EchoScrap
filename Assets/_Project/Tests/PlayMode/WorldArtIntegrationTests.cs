@@ -59,9 +59,9 @@ namespace EchoScrap.Tests
             foreach (var collider in world.GetComponentsInChildren<Collider>())
                 Assert.Greater(Vector3.Distance(collider.bounds.ClosestPoint(new Vector3(0, 1, 0)), new Vector3(0, 1, 0)), 5f, collider.name);
             var camera = new GameObject("MapAuditCamera").AddComponent<Camera>();
-            camera.transform.position = new Vector3(0, 115, -85);
+            camera.transform.position = new Vector3(0, 170, -125);
             camera.transform.LookAt(Vector3.zero);
-            camera.orthographic = true; camera.orthographicSize = 80;
+            camera.orthographic = true; camera.orthographicSize = 125;
             camera.farClipPlane = 400;
             yield return Capture(camera, "Mapa", 1200, 1200);
             Object.Destroy(camera.gameObject);

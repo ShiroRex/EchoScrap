@@ -65,7 +65,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0, game.Director.ActiveEnemyCount);
             Assert.AreEqual(60f, game.GameplayCamera.fieldOfView, 0.01f);
             Transform arena = GameObject.Find("Arena_120m").transform;
-            Assert.AreEqual(new Vector3(120f, 1f, 120f), arena.Find("Floor").localScale);
+            Assert.AreEqual(new Vector3(200f, 1f, 200f), arena.Find("Floor").localScale);
             foreach (string wall in new[] { "Wall_North", "Wall_South", "Wall_East", "Wall_West" })
                 Assert.IsTrue(arena.Find(wall).GetComponent<Collider>().enabled);
         }

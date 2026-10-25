@@ -24,7 +24,7 @@ al 3,5 % de su geometría original. El remapeo se hace mediante
 desguace y viviendas al oeste, depósitos y grandes montones al norte, ruinas y
 tuberías al este, portal al sureste. Las franjas de escombro siguen los bordes de
 los caminos. Los árboles interiores y el emblema triangular siguen la composición
-de la imagen, adaptada a la arena existente de 120 × 120 m y a los modelos recibidos.
+de la imagen, adaptada a la arena de 200 × 200 m y a los modelos recibidos.
 El centro de aparición del jefe queda libre de colliders decorativos.
 
 El portal incorpora un disco animado violeta/cian y luz local. El suelo usa cinco

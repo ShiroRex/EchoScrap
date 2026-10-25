@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 namespace EchoScrap.Editor
 {
     /// <summary>
-    /// Montaje decorativo del vertedero 120x120. No modifica combate, enemigos ni jugador.
+    /// Montaje decorativo del vertedero 200x200. No modifica combate, enemigos ni jugador.
     /// Los FBX se generan con Tools/EchoScrap3D/ConvertirMundo.ps1.
     /// </summary>
     public static class EchoScrapWorldBuilder
@@ -197,13 +197,14 @@ namespace EchoScrap.Editor
             var anchor = new GameObject(p.name + "_" + p.x.ToString("0") + "_" + p.z.ToString("0"));
             Undo.RegisterCreatedObjectUndo(anchor, "Añadir objeto del mundo");
             Undo.SetTransformParent(anchor.transform, section, "Organizar objeto 3D");
-            anchor.transform.position = new Vector3(p.x, 0f, p.z);
+            anchor.transform.position = new Vector3(p.x * 1.6f, 0f, p.z * 1.6f);
             anchor.transform.rotation = Quaternion.Euler(0f, p.yaw, 0f);
             var model = PrefabUtility.InstantiatePrefab(prefab, scene) as GameObject;
             if (model == null) { Undo.DestroyObjectImmediate(anchor); return false; }
             Undo.SetTransformParent(model.transform, anchor.transform, "Colocar modelo 3D");
             model.transform.localPosition = Vector3.zero;
-            model.transform.localRotation = Quaternion.identity;
+            // Conservar la corrección de ejes del FBX. Poner identity acostaba los modelos.
+            model.transform.localRotation = prefab.transform.localRotation;
             if (!TryBounds(anchor, out Bounds bounds))
             {
                 Undo.DestroyObjectImmediate(anchor);
@@ -211,9 +212,15 @@ namespace EchoScrap.Editor
             }
             float widest = Mathf.Max(bounds.size.x, bounds.size.z);
             if (widest < 0.0001f) { Undo.DestroyObjectImmediate(anchor); return false; }
-            anchor.transform.localScale = Vector3.one * Mathf.Clamp(p.width / widest, 0.005f, 500f);
-            if (p.name == "chatarra_alta") anchor.transform.localScale = Vector3.Scale(anchor.transform.localScale, new Vector3(1, 0.55f, 1));
-            if (p.name == "ruina_almacen") anchor.transform.localScale = Vector3.Scale(anchor.transform.localScale, new Vector3(1, 0.70f, 1));
+            float width=p.width;
+            if(p.name=="arbol_seco") width=Mathf.Min(width,6f);
+            if(p.name=="tocon_bajo") width=Mathf.Min(width,3f);
+            if(p.name.StartsWith("roca")) width=Mathf.Min(width,3f);
+            if(p.name=="bolsa_basura") width=Mathf.Min(width,1.6f);
+            if(p.name=="carro") width=Mathf.Min(width,4.5f);
+            if(p.name=="lavadora" || p.name=="refrigerador") width=Mathf.Min(width,1.5f);
+            if(p.name=="cajas") width=Mathf.Min(width,2.5f);
+            anchor.transform.localScale = Vector3.one * Mathf.Clamp(width / widest, 0.005f, 500f);
             if (TryBounds(anchor, out bounds))
                 anchor.transform.position += Vector3.up * (0f - bounds.min.y);
 

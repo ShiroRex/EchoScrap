@@ -156,6 +156,112 @@ namespace EchoScrap.Tests
             game.ResetRun(false);
             Assert.AreEqual(0,lava.AnimationTime);
         }
+        [UnityTest] public IEnumerator PortalStairsAllowDescentAndAscent()
+        {
+            var body=game.Player.GetComponent<Rigidbody>();
+            body.position=new Vector3(70,1,-44); body.linearVelocity=Vector3.zero;
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.S)); yield return null;
+            for(int i=0;i<300 && body.position.z>-66;i++) yield return new WaitForFixedUpdate();
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
+            Assert.Less(body.position.z,-65.5f,"The stairs must be reachable without invisible blockers.");
+            Assert.Less(body.position.y,-2.8f);
+            yield return Capture("PasilloPortal",new Vector3(87,20,-37),new Vector3(70,-1,-65));
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W)); yield return null;
+            for(int i=0;i<300 && body.position.z<-44;i++) yield return new WaitForFixedUpdate();
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
+            Assert.Greater(body.position.z,-45f,"Can climb back out of the passage.");
+            Assert.AreEqual(1f,body.position.y,0.15f);
+        }
+        [UnityTest] public IEnumerator PortalsPreserveCombatAndAllowReturnWithoutBouncing()
+        {
+            var travel=Object.FindAnyObjectByType<WarehouseTravel>();
+            Assert.IsNotNull(travel);
+            var gates=Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None);
+            Assert.AreEqual(2,gates.Length);
+            WarehouseGateway entry=null,exit=null;
+            foreach(var gate in gates) { if(gate.FromWarehouse) exit=gate; else entry=gate; }
+            var body=game.Player.GetComponent<Rigidbody>();
+            var enemy=game.Enemies.Spawn(EnemyArchetypeId.Residual,new Vector3(0,1,8));
+            game.Player.TakeContactOrHazardDamage(5,Vector3.zero);
+            float health=game.Player.CurrentHealth,enemyHealth=enemy.CurrentHealth;
+            game.Session.Clock.SetGameplayTimeForTesting(60f);
+            body.position=ArenaSurface.OnGround(entry.transform.position,1); Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate(); yield return null;
+            Assert.IsTrue(travel.IsInWarehouse,"Walking into the actual trigger must transport the player.");
+            Assert.Greater(body.position.x,170f);
+            float clock=game.Session.GameplayTime;
+            Vector3 enemyPosition=enemy.transform.position;
+            Assert.IsFalse(travel.TryTravel(true,game.Player),"Prevent an immediate portal bounce.");
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W)); yield return null;
+            for(int i=0;i<20;i++) yield return new WaitForFixedUpdate();
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
+            Assert.Greater(body.position.z,travel.WarehouseArrival.position.z+1f,"Movement remains available inside the warehouse.");
+            Assert.AreEqual(clock,game.Session.GameplayTime);
+            Assert.Less(Vector3.Distance(enemyPosition,enemy.transform.position),0.05f);
+            Assert.AreEqual(health,game.Player.CurrentHealth);
+            Assert.AreEqual(enemyHealth,enemy.CurrentHealth);
+            yield return Capture("Almacen",new Vector3(199,22,-22),new Vector3(180,0,0));
+            yield return new WaitForSeconds(1.05f);
+            body.position=ArenaSurface.OnGround(exit.transform.position,1); Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate(); yield return null;
+            Assert.IsFalse(travel.IsInWarehouse);
+            Assert.Less(Vector3.Distance(body.position,travel.CombatArrival.position),0.3f);
+            Assert.AreEqual(health,game.Player.CurrentHealth);
+            Assert.IsTrue(enemy.IsAlive);
+            yield return new WaitForSeconds(0.1f);
+            Assert.Greater(game.Session.GameplayTime,clock);
+        }
+        [UnityTest] public IEnumerator Arena200BordersBlockExitAndKeepPerimeterWalkable()
+        {
+            Assert.AreEqual(new Vector2(100,100),game.WaveSettings.ArenaHalfExtents);
+            Assert.AreEqual(200f,game.ArenaGround.bounds.size.x,0.01f);
+            Assert.AreEqual(200f,game.ArenaGround.bounds.size.z,0.01f);
+            var body=game.Player.GetComponent<Rigidbody>();
+            var starts=new[]{new Vector3(96,1,0),new Vector3(-96,1,0),new Vector3(0,1,96),new Vector3(0,1,-96)};
+            var keys=new[]{Key.D,Key.A,Key.W,Key.S};
+            for(int side=0;side<4;side++)
+            {
+                body.position=starts[side]; body.linearVelocity=Vector3.zero; Physics.SyncTransforms();
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState(keys[side])); yield return null;
+                for(int i=0;i<55;i++) yield return new WaitForFixedUpdate();
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
+                float edge=side<2?Mathf.Abs(body.position.x):Mathf.Abs(body.position.z);
+                Assert.That(edge,Is.InRange(98f,100f),"Border "+side+" is reachable but cannot be crossed.");
+            }
+            body.position=new Vector3(96,1,-20); body.linearVelocity=Vector3.zero;
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W)); yield return null;
+            for(int i=0;i<100;i++) yield return new WaitForFixedUpdate();
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
+            Assert.Greater(body.position.z,-8,"Perimeter path must not have invisible model blockers.");
+        }
+        [UnityTest] public IEnumerator PortalIsUprightOpenAndHasGalaxyParticles()
+        {
+            var frame=GameObject.Find("Mundo3D_EchoScrap/Portal/portal_43_-40");
+            var renderer=frame.GetComponentInChildren<Renderer>(); var bounds=renderer.bounds;
+            Assert.Greater(bounds.size.y,bounds.size.z*1.5f,"Portal must be vertical, not lying down.");
+            Transform aperture=null;
+            foreach(var child in frame.GetComponentsInChildren<Transform>()) if(child.name=="ApertureCenter") aperture=child;
+            Assert.IsNotNull(aperture);
+            var ray=new Ray(new Vector3(aperture.position.x,aperture.position.y,bounds.max.z+2),Vector3.back);
+            foreach(var collider in frame.GetComponentsInChildren<MeshCollider>())
+                Assert.IsFalse(collider.Raycast(ray,out _,bounds.size.z+4),"The original solid disc must be removed.");
+            Assert.AreEqual(2,Object.FindObjectsByType<GalaxyPortalVfx>(FindObjectsSortMode.None).Length);
+            foreach(var vfx in Object.FindObjectsByType<GalaxyPortalVfx>(FindObjectsSortMode.None))
+            {
+                Assert.IsNotNull(vfx.GetComponentInChildren<ParticleSystem>());
+                Assert.IsNotNull(vfx.SparkMaterial);
+            }
+            yield return Capture("PortalGalaxia",new Vector3(70,2,-69),new Vector3(70,0,-81));
+        }
+        [UnityTest] public IEnumerator ResetFromWarehouseReturnsToOriginalSpawn()
+        {
+            var travel=Object.FindAnyObjectByType<WarehouseTravel>();
+            Assert.IsTrue(travel.TryTravel(false,game.Player));
+            game.ResetRun(false); yield return null;
+            Assert.IsFalse(travel.IsInWarehouse);
+            Assert.Less(Vector3.Distance(game.Player.transform.position,game.SpawnPosition),0.1f);
+            Assert.IsTrue(game.Session.IsGameplayFlowActive());
+        }
         private static IEnumerator Capture(string name,Vector3 position,Vector3 target)
         {
             var camera=new GameObject("TerrainAuditCamera").AddComponent<Camera>(); camera.transform.position=position; camera.transform.LookAt(target);
