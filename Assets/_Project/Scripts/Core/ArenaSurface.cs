@@ -12,9 +12,9 @@ namespace EchoScrap.Core
 
         public static float Profile(float x, float z)
         {
-            float height = Hill(x,z,-24,3,5.5f,19,22) + Hill(x,z,23,29,4.5f,21,19)
-                + Hill(x,z,-12,-39,4,20,18) + Hill(x,z,-37,50,7,24,19)
-                + Hill(x,z,46,-8,3.5f,18,23);
+            float height = Hill(x,z,-24,3,2.2f,19,22) + Hill(x,z,23,29,1.8f,21,19)
+                + Hill(x,z,-12,-39,1.4f,20,18) + Hill(x,z,-37,50,2.6f,24,19)
+                + Hill(x,z,46,-8,1.4f,18,23);
             float center = Mathf.SmoothStep(0,1,Mathf.InverseLerp(11,19,new Vector2(x,z).magnitude));
             return height * center;
         }

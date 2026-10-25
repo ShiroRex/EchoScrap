@@ -116,8 +116,8 @@ namespace EchoScrap.Tests
             foreach (Transform child in game.Motor.GetComponentsInChildren<Transform>(true))
                 if (child.name == "Placeholder Body" || child.name == "Facing Marker") Assert.That(child.gameObject.activeSelf, Is.False);
             yield return Capture(game.GameplayCamera, "Arena.png");
-            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.InRange(0.8f, 1.2f),
-                "Restore the original player scale at the reference 1080p render size.");
+            Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(1.3f).Within(0.001f),
+                "Keep the authored 30% enlargement independent of screen-pixel rounding.");
             var close = new GameObject("Collector close-up camera").AddComponent<Camera>();
             close.CopyFrom(game.GameplayCamera);
             close.transform.rotation = game.GameplayCamera.transform.rotation;
@@ -357,7 +357,9 @@ namespace EchoScrap.Tests
             for (int i = 0; i < moves.Length; i++)
             {
                 InputSystem.QueueStateEvent(pad, new GamepadState { leftStick = moves[i] });
-                yield return new WaitForSeconds(0.16f);
+                yield return null;
+                for (int step = 0; step < 8; step++) yield return new WaitForFixedUpdate();
+                yield return null;
                 Assert.That(view.Motion, Is.EqualTo(CharacterMotion.Walk));
                 Assert.That(view.Facing, Is.EqualTo(facings[i]));
                 var spriteBlock = new MaterialPropertyBlock();

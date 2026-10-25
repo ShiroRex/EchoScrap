@@ -3,6 +3,9 @@
 Primera pasada de balance para el escenario de combate actual. El mapa nuevo y
 el formato de feria de cinco minutos quedan fuera de esta actividad.
 
+La corrección posterior de la arena y de la recarga al aproximarse del mortero
+se documenta en [ArenaRepair.md](ArenaRepair.md).
+
 ## Ajustar desde Unity
 
 Abrir **EchoScrap > Balance > Editar enemigos y botiquines**. Los cambios se
@@ -32,8 +35,10 @@ assets ya entregados.
 | Daño / intervalo del charco | 5 / 0,5 s |
 | Morteros vivos simultáneos | 6 |
 
-Fuera de alcance no dispara ni acumula un disparo para lanzarlo al entrar. Los
-primeros disparos se escalonan para evitar una salva sincronizada al aparecer.
+Fuera de alcance recarga mientras se acerca, pero conserva siempre los 0,45 s de
+aviso antes de lanzar al entrar en rango. Salir del alcance ya no reinicia toda
+la recarga: así puede disparar contra un jugador en movimiento. Los primeros
+disparos se escalonan para evitar una salva sincronizada al aparecer.
 Su banda de reposo queda dentro del alcance inicial de la linterna (7 m).
 Al alcanzar el límite, las plazas adicionales de mortero pasan a Residual;
 se mantiene la presión de la oleada sin acumular artillería indefinidamente.

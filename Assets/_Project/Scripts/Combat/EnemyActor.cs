@@ -644,7 +644,7 @@ namespace EchoScrap.Combat
                     body.position = new Vector3(body.position.x, 1f, body.position.z);
             }
 
-            // 4. Mortero: cadencia de 3,5 s, vuelo de 0,65 s y charco con reserva propia.
+            // 4. Mortero: alcance y cadencia editables, con reserva propia para cada charco.
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
             {
                 StepMortarAttack(fixedDeltaTime);
@@ -664,15 +664,18 @@ namespace EchoScrap.Combat
             }
 
             MortarAttackData attack = MortarAttack;
+            float interval = Mathf.Max(0.5f, attack.FireInterval);
+            float warning = Mathf.Clamp(attack.WarningDuration, 0.1f, interval);
             Vector3 offset = targetPlayer.transform.position - transform.position; offset.y = 0f;
             float maximumRange = Mathf.Max(1f, attack.MaximumRange);
             if (offset.sqrMagnitude > maximumRange * maximumRange)
             {
-                attackCooldownTimer = 0f; telegraphTimer = 0f;
+                // Reload while approaching. Entry still requires the full visible warning;
+                // crossing the range boundary must not restart a five-second reload.
+                attackCooldownTimer = Mathf.Min(interval - warning, attackCooldownTimer + fixedDeltaTime);
+                telegraphTimer = 0f;
                 return;
             }
-            float interval = Mathf.Max(0.5f, attack.FireInterval);
-            float warning = Mathf.Clamp(attack.WarningDuration, 0.1f, interval);
             attackCooldownTimer = Mathf.Min(interval, attackCooldownTimer + fixedDeltaTime);
             float remaining = interval - attackCooldownTimer;
             bool hasCapacity = puddlePool != null && puddlePool.CanLaunchProjectile;
@@ -722,7 +725,7 @@ namespace EchoScrap.Combat
             {
                 // Conserva la banda editable, retrocediendo sin dejar de mirar al jugador.
                 if (dist > Mathf.Max(MortarAttack.RetreatDistance, MortarAttack.HoldDistance))
-                    seekDir = dirToPlayer;
+                    seekDir = ArenaNavigation.DirectionOrDirect(myPos, dirToPlayer);
                 else if (dist < Mathf.Max(0f, MortarAttack.RetreatDistance))
                     seekDir = -dirToPlayer;
                 else
@@ -739,6 +742,7 @@ namespace EchoScrap.Combat
                     pursuitOffset += Vector3.ClampMagnitude(targetVelocity, interceptorPredictionSpeedCap) * interceptorPredictionSeconds;
                 }
                 seekDir = pursuitOffset.sqrMagnitude > 0.0001f ? pursuitOffset.normalized : Vector3.zero;
+                seekDir = ArenaNavigation.DirectionOrDirect(myPos, seekDir);
             }
 
             // Separación local entre enemigos cercanos para evitar apilamiento sin requerir colisiones O(N^2) en PhysX
@@ -803,7 +807,7 @@ namespace EchoScrap.Combat
 
             int defaultLayerMask = 1 << PhysicsLayers.DefaultLayer;
             if (Physics.SphereCast(
-                new Vector3(origin.x, 1f, origin.z),
+                origin,
                 HitRadius * 0.85f,
                 desiredDir,
                 out RaycastHit hit,
@@ -816,6 +820,10 @@ namespace EchoScrap.Combat
                     Vector3 slide = Vector3.ProjectOnPlane(desiredDir, new Vector3(hit.normal.x, 0f, hit.normal.z).normalized);
                     if (slide.sqrMagnitude > 0.01f)
                         return slide.normalized;
+                    // A perpendicular wall has no tangent projection. Pick a stable
+                    // side rather than repeatedly driving straight into its normal.
+                    Vector3 tangent = new Vector3(-hit.normal.z, 0f, hit.normal.x);
+                    return Vector3.Dot(tangent, desiredDir) >= 0f ? tangent.normalized : -tangent.normalized;
                 }
             }
 

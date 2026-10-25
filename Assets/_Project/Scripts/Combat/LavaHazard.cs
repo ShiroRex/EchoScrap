@@ -9,6 +9,7 @@ namespace EchoScrap.Combat
     {
         public Vector2 Radii = new Vector2(3f, 2f);
         public bool AutoTick = true;
+        public Color EmissionTint = new Color(1.2f, 0.36f, 0.055f);
         public float AnimationTime { get; private set; }
         private CombatGameBootstrap game;
         private Renderer[] renderers;
@@ -18,7 +19,10 @@ namespace EchoScrap.Combat
         private void Start()
         {
             game=FindAnyObjectByType<CombatGameBootstrap>();
-            renderers=GetComponentsInChildren<Renderer>();
+            var animated = new List<Renderer>();
+            foreach (var renderer in GetComponentsInChildren<Renderer>())
+                if (renderer.sharedMaterial != null && renderer.sharedMaterial.IsKeywordEnabled("_EMISSION")) animated.Add(renderer);
+            renderers=animated.ToArray();
             properties=new MaterialPropertyBlock();
             if(game!=null) game.Session.SessionReset+=ResetHazard;
         }
@@ -38,7 +42,7 @@ namespace EchoScrap.Combat
             AnimationTime+=deltaTime;
             // Desplazamiento continuo del magma y emisión pulsante, calculados en Unity.
             properties.SetVector("_BaseMap_ST",new Vector4(1,1,AnimationTime*0.012f,AnimationTime*0.008f));
-            properties.SetColor("_EmissionColor",new Color(2.8f,1.1f,0.35f)*(1f+0.22f*Mathf.Sin(AnimationTime*2.5f)));
+            properties.SetColor("_EmissionColor",EmissionTint*(1f+0.12f*Mathf.Sin(AnimationTime*2.5f)));
             foreach(var renderer in renderers) renderer.SetPropertyBlock(properties);
             Touch(game.Player);
             var targets=CombatTargetRegistry.ActiveTargets;

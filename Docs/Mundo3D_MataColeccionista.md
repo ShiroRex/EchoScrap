@@ -20,30 +20,35 @@ al 3,5 % de su geometría original. El remapeo se hace mediante
 
 ## Plano del vertedero
 
-`EchoScrapWorldBuilder` contiene coordenadas explícitas, sin generador aleatorio:
-desguace y viviendas al oeste, depósitos y grandes montones al norte, ruinas y
-tuberías al este, portal al sureste. Las franjas de escombro siguen los bordes de
-los caminos. Los árboles interiores y el emblema triangular siguen la composición
-de la imagen, adaptada a la arena existente de 120 × 120 m y a los modelos recibidos.
-El centro de aparición del jefe queda libre de colliders decorativos.
+`ArenaRepairAuthoring` contiene la disposición actual, con coordenadas explícitas:
+76 anclajes de modelos, desguace y viviendas al oeste, depósitos al norte, ruinas
+y tuberías al este y portal al sureste. El centro y un circuito ancho quedan
+despejados para el combate. El escombro pequeño es decorativo. El emblema central
+es una incrustación sin colisiones; no bloquea la aparición ni a los enemigos.
+La arena conserva sus dimensiones de 120 × 120 m.
 
 El portal incorpora un disco animado violeta/cian y luz local. El suelo usa cinco
-elevaciones suaves, de hasta siete metros, con el centro del combate despejado.
+elevaciones suaves, de hasta 2,6 metros, con el centro del combate despejado.
 `ArenaSurface` comparte el perfil con la malla del terreno y adapta la altura del
 jugador, enemigos, recogibles y avisos. El material `WastelandGround` combina tierra,
 grava, grietas y roca según la pendiente, con iluminación y sombras URP.
 
-Los modelos estáticos usan su propia malla como collider no convexo: las puertas
-y huecos conservan su forma real. Los límites exteriores ahora son muros visibles.
+Los objetos grandes usan huellas de colisión simples; los árboles tienen cápsulas
+en sus troncos. `ArenaNavigation` comparte un campo de distancias entre enemigos
+para rodear obstáculos. Los límites son cuatro muros continuos y cerrados, con
+colliders altos para impedir atravesarlos con el dash. `ArenaOcclusion` desvanece
+los objetos que tapan al jugador, conservando sus colisiones y cobertura.
 La linterna comprueba obstáculos antes de elegir y dañar objetivos; los proyectiles
 parabólicos recorren su trayectoria y chocan con las superficies, pudiendo superar
 coberturas bajas. Las áreas corrosivas respetan la cobertura al aplicar daño.
 
-`WorldArtIntegration.Integrate` reconstruye **solo el grupo del mundo**, aplica los
-materiales, prepara el prefab del jefe, aplica relieve y colisiones y guarda la escena. No usarlo para conservar
-ediciones manuales posteriores dentro de `Mundo3D_EchoScrap`; para reparar solo
-materiales usar `Materials`. No ejecutar `Combat/Rebuild Playable Arena`.
-`TerrainCollisionAuthoring.Apply` permite regenerar únicamente relieve y colisiones.
+El menú **EchoScrap > Mapa > Aplicar correccion de jugabilidad** reconstruye esta
+disposición y guarda la escena. Reemplaza las ediciones manuales del grupo del
+mundo: no hace falta ejecutarlo para jugar ni para mover un objeto ya colocado.
+Para reparar solo materiales se conserva `WorldArtIntegration.Materials`.
+`EchoScrapWorldBuilder`, `WorldArtIntegration.Integrate`, `TerrainCollisionAuthoring.Apply`
+y `LavaAuthoring.Apply` reconstruyen disposiciones anteriores; no ejecutarlos para
+mantener esta versión. Tampoco ejecutar `Combat/Rebuild Playable Arena`.
 
 ## Animaciones del jefe
 
@@ -72,3 +77,6 @@ También genera capturas en `Logs/WorldArtIntegration/`. Los informes XML y logs
 la ejecución completa quedan en `Logs/AssetAudit/` (archivos locales excluidos de Git).
 `TerrainCollisionTests` prueba el perfil físico, subida/bajada con controles reales,
 apoyo de enemigos, oclusión de la linterna y proyectiles contra coberturas altas y bajas.
+`ArenaPlayabilityTests` verifica además escala en pendientes, límites con dash,
+rutas alrededor de vehículos, visibilidad a través del muro, disparo de mortero
+y apoyo de los depósitos. Resultados y rendimiento: [ArenaRepair.md](ArenaRepair.md).

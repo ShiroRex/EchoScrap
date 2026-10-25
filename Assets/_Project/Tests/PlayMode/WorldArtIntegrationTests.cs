@@ -46,7 +46,7 @@ namespace EchoScrap.Tests
             var world = GameObject.Find("Mundo3D_EchoScrap");
             Assert.IsNotNull(world);
             var models = world.GetComponentsInChildren<Renderer>().Where(r => r.GetComponent<MeshFilter>() != null && r.transform.parent != null && r.transform.parent.name != "Emblema_triangular").ToArray();
-            Assert.Greater(models.Length, 130);
+            Assert.Greater(models.Length, 70);
             foreach (var renderer in models.Where(r => r.name != "Emblema_triangular" && r.name != "PortalVortex"))
                 foreach (var material in renderer.sharedMaterials)
                 {

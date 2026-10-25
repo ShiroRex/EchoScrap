@@ -45,25 +45,19 @@ namespace EchoScrap.Tests
             }
             CombatTargetRegistry.Clear();
         }
-        [Test] public void CollisionsUseVisibleTriangles_AndTerrainMatchesItsHeightProfile()
+        [Test] public void SolidPropsUseSimpleFootprints_AndTerrainMatchesItsHeightProfile()
         {
             var world=GameObject.Find("Mundo3D_EchoScrap");
-            Assert.AreEqual(0,world.GetComponentsInChildren<BoxCollider>().Length,"No oversized proxy boxes.");
-            foreach(var filter in world.GetComponentsInChildren<MeshFilter>())
-            {
-                if(filter.name=="PortalVortex") continue;
-                var collider=filter.GetComponent<MeshCollider>();
-                Assert.IsNotNull(collider,filter.name);
-                Assert.AreSame(filter.sharedMesh,collider.sharedMesh,filter.name);
-                Assert.IsFalse(collider.convex,filter.name+" must preserve openings.");
-            }
+            Assert.That(world.GetComponentsInChildren<BoxCollider>().Length, Is.InRange(15, 40));
+            Assert.That(world.GetComponentsInChildren<MeshCollider>().Length, Is.Zero,
+                "Tiny decorative mesh triangles must not snag feet or horde navigation.");
             Assert.AreSame(game.ArenaGround,ArenaSurface.Active.GroundCollider);
             for(int x=-50;x<=50;x+=5) for(int z=-50;z<=50;z+=5)
             {
                 Assert.IsTrue(game.ArenaGround.Raycast(new Ray(new Vector3(x,25,z),Vector3.down),out RaycastHit hit,30));
                 Assert.AreEqual(ArenaSurface.Profile(x,z),hit.point.y,0.015f);
             }
-            Assert.Greater(ArenaSurface.Profile(-24,3),5f);
+            Assert.Greater(ArenaSurface.Profile(-24,3),1.8f);
             foreach(string wall in new[]{"North","South","East","West"})
                 Assert.IsTrue(GameObject.Find("Arena_120m/Wall_"+wall).GetComponent<Renderer>().enabled);
         }
@@ -75,10 +69,10 @@ namespace EchoScrap.Tests
             for(int i=0;i<130;i++) yield return new WaitForFixedUpdate();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
             Assert.Less(body.position.x,-20,"Real input must move up the hill.");
-            Assert.Greater(body.position.y,4,"Player must rise with terrain: " + body.position + " ground=" + ArenaSurface.Height(body.position) + " active=" + ArenaSurface.Active);
+            Assert.Greater(body.position.y,2.5f,"Player must rise with terrain: " + body.position + " ground=" + ArenaSurface.Height(body.position) + " active=" + ArenaSurface.Active);
             Assert.AreEqual(ArenaSurface.SupportHeight(body.position,0.45f)+1,body.position.y,0.25f);
             var enemy=game.Enemies.Spawn(EnemyArchetypeId.Residual,new Vector3(-24,1,3));
-            Assert.Greater(enemy.transform.position.y,5f);
+            Assert.Greater(enemy.transform.position.y,2.5f);
             yield return Capture("Relieve",new Vector3(-4,18,-19),new Vector3(-23,3,3));
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.D)); yield return null;
             for(int i=0;i<130;i++) yield return new WaitForFixedUpdate();

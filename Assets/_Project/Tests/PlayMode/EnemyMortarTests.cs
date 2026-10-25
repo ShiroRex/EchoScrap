@@ -84,16 +84,17 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void MortarCannotShootAcrossTheArenaOrBankShotsOutsideItsRange()
+        public void MortarReloadsOnApproachButAlwaysWarnsBeforeAnInRangeShot()
         {
             EnemyActor mortar = enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(0, 1, 30));
             mortar.StepPhysics(100f);
             Assert.That(mortar.MortarShotsFiredCount, Is.Zero);
             Assert.That(hazards.ActiveProjectileCount, Is.Zero);
             Move(mortar, new Vector3(0, 1, 8));
-            mortar.StepPhysics(4.9f);
-            Assert.That(mortar.MortarShotsFiredCount, Is.Zero, "Entering range starts a full attack cycle.");
-            mortar.StepPhysics(0.11f);
+            mortar.StepPhysics(EnemyActor.MortarTelegraphLeadTime - 0.01f);
+            Assert.That(mortar.MortarShotsFiredCount, Is.Zero, "A loaded mortar still gives the complete warning on entry.");
+            Assert.Greater(mortar.TelegraphTimer, 0f);
+            mortar.StepPhysics(0.02f);
             Assert.That(mortar.MortarShotsFiredCount, Is.EqualTo(1));
             Move(mortar, new Vector3(0, 1, 30));
             mortar.StepPhysics(100f);

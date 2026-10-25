@@ -201,8 +201,9 @@ namespace EchoScrap.Combat
                     : 2f * screen.z * Mathf.Tan(viewCamera.fieldOfView * Mathf.Deg2Rad * 0.5f) / viewCamera.pixelHeight;
                 if (worldPerPixel > 0f)
                 {
-                    float stride = Mathf.Max(1f, Mathf.Round(visualScale / (sprites.pixelsPerUnit * worldPerPixel)));
-                    scale = stride * sprites.pixelsPerUnit * worldPerPixel;
+                    // Snap the foot only. Quantizing scale to a screen-pixel multiple
+                    // doubled the whole character when depth crossed a rounding threshold.
+                    float stride = 1f;
                     screen.x = Mathf.Round(screen.x / stride) * stride;
                     screen.y = Mathf.Round(screen.y / stride) * stride;
                     // Keep the foot on its floor plane rather than moving it vertically with screen snapping.
