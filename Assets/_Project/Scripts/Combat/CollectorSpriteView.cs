@@ -23,7 +23,8 @@ namespace EchoScrap.Combat
         [SerializeField] private Vector3 footOffset = Vector3.down;
         [SerializeField] private Transform pulseIndicator;
         [SerializeField] private bool snapToPixelGrid = true;
-        [SerializeField, Min(0.5f)] private float visualScale = 1.3f;
+        // Standing animation frames are 58–61 opaque pixels: about 1.8 m at 24 PPU and height 1.6.
+        [SerializeField, Min(0.1f)] private float visualScale = 0.45f;
         [Tooltip("Fixed world-space proportions of the upright plane; never compensated against the camera.")]
         [SerializeField, Min(0.5f)] private float standingHeight = 1.6f;
         private FlashlightPresentation flashlight;

@@ -20,6 +20,7 @@ namespace EchoScrap.Player
         private Rigidbody body;
         private PlayerInputReader input;
         private Collider playerCollider;
+        private TerrainPlayerCollision terrainCollision;
 
         private bool isDashing;
         private Vector3 dashDirection = Vector3.forward;
@@ -58,6 +59,8 @@ namespace EchoScrap.Player
             body = GetComponent<Rigidbody>();
             input = GetComponent<PlayerInputReader>();
             playerCollider = GetComponent<Collider>();
+            if (playerCollider is CapsuleCollider capsule)
+                terrainCollision = new TerrainPlayerCollision(body, capsule);
             ResolveRuntimeStats();
             ResolveVisualComposer();
 
@@ -148,7 +151,7 @@ namespace EchoScrap.Player
             if (isDashing)
             {
                 StepActiveDash(dt);
-                ArenaSurface.Follow(body, 0.45f, 1f, dt);
+                FollowTerrain(dt);
                 return;
             }
 
@@ -161,8 +164,20 @@ namespace EchoScrap.Player
 
             // Control arcade deliberado: PhysX resuelve las colisiones después de fijar
             // la velocidad deseada. El Transform de la raíz nunca se mueve directamente.
-            body.linearVelocity = Vector3.MoveTowards(body.linearVelocity, target, rate * dt);
-            ArenaSurface.Follow(body, 0.45f, 1f, dt);
+            Vector3 planarVelocity = body.linearVelocity;
+            planarVelocity.y = 0f;
+            body.linearVelocity = Vector3.MoveTowards(planarVelocity, target, rate * dt);
+            FollowTerrain(dt);
+        }
+
+        private void FollowTerrain(float dt)
+        {
+            if (terrainCollision == null) { ArenaSurface.Follow(body, 0.45f, 1f, dt); return; }
+            if (!terrainCollision.Step(dt, out Vector3 point, out Vector3 normal) || !isDashing || wallBlockedThisDash) return;
+            normal.y = 0f;
+            if (normal.sqrMagnitude < 0.001f) normal = -dashDirection;
+            normal.Normalize();
+            if (Vector3.Dot(normal, dashDirection) < -0.20f) RegisterDashWallBlock(point, normal);
         }
 
         private void StartDashInFixedStep(Vector3 currentMoveDirection)
@@ -254,8 +269,17 @@ namespace EchoScrap.Player
             }
         }
 
-        private void OnCollisionEnter(Collision collision) => CheckWallBlockCollision(collision);
-        private void OnCollisionStay(Collision collision) => CheckWallBlockCollision(collision);
+        private void OnCollisionEnter(Collision collision)
+        {
+            CheckWallBlockCollision(collision);
+            terrainCollision?.RecoverAfterPhysics();
+        }
+
+        private void OnCollisionStay(Collision collision)
+        {
+            CheckWallBlockCollision(collision);
+            terrainCollision?.RecoverAfterPhysics();
+        }
 
         private void CheckWallBlockCollision(Collision collision)
         {
@@ -276,14 +300,19 @@ namespace EchoScrap.Player
                 planarNormal.Normalize();
                 if (Vector3.Dot(planarNormal, dashDirection) < -0.20f)
                 {
-                    wallBlockedThisDash = true;
-                    WallBlockReactionCount++;
-                    ResolveVisualComposer()?.SetDashState(true, endedNow: false, blockedByWallNow: true);
-                    OnDashBlockedByWall?.Invoke(cp.point, planarNormal);
-                    PublishDashEvent(started: false, ended: false, blocked: true);
+                    RegisterDashWallBlock(cp.point, planarNormal);
                     return;
                 }
             }
+        }
+
+        private void RegisterDashWallBlock(Vector3 point, Vector3 normal)
+        {
+            wallBlockedThisDash = true;
+            WallBlockReactionCount++;
+            ResolveVisualComposer()?.SetDashState(true, endedNow: false, blockedByWallNow: true);
+            OnDashBlockedByWall?.Invoke(point, normal);
+            PublishDashEvent(started: false, ended: false, blocked: true);
         }
 
         private void Update()

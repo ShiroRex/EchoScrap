@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using EchoScrap.Combat;
 using EchoScrap.Core;
 using EchoScrap.Player;
@@ -79,7 +80,7 @@ namespace EchoScrap.Tests
             var body = game.Motor.GetComponent<Rigidbody>();
             body.interpolation = RigidbodyInterpolation.None;
             Vector3 expectedBounds = view.CharacterMesh.bounds.size;
-            expectedBounds = Vector3.Scale(expectedBounds, new Vector3(1.3f, 1.3f * 1.6f, 1.3f));
+            expectedBounds = Vector3.Scale(expectedBounds, new Vector3(0.45f, 0.45f * 1.6f, 0.45f));
             foreach (int renderHeight in new[] { 180, 360, 1080 })
             {
                 var target = new RenderTexture(renderHeight * 16 / 9, renderHeight, 24);
@@ -95,7 +96,7 @@ namespace EchoScrap.Tests
                         camera.transform.position = point - camera.transform.forward * depth;
                         view.AlignToCamera();
                         string context = $"height={point.y}, depth={depth}, renderHeight={renderHeight}";
-                        Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(1.3f).Within(0.001f), context);
+                        Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.45f).Within(0.001f), context);
                         Assert.That(view.CharacterRenderer.bounds.size.x, Is.EqualTo(expectedBounds.x).Within(0.001f), context);
                         Assert.That(view.CharacterRenderer.bounds.size.y, Is.EqualTo(expectedBounds.y).Within(0.001f), context);
                         Assert.That(view.CharacterRenderer.transform.position.y, Is.EqualTo(point.y - 0.975f).Within(0.001f), context);
@@ -123,8 +124,70 @@ namespace EchoScrap.Tests
                 Vector3 offset = game.GameplayCamera.transform.position - body.position;
                 if (sample++ == 0) referenceOffset = offset;
                 Assert.That(offset.y, Is.EqualTo(referenceOffset.y).Within(0.15f), "The camera must follow the elevated ground immediately.");
-                Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(1.3f).Within(0.001f));
+                Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.45f).Within(0.001f));
             }
+        }
+
+        [Test]
+        public void StandingPixelsMatchCommonEnemyCapsuleAndDashGhostKeepsProportions()
+        {
+            EnemyActor residual = game.Enemies.Spawn(EnemyArchetypeId.Residual,
+                game.Motor.transform.position + Vector3.right * 3f);
+            Assert.That(residual, Is.Not.Null);
+            float referenceHeight = residual.BodyCollider.bounds.size.y;
+            Assert.That(referenceHeight, Is.EqualTo(1.8f).Within(0.01f));
+            view.AlignToCamera();
+            // Measure the opaque authored art, excluding its transparent frame padding.
+            var atlas = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            temporaryObjects.Add(atlas);
+            Assert.That(atlas.LoadImage(File.ReadAllBytes(Path.Combine(Application.dataPath,
+                "_Project/Art/Characters/Coleccionista/Coleccionista_Atlas.png"))), Is.True);
+            Color32[] pixels = atlas.GetPixels32();
+            foreach (CharacterFacing facing in System.Enum.GetValues(typeof(CharacterFacing)))
+                foreach (CharacterMotion motion in new[] { CharacterMotion.Idle, CharacterMotion.Walk })
+                    foreach (CharacterSpriteSet.Frame frame in view.Sprites.GetClip(motion, facing).frames)
+                    {
+                        float height = OpaquePixelHeight(pixels, atlas.width, atlas.height, frame.uvRect)
+                            / view.Sprites.pixelsPerUnit * view.CharacterRenderer.transform.lossyScale.y;
+                        Assert.That(height, Is.EqualTo(referenceHeight).Within(0.1f), $"{motion} {facing}");
+                    }
+
+            var ghost = new GameObject("Collector resized dash ghost regression");
+            temporaryObjects.Add(ghost);
+            MeshRenderer renderer = ghost.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = view.AfterimageMaterial;
+            view.CopyAfterimageTo(ghost.transform, renderer);
+            Assert.That(ghost.transform.localScale, Is.EqualTo(view.CharacterRenderer.transform.lossyScale));
+            Assert.That(view.ProjectedShadowRenderer.transform.lossyScale,
+                Is.EqualTo(view.CharacterRenderer.transform.lossyScale));
+        }
+
+        [UnityTest]
+        public IEnumerator SavedAndLiveCameraKeepFiftyDegreePitchAndAlignedFollowOffset()
+        {
+            var rig = game.CameraRig;
+            var follow = rig.GetComponent<Unity.Cinemachine.CinemachineFollow>();
+            Vector3 expectedOffsetDirection = -(Quaternion.Euler(50f, 0f, 0f) * Vector3.forward);
+            Assert.That(Vector3.Angle(follow.FollowOffset, expectedOffsetDirection), Is.LessThan(0.01f));
+            for (int i = 0; i < 4; i++) { yield return new WaitForFixedUpdate(); yield return null; }
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, rig.transform.eulerAngles.x)), Is.LessThan(0.01f));
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, game.GameplayCamera.transform.eulerAngles.x)), Is.LessThan(0.01f));
+        }
+
+        private static int OpaquePixelHeight(Color32[] pixels, int width, int height, Vector4 frame)
+        {
+            int x0 = Mathf.RoundToInt(frame.x * width), y0 = Mathf.RoundToInt(frame.y * height);
+            int columns = Mathf.RoundToInt(frame.z * width), rows = Mathf.RoundToInt(frame.w * height);
+            int bottom = rows, top = -1;
+            for (int y = 0; y < rows; y++)
+                for (int x = 0; x < columns; x++)
+                    if (pixels[(y0 + y) * width + x0 + x].a > 0)
+                    {
+                        bottom = Mathf.Min(bottom, y);
+                        top = Mathf.Max(top, y);
+                    }
+            Assert.That(top, Is.GreaterThanOrEqualTo(bottom), "Sprite frame must contain visible art.");
+            return top - bottom + 1;
         }
 
         [UnityTest]
