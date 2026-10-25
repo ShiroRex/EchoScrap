@@ -1,10 +1,17 @@
 # Piezas para completar el acceso a la bóveda
 
-El modelo de escalera actual se conserva. En Unity se ha sustituido el acabado
-de cajas marrones por sillares grises biselados, remates de caliza, pilares,
-faroles ámbar y losas en el rellano. Es un acabado modular construido con mallas
-simples; las referencias siguientes sirven para pedir piezas artísticas más
-detalladas que combinen con la escalera original.
+Las tres piezas GLB entregadas ya están integradas con sus texturas en
+`Assets/_Project/Art/Boveda/Piezas/`. La escalera original se ensanchó a 12.2 m;
+los muros se repiten simétricamente y solapan sus extremos para cerrar juntas.
+El rellano usa losas superpuestas ligeramente, con soporte físico continuo.
+La colisión de la escalera conserva sus bordes y regulariza doce peldaños entre
+0 y -4.2 m por el carril útil, evitando los huecos y salientes del modelo
+escaneado. Se prueba la subida y bajada con entrada real en tres carriles.
+Los GLB originales de Descargas no se modifican. El script
+`Tools/EchoScrap3D/importar_piezas_boveda.py` suelda vértices coincidentes,
+recalcula normales y reduce cada pieza a aproximadamente 24 000 caras.
+
+Las referencias y prompts siguientes se conservan como documentación de diseño.
 
 No generar el pasillo entero como una única malla: estas tres piezas permiten
 ajustar largo, altura y colisiones sin rehacer la escalera ni el portal.

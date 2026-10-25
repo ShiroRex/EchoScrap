@@ -105,7 +105,10 @@ namespace EchoScrap.Editor
             new Vector2(-39,39), new Vector2(-42,25), new Vector2(-44,10), new Vector2(-44,-17),
             new Vector2(-38,-34), new Vector2(-35,-47), new Vector2(-18,45), new Vector2(-2,44),
             new Vector2(30,36), new Vector2(40,15), new Vector2(39,-8), new Vector2(32,-29),
-            new Vector2(-25,17), new Vector2(20,22), new Vector2(23,-18), new Vector2(-8,-37)
+            new Vector2(-25,17), new Vector2(20,22), new Vector2(23,-18), new Vector2(-8,-37),
+            new Vector2(-18,29), new Vector2(10,31), new Vector2(-22,-10), new Vector2(18,-7),
+            new Vector2(-8,-18), new Vector2(12,-32), new Vector2(28,12), new Vector2(-28,30),
+            new Vector2(4,12), new Vector2(30,-36)
         };
         [MenuItem(MenuBase + "1 - Crear mapa de vertedero")]
         public static void Build()
@@ -220,6 +223,7 @@ namespace EchoScrap.Editor
             if(p.name=="carro") width=Mathf.Min(width,4.5f);
             if(p.name=="lavadora" || p.name=="refrigerador") width=Mathf.Min(width,1.5f);
             if(p.name=="cajas") width=Mathf.Min(width,2.5f);
+            if(p.name=="bolsa_basura" || p.name=="llanta" || p.name=="tablas" || p.name=="cajas" || p.name.StartsWith("escombros")) width*=1.35f;
             anchor.transform.localScale = Vector3.one * Mathf.Clamp(width / widest, 0.005f, 500f);
             if (TryBounds(anchor, out bounds))
                 anchor.transform.position += Vector3.up * (0f - bounds.min.y);

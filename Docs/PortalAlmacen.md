@@ -30,7 +30,13 @@ enemigos conservados, movimiento en el almacén, reinicio, subida/bajada, límit
 de 200 m, paso perimetral y hueco físico del portal. Capturas locales en
 `Logs/WorldArtIntegration/`.
 
-El acceso usa ahora un revestimiento modular de piedra gris, remates, pilares,
-faroles y losas. Puede reaplicarse con `PassageFinishAuthoring.Apply` sin reconstruir
-el mundo. Referencias y prompts de las piezas artísticas pendientes en
+El acceso usa las tres piezas importadas de Meshy, con muros simétricos, losas
+y fondo adaptado al portal. La escalera mide 12.2 m de ancho y encaja en los lados.
+Puede reaplicarse con `PassageFinishAuthoring.Apply` sin reconstruir
+el mundo. Referencias y prompts de las piezas artísticas en
 [Acceso_Boveda_Meshy.md](Acceso_Boveda_Meshy.md).
+
+La distribución conserva el plano fijo: diez acumulaciones adicionales ocupan
+zonas interiores. Bolsas, llantas, tablas, cajas y escombros aumentaron un 35 %
+respecto al tamaño anterior. Se mantienen despejados el inicio, el acceso a la
+bóveda y el paso perimetral.

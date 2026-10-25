@@ -20,6 +20,8 @@ namespace EchoScrap.Editor
         }
         public static void Decorate()
         {
+            if(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Art/Boveda/Piezas/Muro/Muro.fbx")!=null)
+            { ImportedVaultAuthoring.Decorate(); return; }
             var passage=GameObject.Find("WarehouseConnection/PasilloDescendente").transform;
             var old=passage.Find("AcabadoPiedra"); if(old!=null) Object.DestroyImmediate(old.gameObject);
             var root=new GameObject("AcabadoPiedra").transform; root.SetParent(passage,false);

@@ -156,14 +156,34 @@ namespace EchoScrap.Tests
             game.ResetRun(false);
             Assert.AreEqual(0,lava.AnimationTime);
         }
+        [Test] public void ImportedVaultWallsAreSymmetric_AndStairsCoverTheCorridor()
+        {
+            var passage=GameObject.Find("WarehouseConnection/PasilloDescendente").transform;
+            var west=passage.Find("MuroOeste").GetComponent<BoxCollider>().bounds;
+            var east=passage.Find("MuroEste").GetComponent<BoxCollider>().bounds;
+            Assert.AreEqual(140f,west.center.x+east.center.x,0.01f);
+            Assert.AreEqual(west.size,east.size);
+            var stairs=passage.Find("EscaleraImportada").GetComponentInChildren<MeshCollider>().bounds;
+            Assert.LessOrEqual(stairs.min.x,west.max.x);
+            Assert.GreaterOrEqual(stairs.max.x,east.min.x);
+            foreach(float x in new[]{67f,70f,73f})
+                for(float z=-48;z>=-62;z-=1)
+                    Assert.IsTrue(WalkableStairs.Active.TryHeight(new Vector3(x,0,z),out _),"Missing tread at "+x+","+z);
+            Assert.IsNotNull(passage.Find("PiezasImportadas/Fondo"));
+        }
         [UnityTest] public IEnumerator PortalStairsAllowDescentAndAscent()
         {
             var body=game.Player.GetComponent<Rigidbody>();
-            body.position=new Vector3(70,1,-44); body.linearVelocity=Vector3.zero;
+            foreach(float lane in new[]{67f,70f,73f})
+            {
+            body.position=new Vector3(lane,1,-44); body.linearVelocity=Vector3.zero;
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.S)); yield return null;
             for(int i=0;i<300 && body.position.z>-66;i++) yield return new WaitForFixedUpdate();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
-            Assert.Less(body.position.z,-65.5f,"The stairs must be reachable without invisible blockers.");
+            if(body.position.z>=-65.5f)
+                foreach(var contact in Physics.OverlapSphere(body.position,2))
+                    Debug.Log("STAIR_BLOCK lane="+lane+" body="+body.position+" height="+ArenaSurface.Height(body.position)+" collider="+contact.name+" bounds="+contact.bounds);
+            Assert.Less(body.position.z,-65.5f,"The stairs must be reachable without invisible blockers, lane="+lane+" body="+body.position);
             Assert.Less(body.position.y,-2.8f);
             yield return Capture("PasilloPortal",new Vector3(87,20,-37),new Vector3(70,-1,-65));
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W)); yield return null;
@@ -171,6 +191,7 @@ namespace EchoScrap.Tests
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
             Assert.Greater(body.position.z,-45f,"Can climb back out of the passage.");
             Assert.AreEqual(1f,body.position.y,0.15f);
+            }
         }
         [UnityTest] public IEnumerator PortalsPreserveCombatAndAllowReturnWithoutBouncing()
         {
