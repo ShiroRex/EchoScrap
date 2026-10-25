@@ -5,18 +5,35 @@ namespace EchoScrap.Core
     /// <summary>Superficie del vertedero. La malla y la locomoción comparten el mismo perfil.</summary>
     public sealed class ArenaSurface : MonoBehaviour
     {
+        public const float ReferenceSize = 120f;
+        [SerializeField, Min(20f)] private float worldSize = ReferenceSize;
         public static ArenaSurface Active { get; private set; }
+        public float WorldSize { get => worldSize; set => worldSize = Mathf.Max(20f, value); }
+        public float HorizontalScale => worldSize / ReferenceSize;
         public Collider GroundCollider => GetComponent<Collider>();
         private void OnEnable() => Active = this;
         private void OnDisable() { if (Active == this) Active = null; }
 
         public static float Profile(float x, float z)
         {
+            return Profile(x, z, Active != null ? Active.WorldSize : ReferenceSize);
+        }
+        // Editor authoring has no active runtime surface; bake with the explicit world size.
+        public static float Profile(float x, float z, float size)
+        {
+            float scale = Mathf.Max(20f, size) / ReferenceSize;
+            x /= scale; z /= scale;
             float height = Hill(x,z,-24,3,5.5f,19,22) + Hill(x,z,23,29,4.5f,21,19)
                 + Hill(x,z,-12,-39,4,20,18) + Hill(x,z,-37,50,7,24,19)
                 + Hill(x,z,46,-8,3.5f,18,23);
             float center = Mathf.SmoothStep(0,1,Mathf.InverseLerp(11,19,new Vector2(x,z).magnitude));
             return height * center;
+        }
+        public static Vector3 ReferenceToWorld(Vector3 position)
+        {
+            float scale = Active != null ? Active.HorizontalScale : 1f;
+            position.x *= scale; position.z *= scale;
+            return position;
         }
         private static float Hill(float x,float z,float cx,float cz,float height,float rx,float rz)
         {

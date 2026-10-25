@@ -60,7 +60,7 @@ namespace EchoScrap.Tests
         [UnityTest]
         public IEnumerator AuthoredMortar_FiresAndLandsAtPlayer_OnActualArenaHill()
         {
-            Vector3 hill = new Vector3(-24f, 0f, 3f);
+            Vector3 hill = ArenaSurface.ReferenceToWorld(new Vector3(-24f, 0f, 3f));
             Assert.That(ArenaSurface.Height(hill), Is.GreaterThan(5f));
             yield return VerifyAttack(hill, "ArenaHill");
         }

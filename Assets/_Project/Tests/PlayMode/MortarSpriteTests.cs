@@ -124,8 +124,54 @@ namespace EchoScrap.Tests
             Assert.That(view.Motion, Is.EqualTo(MortarMotion.Float));
             hazards.ClearAll();
             actor.StepPhysics(0.02f);
+            view.Advance(0f);
+            Assert.That(view.Motion, Is.EqualTo(MortarMotion.Charge));
+            Assert.That(actor.MortarShotsFiredCount, Is.Zero, "Capacity recovery must still show the warning.");
+            actor.StepPhysics(0.44f);
             Assert.That(view.Motion, Is.EqualTo(MortarMotion.Fire));
             Assert.That(actor.MortarShotsFiredCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void AcidEmissionAndSharedGreenLightRampThroughTheWholeWarning()
+        {
+            EnemyActor actor = enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(0f, 1f, 7f));
+            var view = actor.GetComponent<MortarSpriteView>();
+            var block = new MaterialPropertyBlock();
+            view.Advance(0f);
+            view.CharacterRenderer.GetPropertyBlock(block);
+            float idleEmission = block.GetFloat("_GlowStrength");
+            float idleLight = view.Glow.Intensity;
+
+            actor.SetTimersForTesting(0f, 4.56f, 0f, 0.01f);
+            view.Advance(0f);
+            view.CharacterRenderer.GetPropertyBlock(block);
+            float earlyEmission = block.GetFloat("_GlowStrength");
+            float earlyLight = view.Glow.Intensity;
+            actor.SetTimersForTesting(0f, 4.98f, 0f, 0.43f);
+            view.Advance(0f);
+            view.CharacterRenderer.GetPropertyBlock(block);
+            float chargedEmission = block.GetFloat("_GlowStrength");
+            float chargedLight = view.Glow.Intensity;
+            Assert.That(chargedEmission, Is.GreaterThan(idleEmission * 5f));
+            Assert.That(chargedEmission, Is.GreaterThan(earlyEmission * 3f));
+            Assert.That(chargedLight, Is.GreaterThan(idleLight * 5f));
+            Assert.That(chargedLight, Is.GreaterThan(earlyLight * 3f));
+            Assert.That(view.Glow.Range, Is.GreaterThan(4.8f));
+            Assert.That(view.Glow.Color.g, Is.GreaterThan(view.Glow.Color.r * 4f));
+            Assert.That(block.GetColor("_BaseColor"), Is.EqualTo(Color.white));
+            Assert.That(view.CharacterRenderer.sharedMaterial.GetTexture("_GlowMap").name,
+                Is.EqualTo("MorteroCampana_Emission"), "Only the authored acid mask receives emission.");
+
+            session.Effects.ReducedEffectsMode = true;
+            view.Advance(0f);
+            view.CharacterRenderer.GetPropertyBlock(block);
+            Assert.That(block.GetFloat("_GlowStrength"), Is.InRange(idleEmission * 2f, chargedEmission - 0.1f));
+            Assert.That(view.Glow.Intensity, Is.InRange(idleLight * 2f, chargedLight - 0.1f));
+            float reducedEmission = block.GetFloat("_GlowStrength");
+            view.Advance(0.15f);
+            view.CharacterRenderer.GetPropertyBlock(block);
+            Assert.That(block.GetFloat("_GlowStrength"), Is.EqualTo(reducedEmission), "Reduced warning does not strobe.");
         }
 
         [Test]

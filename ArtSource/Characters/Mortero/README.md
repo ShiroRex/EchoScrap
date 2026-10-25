@@ -75,6 +75,11 @@ su contorno geométrico. La decoración no modifica el área de daño.
 
 La emisión se concentra en el ácido de la Campana: baja en reposo, sube al
 cargar, alcanza un máximo breve al disparar y desciende durante la recuperación.
+El aviso incrementa gradualmente la emisión de 1,2 a 6 y la intensidad de la
+luz verde de 1,1 a 4,8; el radio de esa luz pasa de 3,4 a 5 m. La emisión de
+reposo permanece en 0,7. La máscara de ácido conserva el metal sin emisión.
+Los efectos reducidos mantienen un aviso estable, con emisión máxima 2,5 y luz
+máxima 2, sin pulsación ni ampliación del radio.
 `CombatGlowSource` reutiliza las ocho luces compartidas de legibilidad. No se
 crea una luz por charco. La lectura del ataque funciona sin Bloom y en efectos
 reducidos; no se modificó el postprocesado global de la arena.
@@ -99,16 +104,31 @@ su disolución dibujada en vez de los fragmentos geométricos genéricos.
 Se conserva `Assets/_Project/Settings/Enemies/Mortar.asset`: alcance 12 m,
 banda 5,5–6,5 m, intervalo 5 s, aviso 0,45 s, vuelo 0,85 s, charco de radio 1,2 m y
 duración 3 s, daño 5 cada 0,5 s. Los valores antiguos del GDD no sustituyen los
-ajustes activos. Salir del alcance reinicia la cadencia, como ya establecía el
-comportamiento existente.
+ajustes activos. El primer ciclo se escalona entre 1 y 2 s; los siguientes
+conservan la cadencia de 5 s.
 
-El fallo original de falta de disparo no se reprodujo como una referencia rota.
-La integración alinea la emisión con el collar y verifica el lanzamiento real.
-En la arena guardada se comprobaron dos ataques, con el jugador inmóvil a 6 m:
-uno en el centro y otro sobre la loma (-24, 3). En ambos hubo un lanzamiento,
-un charco en el destino, reservas liberadas y salud del jugador de 100 a 95.
-Esto no identifica la causa de cualquier caso distinto durante movimiento
-continuo o detrás de coberturas; estas pueden interceptar la trayectoria.
+La causa del fallo en movimiento era el reinicio completo de la recarga en
+cada paso físico fuera de los 12 m. Los enemigos aparecen aproximadamente a
+14–16 m y avanzan a 2,2 m/s frente a los 8 m/s del jugador: al entrar y salir del
+alcance nunca completaban los 5 s continuos requeridos. El desfase inicial de
+hasta 5 s también permitía que la linterna matara a los morteros de 25 HP antes
+del primer ataque. Las comprobaciones anteriores con un jugador inmóvil a 6 m
+no cubrían estas condiciones.
+
+Ahora la recarga continúa fuera de alcance y cuando el pool está lleno, pero
+se detiene antes del aviso. Al recuperar alcance y capacidad, el mortero debe
+mostrar de nuevo los 0,45 s completos de carga antes de lanzar. Salir durante
+ese aviso cancela únicamente el aviso parcial. Nunca dispara fuera de alcance
+ni acumula disparos para una salva; tras lanzar vuelve a recargar 5 s. El primer
+ciclo más corto permite responder durante un acercamiento con autofuego sin
+modificar la salud, el alcance, la cadencia posterior ni el tiempo de evasión.
+
+`MovingMortarAttackTests` cubre el acercamiento desde 15 m con la locomoción y
+linterna reales activas, y los cruces repetidos del límite de alcance. Las
+pruebas de temporización comprueban también el aviso completo tras reentrar y
+tras liberar capacidad. Las pruebas de la arena inmóvil se conservan como
+regresión de trayectoria y altura; la loma se obtiene con `ReferenceToWorld`
+para mantener su posición relativa cuando cambia el tamaño del mapa.
 
 ## Validación realizada
 

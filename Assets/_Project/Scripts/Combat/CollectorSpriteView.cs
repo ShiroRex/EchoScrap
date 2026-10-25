@@ -197,14 +197,12 @@ namespace EchoScrap.Combat
             if (snapToPixelGrid && viewCamera.pixelHeight > 0)
             {
                 Vector3 screen = viewCamera.WorldToScreenPoint(position);
-                float worldPerPixel = viewCamera.orthographic ? viewCamera.orthographicSize * 2f / viewCamera.pixelHeight
-                    : 2f * screen.z * Mathf.Tan(viewCamera.fieldOfView * Mathf.Deg2Rad * 0.5f) / viewCamera.pixelHeight;
-                if (worldPerPixel > 0f)
+                if (screen.z > viewCamera.nearClipPlane)
                 {
-                    float stride = Mathf.Max(1f, Mathf.Round(visualScale / (sprites.pixelsPerUnit * worldPerPixel)));
-                    scale = stride * sprites.pixelsPerUnit * worldPerPixel;
-                    screen.x = Mathf.Round(screen.x / stride) * stride;
-                    screen.y = Mathf.Round(screen.y / stride) * stride;
+                    // Snap only the pivot. Quantizing the entire sprite to an integer number of
+                    // screen pixels resized it whenever camera depth, relief or resolution changed.
+                    screen.x = Mathf.Round(screen.x);
+                    screen.y = Mathf.Round(screen.y);
                     // Keep the foot on its floor plane rather than moving it vertically with screen snapping.
                     Ray snappedRay = viewCamera.ScreenPointToRay(screen);
                     var floor = new Plane(Vector3.up, position);

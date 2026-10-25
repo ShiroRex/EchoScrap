@@ -27,6 +27,11 @@ namespace EchoScrap.Tests
             CombatTargetRegistry.Clear();
             testScene = SceneManager.CreateScene($"EnemyMortarTest_{Random.Range(10000, 99999)}");
             SceneManager.SetActiveScene(testScene);
+            // A saved playable arena may still be loaded when the runner enters Play.
+            // Its PlayerHealth must not be discovered by this fixture's standalone session.
+            Scene playableArena = SceneManager.GetSceneByName("CombatArena");
+            if (playableArena.IsValid() && playableArena.isLoaded)
+                yield return SceneManager.UnloadSceneAsync(playableArena);
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "ArenaFloor";
             floor.transform.localScale = Vector3.one * 8f;
@@ -41,7 +46,6 @@ namespace EchoScrap.Tests
             camera.backgroundColor = new Color(0.07f, 0.08f, 0.11f);
             camera.transform.position = new Vector3(0f, 12f, -5f);
             camera.transform.LookAt(new Vector3(0f, 0f, 3f));
-            session = new GameObject("CombatSession").AddComponent<CombatSession>();
             playerObject = new GameObject("Player");
             playerObject.layer = PhysicsLayers.PlayerLayer;
             playerObject.transform.position = Vector3.up;
@@ -61,12 +65,14 @@ namespace EchoScrap.Tests
             playerObject.AddComponent<PlayerRuntimeStats>();
             playerObject.AddComponent<ActorVisualComposer>();
             playerHealth = playerObject.AddComponent<PlayerHealth>();
+            session = new GameObject("CombatSession").AddComponent<CombatSession>();
             playerHealth.BindSession(session);
             hazards = new GameObject("CorrosivePuddlePool").AddComponent<CorrosivePuddlePool>();
             hazards.BindReferences(session, playerHealth);
             enemies = new GameObject("EnemyPool").AddComponent<EnemyPool>();
             enemies.BindReferences(session, playerHealth, hazards);
             session.ResetSession(20261022);
+            Assert.That(session.PlayerHealth, Is.SameAs(playerHealth), "A reset must own this fixture's player, not an actor from another loaded arena.");
             yield return null;
         }
 
@@ -84,16 +90,26 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void MortarCannotShootAcrossTheArenaOrBankShotsOutsideItsRange()
+        public void MortarReloadsOutsideRangeButMustGiveAFullWarningOnEntry()
         {
             EnemyActor mortar = enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(0, 1, 30));
             mortar.StepPhysics(100f);
             Assert.That(mortar.MortarShotsFiredCount, Is.Zero);
             Assert.That(hazards.ActiveProjectileCount, Is.Zero);
+            Assert.That(mortar.AttackCooldownTimer, Is.EqualTo(5f - 0.45f).Within(0.001f));
+            Assert.IsFalse(mortar.IsMortarCharging, "A target outside range must never see a false warning.");
             Move(mortar, new Vector3(0, 1, 8));
-            mortar.StepPhysics(4.9f);
-            Assert.That(mortar.MortarShotsFiredCount, Is.Zero, "Entering range starts a full attack cycle.");
-            mortar.StepPhysics(0.11f);
+            mortar.StepPhysics(0.2f);
+            Assert.That(mortar.MortarShotsFiredCount, Is.Zero, "Entering range starts the full warning, not an instant shot.");
+            Assert.That(mortar.MortarChargeProgress, Is.EqualTo(0.2f / 0.45f).Within(0.001f));
+            // Leaving during the warning cancels only the warning, not the completed reload.
+            Move(mortar, new Vector3(0, 1, 30));
+            mortar.StepPhysics(0.02f);
+            Assert.IsFalse(mortar.IsMortarCharging);
+            Move(mortar, new Vector3(0, 1, 8));
+            mortar.StepPhysics(0.44f);
+            Assert.That(mortar.MortarShotsFiredCount, Is.Zero);
+            mortar.StepPhysics(0.011f);
             Assert.That(mortar.MortarShotsFiredCount, Is.EqualTo(1));
             Move(mortar, new Vector3(0, 1, 30));
             mortar.StepPhysics(100f);
@@ -155,7 +171,7 @@ namespace EchoScrap.Tests
         {
             EnemyActor mortar = enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(0f, 1f, 7f));
             float firstDelay = EnemyActor.MortarFireInterval - mortar.AttackCooldownTimer;
-            Assert.That(firstDelay, Is.InRange(1f, 5f));
+            Assert.That(firstDelay, Is.InRange(1f, 2f));
             mortar.StepPhysics(firstDelay - 0.01f);
             Assert.AreEqual(0, mortar.MortarShotsFiredCount);
             mortar.StepPhysics(0.02f);
@@ -231,6 +247,10 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0, mortar.MortarShotsFiredCount);
             hazards.StepPool(4f);
             mortar.StepPhysics(0.02f);
+            Assert.AreEqual(0, mortar.MortarShotsFiredCount, "Returning capacity must begin an actual warning.");
+            mortar.StepPhysics(0.42f);
+            Assert.AreEqual(0, mortar.MortarShotsFiredCount);
+            mortar.StepPhysics(0.011f);
             Assert.AreEqual(1, mortar.MortarShotsFiredCount);
             mortar.StepPhysics(0.02f);
             Assert.AreEqual(1, mortar.MortarShotsFiredCount, "Capacity returning cannot release a catch-up salvo.");

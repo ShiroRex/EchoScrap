@@ -47,7 +47,7 @@ namespace EchoScrap.Combat
                 pixels = MothSpriteView.CreateRenderer("Mortero Campana Pixels", actor.VisualComposer.PresentationPivot, sprites.mesh, sprites.material);
                 shadow = MothSpriteView.CreateRenderer("Mortero Campana Contact Shadow", transform, sprites.shadowMesh, sprites.shadowMaterial);
                 glow = pixels.gameObject.AddComponent<CombatGlowSource>();
-                glow.Color = new Color(0.42f, 1f, 0.16f);
+                glow.Color = new Color(0.2f, 1f, 0.04f);
                 glow.Range = 3.4f;
             }
             actor.VisualComposer.PresentationPivot.GetComponentsInChildren(true, actorRenderers);
@@ -151,12 +151,23 @@ namespace EchoScrap.Combat
             if (!actor.VisualComposer.IsFlashActive) properties.SetColor(BaseColorId, Color.white);
             bool reduced = actor.Session != null && actor.Session.Effects.ReducedEffectsMode;
             float pulse = reduced || paused ? 1f : 1f + 0.06f * Mathf.Sin(clock * 6f);
-            float strength = Motion == MortarMotion.Charge ? Mathf.Lerp(0.8f, 2.1f, chargeProgress)
-                : Motion == MortarMotion.Fire ? 2.6f
-                : Motion == MortarMotion.Recover ? Mathf.Lerp(1.4f, 0.7f, clipTime / clip.Duration) : 0.7f;
+            // Only the authored acid mask emits. The increasing light on the floor makes the
+            // warning readable in the dark arena without turning the metal casing fluorescent.
+            float charge = Mathf.SmoothStep(0f, 1f, chargeProgress);
+            float recovery = Mathf.Clamp01(clipTime / clip.Duration);
+            float chargePeak = reduced ? 2.5f : 6f;
+            float firePeak = reduced ? 3f : 7.5f;
+            float strength = Motion == MortarMotion.Charge ? Mathf.Lerp(1.2f, chargePeak, charge)
+                : Motion == MortarMotion.Fire ? firePeak
+                : Motion == MortarMotion.Recover ? Mathf.Lerp(reduced ? 1.5f : 2.5f, 0.7f, recovery) : 0.7f;
             properties.SetFloat(GlowStrengthId, strength * pulse);
             pixels.SetPropertyBlock(properties);
-            glow.Intensity = (Motion == MortarMotion.Charge ? 1.7f : Motion == MortarMotion.Fire ? 2f : 0.7f) * pulse;
+            float lightPeak = reduced ? 2f : 4.8f;
+            glow.Intensity = (Motion == MortarMotion.Charge ? Mathf.Lerp(1.1f, lightPeak, charge)
+                : Motion == MortarMotion.Fire ? reduced ? 2.3f : 5.5f
+                : Motion == MortarMotion.Recover ? Mathf.Lerp(reduced ? 1.2f : 2f, 0.7f, recovery) : 0.7f) * pulse;
+            glow.Range = reduced ? 3.4f : Motion == MortarMotion.Charge ? Mathf.Lerp(3.4f, 5f, charge)
+                : Motion == MortarMotion.Fire ? 5.2f : Motion == MortarMotion.Recover ? Mathf.Lerp(4.2f, 3.4f, recovery) : 3.4f;
             glow.Priority = Motion == MortarMotion.Charge || Motion == MortarMotion.Fire ? 2f : 0.8f;
         }
 

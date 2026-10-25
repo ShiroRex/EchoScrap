@@ -101,7 +101,7 @@ MonoBehaviour:
   BossMinionCap: 24
   BossMinionOrder: 01000000010000000400000005000000i
   ArenaCenter: {x: 0, y: 0}
-  ArenaHalfExtents: {x: 60, y: 60}
+  ArenaHalfExtents: {x: 100, y: 100}
   ArenaBoundaryInset: 1
   GroundHeight: 0
   BaselineMinimumDistance: 14

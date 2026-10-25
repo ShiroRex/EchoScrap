@@ -7,7 +7,7 @@ namespace EchoScrap.Combat
 {
     /// <summary>
     /// Base compartida de enemigos (Residual, Interceptor, Coloso, Mortero, Polilla Explosiva).
-    /// Resuelve locomoción con Rigidbody en FixedUpdate, altura fija, separación local, evitación sencilla,
+    /// Resuelve locomoción con Rigidbody en FixedUpdate, apoyo sobre el relieve, separación y rutas compartidas,
     /// daño por contacto de colliders reales, empuje (impulso * susceptibilidad y frenado),
     /// reacción visual / hit-stop local mediante ActorVisualComposer y reciclaje íntegro en pool.
     /// </summary>
@@ -48,6 +48,7 @@ namespace EchoScrap.Combat
         private Rigidbody body;
         private CapsuleCollider bodyCollider;
         private Rigidbody targetBody;
+        private readonly EnemyObstacleNavigator obstacleNavigator = new EnemyObstacleNavigator();
 
         private float currentHealth;
         private float assignedMoveSpeed;
@@ -329,6 +330,7 @@ namespace EchoScrap.Combat
 
         private void OnDisable()
         {
+            obstacleNavigator.Reset();
             activeEnemies.Remove(this);
             CombatTargetRegistry.Unregister(this);
             if (body != null && !body.isKinematic)
@@ -458,6 +460,7 @@ namespace EchoScrap.Combat
             knockbackVelocity = Vector3.zero;
             currentDesiredVelocity = Vector3.zero;
             facingDirection = Vector3.forward;
+            obstacleNavigator.Reset();
 
             // 4. Temporizadores de contacto, disparo, mecha y telegrafía a cero
             nextContactReadyTime = 0f;
@@ -466,7 +469,10 @@ namespace EchoScrap.Combat
             {
                 DeterministicRandom attackRng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
                 float interval = Mathf.Max(0.5f, MortarAttack.FireInterval);
-                attackCooldownTimer = interval - attackRng.Range(Mathf.Min(1f, interval), interval);
+                float warning = Mathf.Clamp(MortarAttack.WarningDuration, 0.1f, interval);
+                float minimumDelay = Mathf.Max(warning, Mathf.Min(1f, interval));
+                float maximumDelay = Mathf.Max(minimumDelay, Mathf.Min(2f, interval));
+                attackCooldownTimer = interval - attackRng.Range(minimumDelay, maximumDelay);
                 EnsurePuddlePool();
                 mortarRecoilRemaining = 0f;
                 if (mortarEmitter != null)
@@ -680,19 +686,20 @@ namespace EchoScrap.Combat
             MortarAttackData attack = MortarAttack;
             Vector3 offset = targetPlayer.transform.position - transform.position; offset.y = 0f;
             float maximumRange = Mathf.Max(1f, attack.MaximumRange);
-            if (offset.sqrMagnitude > maximumRange * maximumRange)
-            {
-                attackCooldownTimer = 0f; telegraphTimer = 0f;
-                return;
-            }
             float interval = Mathf.Max(0.5f, attack.FireInterval);
             float warning = Mathf.Clamp(attack.WarningDuration, 0.1f, interval);
-            attackCooldownTimer = Mathf.Min(interval, attackCooldownTimer + fixedDeltaTime);
-            float remaining = interval - attackCooldownTimer;
+            float readyForWarning = interval - warning;
             bool hasCapacity = puddlePool != null && puddlePool.CanLaunchProjectile;
-            telegraphTimer = hasCapacity && remaining <= warning && remaining > 0f
-                ? (warning - remaining)
-                : 0f;
+            if (offset.sqrMagnitude > maximumRange * maximumRange || !hasCapacity)
+            {
+                // Reload while approaching. Only the final warning needs range and a reserved shot.
+                // Resetting the entire cooldown here prevented slow mortars from ever firing at a moving player.
+                attackCooldownTimer = Mathf.Min(readyForWarning, attackCooldownTimer + fixedDeltaTime);
+                telegraphTimer = 0f;
+                return;
+            }
+            attackCooldownTimer = Mathf.Min(interval, attackCooldownTimer + fixedDeltaTime);
+            telegraphTimer = Mathf.Clamp(attackCooldownTimer - readyForWarning, 0f, warning);
 
             if (attackCooldownTimer >= interval && hasCapacity)
             {
@@ -771,8 +778,12 @@ namespace EchoScrap.Combat
             else
                 return Vector3.zero;
 
-            // Evitación sencilla de obstáculos estáticos (capa Default = 0)
-            combinedDir = ApplySimpleObstacleAvoidance(myPos, combinedDir);
+            Vector3 navigationGoal = targetPlayer.transform.position;
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Interceptor && targetBody != null && dist > interceptorDirectPursuitDistance)
+                navigationGoal += Vector3.ClampMagnitude(targetBody.linearVelocity, interceptorPredictionSpeedCap) * interceptorPredictionSeconds;
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar && dist < Mathf.Max(0f, MortarAttack.RetreatDistance))
+                navigationGoal = myPos - dirToPlayer * Mathf.Max(3f, MortarAttack.HoldDistance - dist);
+            combinedDir = obstacleNavigator.Steer(this, combinedDir, navigationGoal, obstacleLookAhead, fixedDeltaTime);
 
             return combinedDir * assignedMoveSpeed;
         }
@@ -813,30 +824,11 @@ namespace EchoScrap.Combat
             return push;
         }
 
+        // Shared by specialised pursuit implementations, including Gólgora.
         protected Vector3 ApplySimpleObstacleAvoidance(Vector3 origin, Vector3 desiredDir)
         {
-            if (desiredDir.sqrMagnitude < 0.001f)
-                return desiredDir;
-
-            int defaultLayerMask = 1 << PhysicsLayers.DefaultLayer;
-            if (Physics.SphereCast(
-                new Vector3(origin.x, 1f, origin.z),
-                HitRadius * 0.85f,
-                desiredDir,
-                out RaycastHit hit,
-                obstacleLookAhead,
-                defaultLayerMask,
-                QueryTriggerInteraction.Ignore))
-            {
-                if (Mathf.Abs(hit.normal.y) < 0.4f)
-                {
-                    Vector3 slide = Vector3.ProjectOnPlane(desiredDir, new Vector3(hit.normal.x, 0f, hit.normal.z).normalized);
-                    if (slide.sqrMagnitude > 0.01f)
-                        return slide.normalized;
-                }
-            }
-
-            return desiredDir;
+            Vector3 goal = targetPlayer != null ? targetPlayer.transform.position : origin + desiredDir * 8f;
+            return obstacleNavigator.Steer(this, desiredDir, goal, obstacleLookAhead, Time.fixedDeltaTime);
         }
 
         public bool TryDealContactDamage()

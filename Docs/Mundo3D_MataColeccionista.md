@@ -24,7 +24,8 @@ al 3,5 % de su geometría original. El remapeo se hace mediante
 desguace y viviendas al oeste, depósitos y grandes montones al norte, ruinas y
 tuberías al este, portal al sureste. Las franjas de escombro siguen los bordes de
 los caminos. Los árboles interiores y el emblema triangular siguen la composición
-de la imagen, adaptada a la arena existente de 120 × 120 m y a los modelos recibidos.
+de la imagen. La arena actual mide 200 × 200 m; las posiciones X/Z y el relieve
+se ampliaron proporcionalmente desde el plano de 120 m, conservando tamaños de modelos.
 El centro de aparición del jefe queda libre de colliders decorativos.
 
 El portal incorpora un disco animado violeta/cian y luz local. El suelo usa cinco
@@ -33,8 +34,11 @@ elevaciones suaves, de hasta siete metros, con el centro del combate despejado.
 jugador, enemigos, recogibles y avisos. El material `WastelandGround` combina tierra,
 grava, grietas y roca según la pendiente, con iluminación y sombras URP.
 
-Los modelos estáticos usan su propia malla como collider no convexo: las puertas
-y huecos conservan su forma real. Los límites exteriores ahora son muros visibles.
+Los obstáculos estáticos usan cajas compuestas ajustadas a su geometría en
+`CollisionBoxes`, conservando puertas y espacio bajo ramas/vigas. Sólo las rocas
+bajas de hasta 1,65 m de ancho y 1 m de alto son decorativas sin colisión.
+Los límites exteriores tienen muros visibles y cuatro cajas invisibles de 50 m
+de alto que bloquean caminar y dash. La iluminación general y ambiental es 0,22.
 La linterna comprueba obstáculos antes de elegir y dañar objetivos; los proyectiles
 parabólicos recorren su trayectoria y chocan con las superficies, pudiendo superar
 coberturas bajas. Las áreas corrosivas respetan la cobertura al aplicar daño.
@@ -43,7 +47,11 @@ coberturas bajas. Las áreas corrosivas respetan la cobertura al aplicar daño.
 materiales, prepara el prefab del jefe, aplica relieve y colisiones y guarda la escena. No usarlo para conservar
 ediciones manuales posteriores dentro de `Mundo3D_EchoScrap`; para reparar solo
 materiales usar `Materials`. No ejecutar `Combat/Rebuild Playable Arena`.
-`TerrainCollisionAuthoring.Apply` permite regenerar únicamente relieve y colisiones.
+Para actualizar la arena actual sin reconstruir el mundo, usar
+`EchoScrap/Arte 3D/Actualizar relieve y cajas de arena 200m`
+(`ArenaReliefRepairAuthoring.Apply`). Conserva rotaciones y overrides de modelos,
+adapta posiciones sólo si cambia el tamaño y vuelve a ajustar las cajas.
+Los generadores anteriores de 120 m son herramientas de reconstrucción del plano base.
 
 ## Animaciones del jefe
 
