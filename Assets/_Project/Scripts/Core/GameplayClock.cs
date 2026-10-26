@@ -27,6 +27,7 @@ namespace EchoScrap.Core
         public bool IsPaused => activeReasons != PauseReason.None;
         public float GameplayTime => gameplayTime;
         public int SimulationStep => simulationStep;
+        public float SimulationRate { get; private set; } = 1f;
         public float UnscaledTime => Time.unscaledTime;
         public float UnscaledDeltaTime => Time.unscaledDeltaTime;
 
@@ -77,13 +78,20 @@ namespace EchoScrap.Core
             activeReasons = PauseReason.None;
             gameplayTime = 0f;
             simulationStep = 0;
+            SimulationRate = 1f;
             Time.timeScale = 1f;
             OnPauseStateChanged?.Invoke(activeReasons, false);
         }
 
         public void ApplyTimeScale()
         {
-            Time.timeScale = IsPaused ? 0f : 1f;
+            Time.timeScale = IsPaused ? 0f : SimulationRate;
+        }
+
+        public void SetSimulationRate(float rate)
+        {
+            SimulationRate = float.IsNaN(rate) ? 1f : Mathf.Clamp(rate, 0.05f, 2f);
+            ApplyTimeScale();
         }
     }
 }

@@ -32,6 +32,14 @@ namespace EchoScrap.Tests
 
             testScene = SceneManager.CreateScene($"FlashlightTest_{Random.Range(1000, 9999)}");
             SceneManager.SetActiveScene(testScene);
+            // A preceding arena integration fixture can leave its player loaded. Session
+            // discovery must only see this fixture's actor, or reset targets the other weapon.
+            for (int index = SceneManager.sceneCount - 2; index >= 0; index--)
+            {
+                Scene previous = SceneManager.GetSceneAt(index);
+                if (previous.IsValid() && previous.isLoaded)
+                    yield return SceneManager.UnloadSceneAsync(previous);
+            }
 
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "ArenaFloor";

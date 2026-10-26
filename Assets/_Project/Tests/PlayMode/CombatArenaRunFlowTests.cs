@@ -66,8 +66,26 @@ namespace EchoScrap.Tests
             Assert.AreEqual(60f, game.GameplayCamera.fieldOfView, 0.01f);
             Transform arena = GameObject.Find("Arena_120m").transform;
             Assert.AreEqual(new Vector3(200f, 1f, 200f), arena.Find("Floor").localScale);
+            // Se conservan las comprobaciones de los muros de nuestra rama.
             foreach (string wall in new[] { "Wall_North", "Wall_South", "Wall_East", "Wall_West" })
-                Assert.IsTrue(arena.Find(wall).GetComponent<Collider>().enabled);
+            {
+                Transform wallTransform = arena.Find(wall);
+                Assert.IsNotNull(wallTransform, "No se encontro el muro: " + wall);
+                Collider wallCollider = wallTransform.GetComponent<Collider>();
+                Assert.IsNotNull(wallCollider, "El muro no tiene Collider: " + wall);
+                Assert.IsTrue(wallCollider.enabled, "El Collider del muro esta desactivado: " + wall);
+            }
+
+            // Se conservan las comprobaciones nuevas de develop para la arena de 200 m.
+            Assert.AreEqual(new Vector2(100f, 100f), game.WaveSettings.ArenaHalfExtents);
+            foreach (string edge in new[] { "North", "South", "East", "West" })
+            {
+                Transform border = arena.Find("ArenaBounds/Border_" + edge);
+                Assert.IsNotNull(border, "No se encontro el limite: Border_" + edge);
+                BoxCollider borderCollider = border.GetComponent<BoxCollider>();
+                Assert.IsNotNull(borderCollider, "El limite no tiene BoxCollider: Border_" + edge);
+                Assert.IsTrue(borderCollider.enabled, "El Collider del limite esta desactivado: Border_" + edge);
+            }
         }
 
         [Test]

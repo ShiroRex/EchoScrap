@@ -37,7 +37,8 @@ namespace EchoScrap.Combat
         public float ProtectionRemaining => Mathf.Max(0f, protectionRemaining);
         public bool HasDamageProtection => protectionRemaining > 0.0001f;
         public bool IsDashInvulnerable => dashInvulnerable || (motor != null && motor.IsDashInvulnerable);
-        public bool IsInvulnerable => HasDamageProtection || IsDashInvulnerable;
+        public bool IgnoreIncomingDamage { get; set; }
+        public bool IsInvulnerable => IgnoreIncomingDamage || HasDamageProtection || IsDashInvulnerable;
         public Vector3 WorldCenter => transform.position;
         public float HitRadius => hurtboxCollider is CapsuleCollider cap ? cap.radius : 0.5f;
         public Collider HurtboxCollider => hurtboxCollider;
@@ -366,6 +367,7 @@ namespace EchoScrap.Combat
         public void ResetForNewSession()
         {
             EnsureInitialized();
+            IgnoreIncomingDamage = false;
             isDead = false;
             protectionRemaining = 0f;
             dashInvulnerable = false;

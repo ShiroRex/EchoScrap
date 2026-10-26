@@ -34,8 +34,12 @@ Shader "EchoScrap/Oil Lantern Volume"
                 clip(i.positionWS.y-0.035);
                 float3 view=GetWorldSpaceNormalizeViewDir(i.positionWS);
                 float side=pow(saturate(1-abs(dot(normalize(i.normalWS),view))),1.6);
-                float ends=smoothstep(0,0.08,i.uv.y)*(1-smoothstep(0.65,1,i.uv.y));
-                return half4(_BeamColor.rgb,_BeamColor.a*ends*(0.25+0.75*side));
+                // Keep the short path from the lantern to its first ground intersection
+                // visible; a long source fade made the spotlight appear detached.
+                float ends=smoothstep(0,0.012,i.uv.y)*(1-smoothstep(0.65,1,i.uv.y));
+                float sourceScattering=12*(1-smoothstep(0.02,0.16,i.uv.y));
+                float opacity=min(0.35,_BeamColor.a*ends*(0.25+0.75*side+sourceScattering));
+                return half4(_BeamColor.rgb,opacity);
             }
             ENDHLSL
         }

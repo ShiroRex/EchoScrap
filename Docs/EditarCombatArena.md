@@ -34,7 +34,7 @@ puede esperar a la siguiente ráfaga.
 
 ## Cómo leer la jerarquía
 
-- `Arena_120m`: suelo, muros y guías.
+- `Arena_120m`: nombre histórico; contiene el suelo de 200×200 m, muros, guías y cuatro cajas invisibles en `ArenaBounds`.
 - `Player`: física y componentes del personaje. `Visual` orienta el cuerpo y
   `PresentationPivot` aplica deformaciones sin alterar el collider. `FlashlightPivot`
   apunta la luz; `Refactor Flashlight View` contiene sus ajustes visuales.
