@@ -14,6 +14,7 @@ namespace EchoScrap.Combat
         private sealed class CardView
         {
             public RectTransform Root;
+            public CanvasGroup Visibility;
             public Image Border;
             public Image Confirmation;
             public UpgradeCardMotion Motion;
@@ -26,6 +27,7 @@ namespace EchoScrap.Combat
             public Text LevelBefore;
             public Text LevelAfter;
             public Image LevelArrow;
+            public Image ComparisonArrow;
             public Text Type;
             public Text PrimaryLabel;
             public Text Detail;
@@ -61,7 +63,7 @@ namespace EchoScrap.Combat
         private bool pointerMotionActive;
         private Vector2 lastPointerPosition;
         private float fittedCanvasScale = -1f;
-        private const float SelectedCardScale = 1.018f;
+        private const float SelectedCardScale = 1.04f;
 
         public int SelectedIndex => selectedIndex;
         public bool IsConfirming => confirmationIndex >= 0;
@@ -325,7 +327,11 @@ namespace EchoScrap.Combat
                 cards[i].Type.text = UpgradeCatalog.TypeName(offer.Card.Icon);
                 SetFittedText(cards[i].PrimaryLabel, UpgradeCatalog.PrimaryLabel(offer.Card.Id), 18, 17);
                 SetFittedText(cards[i].Description, offer.Card.Description, 25, 23);
-                SetFittedText(cards[i].Before, "AHORA\n" + offer.PrimaryBefore, 26, 22);
+                bool comparing = offer.CurrentTier > 0;
+                cards[i].Before.gameObject.SetActive(comparing);
+                cards[i].ComparisonArrow.gameObject.SetActive(comparing);
+                cards[i].After.rectTransform.anchoredPosition = new Vector2(comparing ? 86f : 0f, -132f);
+                SetFittedText(cards[i].Before, comparing ? "AHORA\n" + offer.PrimaryBefore : string.Empty, 26, 22);
                 SetFittedText(cards[i].After, "AL ELEGIR\n" + offer.PrimaryAfter, 26, 22);
                 cards[i].After.color = new Color(0.69f, 0.87f, 0.5f);
                 SetFittedText(cards[i].Detail, offer.Detail, 22, 20);
@@ -342,10 +348,11 @@ namespace EchoScrap.Combat
             for (int i = 0; i < controller.Offers.Count; i++)
             {
                 Color color = UpgradeCatalog.RarityColor(controller.Offers[i].Card.Rarity);
+                cards[i].Visibility.alpha = i == selectedIndex ? 1f : 0.55f;
                 cards[i].Border.color = i == selectedIndex ? Color.white : new Color(0.78f, 0.78f, 0.78f);
-                cards[i].Number.text = i == selectedIndex ? $"[ {i + 1} ]  SELECCIONADA" : $"[ {i + 1} ]";
+                cards[i].Number.text = i == selectedIndex ? $"[ {i + 1} ]  ENFOCADA" : $"[ {i + 1} ]";
                 cards[i].Number.color = i == selectedIndex ? color : new Color(0.6f, 0.65f, 0.7f);
-                cards[i].ButtonLabel.text = i == selectedIndex ? "ELEGIR" : "SELECCIONAR";
+                cards[i].ButtonLabel.text = "ELEGIR";
                 float buttonBrightness = i == selectedIndex ? 1f : 0.82f;
                 cards[i].Button.color = new Color(color.r * buttonBrightness, color.g * buttonBrightness, color.b * buttonBrightness, 1f);
             }
@@ -374,7 +381,7 @@ namespace EchoScrap.Combat
             title.color = new Color(0.91f, 0.84f, 0.70f);
             subtitle = TextRect(canvasRect, "Subtitle", new Vector2(0f, 418f), new Vector2(1400f, 32f), 21, FontStyle.Normal, TextAnchor.MiddleCenter);
             subtitle.color = new Color(0.62f, 0.68f, 0.72f);
-            rerollButton = ImageRect(canvasRect, "RerollButton", new Vector2(0f, 372f), new Vector2(340f, 34f), new Color(.55f,.72f,.8f));
+            rerollButton = ImageRect(canvasRect, "RerollButton", new Vector2(0f, 384f), new Vector2(340f, 34f), new Color(.55f,.72f,.8f));
             var rerollImage = rerollButton.GetComponent<Image>(); rerollImage.sprite=skin.chooseButton; rerollImage.type=Image.Type.Sliced;
             rerollLabel=TextRect(rerollButton,"RerollLabel",Vector2.zero,new Vector2(330f,44f),20,FontStyle.Bold,TextAnchor.MiddleCenter);
             for (int i = 0; i < cards.Length; i++) cards[i] = BuildCard(i);
@@ -390,6 +397,7 @@ namespace EchoScrap.Combat
         {
             var view = new CardView();
             view.Root = ImageRect(canvasRect, $"UpgradeCard_{index + 1}", Vector2.zero, new Vector2(400f, 620f), Color.clear);
+            view.Visibility = view.Root.gameObject.AddComponent<CanvasGroup>();
             RectTransform inner = ImageRect(view.Root, "Panel", Vector2.zero, new Vector2(380f, 600f), new Color(0.035f, 0.045f, 0.07f));
             view.Border = ImageRect(view.Root, "Frame", Vector2.zero, new Vector2(400f, 620f), Color.white, true).GetComponent<Image>();
             NineSlice(view.Border);
@@ -415,8 +423,9 @@ namespace EchoScrap.Combat
             view.Before.color = new Color(0.63f, 0.69f, 0.74f);
             view.After = TextRect(inner, "After", new Vector2(86f, -132f), new Vector2(144f, 60f), 26, FontStyle.Bold, TextAnchor.MiddleCenter);
             Image arrow = ImageRect(inner, "ComparisonArrow", new Vector2(0f, -142f), new Vector2(22f, 22f), Color.white).GetComponent<Image>();
+            view.ComparisonArrow = arrow;
             arrow.sprite = skin.upgradeArrow; arrow.transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
-            view.Detail = TextRect(inner, "Detail", new Vector2(0f, -208f), new Vector2(312f, 78f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
+            view.Detail = TextRect(inner, "Detail", new Vector2(0f, -204f), new Vector2(312f, 84f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Detail.color = new Color(0.73f, 0.78f, 0.78f);
             view.Button = ImageRect(inner, "ChooseButton", new Vector2(0f, -272f), new Vector2(280f, 40f), Color.white).GetComponent<Image>();
             view.Button.sprite = skin.chooseButton;

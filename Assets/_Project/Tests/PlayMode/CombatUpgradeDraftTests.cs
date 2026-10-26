@@ -419,7 +419,7 @@ namespace EchoScrap.Tests
             int tier = stats.GetUpgradeTier(id);
             var before = view.CanvasRoot.transform.Find("UpgradeCard_3/Panel/Before").GetComponent<Text>();
             var after = view.CanvasRoot.transform.Find("UpgradeCard_3/Panel/After").GetComponent<Text>();
-            Assert.That(before.text, Does.StartWith("AHORA\n"));
+            Assert.That(before.gameObject.activeSelf, Is.EqualTo(tier > 0));
             Assert.That(after.text, Does.StartWith("AL ELEGIR\n"));
             float gameTime = session.GameplayTime;
             Assert.That(view.ConfirmSelection(), Is.True);
@@ -812,14 +812,14 @@ namespace EchoScrap.Tests
         {
             UpgradeCatalog.TryGet("FLASH_04", out var card);
             var first = new UpgradeOffer(card, stats);
-            Assert.That(first.Detail, Does.StartWith("Menos área de ataque."));
+            Assert.That(first.Detail, Does.Contain("tu luz abarca menos"));
             Assert.That(first.Detail, Does.Not.Contain("°").And.Not.Contain("Cono"));
             float originalAngle = stats.FlashlightAngle;
             Assert.That(stats.GetUpgradeTier(card.Id), Is.Zero);
             stats.SetUpgradeTier(card.Id, 1);
             Assert.That(stats.FlashlightAngle, Is.EqualTo(originalAngle - 20f));
             var repeat = new UpgradeOffer(card, stats);
-            Assert.That(repeat.Detail, Does.StartWith("Misma área de ataque."));
+            Assert.That(repeat.Detail, Does.Contain("conserva su anchura"));
             Assert.That(repeat.PrimaryBefore, Is.Not.EqualTo(repeat.PrimaryAfter));
             Assert.That(stats.FlashlightAngle, Is.EqualTo(originalAngle - 20f));
             Assert.That(stats.GetUpgradeTier(card.Id), Is.EqualTo(1));
@@ -986,9 +986,12 @@ namespace EchoScrap.Tests
                     var root=(RectTransform)view.CanvasRoot.transform.Find($"UpgradeCard_{i+1}");
                     Assert.That(root.rect.size,Is.EqualTo(new Vector2(400,620)));
                     Assert.That(root.anchoredPosition,Is.EqualTo(new Vector2((i-1)*456,-20)));
-                    float scale=i==selection?1.018f:1f;
+                    float scale=i==selection?1.04f:1f;
                     Assert.That(root.localScale.x,Is.EqualTo(scale).Within(.0001));
                     Assert.That(root.localScale.y,Is.EqualTo(scale).Within(.0001));
+                    Assert.That(root.GetComponent<CanvasGroup>().alpha, Is.EqualTo(i == selection ? 1f : .55f));
+                    Assert.That(root.Find("Panel/ChooseButton/Label").GetComponent<Text>().text, Is.EqualTo("ELEGIR"));
+                    if (i == selection) Assert.That(root.Find("Selection").GetComponent<Text>().text, Does.Contain("ENFOCADA"));
                     foreach(string centered in new[]{"RarityTier","TypeIcon","Type","Name","Description","PrimaryLabel","ComparisonArrow","Detail","ChooseButton"})
                     {
                         var rect=(RectTransform)root.Find("Panel/"+centered);
@@ -996,7 +999,7 @@ namespace EchoScrap.Tests
                         Assert.That(root.InverseTransformPoint(rect.position).x,Is.Zero.Within(.0001),centered);
                     }
                     var before=(RectTransform)root.Find("Panel/Before");var after=(RectTransform)root.Find("Panel/After");
-                    Assert.That(before.anchoredPosition.x,Is.EqualTo(-after.anchoredPosition.x));
+                    Assert.That(after.anchoredPosition.x,Is.EqualTo(draft.Offers[i].CurrentTier > 0 ? -before.anchoredPosition.x : 0f));
                     Assert.That(before.anchoredPosition.y,Is.EqualTo(after.anchoredPosition.y));
                     var button=(RectTransform)root.Find("Panel/ChooseButton");
                     Assert.That(button.anchoredPosition,Is.EqualTo(new Vector2(0,-272)));
@@ -1017,7 +1020,7 @@ namespace EchoScrap.Tests
             SetVisualOffers("CRYO_01","DEMO_02","CRIT_03");view.RefreshOffers();view.MoveSelection(1);view.StepPresentation(.8f);
             Assert.That(view.ConfirmSelection(),Is.True);view.StepPresentation(.08f);Canvas.ForceUpdateCanvases();
             var middle=(RectTransform)view.CanvasRoot.transform.Find("UpgradeCard_2");
-            Assert.That(middle.localScale.x,Is.EqualTo(1.018f*1.045f).Within(.0001));
+            Assert.That(middle.localScale.x,Is.EqualTo(1.04f*1.045f).Within(.0001));
             var rerollBounds=RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,view.CanvasRoot.transform.Find("RerollButton"));
             var labelBounds=RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,middle.Find("NewBadge"));
             Assert.That(rerollBounds.Intersects(labelBounds),Is.False,"The larger confirmation must not collide with the header.");
@@ -1048,6 +1051,10 @@ namespace EchoScrap.Tests
                 SetVisualOffers(card.Id);view.RefreshOffers();view.StepPresentation(.8f);Canvas.ForceUpdateCanvases();
                 var root=view.CanvasRoot.transform.Find("UpgradeCard_1");var panel=root.Find("Panel");
                 Assert.That(root.Find("NewBadge").gameObject.activeSelf,Is.EqualTo(tier==0),card.Id);
+                Assert.That(panel.Find("Before").gameObject.activeSelf, Is.EqualTo(tier > 0), card.Id);
+                Assert.That(panel.Find("ComparisonArrow").gameObject.activeSelf, Is.EqualTo(tier > 0), card.Id);
+                Assert.That(((RectTransform)panel.Find("After")).anchoredPosition.x, Is.EqualTo(tier > 0 ? 86f : 0f), card.Id);
+                if (tier == 0) Assert.That(panel.Find("Before").GetComponent<Text>().text, Is.Empty);
                 Assert.That(root.Find("UpgradeArrow").gameObject.activeSelf,Is.EqualTo(tier>0),card.Id);
                 Assert.That(panel.Find("Level").GetComponent<Text>().text,Is.EqualTo(tier==0?$"NIVEL\n1 / {card.MaxTier}":"NIVEL\n "));
                 Assert.That(root.Find("NewBadge").GetComponent<Image>().sprite,Is.SameAs(skin.newBadge));
@@ -1090,6 +1097,9 @@ namespace EchoScrap.Tests
             camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.025f,.035f,.05f);
             camera.transform.position=new Vector3(0,15,-8);camera.transform.LookAt(Vector3.zero);
             var canvas=view.CanvasRoot.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;
+            SetVisualOffers("FLASH_02", "FLASH_03", "BIO_03"); view.RefreshOffers(); view.StepPresentation(.8f);
+            view.MoveSelection(1); view.StepPresentation(.8f);
+            yield return CapturePixelCards(camera, view, "ClearCards_Focus_1040.png", 1040, 664);
             stats.SetUpgradeTier("GREED_04",1);
             SetVisualOffers("CRYO_01","DEMO_02","CRIT_03");view.RefreshOffers();view.StepPresentation(.8f);
             yield return CapturePixelCards(camera,view,"Labels_Reported_1040.png",1040,664);

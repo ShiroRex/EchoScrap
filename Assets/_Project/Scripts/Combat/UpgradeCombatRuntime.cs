@@ -251,6 +251,10 @@ namespace EchoScrap.Combat
                 if(target!=null) Fire(player.WorldCenter,target.WorldCenter-player.WorldCenter,At(tuning.assemblerDamage,Tier(UpgradeId.SCRAP_02)),tuning.plasmaSpeed,10,DamageSourceType.UpgradeProjectile,target);
             }
         }
+        public void UpgradeAcquired(string id)
+        {
+            if (bound && id == "GREED_05") LevelGained(0);
+        }
         private void LevelGained(int _)
         {
             if(Tier(UpgradeId.GREED_05)==0 || pickups==null || collecting) return;

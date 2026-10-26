@@ -181,6 +181,7 @@ namespace EchoScrap.Combat
                 stats.SetUpgradeTier(offer.Card.Id, offer.NextTier);
                 if (offer.Card.Id == "BIO_01") health.Heal(15f);
                 progression.ConsumePendingChoice();
+                session.Upgrades?.UpgradeAcquired(offer.Card.Id);
                 OnCardChosen?.Invoke(offer.Card);
                 if (progression.PendingChoices > 0)
                 {

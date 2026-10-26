@@ -55,7 +55,7 @@ Los nombres de pantalla se acortaron y el beneficio principal se separó del
 detalle. `UpgradeOffer.PrimaryBefore/PrimaryAfter` muestran el cambio efectivo
 de la estadística principal, sin modificar al jugador. Las ofertas con
 `CurrentTier > 0` incluyen una flecha verde sobre el borde inferior derecho y
-la transición «NIVEL 1 > 2» en la esquina superior derecha. Las nuevas usan una
+la transición «NIVEL 1 → 2» (con el sprite del comparador) en la esquina superior derecha. Las nuevas usan una
 pegatina roja «NUEVA» inclinada sobre la esquina superior izquierda y muestran
 «NIVEL 1 / máximo» en la derecha. Ambas etiquetas tienen fuentes por capas de
 Aseprite en `ArtSource/UI/UpgradeCards/Labels/`;
@@ -82,8 +82,8 @@ tenue con grano fijo sigue el cursor dentro de la superficie, sin halo exterior.
 Al salir el puntero o navegar con teclado/mando, vuelve a reposo. Efectos
 reducidos o intensidad decorativa cero desactivan inclinación y reflejo.
 
-La épica `FLASH_04` resume la desventaja como «Menos área de ataque» en la
-primera adquisición y «Misma área de ataque» al repetirla. Se conserva la
+La épica `FLASH_04` resume la desventaja como «tu luz abarca menos» en la
+primera adquisición y «Tu luz conserva su anchura» al repetirla. Se conserva la
 reducción de apertura de 20° una sola vez y todos los valores de daño y empuje.
 La descripción técnica sigue disponible en `UpgradeOffer.Before/After`.
 
@@ -225,3 +225,17 @@ reproducen las cartas de la referencia en 1040×664, 1280×720 y 2560×1080.
 
 Validación del centrado: 64/64 comprobaciones de cartas, controles, arena y
 mecánicas; 66/66 al añadir la comprobación de materiales mates.
+
+### Claridad de las cartas y recogida (26 de octubre de 2026)
+
+Las mejoras aún no adquiridas muestran solo «AL ELEGIR», centrado; se ocultan
+«AHORA» y la flecha comparadora. Las mejoras ya adquiridas conservan ambos valores.
+La carta enfocada se amplía uniformemente un 4%; las otras tienen opacidad 0,55.
+Todas usan «ELEGIR» en el botón y el indicador de navegación dice «ENFOCADA».
+El modo de efectos reducidos conserva el contraste sin ampliar la carta.
+Las 35 descripciones explican la acción y sus condiciones en lenguaje cotidiano.
+
+Pulso colector recoge todas las gemas y botiquines al adquirirlo y en cada subida
+de nivel posterior. Antes solo escuchaba el evento de nivel, que ya había ocurrido
+cuando se elegía la carta. La recogida al adquirirlo pasa por la misma protección
+contra reentrada y conserva las elecciones adicionales generadas por la experiencia.

@@ -161,6 +161,26 @@ namespace EchoScrap.Tests
             pickups.SpawnExperience(new Vector3(5,1,5),5);pickups.CollectAll();Assert.That(xp.TotalXp,Is.EqualTo(23));
         }
         [Test]
+        public void ChoosingCollectorImmediatelyCollectsDistantPickupsAndKeepsNewChoices()
+        {
+            xp.AddExperience(100);
+            pickups.SpawnExperience(new Vector3(40, 1, 40), 260);
+            player.ForceSetHealthForTesting(50);
+            pickups.SpawnMedkit(new Vector3(-40, 1, -40));
+            UpgradeCatalog.TryGet("GREED_05", out var collector);
+            var offers = (System.Collections.Generic.List<UpgradeOffer>)typeof(UpgradeDraftController)
+                .GetField("offers", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(draft);
+            offers.Clear(); offers.Add(new UpgradeOffer(collector, stats));
+            Assert.That(draft.TryChoose(0), Is.True);
+            Assert.That(pickups.ActivePickupCount, Is.Zero);
+            Assert.That(xp.TotalXp, Is.EqualTo(360));
+            Assert.That(xp.PendingChoices, Is.EqualTo(1));
+            Assert.That(player.CurrentHealth, Is.EqualTo(65));
+            Assert.That(draft.IsOpen, Is.True);
+            Assert.That(session.IsPaused, Is.True);
+            Assert.That(stats.GetUpgradeTier("GREED_05"), Is.EqualTo(1));
+        }
+        [Test]
         public void GlobalCollectorPreservesNestedLevelRewardsAndTacticalPause()
         {
             Set("GREED_05");pickups.SpawnExperience(new Vector3(40,1,40),260);player.ForceSetHealthForTesting(50);pickups.SpawnMedkit(new Vector3(-40,1,-40));
