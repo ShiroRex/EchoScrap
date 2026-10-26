@@ -15,7 +15,7 @@ namespace EchoScrap.Combat
         [SerializeField] private PlayerHealth health;
         [SerializeField] private CombatProgression progression;
         private readonly List<UpgradeOffer> offers = new List<UpgradeOffer>(3);
-        private readonly List<UpgradeCardDefinition> candidates = new List<UpgradeCardDefinition>(8);
+        private readonly List<UpgradeCardDefinition> candidates = new List<UpgradeCardDefinition>(35);
         private readonly int[] rarityCounts = new int[4];
         private CombatSession subscribedSession;
         private CombatProgression subscribedProgression;
@@ -24,6 +24,27 @@ namespace EchoScrap.Combat
         public bool IsOpen { get; private set; }
         public bool HasAvailableCards => offers.Count > 0;
         public IReadOnlyList<UpgradeOffer> Offers => readOnlyOffers ??= offers.AsReadOnly();
+        private int rerollsUsed;
+        public int RerollsRemaining => stats != null ? Mathf.Max(0, stats.GetUpgradeTier(UpgradeId.GREED_04)-rerollsUsed) : 0;
+        public bool TryReroll()
+        {
+            if (!IsOpen || resolving || offers.Count == 0 || RerollsRemaining == 0 || session.Clock.HasPauseReason(PauseReason.FocusLost)) return false;
+            rerollsUsed++; GenerateOffers(); OnOffersChanged?.Invoke(); return true;
+        }
+        private float Weight(UpgradeRarity rarity)
+        {
+            int luck=stats.GetUpgradeTier(UpgradeId.GREED_04);
+            return UpgradeCatalog.RarityWeight(rarity)+(rarity==UpgradeRarity.N ? -luck*(stats.Upgrades.rareWeightPerTier+stats.Upgrades.epicWeightPerTier) : rarity==UpgradeRarity.R ? luck*stats.Upgrades.rareWeightPerTier : rarity==UpgradeRarity.SR ? luck*stats.Upgrades.epicWeightPerTier : 0);
+        }
+        public bool IsEligible(UpgradeCardDefinition card)
+        {
+            if(stats.GetUpgradeTier(card.Id)>=card.MaxTier) return false;
+            if((card.Id=="DEMO_01"||card.Id=="DEMO_04")&&!stats.HasExplosionSource) return false;
+            if(card.Id=="CRYO_02"&&stats.GetUpgradeTier(UpgradeId.CRYO_01)==0) return false;
+            if(card.Id=="CRYO_04"&&stats.GetUpgradeTier(UpgradeId.CRYO_02)==0&&stats.GetUpgradeTier(UpgradeId.CRYO_03)==0) return false;
+            if(card.Id=="CRIT_04"&&stats.CritChance<=0) return false;
+            return true;
+        }
         public int PendingChoices => progression != null ? progression.PendingChoices : 0;
         public event Action OnOffersChanged;
         public event Action<UpgradeCardDefinition> OnCardChosen;
@@ -118,21 +139,21 @@ namespace EchoScrap.Combat
         {
             offers.Clear(); candidates.Clear();
             foreach (var card in UpgradeCatalog.Cards)
-                if (stats.GetUpgradeTier(card.Id) < card.MaxTier) candidates.Add(card);
+                if (IsEligible(card)) candidates.Add(card);
             for (int pick = 0; pick < 3 && candidates.Count > 0; pick++)
             {
                 Array.Clear(rarityCounts, 0, rarityCounts.Length);
                 foreach (var card in candidates) rarityCounts[(int)card.Rarity]++;
                 float totalWeight = 0f;
                 for (int rarity = 0; rarity < 4; rarity++)
-                    if (rarityCounts[rarity] > 0) totalWeight += UpgradeCatalog.RarityWeight((UpgradeRarity)rarity);
+                    if (rarityCounts[rarity] > 0) totalWeight += Weight((UpgradeRarity)rarity);
                 float draw = session.Rng.Combat.NextFloat() * totalWeight;
                 int selectedRarity = 0;
                 for (int rarity = 0; rarity < 4; rarity++)
                 {
                     if (rarityCounts[rarity] == 0) continue;
                     selectedRarity = rarity;
-                    draw -= UpgradeCatalog.RarityWeight((UpgradeRarity)rarity);
+                    draw -= Weight((UpgradeRarity)rarity);
                     if (draw < 0f) break;
                 }
                 int selection = session.Rng.Combat.Range(0, rarityCounts[selectedRarity]);
@@ -160,6 +181,7 @@ namespace EchoScrap.Combat
                 stats.SetUpgradeTier(offer.Card.Id, offer.NextTier);
                 if (offer.Card.Id == "BIO_01") health.Heal(15f);
                 progression.ConsumePendingChoice();
+                session.Upgrades?.UpgradeAcquired(offer.Card.Id);
                 OnCardChosen?.Invoke(offer.Card);
                 if (progression.PendingChoices > 0)
                 {
@@ -199,7 +221,7 @@ namespace EchoScrap.Combat
         }
         private void ResetForSession()
         {
-            IsOpen = false; offers.Clear(); candidates.Clear(); resolving = false;
+            IsOpen = false; offers.Clear(); candidates.Clear(); resolving = false; rerollsUsed = 0;
             OnOffersChanged?.Invoke();
         }
     }

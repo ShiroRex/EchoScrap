@@ -15,12 +15,15 @@ namespace EchoScrap.Combat
         public readonly Vector3 WorldPosition;
         public readonly bool IsCritical;
         public readonly bool CanAggregate;
+        public readonly DamageType DamageType;
+        public readonly bool WasExecuted;
 
         public DamageNumberSnapshot(int targetId, int sourceId, int burstId, float damage,
-            Vector3 worldPosition, bool critical, bool canAggregate)
+            Vector3 worldPosition, bool critical, bool canAggregate, DamageType damageType = global::EchoScrap.Core.DamageType.Physical, bool wasExecuted = false)
         {
             TargetId = targetId; SourceId = sourceId; BurstId = burstId; Damage = damage;
             WorldPosition = worldPosition; IsCritical = critical; CanAggregate = canAggregate;
+            DamageType = damageType; WasExecuted = wasExecuted;
         }
     }
 
@@ -45,6 +48,8 @@ namespace EchoScrap.Combat
             public bool Active;
             public bool Critical;
             public bool CanAggregate;
+            public bool Executed;
+            public DamageType DamageType;
             public int TargetId;
             public int SourceId;
             public int BurstId;
@@ -55,6 +60,14 @@ namespace EchoScrap.Combat
             public float UpdatedAt;
             public float HorizontalOffset;
             public float VerticalOffset;
+            public Vector2 FlightOrigin;
+            public Vector2 LaunchVelocity;
+            public float FlightStartedAt;
+            public float LaunchHeight;
+            public float InitialTravel;
+            public float Gravity;
+            public float RotationDegrees;
+            public float RotationOrigin;
         }
 
         private readonly Entry[] entries = new Entry[MaxActiveNumbers];
@@ -67,6 +80,7 @@ namespace EchoScrap.Combat
         private bool initialized;
         private bool ownsSettings;
         private float presentationTime;
+        private uint motionSequence;
 
         public int ActiveNumberCount { get; private set; }
         public int PoolCapacity => initialized ? entries.Length : 0;
@@ -127,8 +141,8 @@ namespace EchoScrap.Combat
             scaler.referenceResolution = new Vector2(1280f, 720f);
             scaler.matchWidthOrHeight = 0.5f;
             Font font = settings.Font != null ? settings.Font : Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.semibold ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            font.RequestCharactersInTexture("0123456789.! ", settings.NormalFontSize, FontStyle.Bold);
-            font.RequestCharactersInTexture("0123456789.! ", settings.CriticalFontSize, FontStyle.Bold);
+            font.RequestCharactersInTexture("0123456789.! EJECUTADO", settings.NormalFontSize, FontStyle.Bold);
+            font.RequestCharactersInTexture("0123456789.! EJECUTADO", settings.CriticalFontSize, FontStyle.Bold);
             WarmKnownValues();
             for (int i = 0; i < entries.Length; i++)
             {
@@ -142,7 +156,7 @@ namespace EchoScrap.Combat
                 label.fontStyle = FontStyle.Bold; label.alignment = TextAnchor.MiddleCenter;
                 label.horizontalOverflow = HorizontalWrapMode.Overflow; label.verticalOverflow = VerticalWrapMode.Overflow;
                 label.supportRichText = false; label.raycastTarget = false;
-                label.text = "! 0123456789012345678901234567890123456789.99";
+                label.text = "0123456789012345678901234567890123456789.99! EJECUTADO";
                 var outline = labelObject.GetComponent<Outline>();
                 outline.effectColor = new Color(0.06f, 0.025f, 0.08f, 0.95f);
                 outline.effectDistance = new Vector2(1f, -1f);
@@ -196,44 +210,87 @@ namespace EchoScrap.Combat
             Vector3 anchor = damage.WorldPosition + Vector3.up * settings.WorldHeightOffset;
             if (!InsideCamera(anchor)) { DroppedNumberCount++; return false; }
             ExpireEntries();
-            bool aggregate = !damage.IsCritical && damage.BurstId > 0 &&
+            bool aggregate = !damage.IsCritical && !damage.WasExecuted && damage.BurstId > 0 &&
                 (damage.SourceType == DamageSourceType.FlashlightPulse || damage.SourceType == DamageSourceType.SolarPulse);
             if (aggregate)
             {
                 foreach (Entry existing in entries)
                 {
                     if (!existing.Active || !existing.CanAggregate || existing.Critical || existing.TargetId != damage.TargetId ||
-                        existing.SourceId != damage.SourceId || existing.BurstId != damage.BurstId || existing.SourceType != damage.SourceType) continue;
+                        existing.SourceId != damage.SourceId || existing.BurstId != damage.BurstId || existing.SourceType != damage.SourceType || existing.DamageType != damage.DamageType) continue;
+                    Vector2 currentFlight = FlightOffset(existing);
+                    float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
+                    Camera uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+                    if (intensity > .0001f &&
+                        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, worldCamera.WorldToScreenPoint(existing.WorldPosition), uiCamera, out Vector2 oldAnchor) &&
+                        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, worldCamera.WorldToScreenPoint(anchor), uiCamera, out Vector2 newAnchor))
+                        currentFlight += (oldAnchor-newAnchor)/intensity;
                     existing.Damage = (float)Math.Min(float.MaxValue, (double)existing.Damage + damage.HealthLost);
                     existing.UpdatedAt = presentationTime;
                     existing.WorldPosition = anchor;
                     existing.CanAggregate = !damage.CausedDeath && damage.RemainingHealth > 0f;
                     existing.Label.text = FormattedNumber(existing.Damage, false);
-                    existing.VerticalOffset = ChooseVerticalLane(existing);
+                    StartFlight(existing, currentFlight, settings.AggregateBounceMultiplier);
                     AggregatedHitCount++;
                     Present(existing);
                     return true;
                 }
             }
 
-            Entry entry = GetAvailableEntry(damage.IsCritical, anchor);
+            Entry entry = GetAvailableEntry(damage.IsCritical || damage.WasExecuted, anchor);
             if (entry == null) { DroppedNumberCount++; return false; }
             if (entry.Active) RecycledNumberCount++;
             else ActiveNumberCount++;
-            entry.Active = true; entry.Critical = damage.IsCritical;
+            entry.Active = true; entry.Critical = damage.IsCritical; entry.Executed = damage.WasExecuted; entry.DamageType = damage.DamageType;
             entry.TargetId = damage.TargetId; entry.SourceId = damage.SourceId; entry.BurstId = damage.BurstId;
             entry.SourceType = damage.SourceType; entry.Damage = damage.HealthLost; entry.WorldPosition = anchor;
             entry.CanAggregate = aggregate && !damage.CausedDeath && damage.RemainingHealth > 0f;
             entry.StartedAt = entry.UpdatedAt = presentationTime;
             int lane = (damage.TargetId ^ damage.BurstId ^ damage.PulseIndex) & 3;
             entry.HorizontalOffset = lane == 0 ? -20f : lane == 1 ? 20f : lane == 2 ? -10f : 30f;
-            entry.Label.fontSize = entry.Critical ? settings.CriticalFontSize : settings.NormalFontSize;
-            entry.Label.color = entry.Critical ? settings.CriticalColor : settings.NormalColor;
-            entry.Label.text = FormattedNumber(entry.Damage, entry.Critical);
+            entry.Label.fontSize = entry.Critical || entry.Executed ? settings.CriticalFontSize : settings.NormalFontSize;
+            entry.Label.color = entry.Executed ? settings.ExecutionColor : settings.DamageColor(entry.DamageType, entry.Critical);
+            entry.Label.text = entry.Executed ? "EJECUTADO" : FormattedNumber(entry.Damage, entry.Critical);
+            InitializeFlight(entry, in damage);
             entry.VerticalOffset = ChooseVerticalLane(entry);
             TotalShownCount++;
             Present(entry);
             return true;
+        }
+
+        // A local hash varies cosmetics without sampling combat or presentation RNG streams.
+        private static float MotionSample(uint value)
+        {
+            unchecked { value ^= value >> 16; value *= 0x7feb352d; value ^= value >> 15; value *= 0x846ca68b; value ^= value >> 16; }
+            return (value & 0xffffff) / 16777216f;
+        }
+        private void InitializeFlight(Entry entry, in DamageResult damage)
+        {
+            uint seed = unchecked(++motionSequence * 0x9e3779b9u ^ (uint)damage.TargetId * 0x85ebca6bu ^ (uint)damage.SourceId ^ (uint)damage.BurstId * 65711u ^ (uint)damage.PulseIndex << 16);
+            float sign = MotionSample(seed) < .5f ? -1f : 1f;
+            Vector2 travel = settings.HorizontalTravelPixels;
+            float punch = entry.Critical ? settings.CriticalLaunchMultiplier : 1f;
+            entry.InitialTravel = sign * Mathf.Lerp(travel.x, travel.y, MotionSample(seed ^ 0xa511e9b3u)) * punch;
+            entry.LaunchHeight = settings.RisePixels * Mathf.Lerp(1f-settings.HeightVariation, 1f+settings.HeightVariation, MotionSample(seed ^ 0x63d83595u)) * punch;
+            entry.RotationDegrees = Mathf.Lerp(-settings.MaximumTiltDegrees, settings.MaximumTiltDegrees, MotionSample(seed ^ 0xb5297a4du));
+            StartFlight(entry, Vector2.zero, 1f);
+        }
+        private void StartFlight(Entry entry, Vector2 origin, float kick)
+        {
+            float duration = settings.Lifetime;
+            float height = entry.LaunchHeight * kick;
+            entry.FlightOrigin = origin;
+            entry.RotationOrigin = Mathf.DeltaAngle(0f, entry.Rect.localEulerAngles.z);
+            entry.FlightStartedAt = presentationTime;
+            entry.LaunchVelocity = new Vector2(entry.InitialTravel * Mathf.Lerp(.6f, 1f, kick) / duration, 4f*height/duration);
+            entry.Gravity = (8f*height + 2f*settings.LandingDropPixels) / (duration*duration);
+        }
+        private Vector2 FlightOffset(Entry entry) => FlightOffset(entry, presentationTime);
+        private Vector2 FlightOffset(Entry entry, float atTime)
+        {
+            if (entry.Executed) return Vector2.up * (settings.RisePixels*.5f*Mathf.Clamp01((atTime-entry.StartedAt)/settings.ExecutionLifetime));
+            float t = Mathf.Max(0f, atTime-entry.FlightStartedAt);
+            return entry.FlightOrigin + entry.LaunchVelocity*t - Vector2.up*(.5f*entry.Gravity*t*t);
         }
 
         private Entry GetAvailableEntry(bool critical, Vector3 anchor)
@@ -245,7 +302,7 @@ namespace EchoScrap.Combat
             foreach (Entry entry in entries)
             {
                 if (!entry.Active) return entry;
-                if (entry.Critical)
+                if (entry.Critical || entry.Executed)
                 {
                     if (oldestCritical == null || entry.StartedAt < oldestCritical.StartedAt) oldestCritical = entry;
                     continue;
@@ -277,7 +334,7 @@ namespace EchoScrap.Combat
         private void ExpireEntries()
         {
             foreach (Entry entry in entries)
-                if (entry.Active && presentationTime - entry.UpdatedAt >= settings.Lifetime)
+                if (entry.Active && presentationTime - entry.UpdatedAt >= (entry.Executed ? settings.ExecutionLifetime : settings.Lifetime))
                 { Hide(entry); ActiveNumberCount--; }
         }
         private void Present(Entry entry)
@@ -287,14 +344,16 @@ namespace EchoScrap.Combat
             entry.Label.canvasRenderer.cull = !visible;
             if (!visible) { entry.Label.canvasRenderer.SetAlpha(0f); return; }
             float age = Mathf.Max(0f, presentationTime - entry.StartedAt);
-            float fadeProgress = Mathf.Clamp01((presentationTime - entry.UpdatedAt) / settings.Lifetime);
+            float fadeProgress = Mathf.Clamp01((presentationTime - entry.UpdatedAt) / (entry.Executed ? settings.ExecutionLifetime : settings.Lifetime));
             float alpha = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1f, fadeProgress));
             entry.Label.canvasRenderer.SetAlpha(alpha);
             Camera uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, uiCamera, out Vector2 position))
             {
                 float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
-                position += new Vector2(entry.HorizontalOffset, entry.VerticalOffset + settings.RisePixels * Mathf.Clamp01(age / settings.Lifetime) * intensity);
+                position += new Vector2(entry.HorizontalOffset, entry.VerticalOffset) + FlightOffset(entry)*intensity;
+                float flightProgress = Mathf.Clamp01((presentationTime-entry.FlightStartedAt)/settings.Lifetime);
+                entry.Rect.localRotation = Quaternion.Euler(0f,0f,entry.Executed?0f:(Mathf.Lerp(entry.RotationOrigin,0f,flightProgress)+entry.RotationDegrees*Mathf.Sin(flightProgress*Mathf.PI))*intensity);
                 entry.Rect.anchoredPosition = position;
                 float scale = age < settings.PopInDuration
                     ? Mathf.Lerp(settings.InitialScale, settings.PeakScale, age / settings.PopInDuration)
@@ -316,12 +375,22 @@ namespace EchoScrap.Combat
                 {
                     if (!other.Active || other == entry) continue;
                     Vector3 projected = worldCamera.WorldToScreenPoint(other.WorldPosition);
-                    float otherX = projected.x / scale + other.HorizontalOffset;
-                    float otherY = projected.y / scale + other.VerticalOffset;
                     float otherWidth = other.Label.text.Length * other.Label.fontSize * 0.62f;
-                    if (Mathf.Abs(anchor.x - otherX) < (width + otherWidth) * 0.5f + 6f
-                        && Mathf.Abs(anchor.y + offset - otherY) < settings.CriticalFontSize + 5f)
-                    { overlaps = true; break; }
+                    float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
+                    // Reserve a clear lane through the upcoming arc, not only at its starting point.
+                    for (int sample=0;sample<3;sample++)
+                    {
+                        float atTime=presentationTime+sample*.18f;
+                        if (atTime-other.UpdatedAt >= (other.Executed?settings.ExecutionLifetime:settings.Lifetime)) continue;
+                        Vector2 flight=FlightOffset(other,atTime)*intensity;
+                        Vector2 ownFlight=FlightOffset(entry,atTime)*intensity;
+                        float otherX=projected.x/scale+other.HorizontalOffset+flight.x;
+                        float otherY=projected.y/scale+other.VerticalOffset+flight.y;
+                        if (Mathf.Abs(anchor.x+ownFlight.x-otherX)<(width+otherWidth)*.5f+6f &&
+                            Mathf.Abs(anchor.y+offset+ownFlight.y-otherY)<settings.CriticalFontSize+5f)
+                        {overlaps=true;break;}
+                    }
+                    if (overlaps) break;
                 }
                 if (!overlaps) return offset;
             }
@@ -354,7 +423,6 @@ namespace EchoScrap.Combat
             var cache = critical ? criticalTexts : normalTexts;
             if (cache.TryGetValue(cents, out string text)) return text;
             int length = 0;
-            if (critical) { numberBuffer[length++] = '!'; numberBuffer[length++] = ' '; }
             double integer = Math.Floor(cents / 100d);
             int fraction = cents < 9007199254740992d ? (int)(cents - integer * 100d) : 0;
             double divisor = 1d;
@@ -371,6 +439,7 @@ namespace EchoScrap.Combat
                 numberBuffer[length++] = (char)('0' + fraction / 10);
                 if (fraction % 10 != 0) numberBuffer[length++] = (char)('0' + fraction % 10);
             }
+            if (critical) numberBuffer[length++] = '!';
             text = new string(numberBuffer, 0, length);
             if (cache.Count < TextCacheCapacity) cache.Add(cents, text);
             return text;
@@ -378,9 +447,12 @@ namespace EchoScrap.Combat
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
         private static void Hide(Entry entry)
         {
-            entry.Active = false; entry.CanAggregate = false;
+            entry.Active = false; entry.CanAggregate = false; entry.Executed = false;
             entry.Label.canvasRenderer.SetAlpha(0f); entry.Label.canvasRenderer.cull = true;
             entry.Rect.localScale = Vector3.one;
+            entry.Rect.localRotation = Quaternion.identity;
+            entry.FlightOrigin = entry.LaunchVelocity = Vector2.zero;
+            entry.Gravity = entry.RotationDegrees = entry.RotationOrigin = 0f;
         }
         public void Clear()
         {
@@ -390,7 +462,7 @@ namespace EchoScrap.Combat
         }
         private void ResetForSession()
         {
-            Clear(); presentationTime = 0f;
+            Clear(); presentationTime = 0f; motionSequence = 0;
             TotalShownCount = AggregatedHitCount = RecycledNumberCount = DroppedNumberCount = 0;
         }
         private Entry GetActiveEntry(int index)
@@ -404,7 +476,7 @@ namespace EchoScrap.Combat
         {
             Entry entry = index >= 0 ? GetActiveEntry(index) : null;
             return entry != null ? new DamageNumberSnapshot(entry.TargetId, entry.SourceId, entry.BurstId,
-                entry.Damage, entry.WorldPosition, entry.Critical, entry.CanAggregate) : default;
+                entry.Damage, entry.WorldPosition, entry.Critical, entry.CanAggregate, entry.DamageType, entry.Executed) : default;
         }
     }
 }

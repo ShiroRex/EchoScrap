@@ -104,6 +104,7 @@ namespace EchoScrap.Combat
                 presentation?.Step(deltaTime);
                 return;
             }
+            if (IsControlLocked) { StopBody(); return; }
             BossTime += deltaTime;
             phaseTime += deltaTime;
             switch (State)
@@ -112,7 +113,7 @@ namespace EchoScrap.Combat
                     base.StepPhysics(deltaTime);
                     if (TargetPlayer != null && TargetPlayer.IsAlive)
                     {
-                        Vector3 delta = TargetPlayer.WorldCenter - WorldCenter;
+                        Vector3 delta = PursuitGoal - WorldCenter;
                         delta.y = 0f;
                         if (BossTime >= nextStompTime && delta.sqrMagnitude <= StompTriggerRange * StompTriggerRange)
                             BeginStomp();
@@ -155,9 +156,9 @@ namespace EchoScrap.Combat
         {
             if (TargetPlayer == null || !TargetPlayer.IsAlive || State != GolgoraState.Pursuing)
                 return Vector3.zero;
-            Vector3 delta = TargetPlayer.WorldCenter - WorldCenter;
+            Vector3 delta = PursuitGoal - WorldCenter;
             delta.y = 0f;
-            return ApplySimpleObstacleAvoidance(WorldCenter, delta.normalized) * AssignedMoveSpeed;
+            return ApplySimpleObstacleAvoidance(WorldCenter, delta.normalized) * AssignedMoveSpeed * (1f - SlowFraction);
         }
 
         private void StopBody()
@@ -243,7 +244,7 @@ namespace EchoScrap.Combat
         {
             Vector3 velocity = playerBody != null ? playerBody.linearVelocity : Vector3.zero;
             velocity.y = 0f;
-            Vector3 predicted = TargetPlayer.WorldCenter + velocity * 0.6f;
+            Vector3 predicted = PursuitGoal + velocity * 0.6f;
             predicted.y = ArenaSurface.Height(predicted);
             Vector3 forward = predicted - WorldCenter;
             forward.y = 0f;

@@ -238,13 +238,13 @@ namespace EchoScrap.Editor
         public static void Materials()
         {
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-            ApplyMaterials("Assets/_Project/Art/Mundo3D/Texturas", "Assets/_Project/Art/Mundo3D/Modelos");
+            ApplyMaterials("Assets/_Project/Art/Mundo3D/Texturas", "Assets/_Project/Art/Mundo3D/Modelos", matteEnvironment: true);
             ApplyMaterials("Assets/_Project/Art/MataColeccionista/Texturas", "Assets/_Project/Art/MataColeccionista/Modelos");
             AssetDatabase.SaveAssets();
             Debug.Log("ECHOSCRAP_MATERIALS_OK");
         }
 
-        private static void ApplyMaterials(string textureRoot, string modelRoot)
+        private static void ApplyMaterials(string textureRoot, string modelRoot, bool matteEnvironment = false)
         {
             if (!Directory.Exists(textureRoot)) return;
             foreach (string manifest in Directory.GetFiles(textureRoot, "materials.json", SearchOption.AllDirectories))
@@ -269,6 +269,15 @@ namespace EchoScrap.Editor
                     material.SetTexture("_MetallicGlossMap", LoadTexture(record.metallic, false, false));
                     material.SetFloat("_Smoothness", string.IsNullOrEmpty(record.metallic) ? 0.45f : 1f);
                     if (!string.IsNullOrEmpty(record.metallic)) material.EnableKeyword("_METALLICSPECGLOSSMAP");
+                    if (matteEnvironment)
+                    {
+                        // These imported props use a matte art direction. Keep their diffuse,
+                        // normal and packed metal/roughness maps, but suppress white glints.
+                        material.SetFloat("_SpecularHighlights", 0f);
+                        material.SetFloat("_EnvironmentReflections", 0f);
+                        material.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
+                        material.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+                    }
                     material.SetTexture("_EmissionMap", LoadTexture(record.emission, false, true));
                     material.SetColor("_EmissionColor", Color.white);
                     if (!string.IsNullOrEmpty(record.emission)) material.EnableKeyword("_EMISSION");

@@ -80,7 +80,7 @@ namespace EchoScrap.Combat
             switch (State)
             {
                 case ColossusChargeState.Pursuit:
-                    Vector3 target = (targetBody != null ? targetBody.position : actor.TargetPlayer.WorldCenter) - Position;
+                    Vector3 target = actor.PursuitGoal - Position;
                     target.y = 0f;
                     if (CooldownRemaining > 0f || target.sqrMagnitude > settings.TriggerRange * settings.TriggerRange)
                         return false;

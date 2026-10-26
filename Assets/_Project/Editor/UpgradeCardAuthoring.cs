@@ -43,6 +43,8 @@ namespace EchoScrap.Editor
             for (int i = 0; i < skin.icons.Length; i++) skin.icons[i] = Import("Grayscale/Icon_" + (UpgradeIcon)i);
             skin.upgradeArrow = Import("UpgradeArrow");
             skin.chooseButton = Import("Grayscale/UpgradeButton", new Vector4(6f, 4f, 6f, 4f));
+            skin.newBadge = Import("Labels/Badge_New");
+            skin.upgradeBadge = Import("Labels/Badge_Upgrade");
             skin.regular = AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/UI/Fonts/ChakraPetch-Regular.ttf");
             skin.semibold = AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/UI/Fonts/ChakraPetch-SemiBold.ttf");
             if (skin.regular == null || skin.semibold == null) throw new BuildFailedException("Chakra Petch font assets are required.");

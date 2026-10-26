@@ -84,6 +84,8 @@ namespace EchoScrap.Combat
         public float WeaponTime => weaponTime;
         public int TotalPulsesEmitted { get; private set; }
 
+        private int guaranteedPending, guaranteedActive;
+        public void QueueGuaranteedCriticalPulses(int count) => guaranteedPending = Mathf.Max(guaranteedPending, count);
         public event Action<int> OnBurstStarted;
         public event Action<PulseResolvedEvent> OnPulseEmitted;
         public event Action<int> OnBurstEnteredRest;
@@ -178,6 +180,7 @@ namespace EchoScrap.Combat
         {
             EnsureInitialized();
             weaponTime = 0f;
+            guaranteedPending = guaranteedActive = 0;
             currentBurstId = 0;
             TotalPulsesEmitted = 0;
             isBurstInitialized = false;
@@ -285,6 +288,7 @@ namespace EchoScrap.Combat
 
         private void StartNewBurst(float anchorTime)
         {
+            guaranteedActive = guaranteedPending; guaranteedPending = 0;
             isBurstInitialized = true;
             isInRestPhase = false;
             emittedPulsesInCurrentBurst = 0;
@@ -391,7 +395,7 @@ namespace EchoScrap.Combat
             float range = capturedRange;
             float angle = capturedAngle;
             float damage = capturedDamagePerPulse;
-            float critChance = capturedCritChance;
+            float critChance = pulseNumber <= guaranteedActive ? 1f : capturedCritChance;
             float critMultiplier = capturedCritMultiplier;
 
             bool applyKnockback = pulseNumber == PulsesPerBurst;

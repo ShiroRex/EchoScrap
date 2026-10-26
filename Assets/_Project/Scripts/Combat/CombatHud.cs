@@ -27,6 +27,9 @@ namespace EchoScrap.Combat
         private GameObject modal;
         private GameObject pauseContent;
         private GameObject resultContent;
+        private Image modalPanel;
+        private Image modalAccent;
+        private PauseMenuSkin pauseSkin;
         private GameObject bossPanel;
         private RectTransform bossArrow;
         private Image healthFill;
@@ -51,7 +54,11 @@ namespace EchoScrap.Combat
         private Slider shakeSlider;
         private Slider decorativeSlider;
         private Toggle reducedToggle;
+        private readonly Button[] statsModeButtons = new Button[3];
+        private PlayerStatsReadout statsReadout;
+        private StatsDisplayMode statsMode;
         private Button resumeButton;
+        private Button pauseRestartButton;
         private Button resultRestartButton;
         private readonly StringBuilder cardsBuilder = new StringBuilder(512);
         private int kills;
@@ -76,6 +83,10 @@ namespace EchoScrap.Combat
         public string DisplayedHealth => healthText != null ? healthText.text : string.Empty;
         public string DisplayedSummary => resultSummary != null ? resultSummary.text : string.Empty;
         public string DisplayedCards => cardsText != null ? cardsText.text : string.Empty;
+        public bool ShowStats => statsMode != StatsDisplayMode.None;
+        public StatsDisplayMode StatsMode => statsMode;
+        public bool IsStatsVisible => statsReadout != null && statsReadout.gameObject.activeSelf;
+        public PlayerStatsReadout StatsReadout => statsReadout;
 
         public void BindReferences(CombatGameBootstrap bootstrap, PlayerHurtPresentation hurt)
         {
@@ -131,7 +142,7 @@ namespace EchoScrap.Combat
             subscribedProgression = null;
         }
 
-        private void HandleStatsChanged() { cardsDirty = true; experienceDirty = true; }
+        private void HandleStatsChanged() { cardsDirty = true; experienceDirty = true; RefreshStats(); }
         private void HandleExperienceChanged(ProgressionSnapshot _) => experienceDirty = true;
         private void HandleSessionState(SessionStateEvent _) => RefreshNow();
         private void HandleDeath(ActorDeathEvent death)
@@ -164,6 +175,7 @@ namespace EchoScrap.Combat
         private void LateUpdate()
         {
             if (game != null) UpdateBossArrow();
+            if (IsStatsVisible) statsReadout.FitToCanvas();
         }
 
         public void RefreshNow()
@@ -202,6 +214,18 @@ namespace EchoScrap.Combat
             if (cardsDirty) RefreshCards();
             RefreshBoss();
             RefreshModal();
+            RefreshStats();
+        }
+
+        private void RefreshStats()
+        {
+            if (statsReadout == null || game == null) return;
+            var state = game.Session.State;
+            bool visible = ShowStats && !game.Session.IsPaused && !game.Draft.IsOpen &&
+                (state == SessionState.Running || state == SessionState.BossIntro);
+            statsReadout.SetDisplayMode(statsMode);
+            statsReadout.gameObject.SetActive(visible);
+            if (visible) statsReadout.Refresh(game);
         }
 
         private void RefreshCards()
@@ -216,6 +240,19 @@ namespace EchoScrap.Combat
                 if (count++ > 0) cardsBuilder.Append('\n');
                 cardsBuilder.Append(card.Name).Append("  ").Append(tier).Append('/').Append(card.MaxTier);
             }
+            if (count > 8)
+            {
+                cardsBuilder.Clear();
+                for(int group=0;group<10;group++)
+                {
+                    int owned=0,levels=0;
+                    foreach(var card in UpgradeCatalog.Cards) if((int)card.Icon==group && game.Stats.GetUpgradeTier(card.Id)>0) {owned++;levels+=game.Stats.GetUpgradeTier(card.Id);}
+                    if(owned==0)continue;
+                    if(cardsBuilder.Length>0)cardsBuilder.Append('\n');
+                    cardsBuilder.Append(UpgradeCatalog.TypeName((UpgradeIcon)group)).Append("  ").Append(owned).Append(" mejoras · ").Append(levels).Append(" niveles");
+                }
+                cardsText.fontSize=18;
+            } else cardsText.fontSize=22;
             cardsText.text = count == 0 ? "Sin mejoras" : cardsBuilder.ToString();
         }
 
@@ -269,6 +306,9 @@ namespace EchoScrap.Combat
             modal.SetActive((ended && !closingVisible) || showPause);
             pauseContent.SetActive(showPause);
             resultContent.SetActive(ended);
+            modalPanel.color = showPause && pauseSkin != null ? Color.clear : Ink;
+            modalPanel.rectTransform.sizeDelta = showPause ? new Vector2(904f, 696f) : new Vector2(760f, 720f);
+            modalAccent.gameObject.SetActive(!showPause || pauseSkin == null);
             if (ended && (state != previousState || !wasVisible))
             {
                 resultTitle.text = state == SessionState.Victory ? "VICTORIA" : "DERROTA";
@@ -292,6 +332,31 @@ namespace EchoScrap.Combat
         public void SetShakePercent(float value) { if (game != null) game.Session.Effects.ShakeIntensity = value / 100f; }
         public void SetDecorativePercent(float value) { if (game != null) game.Session.Effects.DecorativeIntensity = value / 100f; }
         public void SetReducedEffects(bool value) { if (game != null) game.Session.Effects.ReducedEffectsMode = value; }
+        public void SetStatsVisible(bool value) => SetStatsDisplayMode(value ? StatsDisplayMode.Full : StatsDisplayMode.None);
+        public void SetStatsDisplayMode(StatsDisplayMode value)
+        {
+            statsMode = value == StatsDisplayMode.Full || value == StatsDisplayMode.Reduced ? value : StatsDisplayMode.None;
+            SyncStatsModeControls();
+            RefreshStats();
+        }
+
+        private void SyncStatsModeControls()
+        {
+            for (int i = 0; i < statsModeButtons.Length; i++)
+            {
+                var mode = (StatsDisplayMode)i;
+                Button button = statsModeButtons[i];
+                if (button == null) continue;
+                bool active = statsMode == mode;
+                button.image.color = active ? Apollo : new Color(.15f, .19f, .22f);
+                button.transform.Find("Label").GetComponent<Text>().color = active ? Ink : Pale;
+            }
+            Button selected = statsModeButtons[(int)statsMode];
+            if (selected == null || resumeButton == null || pauseRestartButton == null) return;
+            SetNavigation(reducedToggle, decorativeSlider, selected);
+            SetNavigation(resumeButton, selected, shakeSlider, pauseRestartButton, pauseRestartButton);
+            SetNavigation(pauseRestartButton, selected, shakeSlider, resumeButton, resumeButton);
+        }
 
         private void SyncPreferences()
         {
@@ -300,6 +365,7 @@ namespace EchoScrap.Combat
             shakeSlider.SetValueWithoutNotify(preferences.RawShakeIntensity * 100f);
             decorativeSlider.SetValueWithoutNotify(preferences.RawDecorativeIntensity * 100f);
             reducedToggle.SetIsOnWithoutNotify(preferences.ReducedEffectsMode);
+            SyncStatsModeControls();
             shakeLabel.text = $"MOVIMIENTO DE CÁMARA   {Mathf.RoundToInt(preferences.RawShakeIntensity * 100f)}%";
             decorativeLabel.text = $"EFECTOS DECORATIVOS   {Mathf.RoundToInt(preferences.RawDecorativeIntensity * 100f)}%";
         }
@@ -308,6 +374,7 @@ namespace EchoScrap.Combat
         {
             if (canvas != null) return;
             font = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.regular ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            pauseSkin = Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin");
             whiteSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height), Vector2.one * 0.5f);
             CreateBorderSprite();
             var root = new GameObject("CombatHUDCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -350,6 +417,8 @@ namespace EchoScrap.Combat
             healthText.fontSize=20; healthText.alignment=TextAnchor.MiddleCenter;
             dashText.rectTransform.anchoredPosition=new Vector2(30,-38); dashText.fontSize=20;
             healthText.transform.SetAsLastSibling(); dashText.transform.SetAsLastSibling();
+            statsReadout = PlayerStatsReadout.Create(canvasRect, font, Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin"));
+            statsReadout.gameObject.SetActive(false);
             AnchorLabel(canvasRect, "UpgradeHeading", new Vector2(1f, 0f), new Vector2(-275f, 326f), new Vector2(470f, 32f), "MEJORAS", 22, TextAnchor.MiddleRight, Apollo);
             cardsText = AnchorLabel(canvasRect, "AcquiredCards", new Vector2(1f, 0f), new Vector2(-275f, 182f), new Vector2(470f, 250f), "Sin mejoras", 22, TextAnchor.UpperRight, new Color(0.73f, 0.78f, 0.77f));
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));
@@ -378,23 +447,44 @@ namespace EchoScrap.Combat
             modal = Rect(canvasRect, "PauseAndResultOverlay", new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero).gameObject;
             Stretch((RectTransform)modal.transform);
             FullScreenImage(modal.transform, "Backdrop", new Color(0.02f, 0.025f, 0.04f, 0.90f)).raycastTarget = true;
-            Image panel = ImageRect(modal.transform, "Panel", Vector2.zero, new Vector2(760f, 720f), Ink);
+            Image panel = modalPanel = ImageRect(modal.transform, "Panel", Vector2.zero, new Vector2(760f, 720f), Ink);
             panel.raycastTarget = true;
-            ImageRect(panel.transform, "TopAccent", new Vector2(0f, 357f), new Vector2(760f, 4f), Apollo);
-            pauseContent = Rect(panel.transform, "Pause", Vector2.one * 0.5f, Vector2.zero, new Vector2(760f, 720f)).gameObject;
-            Label(pauseContent.transform, "Title", new Vector2(0f, 285f), new Vector2(640f, 70f), "PAUSA", 48, TextAnchor.MiddleLeft, Apollo);
-            Label(pauseContent.transform, "Subtitle", new Vector2(0f, 227f), new Vector2(640f, 42f), "ESC / START PARA VOLVER", 22, TextAnchor.MiddleLeft, Pale);
-            shakeLabel = Label(pauseContent.transform, "ShakeLabel", new Vector2(0f, 153f), new Vector2(640f, 38f), "MOVIMIENTO DE CÁMARA   100%", 23, TextAnchor.MiddleLeft, Pale);
-            shakeSlider = CreateSlider(pauseContent.transform, "ShakeSlider", new Vector2(0f, 109f));
+            modalAccent = ImageRect(panel.transform, "TopAccent", new Vector2(0f, 357f), new Vector2(760f, 4f), Apollo);
+            pauseContent = Rect(panel.transform, "Pause", Vector2.one * 0.5f, Vector2.zero, new Vector2(904f, 696f)).gameObject;
+            if (pauseSkin != null)
+            {
+                Image artwork = ImageRect(pauseContent.transform, "Artwork", Vector2.zero, new Vector2(904f, 696f), Color.white);
+                artwork.sprite = pauseSkin.frame;
+                artwork.preserveAspect = true; // Exactly 8x the delivered 113x87 frame, including every ornament.
+            }
+            Label(pauseContent.transform, "Title", new Vector2(0f, 201f), new Vector2(640f, 58f), "PAUSA", 42, TextAnchor.MiddleCenter, Apollo);
+            Label(pauseContent.transform, "Subtitle", new Vector2(0f, 151f), new Vector2(640f, 32f), "ESC / START PARA VOLVER", 20, TextAnchor.MiddleCenter, Pale);
+            shakeLabel = Label(pauseContent.transform, "ShakeLabel", new Vector2(0f, 92f), new Vector2(640f, 38f), "MOVIMIENTO DE CÁMARA   100%", 23, TextAnchor.MiddleLeft, Pale);
+            shakeSlider = CreateSlider(pauseContent.transform, "ShakeSlider", new Vector2(0f, 52f));
             shakeSlider.onValueChanged.AddListener(SetShakePercent);
-            decorativeLabel = Label(pauseContent.transform, "EffectsLabel", new Vector2(0f, 56f), new Vector2(640f, 38f), "EFECTOS DECORATIVOS   100%", 23, TextAnchor.MiddleLeft, Pale);
-            decorativeSlider = CreateSlider(pauseContent.transform, "EffectsSlider", new Vector2(0f, 12f));
+            decorativeLabel = Label(pauseContent.transform, "EffectsLabel", new Vector2(0f, -2f), new Vector2(640f, 38f), "EFECTOS DECORATIVOS   100%", 23, TextAnchor.MiddleLeft, Pale);
+            decorativeSlider = CreateSlider(pauseContent.transform, "EffectsSlider", new Vector2(0f, -42f));
             decorativeSlider.onValueChanged.AddListener(SetDecorativePercent);
-            reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -68f), "EFECTOS REDUCIDOS");
+            reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -85f), "EFECTOS REDUCIDOS");
             reducedToggle.onValueChanged.AddListener(SetReducedEffects);
-            resumeButton = CreateButton(pauseContent.transform, "Resume", new Vector2(0f, -169f), "REANUDAR", Apollo);
+            var statsModes = Rect(pauseContent.transform, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0f, -137f), new Vector2(640f, 48f));
+            Label(statsModes, "Label", new Vector2(-240f, 0f), new Vector2(160f, 44f), "ESTADÍSTICAS", 21, TextAnchor.MiddleLeft, Pale);
+            CreateStatsModeButton(statsModes, StatsDisplayMode.Full, "Full", -72f, "COMPLETA");
+            CreateStatsModeButton(statsModes, StatsDisplayMode.Reduced, "Reduced", 84f, "REDUCIDA");
+            CreateStatsModeButton(statsModes, StatsDisplayMode.None, "None", 240f, "SIN");
+            resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(-170f, -225f), "REANUDAR", pauseSkin != null ? pauseSkin.greenButton : null);
             resumeButton.onClick.AddListener(ResumeGame);
-            CreateButton(pauseContent.transform, "Restart", new Vector2(0f, -261f), "REINICIAR", new Color(0.24f, 0.29f, 0.31f)).onClick.AddListener(RestartGame);
+            pauseRestartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(170f, -225f), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null);
+            pauseRestartButton.onClick.AddListener(RestartGame);
+            SetNavigation(shakeSlider, resumeButton, decorativeSlider);
+            SetNavigation(decorativeSlider, shakeSlider, reducedToggle);
+            SetNavigation(statsModeButtons[(int)StatsDisplayMode.Full], reducedToggle, resumeButton,
+                statsModeButtons[(int)StatsDisplayMode.None], statsModeButtons[(int)StatsDisplayMode.Reduced]);
+            SetNavigation(statsModeButtons[(int)StatsDisplayMode.Reduced], reducedToggle, resumeButton,
+                statsModeButtons[(int)StatsDisplayMode.Full], statsModeButtons[(int)StatsDisplayMode.None]);
+            SetNavigation(statsModeButtons[(int)StatsDisplayMode.None], reducedToggle, resumeButton,
+                statsModeButtons[(int)StatsDisplayMode.Reduced], statsModeButtons[(int)StatsDisplayMode.Full]);
+            SyncStatsModeControls();
             resultContent = Rect(panel.transform, "Result", Vector2.one * 0.5f, Vector2.zero, new Vector2(760f, 720f)).gameObject;
             resultTitle = Label(resultContent.transform, "Title", new Vector2(0f, 254f), new Vector2(640f, 80f), "VICTORIA", 52, TextAnchor.MiddleCenter, Apollo);
             resultSummary = Label(resultContent.transform, "Summary", new Vector2(0f, 37f), new Vector2(640f, 330f), "", 29, TextAnchor.MiddleCenter, Pale);
@@ -471,6 +561,33 @@ namespace EchoScrap.Combat
             Label(panel.transform, "Label", Vector2.zero, new Vector2(600f, 60f), value, 27, TextAnchor.MiddleCenter, color == Apollo ? Ink : Pale);
             return button;
         }
+        private void CreateStatsModeButton(Transform parent, StatsDisplayMode mode, string name, float x, string value)
+        {
+            Button button = CreateButton(parent, name, new Vector2(x, 0f), value, new Color(.15f, .19f, .22f));
+            button.image.rectTransform.sizeDelta = new Vector2(144f, 44f);
+            var label = button.transform.Find("Label").GetComponent<Text>();
+            label.rectTransform.sizeDelta = new Vector2(136f, 40f);
+            label.fontSize = 20;
+            button.onClick.AddListener(() => SetStatsDisplayMode(mode));
+            statsModeButtons[(int)mode] = button;
+        }
+        private Button CreatePauseButton(Transform parent, string name, Vector2 position, string value, Sprite sprite)
+        {
+            Button button = CreateButton(parent, name, position, value, Color.white);
+            button.image.rectTransform.sizeDelta = new Vector2(304f, 112f);
+            var label = button.transform.Find("Label").GetComponent<Text>();
+            label.rectTransform.sizeDelta = new Vector2(244f, 72f);
+            if (sprite == null || pauseSkin == null) return button;
+            button.image.sprite = sprite;
+            button.image.type = Image.Type.Sliced;
+            button.image.pixelsPerUnitMultiplier = 0.5f;
+            button.transition = Selectable.Transition.SpriteSwap;
+            SpriteState states = button.spriteState;
+            states.highlightedSprite = states.selectedSprite = pauseSkin.blueButton;
+            states.pressedSprite = states.disabledSprite = sprite;
+            button.spriteState = states;
+            return button;
+        }
         private Slider CreateSlider(Transform parent, string name, Vector2 position)
         {
             RectTransform rect = Rect(parent, name, Vector2.one * 0.5f, position, new Vector2(640f, 34f));
@@ -499,6 +616,15 @@ namespace EchoScrap.Combat
             Toggle toggle = rect.gameObject.AddComponent<Toggle>(); toggle.targetGraphic = background; toggle.graphic = check;
             Label(rect, "Label", new Vector2(33f, 0f), new Vector2(560f, 48f), value, 23, TextAnchor.MiddleLeft, Pale);
             return toggle;
+        }
+        private static void SetNavigation(Selectable control, Selectable up, Selectable down,
+            Selectable left = null, Selectable right = null)
+        {
+            control.navigation = new Navigation
+            {
+                mode = Navigation.Mode.Explicit,
+                selectOnUp = up, selectOnDown = down, selectOnLeft = left, selectOnRight = right
+            };
         }
         private static void Stretch(RectTransform rect)
         {

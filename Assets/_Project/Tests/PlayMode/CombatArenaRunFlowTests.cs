@@ -4,8 +4,10 @@ using EchoScrap.Combat;
 using EchoScrap.Core;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace EchoScrap.Tests
 {
@@ -39,6 +41,44 @@ namespace EchoScrap.Tests
                 yield return SceneManager.UnloadSceneAsync(arena);
             }
             CombatTargetRegistry.Clear();
+        }
+
+        [UnityTest]
+        public IEnumerator NormalAndQuickScenesStartBossAtTheirOwnConfiguredTime()
+        {
+            foreach (var variant in new[] { ("CombatArena_8Min", 480f), ("CombatArena_3Min", 180f) })
+            {
+                Assert.That(Application.CanStreamedLevelBeLoaded(variant.Item1), Is.True);
+                yield return SceneManager.LoadSceneAsync(variant.Item1, LoadSceneMode.Single);
+                yield return null;
+                game = Object.FindAnyObjectByType<CombatGameBootstrap>();
+                Assert.That(game.IsInitialized, Is.True);
+                var station = Object.FindAnyObjectByType<FusionStation>();
+                Assert.That(station, Is.Not.Null, "Both duration variants retain the latest fusion station.");
+                station.PersistProgress = false;
+                Assert.That(station.gameObject.scene, Is.EqualTo(game.gameObject.scene));
+                Assert.That(station.gameObject.scene.name, Is.EqualTo(variant.Item1));
+                Assert.That(station.DisplaySlots, Has.Length.EqualTo(8), "Both variants retain the expanded garage.");
+                Assert.That(station.Door, Is.Not.Null);
+                Assert.That(station.InteractionPoint, Is.Not.Null);
+                Assert.That(station.ResultPoint, Is.Not.Null);
+                game.Director.AutoTick = false;
+                game.Encounter.AutoTick = false;
+                game.ResetRun(false);
+                Assert.That(game.WaveSettings.BossStartTime, Is.EqualTo(variant.Item2));
+                Assert.That(game.WaveSettings.name, Is.EqualTo(variant.Item2 == 480f ? "CombatWaves_8Min" : "CombatWaves_3Min"));
+                game.Session.Clock.SetGameplayTimeForTesting(variant.Item2 - .1f);
+                game.Director.Step();
+                Assert.That(game.Director.IsBossPhase, Is.False);
+                game.Session.Clock.SetGameplayTimeForTesting(variant.Item2);
+                game.Director.Step();
+                Assert.That(game.Director.IsBossPhase, Is.True);
+                Assert.That(game.Encounter.Boss, Is.Not.Null);
+                Assert.That(game.Session.State, Is.EqualTo(SessionState.BossIntro));
+                game.ResetRun(false);
+                Assert.That(game.WaveSettings.BossStartTime, Is.EqualTo(variant.Item2));
+                Assert.That(game.Director.IsBossPhase, Is.False);
+            }
         }
 
         [Test]
@@ -368,6 +408,89 @@ namespace EchoScrap.Tests
                 Assert.That(new FileInfo(path).Length, Is.GreaterThan(12000));
             }
             game.Session.SetTacticalDraftPause(false);
+        }
+
+        [UnityTest]
+        public IEnumerator PauseMenu_DeliveredArtPreservesFrameAndColoredButtons_WithWorkingResumeAndRestart()
+        {
+            PauseMenuSkin skin = Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin");
+            Assert.IsNotNull(skin);
+            Assert.That(skin.frame.rect.size, Is.EqualTo(new Vector2(113, 87)));
+            foreach (Sprite sprite in new[] { skin.frame, skin.blueButton, skin.redButton, skin.greenButton })
+                Assert.That(sprite.texture.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(skin.greenButton.border, Is.EqualTo(Vector4.one * 14f));
+            game.Progression.AddExperience(20);
+            game.Session.SetManualPause(true);
+            game.Hud.RefreshNow();
+            Transform pause = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause");
+            Image frame = pause.Find("Artwork").GetComponent<Image>();
+            Button resume = pause.Find("Resume").GetComponent<Button>();
+            Button restart = pause.Find("Restart").GetComponent<Button>();
+            Assert.That(frame.sprite, Is.SameAs(skin.frame));
+            Assert.That(frame.preserveAspect, Is.True, "The skulls and frame ornaments keep their original proportions.");
+            Assert.That(frame.rectTransform.sizeDelta, Is.EqualTo(skin.frame.rect.size * 8f));
+            Assert.That(resume.image.sprite, Is.SameAs(skin.greenButton));
+            Assert.That(restart.image.sprite, Is.SameAs(skin.redButton));
+            EventSystem.current.SetSelectedGameObject(null);
+            yield return null;
+            foreach (Vector2Int size in new[] { new Vector2Int(1280, 720), new Vector2Int(1920, 1080), new Vector2Int(2560, 1080) })
+                yield return CapturePauseArtwork(size, "Pause");
+            EventSystem.current.SetSelectedGameObject(restart.gameObject);
+            yield return null;
+            Assert.That(restart.image.overrideSprite, Is.SameAs(skin.blueButton));
+            Assert.That(resume.image.overrideSprite, Is.SameAs(skin.greenButton));
+            yield return CapturePauseArtwork(new Vector2Int(1920, 1080), "Pause_Focus");
+            ExecuteEvents.Execute(restart.gameObject, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left }, ExecuteEvents.pointerClickHandler);
+            Assert.That(game.Progression.TotalXp, Is.Zero, "The red navigation button still restarts the run.");
+            Assert.That(game.Session.IsPaused, Is.False);
+            game.Session.SetManualPause(true); game.Hud.RefreshNow();
+            EventSystem.current.SetSelectedGameObject(resume.gameObject);
+            ExecuteEvents.Execute(resume.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.That(game.Session.IsPaused, Is.False, "Keyboard/gamepad submission still resumes the run.");
+            Assert.That(game.Hud.IsPauseVisible, Is.False);
+        }
+
+        private IEnumerator CapturePauseArtwork(Vector2Int size, string name)
+        {
+            Camera camera = game.GameplayCamera;
+            var cameraData = camera.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            bool postProcessing = cameraData != null && cameraData.renderPostProcessing;
+            var antialiasing = cameraData != null ? cameraData.antialiasing : UnityEngine.Rendering.Universal.AntialiasingMode.None;
+            Canvas canvas = game.Hud.HudCanvas;
+            RenderMode mode = canvas.renderMode; Camera previousCamera = canvas.worldCamera;
+            float plane = canvas.planeDistance;
+            RenderTexture previousTarget = camera.targetTexture, previousActive = RenderTexture.active;
+            var target = new RenderTexture(size.x, size.y, 24);
+            Texture2D texture = null;
+            try
+            {
+                // Runtime Overlay UI renders after world effects. Keep those effects off the UI in this camera capture too.
+                if (cameraData != null)
+                {
+                    cameraData.renderPostProcessing = false;
+                    cameraData.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.None;
+                }
+                camera.targetTexture = target; canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera; canvas.planeDistance = 0.5f;
+                Canvas.ForceUpdateCanvases();
+                yield return null; yield return null; yield return null;
+                Transform pause = canvas.transform.Find("PauseAndResultOverlay/Panel/Pause");
+                foreach (Text text in pause.GetComponentsInChildren<Text>())
+                    Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1f), "Pause text must fit: " + text.name);
+                RenderTexture.active = target;
+                texture = new Texture2D(size.x, size.y, TextureFormat.RGB24, false);
+                texture.ReadPixels(new Rect(0, 0, size.x, size.y), 0, 0); texture.Apply();
+                string output = Path.Combine(Application.dataPath, "..", "Logs", "PauseMenuArt"); Directory.CreateDirectory(output);
+                File.WriteAllBytes(Path.Combine(output, $"{name}_{size.x}x{size.y}.png"), texture.EncodeToPNG());
+            }
+            finally
+            {
+                canvas.renderMode = mode; canvas.worldCamera = previousCamera; canvas.planeDistance = plane;
+                if (cameraData != null) { cameraData.renderPostProcessing = postProcessing; cameraData.antialiasing = antialiasing; }
+                camera.targetTexture = previousTarget; RenderTexture.active = previousActive;
+                target.Release(); Object.Destroy(target);
+                if (texture != null) Object.Destroy(texture);
+            }
         }
     }
 }

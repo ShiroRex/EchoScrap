@@ -69,9 +69,9 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void CatalogPreviewsDoNotMutateStats_AndAllEightMaxTierFormulasAgree()
+        public void CatalogPreviewsDoNotMutateStats_AndAllMaxTierFormulasAgree()
         {
-            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(8));
+            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(35));
             var ids = new HashSet<string>();
             foreach (var card in UpgradeCatalog.Cards)
             {
@@ -92,7 +92,7 @@ namespace EchoScrap.Tests
             Assert.That(stats.EffectiveBurstRestDuration, Is.Zero);
             Assert.That(stats.DashSpeed, Is.EqualTo(30.8f).Within(0.0001f));
             Assert.That(stats.DashCooldown, Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(stats.MaxHealth, Is.EqualTo(200f));
+            Assert.That(stats.MaxHealth, Is.EqualTo(250f));
             Assert.That(stats.MagnetRadius, Is.EqualTo(12.5f));
             Assert.That(stats.MedkitHealAmount, Is.EqualTo(21f));
             Assert.That(stats.GetMedkitDropChance(false), Is.EqualTo(0.06f));
@@ -182,7 +182,7 @@ namespace EchoScrap.Tests
 
             // Exercise SSR eligibility while all other cards are still tier zero.
             bool solarOfferedWithoutPrerequisites = false;
-            for (int seed = 1; seed <= 128 && !solarOfferedWithoutPrerequisites; seed++)
+            for (int seed = 1; seed <= 1024 && !solarOfferedWithoutPrerequisites; seed++)
             {
                 session.ResetSession(seed);
                 progression.AddExperience(100);
@@ -220,14 +220,14 @@ namespace EchoScrap.Tests
             int choices = 0;
             draft.OnCardChosen += card => { if (card.Id == "BIO_01") choices++; };
             Assert.That(draft.TryChoose(0), Is.True);
-            Assert.That(health.MaxHealth, Is.EqualTo(120f));
+            Assert.That(health.MaxHealth, Is.EqualTo(170f));
             Assert.That(health.CurrentHealth, Is.EqualTo(85f));
             Assert.That(stats.BioAlloyTier, Is.EqualTo(1));
             Assert.That(draft.TryChoose(0), Is.True);
-            Assert.That(health.MaxHealth, Is.EqualTo(140f));
+            Assert.That(health.MaxHealth, Is.EqualTo(190f));
             Assert.That(health.CurrentHealth, Is.EqualTo(100f));
             Assert.That(draft.TryChoose(0), Is.True);
-            Assert.That(health.MaxHealth, Is.EqualTo(160f));
+            Assert.That(health.MaxHealth, Is.EqualTo(210f));
             Assert.That(health.CurrentHealth, Is.EqualTo(115f));
             Assert.That(choices, Is.EqualTo(3));
             Assert.That(draft.TryChoose(0), Is.False);
@@ -419,7 +419,7 @@ namespace EchoScrap.Tests
             int tier = stats.GetUpgradeTier(id);
             var before = view.CanvasRoot.transform.Find("UpgradeCard_3/Panel/Before").GetComponent<Text>();
             var after = view.CanvasRoot.transform.Find("UpgradeCard_3/Panel/After").GetComponent<Text>();
-            Assert.That(before.text, Does.StartWith("AHORA\n"));
+            Assert.That(before.gameObject.activeSelf, Is.EqualTo(tier > 0));
             Assert.That(after.text, Does.StartWith("AL ELEGIR\n"));
             float gameTime = session.GameplayTime;
             Assert.That(view.ConfirmSelection(), Is.True);
@@ -658,7 +658,7 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void SharedIconFamiliesCoverAllDesignedCardsWithoutEnablingUnimplementedUpgrades()
+        public void SharedIconFamiliesCoverAllThirtyFiveImplementedCards()
         {
             var expected = new HashSet<string>();
             foreach (var group in new[] { ("FLASH", 5), ("DASH", 4), ("BIO", 4), ("GREED", 5), ("CRIT", 5), ("DEMO", 4), ("SCRAP", 4), ("CRYO", 4) })
@@ -670,8 +670,8 @@ namespace EchoScrap.Tests
                 Assert.That(UpgradeCatalog.TryGetIcon(card.Id, out var icon), Is.True);
                 Assert.That(card.Icon, Is.EqualTo(icon));
             }
-            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(8));
-            Assert.That(UpgradeCatalog.TryGet("CRYO_01", out _), Is.False);
+            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(35));
+            Assert.That(UpgradeCatalog.TryGet("CRYO_01", out _), Is.True);
             Assert.That(UpgradeCatalog.TryGetIcon("UNKNOWN", out _), Is.False);
         }
 
@@ -710,11 +710,13 @@ namespace EchoScrap.Tests
             progression.AddExperience(100);
             SetVisualOffers("BIO_01", "GREED_03", "FLASH_04"); view.RefreshOffers();
             Transform panel = view.CanvasRoot.transform.Find("UpgradeCard_1/Panel");
-            Assert.That(panel.Find("UpgradeArrow").gameObject.activeSelf, Is.True);
-            Assert.That(panel.Find("UpgradeBadge").GetComponent<Text>().text, Is.EqualTo("SUBE A NIVEL 2 / 5"));
+            Assert.That(panel.parent.Find("UpgradeArrow").gameObject.activeSelf, Is.True);
+            Assert.That(panel.parent.Find("NewBadge").gameObject.activeSelf, Is.False);
+            Assert.That(panel.Find("Level").GetComponent<Text>().text, Is.EqualTo("NIVEL\n "));
             Assert.That(panel.Find("Before").GetComponent<Text>().text, Does.Contain("120 HP"));
             Assert.That(panel.Find("After").GetComponent<Text>().text, Does.Contain("140 HP"));
-            Assert.That(view.CanvasRoot.transform.Find("UpgradeCard_2/Panel/UpgradeArrow").gameObject.activeSelf, Is.False);
+            Assert.That(view.CanvasRoot.transform.Find("UpgradeCard_2/UpgradeArrow").gameObject.activeSelf, Is.False);
+            Assert.That(view.CanvasRoot.transform.Find("UpgradeCard_2/NewBadge").gameObject.activeSelf, Is.True);
             Assert.That(stats.GetUpgradeTier("BIO_01"), Is.EqualTo(1));
             session.Effects.ReducedEffectsMode = true; view.StepPresentation(0.5f);
             Vector3 rest = panel.parent.localPosition;
@@ -810,14 +812,14 @@ namespace EchoScrap.Tests
         {
             UpgradeCatalog.TryGet("FLASH_04", out var card);
             var first = new UpgradeOffer(card, stats);
-            Assert.That(first.Detail, Does.StartWith("Menos área de ataque."));
+            Assert.That(first.Detail, Does.Contain("tu luz abarca menos"));
             Assert.That(first.Detail, Does.Not.Contain("°").And.Not.Contain("Cono"));
             float originalAngle = stats.FlashlightAngle;
             Assert.That(stats.GetUpgradeTier(card.Id), Is.Zero);
             stats.SetUpgradeTier(card.Id, 1);
             Assert.That(stats.FlashlightAngle, Is.EqualTo(originalAngle - 20f));
             var repeat = new UpgradeOffer(card, stats);
-            Assert.That(repeat.Detail, Does.StartWith("Misma área de ataque."));
+            Assert.That(repeat.Detail, Does.Contain("conserva su anchura"));
             Assert.That(repeat.PrimaryBefore, Is.Not.EqualTo(repeat.PrimaryAfter));
             Assert.That(stats.FlashlightAngle, Is.EqualTo(originalAngle - 20f));
             Assert.That(stats.GetUpgradeTier(card.Id), Is.EqualTo(1));
@@ -967,6 +969,149 @@ namespace EchoScrap.Tests
                 if (Mathf.Abs(a[i].r - b[i].r) + Mathf.Abs(a[i].g - b[i].g) + Mathf.Abs(a[i].b - b[i].b) > 15) changed++;
             Assert.That(changed, Is.InRange(200, 40000), "Opposite lights must reveal the frame bevels without changing the whole card.");
             Object.Destroy(left); Object.Destroy(right);
+        }
+
+        [UnityTest]
+        public IEnumerator CardCentersAndButtonsRemainSymmetricWithProportionalSelection()
+        {
+            var view=draft.gameObject.AddComponent<UpgradeDraftPresentation>();view.BindReferences(session,draft);progression.AddExperience(100);
+            stats.SetUpgradeTier("SCRAP_02",1);stats.SetUpgradeTier("GREED_04",2);
+            SetVisualOffers("SCRAP_02","GREED_04","CRIT_04");view.RefreshOffers();view.StepPresentation(.8f);Canvas.ForceUpdateCanvases();
+            for(int selection=0;selection<3;selection++)
+            {
+                if(selection>0)view.MoveSelection(1);
+                view.StepPresentation(.8f);Canvas.ForceUpdateCanvases();
+                for(int i=0;i<3;i++)
+                {
+                    var root=(RectTransform)view.CanvasRoot.transform.Find($"UpgradeCard_{i+1}");
+                    Assert.That(root.rect.size,Is.EqualTo(new Vector2(400,620)));
+                    Assert.That(root.anchoredPosition,Is.EqualTo(new Vector2((i-1)*456,-20)));
+                    float scale=i==selection?1.04f:1f;
+                    Assert.That(root.localScale.x,Is.EqualTo(scale).Within(.0001));
+                    Assert.That(root.localScale.y,Is.EqualTo(scale).Within(.0001));
+                    Assert.That(root.GetComponent<CanvasGroup>().alpha, Is.EqualTo(i == selection ? 1f : .55f));
+                    Assert.That(root.Find("Panel/ChooseButton/Label").GetComponent<Text>().text, Is.EqualTo("ELEGIR"));
+                    if (i == selection) Assert.That(root.Find("Selection").GetComponent<Text>().text, Does.Contain("ENFOCADA"));
+                    foreach(string centered in new[]{"RarityTier","TypeIcon","Type","Name","Description","PrimaryLabel","ComparisonArrow","Detail","ChooseButton"})
+                    {
+                        var rect=(RectTransform)root.Find("Panel/"+centered);
+                        Assert.That(rect.anchoredPosition.x,Is.Zero,centered+" must share the frame center.");
+                        Assert.That(root.InverseTransformPoint(rect.position).x,Is.Zero.Within(.0001),centered);
+                    }
+                    var before=(RectTransform)root.Find("Panel/Before");var after=(RectTransform)root.Find("Panel/After");
+                    Assert.That(after.anchoredPosition.x,Is.EqualTo(draft.Offers[i].CurrentTier > 0 ? -before.anchoredPosition.x : 0f));
+                    Assert.That(before.anchoredPosition.y,Is.EqualTo(after.anchoredPosition.y));
+                    var button=(RectTransform)root.Find("Panel/ChooseButton");
+                    Assert.That(button.anchoredPosition,Is.EqualTo(new Vector2(0,-272)));
+                    Assert.That(button.rect.size,Is.EqualTo(new Vector2(280,40)));
+                    Assert.That(root.Find("NewBadge").GetComponent<UpgradeCardPerspective>(),Is.Not.Null);
+                    Assert.That(root.Find("UpgradeArrow").GetComponent<UpgradeCardPerspective>(),Is.Not.Null);
+                }
+            }
+            foreach(string name in new[]{"Title","Subtitle","RerollButton"})
+                Assert.That(((RectTransform)view.CanvasRoot.transform.Find(name)).anchoredPosition.x,Is.Zero,name);
+            var camera=new GameObject("Centered cards camera").AddComponent<Camera>();camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.025f,.035f,.05f);
+            camera.transform.position=new Vector3(0,15,-8);camera.transform.LookAt(Vector3.zero);
+            var canvas=view.CanvasRoot.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;
+            view.MoveSelection(1);view.StepPresentation(.8f);
+            yield return CapturePixelCards(camera,view,"Centered_Repeat_720.png",1280,720);
+            yield return CapturePixelCards(camera,view,"Centered_Repeat_1040.png",1040,664);
+            yield return CapturePixelCards(camera,view,"Centered_Repeat_Ultrawide.png",2560,1080);
+            SetVisualOffers("CRYO_01","DEMO_02","CRIT_03");view.RefreshOffers();view.MoveSelection(1);view.StepPresentation(.8f);
+            Assert.That(view.ConfirmSelection(),Is.True);view.StepPresentation(.08f);Canvas.ForceUpdateCanvases();
+            var middle=(RectTransform)view.CanvasRoot.transform.Find("UpgradeCard_2");
+            Assert.That(middle.localScale.x,Is.EqualTo(1.04f*1.045f).Within(.0001));
+            var rerollBounds=RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,view.CanvasRoot.transform.Find("RerollButton"));
+            var labelBounds=RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,middle.Find("NewBadge"));
+            Assert.That(rerollBounds.Intersects(labelBounds),Is.False,"The larger confirmation must not collide with the header.");
+        }
+
+        [UnityTest]
+        public IEnumerator CornerLabelsAndAllThirtyFiveCardsFitAtEveryOfferedTier()
+        {
+            var skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            Assert.That(skin.newBadge, Is.Not.Null); Assert.That(skin.upgradeBadge, Is.Not.Null);
+            Assert.That(skin.newBadge.rect.size, Is.EqualTo(new Vector2(48,20)));
+            Assert.That(skin.upgradeBadge.rect.size, Is.EqualTo(new Vector2(32,32)));
+            foreach(var sprite in new[]{skin.newBadge,skin.upgradeBadge})
+            {
+                Assert.That(sprite.texture.filterMode,Is.EqualTo(FilterMode.Point));
+                Assert.That(sprite.texture.mipmapCount,Is.EqualTo(1));
+            }
+            var view=draft.gameObject.AddComponent<UpgradeDraftPresentation>();view.BindReferences(session,draft);
+            progression.AddExperience(100);yield return null;
+            int checkedOffers=0;
+            foreach(bool combined in new[]{false,true})
+            foreach(var card in UpgradeCatalog.Cards)
+            for(int tier=0;tier<card.MaxTier;tier++)
+            {
+                stats.ResetToInitial();
+                if(combined)foreach(var other in UpgradeCatalog.Cards)stats.SetUpgradeTier(other.Id,other.MaxTier);
+                stats.SetUpgradeTier(card.Id,tier);
+                SetVisualOffers(card.Id);view.RefreshOffers();view.StepPresentation(.8f);Canvas.ForceUpdateCanvases();
+                var root=view.CanvasRoot.transform.Find("UpgradeCard_1");var panel=root.Find("Panel");
+                Assert.That(root.Find("NewBadge").gameObject.activeSelf,Is.EqualTo(tier==0),card.Id);
+                Assert.That(panel.Find("Before").gameObject.activeSelf, Is.EqualTo(tier > 0), card.Id);
+                Assert.That(panel.Find("ComparisonArrow").gameObject.activeSelf, Is.EqualTo(tier > 0), card.Id);
+                Assert.That(((RectTransform)panel.Find("After")).anchoredPosition.x, Is.EqualTo(tier > 0 ? 86f : 0f), card.Id);
+                if (tier == 0) Assert.That(panel.Find("Before").GetComponent<Text>().text, Is.Empty);
+                Assert.That(root.Find("UpgradeArrow").gameObject.activeSelf,Is.EqualTo(tier>0),card.Id);
+                Assert.That(panel.Find("Level").GetComponent<Text>().text,Is.EqualTo(tier==0?$"NIVEL\n1 / {card.MaxTier}":"NIVEL\n "));
+                Assert.That(root.Find("NewBadge").GetComponent<Image>().sprite,Is.SameAs(skin.newBadge));
+                Assert.That(root.Find("UpgradeArrow").GetComponent<Image>().sprite,Is.SameAs(skin.upgradeBadge));
+                Assert.That(root.Find("NewBadge").localPosition.x,Is.LessThan(-100));
+                Assert.That(root.Find("UpgradeArrow").localPosition.x,Is.GreaterThan(190));
+                var badge = (RectTransform)root.Find("UpgradeArrow");
+                Assert.That(badge.sizeDelta.x, Is.EqualTo(64f * 1.39f).Within(.001f));
+                Assert.That(badge.sizeDelta.y, Is.EqualTo(badge.sizeDelta.x));
+                Assert.That(badge.anchoredPosition, Is.EqualTo(new Vector2(194f, -276f)));
+                var button = (RectTransform)panel.Find("ChooseButton");
+                Assert.That(badge.anchoredPosition.x - badge.sizeDelta.x / 2f,
+                    Is.GreaterThan(button.anchoredPosition.x + button.sizeDelta.x / 2f));
+                var levelArrow = panel.Find("LevelArrow").GetComponent<Image>();
+                Assert.That(levelArrow.gameObject.activeSelf, Is.EqualTo(tier > 0));
+                Assert.That(levelArrow.sprite, Is.SameAs(panel.Find("ComparisonArrow").GetComponent<Image>().sprite));
+                Assert.That(levelArrow.transform.localRotation, Is.EqualTo(panel.Find("ComparisonArrow").localRotation));
+                if (tier > 0)
+                {
+                    Assert.That(panel.Find("LevelBefore").GetComponent<Text>().text, Is.EqualTo(tier.ToString()));
+                    Assert.That(panel.Find("LevelAfter").GetComponent<Text>().text, Is.EqualTo((tier + 1).ToString()));
+                }
+                foreach(var text in panel.GetComponentsInChildren<Text>())
+                    Assert.That(text.preferredHeight,Is.LessThanOrEqualTo(text.rectTransform.rect.height+.5f),card.Id+" tier "+tier+" / "+text.name+" / "+text.text);
+                foreach(var pair in new[]{("Type","Name"),("Name","Description"),("Description","PrimaryLabel"),("PrimaryLabel","Before"),("Before","Detail"),("Detail","ChooseButton")})
+                {
+                    var upper=(RectTransform)panel.Find(pair.Item1);var lower=(RectTransform)panel.Find(pair.Item2);
+                    Assert.That(upper.anchoredPosition.y-upper.rect.height*.5f,Is.GreaterThanOrEqualTo(lower.anchoredPosition.y+lower.rect.height*.5f),card.Id+" overlap "+pair);
+                }
+                checkedOffers++;
+            }
+            Debug.Log($"[Card labels] {checkedOffers} offers checked across all 35 cards, their levels and combined upgrades.");
+        }
+
+        [UnityTest]
+        public IEnumerator StickerLabelsAndLongNamesRemainReadableAcrossGameViewSizes()
+        {
+            var view=draft.gameObject.AddComponent<UpgradeDraftPresentation>();view.BindReferences(session,draft);progression.AddExperience(100);
+            var camera=new GameObject("Label preview camera").AddComponent<Camera>();
+            camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.025f,.035f,.05f);
+            camera.transform.position=new Vector3(0,15,-8);camera.transform.LookAt(Vector3.zero);
+            var canvas=view.CanvasRoot.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;
+            SetVisualOffers("FLASH_02", "FLASH_03", "BIO_03"); view.RefreshOffers(); view.StepPresentation(.8f);
+            view.MoveSelection(1); view.StepPresentation(.8f);
+            yield return CapturePixelCards(camera, view, "ClearCards_Focus_1040.png", 1040, 664);
+            stats.SetUpgradeTier("GREED_04",1);
+            SetVisualOffers("CRYO_01","DEMO_02","CRIT_03");view.RefreshOffers();view.StepPresentation(.8f);
+            yield return CapturePixelCards(camera,view,"Labels_Reported_1040.png",1040,664);
+            yield return CapturePixelCards(camera,view,"Labels_Reported_1080.png",1920,1080);
+            var reroll=view.CanvasRoot.transform.Find("RerollButton");
+            var rerollBounds=RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,reroll);
+            for(int i=1;i<=3;i++)
+                Assert.That(rerollBounds.Intersects(RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,view.CanvasRoot.transform.Find($"UpgradeCard_{i}/NewBadge"))),Is.False,"The reroll must not cover a corner sticker.");
+            stats.SetUpgradeTier("SCRAP_02",1);stats.SetUpgradeTier("GREED_04",2);
+            SetVisualOffers("SCRAP_02","GREED_04","CRIT_04");view.RefreshOffers();view.StepPresentation(.8f);
+            yield return CapturePixelCards(camera,view,"Labels_Repeat_720.png",1280,720);
+            yield return CapturePixelCards(camera,view,"Labels_Repeat_1080.png",1920,1080);
         }
 
         private void SetVisualOffers(params string[] ids)

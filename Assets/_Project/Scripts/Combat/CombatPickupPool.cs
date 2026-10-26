@@ -13,14 +13,16 @@ namespace EchoScrap.Combat
         public readonly CombatPickupKind Kind;
         public readonly Vector3 Position;
         public readonly int Experience;
+        public readonly int GemCount;
         public readonly bool IsAttracted;
 
-        public CombatPickupInfo(int id, CombatPickupKind kind, Vector3 position, int experience, bool attracted)
+        public CombatPickupInfo(int id, CombatPickupKind kind, Vector3 position, int experience, bool attracted, int gemCount = 1)
         {
             Id = id;
             Kind = kind;
             Position = position;
             Experience = experience;
+            GemCount = gemCount;
             IsAttracted = attracted;
         }
     }
@@ -53,10 +55,15 @@ namespace EchoScrap.Combat
             public Vector3 Position;
             public int Id;
             public int Experience;
+            public int GemCount;
             public bool Active;
             public bool Attracted;
             public float Age;
             public float BobPhase;
+            public bool GlobalFlight;
+            public Vector3 FlightStart;
+            public float FlightAge, FlightDuration;
+            public LineRenderer FlightTrail;
         }
 
         private sealed class AbsorptionSlot
@@ -84,6 +91,7 @@ namespace EchoScrap.Combat
         private Material medkitMaterial;
         private Material medkitShadowMaterial;
         private Material absorptionMaterial;
+        private Material flightTrailMaterial;
         private CombatSession subscribedSession;
         private int nextId = 1;
         private float nextMedkitDropTime;
@@ -91,6 +99,7 @@ namespace EchoScrap.Combat
 
         public bool AutoTick { get; set; } = true;
         public int ActivePickupCount { get; private set; }
+        public int GlobalFlightCount { get { int count = 0; foreach (var slot in slots) if (slot.Active && slot.GlobalFlight) count++; return count; } }
         public int ActiveExperienceCount { get; private set; }
         public int ActiveMedkitCount { get; private set; }
         public int TotalCreatedCount => slots.Count;
@@ -121,6 +130,7 @@ namespace EchoScrap.Combat
             Destroy(darkMaterial);
             // Imported medkit materials are shared Unity assets, not runtime instances.
             Destroy(absorptionMaterial);
+            Destroy(flightTrailMaterial);
         }
 
         public void BindReferences(CombatSession combatSession, PlayerHealth player,
@@ -231,6 +241,18 @@ namespace EchoScrap.Combat
             }
             root.SetActive(false);
             var slot = new PickupSlot { Root = root, Visual = visual, Kind = kind };
+            if (slots.Count < 64)
+            {
+                if (flightTrailMaterial == null) flightTrailMaterial = new Material(Shader.Find("Sprites/Default")) { name = "Collector flight trails" };
+                slot.FlightTrail = root.AddComponent<LineRenderer>();
+                slot.FlightTrail.sharedMaterial = flightTrailMaterial;
+                slot.FlightTrail.useWorldSpace = true; slot.FlightTrail.positionCount = 3;
+                slot.FlightTrail.startWidth = .10f; slot.FlightTrail.endWidth = .01f;
+                slot.FlightTrail.startColor = new Color(.44f, .95f, 1f, .8f);
+                slot.FlightTrail.endColor = new Color(.28f, .66f, 1f, 0f);
+                slot.FlightTrail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                slot.FlightTrail.receiveShadows = false; slot.FlightTrail.enabled = false;
+            }
             slots.Add(slot);
             return slot;
         }
@@ -259,7 +281,7 @@ namespace EchoScrap.Combat
                     delta.y = 0f;
                     if (delta.sqrMagnitude > ExperienceMergeRadius * ExperienceMergeRadius)
                         continue;
-                    existing.Experience += xpValue;
+                    existing.Experience += xpValue; existing.GemCount++;
                     existing.Age = 0f;
                     TotalSpawnedExperience += xpValue;
                     return existing.Id;
@@ -278,6 +300,9 @@ namespace EchoScrap.Combat
             // Los recogibles no se descartan por un límite cosmético. El pool puede crecer y luego reutilizarse.
             slot ??= CreateSlot(kind);
             slot.Id = nextId++;
+            slot.GlobalFlight = false;
+            if (slot.FlightTrail != null) slot.FlightTrail.enabled = false;
+            slot.GemCount = kind == CombatPickupKind.Experience ? 1 : 0;
             slot.Experience = kind == CombatPickupKind.Experience ? xpValue : 0;
             slot.Position = position;
             slot.Age = 0f;
@@ -332,7 +357,7 @@ namespace EchoScrap.Combat
             float collectRadius = playerHealth.HitRadius + 0.12f;
             Vector3 target = playerHealth.transform.position;
             target.y = ArenaSurface.Height(target) + PickupHeight;
-            bool decorative = session == null || session.Effects.DecorativeIntensity > 0f;
+            bool decorative = session == null || (!session.Effects.ReducedEffectsMode && session.Effects.DecorativeIntensity > 0f);
             for (int i = 0; i < slots.Count; i++)
             {
                 if (!CanAdvance)
@@ -341,10 +366,33 @@ namespace EchoScrap.Combat
                 if (!slot.Active)
                     continue;
                 slot.Age += deltaTime;
-                if (slot.Kind == CombatPickupKind.Medkit && slot.Age >= (stats != null ? stats.Settings.MedkitLifetime : 22f))
+                if (!slot.GlobalFlight && slot.Kind == CombatPickupKind.Medkit && slot.Age >= (stats != null ? stats.Settings.MedkitLifetime : 22f))
                 {
                     slot.Active = slot.Attracted = false; slot.Root.SetActive(false);
                     ActivePickupCount--; ActiveMedkitCount--;
+                    continue;
+                }
+                if (slot.GlobalFlight)
+                {
+                    slot.FlightAge += deltaTime;
+                    float progress = Mathf.Clamp01(slot.FlightAge / slot.FlightDuration);
+                    float eased = progress * progress * (3f - 2f * progress);
+                    Vector3 previous = slot.Position;
+                    slot.Position = Vector3.Lerp(slot.FlightStart, target, eased);
+                    float height = decorative ? Mathf.Min(3f, Vector3.Distance(slot.FlightStart, target) * .05f) * Mathf.Sin(progress * Mathf.PI) : 0f;
+                    slot.Position.y += height;
+                    slot.Root.transform.position = slot.Position;
+                    slot.Visual.localScale = Vector3.one * 1.4f;
+                    slot.Visual.localRotation = slot.Kind == CombatPickupKind.Experience ? Quaternion.Euler(0f, slot.Age * 180f, 0f) : Quaternion.identity;
+                    if (slot.FlightTrail != null)
+                    {
+                        slot.FlightTrail.enabled = decorative && progress > .02f;
+                        Vector3 tail = slot.Position + (slot.FlightStart - slot.Position).normalized * Mathf.Min(1.8f, Vector3.Distance(previous, slot.Position) * 4f);
+                        slot.FlightTrail.SetPosition(0, slot.Position);
+                        slot.FlightTrail.SetPosition(1, Vector3.Lerp(slot.Position, tail, .5f));
+                        slot.FlightTrail.SetPosition(2, tail);
+                    }
+                    if (progress >= 1f) Collect(slot);
                     continue;
                 }
                 float distanceSquared = (slot.Position - target).sqrMagnitude;
@@ -372,10 +420,34 @@ namespace EchoScrap.Combat
             StepAbsorption(deltaTime, decorative);
         }
 
+        /// <summary>Move the actual map pickups to the player; rewards resolve only on arrival.</summary>
+        public int AttractAll()
+        {
+            if (session == null || playerHealth == null || !playerHealth.IsAlive || session.State == SessionState.Victory || session.State == SessionState.Defeat) return 0;
+            int started = 0;
+            foreach (var slot in slots)
+            {
+                if (!slot.Active || slot.GlobalFlight) continue;
+                slot.GlobalFlight = slot.Attracted = true;
+                slot.FlightStart = slot.Position; slot.FlightAge = 0f;
+                slot.FlightDuration = Mathf.Clamp(.45f + Vector3.Distance(slot.Position, playerHealth.transform.position) * .012f, .5f, 1.8f);
+                started++;
+            }
+            return started;
+        }
+
+        private float experienceRemainder;
+        public void CollectAll()
+        {
+            if (session == null || !playerHealth.IsAlive || session.State == SessionState.Victory || session.State == SessionState.Defeat) return;
+            for (int i=0;i<slots.Count;i++) if (slots[i].Active) Collect(slots[i]);
+        }
         private void Collect(PickupSlot slot)
         {
-            var info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted);
+            var info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted, slot.GemCount);
             slot.Active = false;
+            slot.GlobalFlight = false;
+            if (slot.FlightTrail != null) slot.FlightTrail.enabled = false;
             slot.Attracted = false;
             slot.Root.SetActive(false);
             ActivePickupCount--;
@@ -383,7 +455,10 @@ namespace EchoScrap.Combat
             {
                 ActiveExperienceCount--;
                 TotalCollectedExperience += slot.Experience;
-                progression.AddExperience(slot.Experience);
+                float boosted = slot.Experience * (stats != null ? stats.ExperienceMultiplier : 1f) + experienceRemainder;
+                int awarded = Mathf.FloorToInt(boosted + .00001f);
+                experienceRemainder = boosted - awarded;
+                progression.AddCollectedExperience(awarded);
                 TriggerAbsorption(new Color(0.35f, 0.95f, 1f));
             }
             else
@@ -449,7 +524,7 @@ namespace EchoScrap.Combat
                 PickupSlot slot = slots[i];
                 if (!slot.Active || slot.Id != id)
                     continue;
-                info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted);
+                info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted, slot.GemCount);
                 return true;
             }
             info = default;
@@ -469,7 +544,7 @@ namespace EchoScrap.Combat
                 Vector3 delta = slot.Position - origin; delta.y = 0f;
                 if (delta.sqrMagnitude >= best) continue;
                 best = delta.sqrMagnitude;
-                info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted);
+                info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted, slot.GemCount);
                 found = true;
             }
             return found;
@@ -481,6 +556,8 @@ namespace EchoScrap.Combat
             {
                 PickupSlot slot = slots[i];
                 slot.Active = false;
+                slot.GlobalFlight = false;
+                if (slot.FlightTrail != null) slot.FlightTrail.enabled = false;
                 slot.Attracted = false;
                 slot.Experience = 0;
                 slot.Age = 0f;
@@ -496,6 +573,7 @@ namespace EchoScrap.Combat
             ActivePickupCount = ActiveExperienceCount = ActiveMedkitCount = 0;
             TotalSpawnedExperience = TotalCollectedExperience = 0;
             TotalCollectedMedkits = 0;
+            experienceRemainder = 0f;
             nextMedkitDropTime = 0f;
         }
 

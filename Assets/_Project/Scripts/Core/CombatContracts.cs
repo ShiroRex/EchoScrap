@@ -25,13 +25,31 @@ namespace EchoScrap.Core
         BossBombardmentImpact = 6,
         BossBombardmentPuddle = 7,
         DummyOrHazard = 8,
-        Lava = 9
+        Lava = 9,
+        UpgradeProjectile = 10, UpgradeExplosion = 11, UpgradeFrost = 12, UpgradeSaw = 13, UpgradeTurret = 14, UpgradeBlade = 15
+    }
+
+    public enum DamageType { Inherit = -1, Physical = 0, Supernatural = 1 }
+
+    /// <summary>Damage category is independent from the originating weapon or upgrade.</summary>
+    public static class DamageTypes
+    {
+        public static DamageType ForSource(DamageSourceType source) => source switch
+        {
+            DamageSourceType.FlashlightPulse or DamageSourceType.SolarPulse or
+            DamageSourceType.UpgradeProjectile or DamageSourceType.UpgradeFrost or
+            DamageSourceType.Lava or DamageSourceType.BossBombardmentPuddle => DamageType.Supernatural,
+            _ => DamageType.Physical
+        };
+        public static DamageType Resolve(DamageSourceType source, DamageType requested) =>
+            requested == DamageType.Inherit ? ForSource(source) : requested;
     }
 
     public readonly struct DamageRequest
     {
         public readonly int SourceId;
         public readonly DamageSourceType SourceType;
+        public readonly DamageType DamageType;
         public readonly Vector3 OriginPosition;
         public readonly Vector3 HitDirection;
         public readonly float BaseDamage;
@@ -53,10 +71,12 @@ namespace EchoScrap.Core
             float critMultiplier = 1.75f,
             int burstId = 0,
             int pulseIndex = 0,
-            float knockbackImpulse = 0f)
+            float knockbackImpulse = 0f,
+            DamageType damageType = global::EchoScrap.Core.DamageType.Inherit)
         {
             SourceId = sourceId;
             SourceType = sourceType;
+            DamageType = DamageTypes.Resolve(sourceType, damageType);
             OriginPosition = originPosition;
             HitDirection = hitDirection;
             BaseDamage = baseDamage;
@@ -78,6 +98,7 @@ namespace EchoScrap.Core
         public readonly int SourceId;
         public readonly int TargetId;
         public readonly DamageSourceType SourceType;
+        public readonly DamageType DamageType;
         public readonly Vector3 OriginPosition;
         public readonly Vector3 WorldPosition;
         public readonly Vector3 HitDirection;
@@ -92,6 +113,7 @@ namespace EchoScrap.Core
         public readonly bool WasImmune;
         public readonly bool CausedDeath;
         public readonly bool IsPlayerTarget;
+        public readonly bool WasExecuted;
         public readonly int BurstId;
         public readonly int PulseIndex;
 
@@ -116,11 +138,14 @@ namespace EchoScrap.Core
             bool causedDeath,
             bool isPlayerTarget,
             int burstId = 0,
-            int pulseIndex = 0)
+            int pulseIndex = 0,
+            DamageType damageType = global::EchoScrap.Core.DamageType.Inherit,
+            bool wasExecuted = false)
         {
             SourceId = sourceId;
             TargetId = targetId;
             SourceType = sourceType;
+            DamageType = DamageTypes.Resolve(sourceType, damageType);
             OriginPosition = originPosition;
             WorldPosition = worldPosition;
             HitDirection = hitDirection;
@@ -135,6 +160,7 @@ namespace EchoScrap.Core
             WasImmune = wasImmune;
             CausedDeath = causedDeath;
             IsPlayerTarget = isPlayerTarget;
+            WasExecuted = wasExecuted && causedDeath && !isPlayerTarget;
             BurstId = burstId;
             PulseIndex = pulseIndex;
         }

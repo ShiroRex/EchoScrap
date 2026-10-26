@@ -433,6 +433,29 @@ namespace EchoScrap.Combat
         /// - Escala, rotación y MaterialPropertyBlock.
         /// - Estado de muerte y recompensas.
         /// </summary>
+        public float SlowFraction { get; private set; }
+        public float SlowRemaining { get; private set; }
+        public float FrozenRemaining { get; private set; }
+        public float StunRemaining { get; private set; }
+        public bool IsFrozen => FrozenRemaining > 0f;
+        public bool IsControlLocked => IsFrozen || StunRemaining > 0f;
+        public int SpawnVersion { get; private set; }
+        private int coldHits;
+        public Vector3 PursuitGoal => session != null && session.Upgrades != null ? session.Upgrades.PursuitGoal(transform.position, targetPlayer != null ? targetPlayer.WorldCenter : transform.position) : (targetPlayer != null ? targetPlayer.WorldCenter : transform.position);
+        public void ApplySlow(float fraction, float duration) { SlowFraction = Mathf.Max(SlowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); visualComposer?.SetStatusTint(new Color(.38f, .78f, 1f)); }
+        public void ApplyFreeze(float duration) { FrozenRemaining = Mathf.Max(FrozenRemaining, duration); coldHits = 0; }
+        public void ApplyStun(float duration) => StunRemaining = Mathf.Max(StunRemaining, duration);
+        public void RegisterColdHit(int required, float duration) { if (SlowRemaining > 0f && !IsFrozen && ++coldHits >= required) ApplyFreeze(duration); }
+        public void StepUpgradeStatus(float dt)
+        {
+            SlowRemaining = Mathf.Max(0f, SlowRemaining - dt);
+            FrozenRemaining = Mathf.Max(0f, FrozenRemaining - dt);
+            StunRemaining = Mathf.Max(0f, StunRemaining - dt);
+            if (SlowRemaining <= 0f) { SlowFraction = 0f; coldHits = 0; }
+            visualComposer?.SetStatusTint(SlowRemaining > 0f || IsFrozen ? new Color(.38f, .78f, 1f) : Color.white);
+        }
+        public void PushDistance(Vector3 direction, float distance) => ApplyKnockback(direction.normalized * Mathf.Sqrt(2f * Mathf.Max(1f, runtimeArchetype.KnockbackBraking) * distance));
+
         public virtual void ResetForSpawn(Vector3 spawnPosition)
         {
             EnsureInitialized();
@@ -441,6 +464,7 @@ namespace EchoScrap.Combat
             PhysicsLayers.EnsureConfigured();
 
             // 1. Salud máxima y estado de muerte/recompensas
+            SpawnVersion++; SlowRemaining = FrozenRemaining = StunRemaining = SlowFraction = 0f; coldHits = 0;
             currentHealth = Mathf.Max(1f, runtimeArchetype.MaxHealth);
             isDead = false;
             deathRewardResolved = false;
@@ -525,7 +549,7 @@ namespace EchoScrap.Combat
             transform.SetPositionAndRotation(clampedSpawn, Quaternion.identity);
             if (targetPlayer != null)
             {
-                Vector3 toTarget = targetPlayer.transform.position - clampedSpawn;
+                Vector3 toTarget = PursuitGoal - clampedSpawn;
                 toTarget.y = 0f;
                 if (toTarget.sqrMagnitude > 0.001f)
                     facingDirection = toTarget.normalized;
@@ -598,12 +622,22 @@ namespace EchoScrap.Combat
             if (isDead || fixedDeltaTime <= 0f || (session != null && (session.IsPaused || !session.IsGameplayFlowActive())))
                 return;
 
+            if (IsControlLocked)
+            {
+                if (body != null && !body.isKinematic)
+                {
+                    knockbackVelocity = Vector3.MoveTowards(knockbackVelocity, Vector3.zero, Mathf.Max(1f,runtimeArchetype.KnockbackBraking)*fixedDeltaTime);
+                    body.linearVelocity = IsFrozen ? Vector3.zero : knockbackVelocity;
+                }
+                return;
+            }
+
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
             {
                 bool wasArmed = isFuseActive;
                 if (!isFuseActive && targetPlayer != null && targetPlayer.IsAlive)
                 {
-                    Vector3 distance = targetPlayer.transform.position - transform.position;
+                    Vector3 distance = PursuitGoal - transform.position;
                     distance.y = 0f;
                     if (distance.sqrMagnitude < MothArmDistance * MothArmDistance)
                         ArmMoth();
@@ -632,7 +666,7 @@ namespace EchoScrap.Combat
             // 2. Calcular velocidad de locomoción hacia el objetivo + separación local + evitación sencilla
             Vector3 locomotionVelocity;
             if (colossusCharge != null && colossusCharge.TryOverrideLocomotion(fixedDeltaTime, out Vector3 chargeVelocity))
-                locomotionVelocity = chargeVelocity;
+                locomotionVelocity = chargeVelocity * (1f - SlowFraction);
             else
                 locomotionVelocity = isKnockedBack ? Vector3.zero : ComputeArchetypeLocomotion(fixedDeltaTime);
             currentDesiredVelocity = locomotionVelocity;
@@ -643,7 +677,7 @@ namespace EchoScrap.Combat
             }
             else if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar && targetPlayer != null)
             {
-                Vector3 toPlayer = targetPlayer.transform.position - transform.position;
+                Vector3 toPlayer = PursuitGoal - transform.position;
                 toPlayer.y = 0f;
                 if (toPlayer.sqrMagnitude > 0.001f)
                     facingDirection = toPlayer.normalized;
@@ -654,7 +688,7 @@ namespace EchoScrap.Combat
             }
             else if (targetPlayer != null)
             {
-                Vector3 toPlayer = targetPlayer.transform.position - transform.position;
+                Vector3 toPlayer = PursuitGoal - transform.position;
                 toPlayer.y = 0f;
                 if (toPlayer.sqrMagnitude > 0.001f)
                     facingDirection = toPlayer.normalized;
@@ -692,7 +726,7 @@ namespace EchoScrap.Combat
             }
 
             MortarAttackData attack = MortarAttack;
-            Vector3 offset = targetPlayer.transform.position - transform.position; offset.y = 0f;
+            Vector3 offset = PursuitGoal - transform.position; offset.y = 0f;
             float maximumRange = Mathf.Max(1f, attack.MaximumRange);
             float interval = Mathf.Max(0.5f, attack.FireInterval);
             float warning = Mathf.Clamp(attack.WarningDuration, 0.1f, interval);
@@ -717,7 +751,7 @@ namespace EchoScrap.Combat
                 var spec = CorrosivePuddlePool.ProjectileSpec.CreateMortarDefault(
                     TargetId,
                     launchOrigin,
-                    targetPlayer.transform.position);
+                    PursuitGoal);
                 spec.FlightDuration = Mathf.Max(0.1f, attack.FlightDuration);
                 spec.PuddleRadius = spec.ImpactRadius = Mathf.Max(0.1f, attack.PuddleRadius);
                 spec.PuddleDuration = Mathf.Max(0.1f, attack.PuddleDuration);
@@ -743,7 +777,7 @@ namespace EchoScrap.Combat
                 return Vector3.zero;
 
             Vector3 myPos = transform.position;
-            Vector3 toPlayer = targetPlayer.transform.position - myPos;
+            Vector3 toPlayer = PursuitGoal - myPos;
             toPlayer.y = 0f;
             float distSqr = toPlayer.sqrMagnitude;
             float dist = distSqr > 0.0001f ? Mathf.Sqrt(distSqr) : 0f;
@@ -764,7 +798,7 @@ namespace EchoScrap.Combat
             {
                 Vector3 pursuitOffset = toPlayer;
                 if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Interceptor && targetBody != null &&
-                    dist > interceptorDirectPursuitDistance)
+                    dist > interceptorDirectPursuitDistance && (PursuitGoal-targetPlayer.WorldCenter).sqrMagnitude < .001f)
                 {
                     Vector3 targetVelocity = targetBody.linearVelocity;
                     targetVelocity.y = 0f;
@@ -786,14 +820,14 @@ namespace EchoScrap.Combat
             else
                 return Vector3.zero;
 
-            Vector3 navigationGoal = targetPlayer.transform.position;
-            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Interceptor && targetBody != null && dist > interceptorDirectPursuitDistance)
+            Vector3 navigationGoal = PursuitGoal;
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Interceptor && targetBody != null && dist > interceptorDirectPursuitDistance && (PursuitGoal-targetPlayer.WorldCenter).sqrMagnitude < .001f)
                 navigationGoal += Vector3.ClampMagnitude(targetBody.linearVelocity, interceptorPredictionSpeedCap) * interceptorPredictionSeconds;
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar && dist < Mathf.Max(0f, MortarAttack.RetreatDistance))
                 navigationGoal = myPos - dirToPlayer * Mathf.Max(3f, MortarAttack.HoldDistance - dist);
             combinedDir = obstacleNavigator.Steer(this, combinedDir, navigationGoal, obstacleLookAhead, fixedDeltaTime);
 
-            return combinedDir * assignedMoveSpeed;
+            return combinedDir * assignedMoveSpeed * (1f - SlowFraction);
         }
 
         protected Vector3 ComputeLocalSeparation(Vector3 myPos)
@@ -835,7 +869,7 @@ namespace EchoScrap.Combat
         // Shared by specialised pursuit implementations, including Gólgora.
         protected Vector3 ApplySimpleObstacleAvoidance(Vector3 origin, Vector3 desiredDir)
         {
-            Vector3 goal = targetPlayer != null ? targetPlayer.transform.position : origin + desiredDir * 8f;
+            Vector3 goal = targetPlayer != null ? PursuitGoal : origin + desiredDir * 8f;
             return obstacleNavigator.Steer(this, desiredDir, goal, obstacleLookAhead, Time.fixedDeltaTime);
         }
 
@@ -969,7 +1003,7 @@ namespace EchoScrap.Combat
                     false,
                     false,
                     request.BurstId,
-                    request.PulseIndex);
+                    request.PulseIndex, request.DamageType);
 
                 session?.Events.PublishDamage(in ignored);
                 return ignored;
@@ -981,6 +1015,22 @@ namespace EchoScrap.Combat
                 ? request.BaseDamage * Mathf.Max(1f, request.CritMultiplier)
                 : request.BaseDamage;
 
+            bool executed = false;
+            bool playerAttack = request.SourceType == DamageSourceType.FlashlightPulse || request.SourceType == DamageSourceType.SolarPulse || (int)request.SourceType >= 10;
+            var upgradeStats = session != null ? session.PlayerStats : null;
+            if (playerAttack && upgradeStats != null)
+            {
+                if (IsFrozen) resolvedDamage *= 1f + upgradeStats.Upgrades.frozenDamageBonus;
+                if (isCritical && upgradeStats.GetUpgradeTier(UpgradeId.CRIT_05) > 0 && currentHealth / MaxHealth < upgradeStats.Upgrades.eyeHealthThreshold)
+                    resolvedDamage *= upgradeStats.Upgrades.eyeCritMultiplier;
+                float threshold = UpgradeTuning.At(upgradeStats.Upgrades.executionThreshold, upgradeStats.GetUpgradeTier(UpgradeId.CRIT_03));
+                if (runtimeArchetype.ArchetypeId != EnemyArchetypeId.GolgoraBoss && threshold > 0f &&
+                    resolvedDamage < currentHealth && (currentHealth - resolvedDamage) / MaxHealth + .000001f < threshold)
+                {
+                    executed = true;
+                    resolvedDamage = currentHealth;
+                }
+            }
             float previous = currentHealth;
             currentHealth = Mathf.Max(PreventLethalDamage ? 1f : 0f, currentHealth - resolvedDamage);
             float lost = previous - currentHealth;
@@ -1016,7 +1066,7 @@ namespace EchoScrap.Combat
                 causedDeath,
                 false,
                 request.BurstId,
-                request.PulseIndex);
+                request.PulseIndex, request.DamageType, wasExecuted: executed);
 
             session?.Events.PublishDamage(in result);
 
@@ -1047,6 +1097,7 @@ namespace EchoScrap.Combat
             if (isDead)
                 return;
 
+            session?.Upgrades?.EnemyDied(this, capturedPosition);
             isDead = true;
             CombatTargetRegistry.Unregister(this);
             activeEnemies.Remove(this);
