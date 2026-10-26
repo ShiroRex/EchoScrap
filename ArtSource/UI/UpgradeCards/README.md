@@ -1,5 +1,20 @@
 # Cartas de mejora
 
+## Conjunto activo: diez iconos grises compartidos
+
+La versión activa utiliza diez símbolos simétricos de 64×64, dibujados y
+exportados en Aseprite con seis grises neutros y cuatro capas editables.
+Unity aplica el color de rareza mediante `Image.color`; una misma textura
+sirve a cartas de rarezas diferentes. La asignación cubre los 35 IDs del GDD;
+el draft conserva las ocho mejoras con mecánicas ya implementadas.
+
+Propuesta, fuentes individuales, atlas, mapa de las 35 cartas y regeneración:
+[Grayscale/DESIGN.md](Grayscale/DESIGN.md). La fuente conjunta es
+`Grayscale/UpgradeIcons_Grayscale.aseprite`; los diez PNG activos están en
+`Assets/_Project/Art/UI/UpgradeCards/Grayscale`.
+
+## Fuente histórica: ocho iconos Apollo
+
 Fuentes nativas creadas y exportadas con Aseprite. Los iconos usan Apollo, celdas
 de 64×64, alfa binaria y tres capas editables: metal/silueta, símbolo y brillos.
 Cada etiqueta de `UpgradeIcons_Apollo.aseprite` representa un icono estático.

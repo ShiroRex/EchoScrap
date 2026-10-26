@@ -306,6 +306,7 @@ namespace EchoScrap.Combat
                 cards[i].Detail.text = offer.Detail;
                 cards[i].Confirmation.color = new Color(color.r, color.g, color.b, 0f);
                 cards[i].Icon.sprite = skin.icons[(int)offer.Card.Icon];
+                cards[i].Icon.color = color;
                 cards[i].Button.color = Color.Lerp(color, new Color(0.14f, 0.18f, 0.21f), 0.15f);
             }
             ApplySelection();

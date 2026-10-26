@@ -26,6 +26,14 @@ vez por adquisición. El incremento de salud máxima no rellena automáticamente
 
 ## Presentación y controles
 
+Los iconos activos son diez emblemas simétricos de 64×64 con base gris y
+alfa binaria. La UI aplica `UpgradeCatalog.RarityColor` a `Image.color` al
+repintar cada oferta, por lo que una misma textura cambia de rareza sin
+duplicar dibujos. `UpgradeCatalog.IconAssignments` cubre los 35 IDs del GDD;
+el catálogo jugable sigue compuesto por las ocho cartas implementadas.
+La propuesta visual, fuentes individuales y asignación completa están en
+`ArtSource/UI/UpgradeCards/Grayscale/DESIGN.md`.
+
 `UpgradeDraftPresentation.BindReferences(session, controller)` crea una interfaz de
 tres tarjetas con nombre, rareza, tier, descripción y valores antes/después. Cada
 tarjeta utiliza un icono pixel art de tipo, un marco por rareza y Chakra Petch;

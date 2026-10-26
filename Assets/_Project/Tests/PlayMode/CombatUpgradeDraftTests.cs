@@ -632,11 +632,11 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void PixelCardSkinContainsFourSlicedFramesEightDistinctIconsAndSpanishFonts()
+        public void PixelCardSkinContainsFourSlicedFramesTenDistinctIconsAndSpanishFonts()
         {
             UpgradeCardSkin skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
             Assert.That(skin, Is.Not.Null);
-            Assert.That(skin.frames.Length, Is.EqualTo(4)); Assert.That(skin.icons.Length, Is.EqualTo(8));
+            Assert.That(skin.frames.Length, Is.EqualTo(4)); Assert.That(skin.icons.Length, Is.EqualTo(10));
             Assert.That(new HashSet<Sprite>(skin.frames).Count, Is.EqualTo(4));
             Assert.That(skin.frames[0].rect.size, Is.EqualTo(new Vector2(64, 64)));
             Assert.That(skin.frames[1].rect.size, Is.EqualTo(new Vector2(64, 64)));
@@ -655,6 +655,51 @@ namespace EchoScrap.Tests
             }
             Assert.That(skin.regular.name, Does.StartWith("ChakraPetch"));
             foreach (char letter in "áéíóúñÁÉÍÓÚÑ") Assert.That(skin.regular.HasCharacter(letter), Is.True);
+        }
+
+        [Test]
+        public void SharedIconFamiliesCoverAllDesignedCardsWithoutEnablingUnimplementedUpgrades()
+        {
+            var expected = new HashSet<string>();
+            foreach (var group in new[] { ("FLASH", 5), ("DASH", 4), ("BIO", 4), ("GREED", 5), ("CRIT", 5), ("DEMO", 4), ("SCRAP", 4), ("CRYO", 4) })
+                for (int i = 1; i <= group.Item2; i++) expected.Add($"{group.Item1}_{i:00}");
+            Assert.That(UpgradeCatalog.IconAssignments.Keys, Is.EquivalentTo(expected));
+            Assert.That(new HashSet<UpgradeIcon>(UpgradeCatalog.IconAssignments.Values).Count, Is.EqualTo(10));
+            foreach (var card in UpgradeCatalog.Cards)
+            {
+                Assert.That(UpgradeCatalog.TryGetIcon(card.Id, out var icon), Is.True);
+                Assert.That(card.Icon, Is.EqualTo(icon));
+            }
+            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(8));
+            Assert.That(UpgradeCatalog.TryGet("CRYO_01", out _), Is.False);
+            Assert.That(UpgradeCatalog.TryGetIcon("UNKNOWN", out _), Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator SharedGrayscaleTexturesReceiveRarityTintAndRefreshWithoutColorLeak()
+        {
+            var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+            progression.AddExperience(100);
+            SetVisualOffers("BIO_01", "GREED_03", "FLASH_04"); view.RefreshOffers(); view.StepPresentation(0.8f);
+            Image common = view.CanvasRoot.transform.Find("UpgradeCard_1/Panel/TypeIcon").GetComponent<Image>();
+            Image rare = view.CanvasRoot.transform.Find("UpgradeCard_2/Panel/TypeIcon").GetComponent<Image>();
+            Image epic = view.CanvasRoot.transform.Find("UpgradeCard_3/Panel/TypeIcon").GetComponent<Image>();
+            Assert.That(common.sprite, Is.SameAs(rare.sprite), "Health and medkits share one neutral texture.");
+            Assert.That(common.color, Is.EqualTo(UpgradeCatalog.RarityColor(UpgradeRarity.N)));
+            Assert.That(rare.color, Is.EqualTo(UpgradeCatalog.RarityColor(UpgradeRarity.R)));
+            Assert.That(epic.color, Is.EqualTo(UpgradeCatalog.RarityColor(UpgradeRarity.SR)));
+            var camera = new GameObject("Grayscale cards preview camera").AddComponent<Camera>();
+            camera.transform.position = new Vector3(0f, 15f, -8f); camera.transform.LookAt(Vector3.zero);
+            Canvas canvas = view.CanvasRoot.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camera; canvas.planeDistance = 1f;
+            yield return CapturePixelCards(camera, view, "Grayscale_Common_Rare_Epic.png", 1920, 1080);
+            Sprite power = epic.sprite;
+            SetVisualOffers("FLASH_05", "BIO_01", "GREED_03"); view.RefreshOffers(); view.StepPresentation(0.8f);
+            Assert.That(common.sprite, Is.SameAs(power), "Power is shared by epic and legendary upgrades.");
+            Assert.That(common.color, Is.EqualTo(UpgradeCatalog.RarityColor(UpgradeRarity.SSR)));
+            Assert.That(rare.color, Is.EqualTo(UpgradeCatalog.RarityColor(UpgradeRarity.N)), "Reused card resets its previous rarity tint.");
+            Assert.That(epic.color, Is.EqualTo(UpgradeCatalog.RarityColor(UpgradeRarity.R)));
+            yield return CapturePixelCards(camera, view, "Grayscale_Legendary.png", 1920, 1080);
         }
 
         [Test]

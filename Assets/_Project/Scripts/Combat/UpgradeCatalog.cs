@@ -7,7 +7,7 @@ using UnityEngine;
 namespace EchoScrap.Combat
 {
     public enum UpgradeRarity { N, R, SR, SSR }
-    public enum UpgradeIcon { Lens, Cadence, Overload, Solar, Dash, Health, Magnet, Medkit }
+    public enum UpgradeIcon { Lens, Cadence, Power, Dash, Vitality, Magnet, Precision, Demolition, Automation, Cryo }
 
     public readonly struct UpgradeCardDefinition
     {
@@ -52,16 +52,43 @@ namespace EchoScrap.Combat
     /// <summary>Initial closed pool. Stats stay owned by PlayerRuntimeStats; previews never mutate them.</summary>
     public static class UpgradeCatalog
     {
+        // Visual coverage of the 35 designed cards. This does not add unimplemented cards to the draft.
+        private static readonly IReadOnlyDictionary<string, UpgradeIcon> iconAssignments =
+            new System.Collections.ObjectModel.ReadOnlyDictionary<string, UpgradeIcon>(new Dictionary<string, UpgradeIcon>
+            {
+                ["FLASH_01"] = UpgradeIcon.Lens, ["FLASH_03"] = UpgradeIcon.Lens,
+                ["FLASH_02"] = UpgradeIcon.Cadence, ["GREED_04"] = UpgradeIcon.Cadence,
+                ["FLASH_04"] = UpgradeIcon.Power, ["FLASH_05"] = UpgradeIcon.Power,
+                ["DASH_01"] = UpgradeIcon.Dash, ["DASH_02"] = UpgradeIcon.Dash,
+                ["DASH_03"] = UpgradeIcon.Dash, ["DASH_04"] = UpgradeIcon.Dash,
+                ["BIO_01"] = UpgradeIcon.Vitality, ["BIO_02"] = UpgradeIcon.Vitality,
+                ["BIO_03"] = UpgradeIcon.Vitality, ["BIO_04"] = UpgradeIcon.Vitality,
+                ["GREED_03"] = UpgradeIcon.Vitality,
+                ["GREED_01"] = UpgradeIcon.Magnet, ["GREED_02"] = UpgradeIcon.Magnet,
+                ["GREED_05"] = UpgradeIcon.Magnet,
+                ["CRIT_01"] = UpgradeIcon.Precision, ["CRIT_02"] = UpgradeIcon.Precision,
+                ["CRIT_03"] = UpgradeIcon.Precision, ["CRIT_04"] = UpgradeIcon.Precision,
+                ["CRIT_05"] = UpgradeIcon.Precision,
+                ["DEMO_01"] = UpgradeIcon.Demolition, ["DEMO_02"] = UpgradeIcon.Demolition,
+                ["DEMO_03"] = UpgradeIcon.Demolition, ["DEMO_04"] = UpgradeIcon.Demolition,
+                ["SCRAP_01"] = UpgradeIcon.Automation, ["SCRAP_02"] = UpgradeIcon.Automation,
+                ["SCRAP_03"] = UpgradeIcon.Automation, ["SCRAP_04"] = UpgradeIcon.Automation,
+                ["CRYO_01"] = UpgradeIcon.Cryo, ["CRYO_02"] = UpgradeIcon.Cryo,
+                ["CRYO_03"] = UpgradeIcon.Cryo, ["CRYO_04"] = UpgradeIcon.Cryo
+            });
+        public static IReadOnlyDictionary<string, UpgradeIcon> IconAssignments => iconAssignments;
+        public static bool TryGetIcon(string cardId, out UpgradeIcon icon) => iconAssignments.TryGetValue(cardId, out icon);
+
         private static readonly UpgradeCardDefinition[] cards =
         {
             new UpgradeCardDefinition("FLASH_01", "Más alcance", UpgradeRarity.N, 5, UpgradeIcon.Lens, "+1 m de alcance"),
             new UpgradeCardDefinition("FLASH_02", "Pulso rápido", UpgradeRarity.N, 5, UpgradeIcon.Cadence, "+15% velocidad de ataque"),
-            new UpgradeCardDefinition("FLASH_04", "Golpe potente", UpgradeRarity.SR, 3, UpgradeIcon.Overload, "Más daño y empuje"),
-            new UpgradeCardDefinition("FLASH_05", "Rayo solar", UpgradeRarity.SSR, 1, UpgradeIcon.Solar, "Disparo sin descanso"),
+            new UpgradeCardDefinition("FLASH_04", "Golpe potente", UpgradeRarity.SR, 3, UpgradeIcon.Power, "Más daño y empuje"),
+            new UpgradeCardDefinition("FLASH_05", "Rayo solar", UpgradeRarity.SSR, 1, UpgradeIcon.Power, "Disparo sin descanso"),
             new UpgradeCardDefinition("DASH_01", "Dash ágil", UpgradeRarity.N, 5, UpgradeIcon.Dash, "Dash más frecuente"),
-            new UpgradeCardDefinition("BIO_01", "Más vida", UpgradeRarity.N, 5, UpgradeIcon.Health, "+20 HP máximos"),
+            new UpgradeCardDefinition("BIO_01", "Más vida", UpgradeRarity.N, 5, UpgradeIcon.Vitality, "+20 HP máximos"),
             new UpgradeCardDefinition("GREED_01", "Imán", UpgradeRarity.N, 5, UpgradeIcon.Magnet, "+2 m de recogida"),
-            new UpgradeCardDefinition("GREED_03", "Botiquín mejor", UpgradeRarity.R, 3, UpgradeIcon.Medkit, "Más curación por botiquín")
+            new UpgradeCardDefinition("GREED_03", "Botiquín mejor", UpgradeRarity.R, 3, UpgradeIcon.Vitality, "Más curación por botiquín")
         };
         private static readonly IReadOnlyList<UpgradeCardDefinition> readOnlyCards = Array.AsReadOnly(cards);
         public static IReadOnlyList<UpgradeCardDefinition> Cards => readOnlyCards;
@@ -89,9 +116,10 @@ namespace EchoScrap.Combat
         { UpgradeRarity.N => "COMÚN", UpgradeRarity.R => "RARA", UpgradeRarity.SR => "ÉPICA", _ => "LEGENDARIA" };
         public static string TypeName(UpgradeIcon icon) => icon switch
         {
-            UpgradeIcon.Lens => "ALCANCE", UpgradeIcon.Cadence => "CADENCIA", UpgradeIcon.Overload => "POTENCIA",
-            UpgradeIcon.Solar => "EVOLUCIÓN", UpgradeIcon.Dash => "EVASIÓN", UpgradeIcon.Health => "VITALIDAD",
-            UpgradeIcon.Magnet => "RECOGIDA", _ => "SUMINISTROS"
+            UpgradeIcon.Lens => "ÓPTICA", UpgradeIcon.Cadence => "FRECUENCIA", UpgradeIcon.Power => "POTENCIA",
+            UpgradeIcon.Dash => "EVASIÓN", UpgradeIcon.Vitality => "VITALIDAD", UpgradeIcon.Magnet => "RECOGIDA",
+            UpgradeIcon.Precision => "PRECISIÓN", UpgradeIcon.Demolition => "DEMOLICIÓN",
+            UpgradeIcon.Automation => "AUTOMATISMOS", UpgradeIcon.Cryo => "CRIOGENIA", _ => string.Empty
         };
         public static string PrimaryLabel(string id) => id switch
         {
