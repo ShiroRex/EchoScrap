@@ -358,6 +358,36 @@ namespace EchoScrap.Tests
             Assert.AreEqual(ArenaSurface.SupportHeight(body.position,0.5f)+1f,body.position.y,0.15f);
             }
         }
+        [UnityTest] public IEnumerator CaveCameraShowsEntranceAndRestoresCombatView()
+        {
+            var director=Object.FindAnyObjectByType<WarehouseCameraDirector>();
+            var follow=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineFollow>();
+            Vector3 original=follow.FollowOffset;
+            var body=game.Player.GetComponent<Rigidbody>();
+            body.position=ArenaSurface.OnGround(new Vector3(70,0,-50),1); body.linearVelocity=Vector3.zero;
+            yield return new WaitForSeconds(1.5f);
+            Assert.Greater(director.CaveBlend,.99f);
+            Assert.Less(Quaternion.Angle(game.CameraRig.transform.rotation,Quaternion.Euler(42,180,0)),2);
+            Assert.Greater(game.GameplayCamera.transform.position.z,body.position.z);
+            yield return Capture("CamaraCueva",game.GameplayCamera.transform.position,game.GameplayCamera.transform.position+game.GameplayCamera.transform.forward*10);
+            body.position=Vector3.up; body.linearVelocity=Vector3.zero;
+            yield return new WaitForSeconds(1.5f);
+            Assert.Less(director.CaveBlend,.01f);Assert.Less(Vector3.Distance(original,follow.FollowOffset),.1f);
+        }
+        [Test] public void GarageHasEightLargeAccessibleDisplayAreas()
+        {
+            var room=GameObject.Find("BovedaInterior");
+            var slots=room.GetComponentsInChildren<Transform>().Where(t=>t.name.EndsWith("_Coleccionable")).ToArray();
+            Assert.AreEqual(8,slots.Length);
+            foreach(var slot in slots) {
+                float side=slot.position.x<180?-1:1;
+                var p=new Vector3(180+side*8,1,slot.position.z);
+                Assert.IsFalse(Physics.CheckCapsule(p-Vector3.up*.5f,p+Vector3.up*.5f,.45f,1,QueryTriggerInteraction.Ignore),slot.name+" approach is blocked");
+                Assert.Greater(Mathf.Abs(slot.position.x-180),14);
+            }
+            var b=room.GetComponentsInChildren<Renderer>().First(r=>r.name=="SueloInterior").bounds;
+            Assert.GreaterOrEqual(b.size.x,47.9f);Assert.GreaterOrEqual(b.size.z,63.9f);
+        }
         [UnityTest] public IEnumerator PortalsPreserveCombatAndAllowReturnWithoutBouncing()
         {
             var travel=Object.FindAnyObjectByType<WarehouseTravel>();
@@ -391,13 +421,16 @@ namespace EchoScrap.Tests
             Assert.Less(Vector3.Distance(enemyPosition,enemy.transform.position),0.05f);
             Assert.AreEqual(health,game.Player.CurrentHealth);
             Assert.AreEqual(enemyHealth,enemy.CurrentHealth);
-            yield return Capture("Almacen",new Vector3(180,5,-15),new Vector3(180,3,15));
+            yield return Capture("Almacen",new Vector3(180,7,-29),new Vector3(180,4,29));
+            yield return Capture("CamaraGarage",game.GameplayCamera.transform.position,game.GameplayCamera.transform.position+game.GameplayCamera.transform.forward*10);
             yield return new WaitForSeconds(1.05f);
             body.position=ArenaSurface.OnGround(exit.transform.position,1); Physics.SyncTransforms();
             yield return new WaitForFixedUpdate(); yield return null;
             if(travel.IsInWarehouse) foreach(var c in Physics.OverlapSphere(body.position,2)) Debug.Log("RETURN_BLOCK body="+body.position+" gate="+exit.transform.position+" collider="+c.name);
             Assert.IsFalse(travel.IsInWarehouse);
             Assert.Less(Vector3.Distance(body.position,travel.CombatArrival.position),0.3f);
+            yield return new WaitForSeconds(1.2f);
+            Assert.IsFalse(travel.IsInWarehouse,"Return spawn must remain outside the entrance trigger.");
             Assert.AreEqual(health,game.Player.CurrentHealth);
             Assert.IsTrue(enemy.IsAlive);
             yield return new WaitForSeconds(0.1f);
