@@ -161,7 +161,7 @@ namespace EchoScrap.Tests
             pickups.SpawnExperience(new Vector3(5,1,5),5);pickups.CollectAll();Assert.That(xp.TotalXp,Is.EqualTo(23));
         }
         [Test]
-        public void ChoosingCollectorImmediatelyCollectsDistantPickupsAndKeepsNewChoices()
+        public void ChoosingCollectorStartsRealFlightsAndAwardsExperienceOnArrival()
         {
             xp.AddExperience(100);
             pickups.SpawnExperience(new Vector3(40, 1, 40), 260);
@@ -172,12 +172,17 @@ namespace EchoScrap.Tests
                 .GetField("offers", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(draft);
             offers.Clear(); offers.Add(new UpgradeOffer(collector, stats));
             Assert.That(draft.TryChoose(0), Is.True);
-            Assert.That(pickups.ActivePickupCount, Is.Zero);
+            Assert.That(pickups.GlobalFlightCount, Is.EqualTo(2));
+            Assert.That(xp.TotalXp, Is.EqualTo(100), "XP is not awarded before the gems arrive.");
+            Assert.That(draft.IsOpen, Is.False);
+            pickups.Step(2f);
             Assert.That(xp.TotalXp, Is.EqualTo(360));
             Assert.That(xp.PendingChoices, Is.EqualTo(1));
-            Assert.That(player.CurrentHealth, Is.EqualTo(65));
             Assert.That(draft.IsOpen, Is.True);
             Assert.That(session.IsPaused, Is.True);
+            xp.ConsumePendingChoice(); pickups.Step(2f);
+            Assert.That(player.CurrentHealth, Is.EqualTo(65));
+            Assert.That(pickups.ActivePickupCount, Is.Zero);
             Assert.That(stats.GetUpgradeTier("GREED_05"), Is.EqualTo(1));
         }
         [Test]
@@ -185,18 +190,48 @@ namespace EchoScrap.Tests
         {
             Set("GREED_05");pickups.SpawnExperience(new Vector3(40,1,40),260);player.ForceSetHealthForTesting(50);pickups.SpawnMedkit(new Vector3(-40,1,-40));
             int gained=xp.AddExperience(100);
-            Assert.That(gained,Is.EqualTo(2));Assert.That(xp.TotalXp,Is.EqualTo(360));Assert.That(xp.PendingChoices,Is.EqualTo(2));
-            Assert.That(pickups.ActivePickupCount,Is.Zero);Assert.That(player.CurrentHealth,Is.EqualTo(65));Assert.That(draft.IsOpen,Is.True);Assert.That(session.IsPaused,Is.True);
+            Assert.That(gained,Is.EqualTo(1));Assert.That(xp.TotalXp,Is.EqualTo(100));Assert.That(xp.PendingChoices,Is.EqualTo(1));
+            Assert.That(pickups.GlobalFlightCount, Is.EqualTo(2));
+            pickups.Step(2f); Assert.That(xp.TotalXp, Is.EqualTo(100), "Tactical pause also freezes the incoming pickups.");
+            xp.ConsumePendingChoice(); pickups.Step(2f);
+            Assert.That(xp.TotalXp, Is.EqualTo(360)); Assert.That(xp.PendingChoices, Is.EqualTo(1));
+            Assert.That(draft.IsOpen,Is.True);Assert.That(session.IsPaused,Is.True);
+            xp.ConsumePendingChoice(); pickups.Step(2f);
+            Assert.That(pickups.ActivePickupCount,Is.Zero);Assert.That(player.CurrentHealth,Is.EqualTo(65));
         }
         [Test]
         public void ExecutionExcludesBossAndOjoAmplifiesLowHealthCritsAndStuns()
         {
-            Set("CRIT_03",3);var ordinary=Enemy(0,3,100);Assert.That(Hit(ordinary,81).CausedDeath,Is.True);
+            Set("CRIT_03",3);var ordinary=Enemy(0,3,100);Assert.That(Hit(ordinary,91).CausedDeath,Is.True);
             var boss=Enemy(0,6,100,EnemyArchetypeId.GolgoraBoss);Hit(boss,81);Assert.That(boss.IsAlive,Is.True);Assert.That(boss.CurrentHealth,Is.EqualTo(19));
             Set("CRIT_05");var e=Enemy(1,3,100);Hit(e,70);var critical=Hit(e,1,1,true);
             Assert.That(critical.ResolvedDamage,Is.EqualTo(stats.CritMultiplier*3).Within(.0001));
             upgrades.Step(.01f);Assert.That(e.StunRemaining,Is.EqualTo(1));
         }
+        [TestCase(1, .06f)] [TestCase(2, .08f)] [TestCase(3, .1f)]
+        public void ExecutionUsesNerfedThresholdAndReportsOnlyRealExecutionKills(int tier, float threshold)
+        {
+            Set("CRIT_03", tier);
+            Assert.That(UpgradeTuning.At(tuning.executionThreshold, tier), Is.EqualTo(threshold));
+            var atBoundary = Enemy(0, 3, 100);
+            var boundary = Hit(atBoundary, 100f - threshold * 100f);
+            Assert.That(boundary.WasExecuted, Is.False);
+            Assert.That(atBoundary.IsAlive, Is.True);
+            var execute = Hit(atBoundary, 1);
+            Assert.That(execute.CausedDeath, Is.True);
+            Assert.That(execute.WasExecuted, Is.True);
+            Assert.That(execute.DamageType, Is.EqualTo(DamageType.Supernatural));
+            var overkill = Hit(Enemy(2, 3, 100), 200);
+            Assert.That(overkill.CausedDeath, Is.True);
+            Assert.That(overkill.WasExecuted, Is.False, "Normal lethal damage is not an execution proc.");
+            var physical = new DamageRequest(player.TargetId, DamageSourceType.UpgradeProjectile, Vector3.up, Vector3.forward,
+                1, damageType: DamageType.Physical);
+            var low = Enemy(3, 4, 100); Hit(low, 100f - threshold * 100f);
+            var physicalExecution = low.ReceiveDamage(in physical);
+            Assert.That(physicalExecution.WasExecuted, Is.True);
+            Assert.That(physicalExecution.DamageType, Is.EqualTo(DamageType.Physical));
+        }
+
         [Test]
         public void FourthPulseCriticalQueuesNextBurstAndDoesNotAlterCurrentBurst()
         {
@@ -257,6 +292,77 @@ namespace EchoScrap.Tests
             xp.AddExperience(100);Assert.That(draft.TryReroll(),Is.True);Assert.That(draft.RerollsRemaining,Is.EqualTo(1));Assert.That(draft.TryReroll(),Is.True);Assert.That(draft.TryReroll(),Is.False);
             Assert.That(xp.PendingChoices,Is.EqualTo(1));Assert.That(session.IsPaused,Is.True);session.ResetSession(4921);Assert.That(draft.RerollsRemaining,Is.Zero);
         }
+        [Test]
+        public void CollectorMovesActualMapPickupsBeforeAwardingAndFreezesWithPause()
+        {
+            int id = pickups.SpawnExperience(new Vector3(40, 1, 40), 9);
+            pickups.TryGetPickupInfo(id, out var before);
+            Assert.That(pickups.AttractAll(), Is.EqualTo(1));
+            pickups.Step(.2f); pickups.TryGetPickupInfo(id, out var moving);
+            Assert.That(Vector3.Distance(moving.Position, player.transform.position), Is.LessThan(Vector3.Distance(before.Position, player.transform.position)));
+            Assert.That(xp.TotalXp, Is.Zero);
+            session.SetManualPause(true); pickups.Step(5f); pickups.TryGetPickupInfo(id, out var paused);
+            Assert.That(paused.Position, Is.EqualTo(moving.Position));
+            session.SetManualPause(false); pickups.Step(2f);
+            Assert.That(xp.TotalXp, Is.EqualTo(9)); Assert.That(pickups.GlobalFlightCount, Is.Zero);
+            Assert.That(pickups.TryGetPickupInfo(id, out _), Is.False);
+            pickups.Step(2f); Assert.That(xp.TotalXp, Is.EqualTo(9));
+        }
+        [Test]
+        public void ColdTintSurvivesImpactFlashAndRestoresAfterExpiryAndPoolReuse()
+        {
+            var enemy = Enemy(); var composer = enemy.GetComponent<ActorVisualComposer>();
+            enemy.ApplySlow(.12f, 1.5f); enemy.StepVisuals(.2f);
+            Assert.That(composer.StatusTint.b, Is.GreaterThan(composer.StatusTint.r));
+            Hit(enemy, 1); enemy.StepVisuals(.2f);
+            Assert.That(composer.StatusTint, Is.EqualTo(new Color(.38f,.78f,1f)));
+            enemy.StepUpgradeStatus(2f); Assert.That(composer.StatusTint, Is.EqualTo(Color.white));
+            enemy.ApplySlow(.2f, 2); enemy.ResetForSpawn(new Vector3(0,1,3));
+            Assert.That(composer.StatusTint, Is.EqualTo(Color.white));
+        }
+        [Test]
+        public void FlashlightUpgradesChangePaletteAndBrightnessAndRestoreOnReset()
+        {
+            var initial = FlashlightUpgradeLook.Resolve(stats);
+            foreach (var id in new[]{"FLASH_01","FLASH_02","FLASH_03","FLASH_04","FLASH_05"})
+            {
+                stats.ResetToInitial(); Set(id);
+                var look = FlashlightUpgradeLook.Resolve(stats);
+                Assert.That(look.Color, Is.Not.EqualTo(initial.Color), id);
+                Assert.That(look.Intensity, Is.GreaterThan(initial.Intensity), id);
+            }
+            stats.ResetToInitial(); Assert.That(FlashlightUpgradeLook.Resolve(stats).Color, Is.EqualTo(initial.Color));
+        }
+        [Test]
+        public void RealParticleSystemsAndLightsStayBoundedPauseAndClearOnRestart()
+        {
+            Set("CRYO_01"); Set("CRYO_02"); Set("SCRAP_03"); Set("DASH_02"); Set("DASH_04");
+            for(int i=0;i<40;i++) {var e=Enemy((i%8-4)*1.3f,3+i/8); e.ApplyFreeze(3);}
+            for(int i=0;i<12;i++) {Dash(true,false,Vector3.up); Dash(false,true,Vector3.up); upgrades.Step(.016f);}
+            Assert.That(upgrades.ActiveParticleCount, Is.GreaterThan(0));
+            Assert.That(upgrades.ActiveParticleRigCount, Is.LessThanOrEqualTo(32));
+            Assert.That(upgrades.ActiveLightCount, Is.LessThanOrEqualTo(6));
+            int count=upgrades.ActiveParticleCount;
+            session.SetManualPause(true); upgrades.Step(5f); Assert.That(upgrades.ActiveParticleCount, Is.EqualTo(count));
+            session.SetManualPause(false); session.Effects.ReducedEffectsMode=true; upgrades.Step(.02f);
+            Assert.That(upgrades.ActiveParticleRigCount, Is.Zero); Assert.That(upgrades.ActiveLightCount, Is.Zero);
+            session.Effects.ReducedEffectsMode=false; upgrades.Step(.02f); Assert.That(upgrades.ActiveParticleRigCount, Is.GreaterThan(0));
+            session.ResetSession(4921); Assert.That(upgrades.ActiveVisualCount, Is.Zero); Assert.That(upgrades.ActiveParticleCount, Is.Zero);
+        }
+        [TestCase("BIO_04", DamageType.Supernatural)]
+        [TestCase("DASH_03", DamageType.Supernatural)]
+        [TestCase("SCRAP_02", DamageType.Physical)]
+        public void DerivedAttacksPreserveTheirDocumentedDamageChannel(string id, DamageType expected)
+        {
+            Set(id); Enemy(); DamageResult seen=default;
+            session.Events.OnDamageResolved += hit => {if(!hit.IsPlayerTarget) seen=hit;};
+            if(id=="BIO_04") {player.Heal(15); upgrades.Step(.01f);}
+            if(id=="DASH_03") {Dash(true,false,Vector3.up); upgrades.Step(.01f); upgrades.Step(2.1f);}
+            if(id=="SCRAP_02") {for(int i=0;i<15;i++)pickups.SpawnExperience(Vector3.one*5,1);pickups.CollectAll();upgrades.Step(.2f);}
+            Assert.That(seen.AppliedRealDamage, Is.True);
+            Assert.That(seen.DamageType, Is.EqualTo(expected));
+        }
+
         [Test]
         public void PauseAndResetClearAllUpgradeStateWithoutCreatingMoreObjects()
         {

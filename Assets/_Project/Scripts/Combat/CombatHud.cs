@@ -32,7 +32,12 @@ namespace EchoScrap.Combat
         private PauseMenuSkin pauseSkin;
         private GameObject bossPanel;
         private RectTransform bossArrow;
+        private Sprite armorIcon;
         private Image healthFill;
+        private RectTransform armorStrip;
+        private Text armorText;
+        private readonly Image[] armorPlates = new Image[5];
+        private int previousArmor = -1;
         private Image recentHealthFill;
         private Image experienceFill;
         private Image dashFill;
@@ -100,6 +105,7 @@ namespace EchoScrap.Combat
         {
             Unsubscribe();
             if (whiteSprite != null) Destroy(whiteSprite);
+            if (armorIcon != null) Destroy(armorIcon);
             if (borderSprite != null) Destroy(borderSprite);
             if (borderTexture != null) Destroy(borderTexture);
         }
@@ -145,7 +151,7 @@ namespace EchoScrap.Combat
 
         private void ResetReadouts()
         {
-            previousSecond = previousHealth = previousMaxHealth = previousCooldown = previousBossHealth = -1;
+            previousSecond = previousHealth = previousMaxHealth = previousCooldown = previousBossHealth = previousArmor = -1;
             previousState = (SessionState)(-1);
             cardsDirty = experienceDirty = true;
             refreshTimer = 0f;
@@ -184,6 +190,15 @@ namespace EchoScrap.Combat
             {
                 previousHealth = hp; previousMaxHealth = maxHp;
                 healthText.text = $"{hp} / {maxHp}";
+            }
+            int armor = Mathf.RoundToInt(game.Stats.Armor * 100f);
+            if (previousArmor != armor && armorStrip != null)
+            {
+                previousArmor = armor;
+                armorStrip.gameObject.SetActive(armor > 0);
+                armorText.text = $"ARMADURA {armor}%";
+                int tier = game.Stats.GetUpgradeTier(UpgradeId.SCRAP_01);
+                for (int i = 0; i < armorPlates.Length; i++) armorPlates[i].color = i < tier ? new Color(.66f,.78f,.86f) : new Color(.18f,.24f,.29f);
             }
             if (experienceDirty)
             {
@@ -370,6 +385,22 @@ namespace EchoScrap.Combat
             healthText.fontSize=20; healthText.alignment=TextAnchor.MiddleCenter;
             dashText.rectTransform.anchoredPosition=new Vector2(30,-38); dashText.fontSize=20;
             healthText.transform.SetAsLastSibling(); dashText.transform.SetAsLastSibling();
+            armorStrip = Rect(integrity, "Armor", new Vector2(.5f,.5f), new Vector2(43f,-18f), new Vector2(219f,8f));
+            for (int i = 0; i < armorPlates.Length; i++)
+            {
+                var plate = ImageRect(armorStrip, "SteelPlate_" + (i+1), new Vector2((i-2)*43f,0f), new Vector2(40f,6f), new Color(.18f,.24f,.29f));
+                armorPlates[i] = plate;
+                ImageRect(plate.transform, "Bevel", new Vector2(0f,2f), new Vector2(36f,1.5f), new Color(.85f,.91f,.94f,.65f));
+            }
+            var armorTexture = Resources.Load<Texture2D>("Upgrades/Vfx/Armor");
+            if (armorTexture != null)
+            {
+                armorIcon = Sprite.Create(armorTexture, new Rect(0,0,armorTexture.width,armorTexture.height), Vector2.one*.5f, 32);
+                var icon = ImageRect(armorStrip,"SteelShield",new Vector2(-72f,-45f),new Vector2(22f,22f),Color.white);
+                icon.sprite = armorIcon;
+            }
+            armorText = Label(armorStrip, "ArmorValue", new Vector2(0f,-45f), new Vector2(220f,22f), "", 17, TextAnchor.MiddleCenter, new Color(.7f,.83f,.91f));
+            armorStrip.gameObject.SetActive(false);
             AnchorLabel(canvasRect, "UpgradeHeading", new Vector2(1f, 0f), new Vector2(-275f, 326f), new Vector2(470f, 32f), "MEJORAS", 22, TextAnchor.MiddleRight, Apollo);
             cardsText = AnchorLabel(canvasRect, "AcquiredCards", new Vector2(1f, 0f), new Vector2(-275f, 182f), new Vector2(470f, 250f), "Sin mejoras", 22, TextAnchor.UpperRight, new Color(0.73f, 0.78f, 0.77f));
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));

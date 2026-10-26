@@ -57,7 +57,7 @@ namespace EchoScrap.Core
         public float shatterSpeed = 14f, shatterDamage = 50f, shatterLifetime = 1.2f, shatterFreeze = 1.5f;
         [Header("Críticos y recursos")]
         public float critChancePerTier = .08f, critDamagePerTier = .2f;
-        public Vector3 executionThreshold = new Vector3(.12f, .16f, .2f);
+        public Vector3 executionThreshold = new Vector3(.06f, .08f, .1f);
         public Vector3 guaranteedPulses = new Vector3(2, 3, 4);
         public float eyeCritChance = .2f, eyeHealthThreshold = .35f, eyeCritMultiplier = 3f;
         public float eyeStun = 1f, eyeRadius = 3f, experiencePerTier = .15f;

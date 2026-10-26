@@ -324,7 +324,8 @@ namespace EchoScrap.Combat
                 cards[i].LevelArrow.gameObject.SetActive(offer.CurrentTier > 0);
                 cards[i].NewBadge.gameObject.SetActive(offer.CurrentTier == 0);
                 cards[i].UpgradeArrow.gameObject.SetActive(offer.CurrentTier > 0);
-                cards[i].Type.text = UpgradeCatalog.TypeName(offer.Card.Icon);
+                cards[i].Type.text = UpgradeCatalog.DamageLabel(offer.Card.Id);
+                cards[i].Type.color = cards[i].Type.text == "FÍSICO" ? new Color(1f,.85f,.2f) : cards[i].Type.text == "SOBRENATURAL" ? new Color(.9f,.6f,1f) : new Color(.59f,.66f,.68f);
                 SetFittedText(cards[i].PrimaryLabel, UpgradeCatalog.PrimaryLabel(offer.Card.Id), 18, 17);
                 SetFittedText(cards[i].Description, offer.Card.Description, 25, 23);
                 bool comparing = offer.CurrentTier > 0;

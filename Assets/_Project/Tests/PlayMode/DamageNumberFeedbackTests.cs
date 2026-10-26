@@ -106,7 +106,7 @@ namespace EchoScrap.Tests
             presenter.TryShowDamage(in normal);
             Assert.That(presenter.ActiveNumberCount, Is.EqualTo(2));
             Assert.That(presenter.GetActiveNumber(0).Damage, Is.EqualTo(7.5f));
-            Assert.That(presenter.GetActiveLabel(1).text, Is.EqualTo("! 6.56"));
+            Assert.That(presenter.GetActiveLabel(1).text, Is.EqualTo("6.56!"));
             Assert.That(presenter.GetActiveLabel(1).fontSize, Is.GreaterThan(presenter.GetActiveLabel(0).fontSize));
             var nextBurst = Damage(1, 3.75f, burst: 9);
             var nextTarget = Damage(2, 3.75f, burst: 8);
@@ -117,6 +117,46 @@ namespace EchoScrap.Tests
             presenter.TryShowDamage(in otherSource); presenter.TryShowDamage(in solar);
             presenter.TryShowDamage(in hazard); presenter.TryShowDamage(in hazard);
             Assert.That(presenter.ActiveNumberCount, Is.EqualTo(8));
+        }
+
+        [Test]
+        public void PhysicalAndSupernaturalDamageUseDistinctColorsAndCritSuffixesWithoutMergingTypes()
+        {
+            var physical = Damage(1, 12f, type: DamageSourceType.UpgradeSaw);
+            var physicalCrit = Damage(2, 24f, type: DamageSourceType.UpgradeTurret, critical: true);
+            var supernatural = Damage(3, 10f);
+            var supernaturalCrit = Damage(4, 20f, critical: true);
+            presenter.TryShowDamage(in physical); presenter.TryShowDamage(in physicalCrit);
+            presenter.TryShowDamage(in supernatural); presenter.TryShowDamage(in supernaturalCrit);
+            Assert.That(presenter.GetActiveLabel(0).color, Is.EqualTo(presenter.Settings.NormalColor));
+            Assert.That(presenter.GetActiveLabel(1).color, Is.EqualTo(presenter.Settings.CriticalColor));
+            Assert.That(presenter.GetActiveLabel(2).color, Is.EqualTo(presenter.Settings.SupernaturalColor));
+            Assert.That(presenter.GetActiveLabel(3).color, Is.EqualTo(presenter.Settings.SupernaturalCriticalColor));
+            Assert.That(presenter.GetActiveLabel(1).text, Is.EqualTo("24!"));
+            Assert.That(presenter.GetActiveLabel(3).text, Is.EqualTo("20!"));
+            Assert.That(presenter.GetActiveNumber(0).DamageType, Is.EqualTo(DamageType.Physical));
+            Assert.That(presenter.GetActiveNumber(2).DamageType, Is.EqualTo(DamageType.Supernatural));
+            var overrideChannel = new DamageResult(1, 3, DamageSourceType.FlashlightPulse, Vector3.zero, Vector3.up,
+                Vector3.forward, 10, 10, 10, 90, 100, false, false, false, false, false, false, 1, 1, DamageType.Physical);
+            presenter.TryShowDamage(in overrideChannel);
+            Assert.That(presenter.ActiveNumberCount, Is.EqualTo(5), "Different channels cannot aggregate even with the same source and burst.");
+        }
+
+        [Test]
+        public void ExecutionsHaveBrightRedWordsAndRetainTheirOwnLifetimeAndPooledPosition()
+        {
+            var executed = new DamageResult(1, 1, DamageSourceType.FlashlightPulse, Vector3.zero, Vector3.up,
+                Vector3.forward, 1, 9, 9, 0, 100, false, false, false, false, true, false,
+                damageType: DamageType.Supernatural, wasExecuted: true);
+            Assert.That(presenter.TryShowDamage(in executed), Is.True);
+            Assert.That(presenter.GetActiveLabel(0).text, Is.EqualTo("EJECUTADO"));
+            Assert.That(presenter.GetActiveLabel(0).color, Is.EqualTo(presenter.Settings.ExecutionColor));
+            Assert.That(presenter.GetActiveNumber(0).WasExecuted, Is.True);
+            Assert.That(presenter.GetActiveNumber(0).CanAggregate, Is.False);
+            presenter.StepPresentation(presenter.Settings.Lifetime + .01f);
+            Assert.That(presenter.ActiveNumberCount, Is.EqualTo(1));
+            presenter.StepPresentation(presenter.Settings.ExecutionLifetime);
+            Assert.That(presenter.ActiveNumberCount, Is.Zero);
         }
 
         [Test]
@@ -210,7 +250,7 @@ namespace EchoScrap.Tests
             presenter.StepPresentation(0.2f);
             Assert.That(presenter.GetActiveLabel(0).rectTransform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(presenter.GetActiveLabel(0).rectTransform.anchoredPosition, Is.EqualTo(staticPosition));
-            Assert.That(presenter.GetActiveLabel(0).text, Is.EqualTo("! 7"));
+            Assert.That(presenter.GetActiveLabel(0).text, Is.EqualTo("7!"));
             Assert.That(presenter.GetActiveNumber(0).IsCritical, Is.True);
             session.SetManualPause(true);
             presenter.StepPresentation(2f);

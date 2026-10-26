@@ -65,6 +65,14 @@ namespace EchoScrap.Core
         private float flashRemaining;
         private Color activeFlashColor;
         private bool flashApplied;
+        private Color statusTint = Color.white;
+        public Color StatusTint => statusTint;
+        public void SetStatusTint(Color tint)
+        {
+            if (statusTint == tint) return;
+            statusTint = tint;
+            ApplyFlashBlock(flashRemaining > 0f);
+        }
         private float hitStopRemaining;
         private float hitRecoveryTimer;
         private float activeHitRecoveryDuration = 0.12f;
@@ -451,10 +459,18 @@ namespace EchoScrap.Core
                     flashBlock.SetColor(EmissionColorId, activeFlashColor * 1.6f);
                     r.SetPropertyBlock(flashBlock);
                 }
-                else
+                else if (statusTint != Color.white)
                 {
-                    r.SetPropertyBlock(null);
+                    r.GetPropertyBlock(flashBlock);
+                    Color baseColor = i < originalBaseColors.Length ? originalBaseColors[i] : Color.white;
+                    Color tinted = Color.Lerp(baseColor, statusTint, .65f);
+                    tinted.a = baseColor.a;
+                    flashBlock.SetColor(BaseColorId, tinted);
+                    flashBlock.SetColor(ColorId, tinted);
+                    flashBlock.SetColor(EmissionColorId, statusTint * .06f);
+                    r.SetPropertyBlock(flashBlock);
                 }
+                else r.SetPropertyBlock(null);
             }
         }
 
@@ -462,6 +478,7 @@ namespace EchoScrap.Core
         {
             EnsureHierarchy();
             flashRemaining = 0f;
+            statusTint = Color.white;
             hitStopRemaining = 0f;
             hitRecoveryTimer = 0f;
             startStopSquashTimer = 0f;

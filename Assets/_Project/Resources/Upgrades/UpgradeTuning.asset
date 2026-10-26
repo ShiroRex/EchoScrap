@@ -87,7 +87,7 @@ MonoBehaviour:
   shatterFreeze: 1.5
   critChancePerTier: .08
   critDamagePerTier: .2
-  executionThreshold: {x: .12, y: .16, z: .2}
+  executionThreshold: {x: .06, y: .08, z: .1}
   guaranteedPulses: {x: 2, y: 3, z: 4}
   eyeCritChance: .2
   eyeHealthThreshold: .35

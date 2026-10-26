@@ -33,6 +33,24 @@ namespace EchoScrap.Tests
             SceneManager.SetActiveScene(SceneManager.CreateScene("UpgradeVisualCleanup"));
             yield return SceneManager.UnloadSceneAsync(scene);CombatTargetRegistry.Clear();
         }
+        [Test]
+        public void VfxSpritesAndShaderTemplatesAreIncludedAsRuntimeResources()
+        {
+            foreach(var name in new[]{"Saw","Mine","Turret","Spark","Frost","Smoke","Shockwave","Shield","Wind","Explosion","Armor"})
+            {
+                var texture=Resources.Load<Texture2D>("Upgrades/Vfx/"+name);
+                Assert.That(texture,Is.Not.Null,name);
+                Assert.That(texture.mipmapCount,Is.EqualTo(1),name);
+                if(name=="Saw"||name=="Mine"||name=="Turret"||name=="Armor")Assert.That(texture.filterMode,Is.EqualTo(FilterMode.Point),name);
+            }
+            foreach(var name in new[]{"SpriteMaterial","ShieldMaterial"})
+            {
+                var material=Resources.Load<Material>("Upgrades/Vfx/"+name);
+                Assert.That(material,Is.Not.Null);Assert.That(material.shader.isSupported,Is.True);
+                Assert.That(material.shader.name,Does.StartWith("EchoScrap/Upgrade"));
+            }
+        }
+
         [UnityTest]
         public IEnumerator PlayableArenaShowsUpgradeEffectsAndRerollWithoutReplacingExistingArt()
         {
@@ -83,7 +101,7 @@ namespace EchoScrap.Tests
             game.DamageNumbers.BindReferences(game.Session, camera);
             var flash = game.Player.GetComponent<FlashlightPresentation>();
             var dashView = game.Player.GetComponent<PlayerDashPresentation>();
-            string folder = Path.Combine(Application.dataPath, "..", "Logs", "UpgradeEffectGallery");
+            string folder = Path.Combine(Application.dataPath, "..", "Logs", "UpgradeEffectGalleryV2");
             Directory.CreateDirectory(folder);
             var manifest = new List<string> { "file\tid\tname\tnote" };
             int captures = 0;
@@ -188,7 +206,7 @@ namespace EchoScrap.Tests
                         game.Player.TakeContactOrHazardDamage(5, Vector3.forward);
                         game.Upgrades.Step(.11f);
                         Assert.That(game.Player.UpgradeProtectionRemaining, Is.GreaterThan(0));
-                        note = "Aro verde persistente durante la protección de emergencia.";
+                        note = "Escudo de energía envolvente con celdas luminosas y partículas.";
                         break;
                     case "BIO_04":
                         game.Player.ForceSetHealthForTesting(game.Stats.MaxHealth);
@@ -216,11 +234,15 @@ namespace EchoScrap.Tests
                         note = "Aparece el botón REINTENTAR en las cartas; sin VFX de combate.";
                         break;
                     case "GREED_05":
-                        game.Pickups.SpawnExperience(p + Vector3.right * 9, 1);
+                        for(int gem=0;gem<48;gem++)
+                        {
+                            float a=gem*Mathf.PI*2/48f, r=12f+(gem%4)*5f;
+                            game.Pickups.SpawnExperience(p+new Vector3(Mathf.Cos(a)*r,0,Mathf.Sin(a)*r),1);
+                        }
                         game.Pickups.SpawnMedkit(p + Vector3.left * 8);
-                        game.Upgrades.UpgradeAcquired(card.Id); game.Upgrades.Step(.14f);
-                        Assert.That(game.Pickups.ActivePickupCount, Is.Zero);
-                        note = "Aro turquesa que se contrae al recoger todo el mapa.";
+                        game.Upgrades.UpgradeAcquired(card.Id); game.Upgrades.Step(.14f); game.Pickups.Step(.25f);
+                        Assert.That(game.Pickups.GlobalFlightCount, Is.GreaterThan(0));
+                        note = "Remolino de recogida y XP real viajando hacia el jugador.";
                         break;
                     case "CRIT_01":
                     case "CRIT_02":
@@ -228,7 +250,7 @@ namespace EchoScrap.Tests
                         note = "Reutiliza el destello y número crítico; no tiene un VFX exclusivo.";
                         break;
                     case "CRIT_03":
-                        GalleryHit(main, 885);
+                        GalleryHit(main, 945);
                         Assert.That(main.IsAlive, Is.False);
                         note = "Muerte normal al cruzar el umbral; no hay una marca de ejecución propia.";
                         break;
@@ -259,6 +281,7 @@ namespace EchoScrap.Tests
                         break;
                     case "DEMO_03":
                         game.Upgrades.Step(4f);
+                        game.Motor.transform.position+=Vector3.left*2f;game.Motor.GetComponent<Rigidbody>().position=game.Motor.transform.position;
                         Assert.That(game.Upgrades.ActiveDeviceCount, Is.EqualTo(1));
                         yield return GalleryCapture(camera, folder, "DEMO_03_mina", false);
                         manifest.Add("DEMO_03_mina.png\tDEMO_03\tMinas: colocación\tPieza ámbar dentada en el suelo."); captures++;
@@ -274,33 +297,33 @@ namespace EchoScrap.Tests
                         break;
                     case "SCRAP_01":
                         hud = true;
-                        note = "Armadura y vida: solo estadísticas. No hay placas ni aura visible.";
+                        note = "Placas de acero y porcentaje de reducción junto a la barra de vida.";
                         break;
                     case "SCRAP_02":
                         for (int i = 0; i < 15; i++) game.Pickups.SpawnExperience(p + Vector3.right * 6, 1);
                         game.Pickups.CollectAll(); game.Upgrades.Step(.1f);
                         Assert.That(game.Upgrades.ActiveProjectileCount, Is.GreaterThan(0));
-                        note = "Dardo turquesa guiado al recoger 15 gemas.";
+                        note = "Proyectil de chatarra guiado, con estela ámbar y luz de impacto.";
                         break;
                     case "SCRAP_03":
                         game.Upgrades.Step(.3f);
-                        note = "Dos sierras ámbar dentadas girando alrededor del jugador.";
+                        note = "Sprites de sierra metálica con arcos de viento y chispas al impactar.";
                         break;
                     case "SCRAP_04":
-                        game.Upgrades.Step(10f); game.Upgrades.Step(.09f);
+                        game.Upgrades.Step(10f); game.Motor.transform.position+=Vector3.left*2f;game.Motor.GetComponent<Rigidbody>().position=game.Motor.transform.position;game.Upgrades.Step(.09f);
                         note = "Torreta ámbar con cañón orientable y proyectil ámbar.";
                         break;
                     case "CRYO_01":
                         GalleryHit(main, 1); game.Upgrades.Step(.02f);
                         Assert.That(main.SlowRemaining, Is.GreaterThan(0));
-                        note = "Aro azul bajo el enemigo ralentizado. El cuerpo no cambia de color.";
+                        note = "Tinte celeste persistente y partículas de frío bajo el enemigo ralentizado.";
                         break;
                     case "CRYO_02":
                         game.Stats.SetUpgradeTier("CRYO_01", 1); game.Weapon.ResetWeaponCycle();
                         for (int i = 0; i < 4; i++) GalleryHit(main, 1);
                         game.Upgrades.Step(.02f);
                         Assert.That(main.IsFrozen, Is.True);
-                        note = "Cristal azul translúcido alrededor del enemigo congelado.";
+                        note = "Escarcha, motas de hielo y niebla fría alrededor del enemigo congelado.";
                         break;
                     case "CRYO_03":
                         game.Upgrades.Step(6f); game.Upgrades.Step(.12f);
@@ -315,13 +338,41 @@ namespace EchoScrap.Tests
                         note = "Seis dardos azules salen del enemigo congelado al morir.";
                         break;
                 }
+                if (card.Id == "CRYO_01" || card.Id == "CRYO_02")
+                    for(int step=0;step<12;step++)game.Upgrades.Step(.016f);
+                if (card.Id == "SCRAP_03")
+                    for(int step=0;step<12;step++)game.Upgrades.Step(.016f);
+                main.StepVisuals(.15f);
+                game.Player.GetComponent<ActorVisualComposer>().StepVisuals(.15f);
                 flash.StepPresentation(0);
                 game.DamageNumbers.StepPresentation(.08f);
                 if (hud) game.Hud.CanvasRoot.SetActive(true);
                 yield return GalleryCapture(camera, folder, card.Id, hud, card.Id == "GREED_04");
                 manifest.Add(card.Id + ".png\t" + card.Id + "\t" + card.Name + "\t" + note); captures++;
+                if (card.Id=="CRYO_02" || card.Id=="BIO_03" || card.Id=="SCRAP_03" || card.Id=="GREED_05" || card.Id=="FLASH_03" || card.Id=="DEMO_03")
+                {
+                    for(int frame=0;frame<12;frame++)
+                    {
+                        game.Upgrades.Step(.05f); game.Pickups.Step(.05f); game.Player.StepTimers(.05f);
+                        main.StepVisuals(.05f); game.Player.GetComponent<ActorVisualComposer>().StepVisuals(.05f);
+                        yield return GalleryCapture(camera,folder,card.Id+"_motion_"+frame.ToString("00"),false);
+                    }
+                }
                 Debug.Log("[Upgrade gallery] " + card.Id + ": " + note);
             }
+            game.ResetRun(false);
+            game.Director.AutoTick = game.Encounter.AutoTick = game.Upgrades.AutoTick = game.Pickups.AutoTick = false;
+            game.Weapon.enabled=false;game.Hud.CanvasRoot.SetActive(false);game.Stats.SetUpgradeTier("CRIT_03",1);
+            for(int channel=0;channel<4;channel++)
+            {
+                var target=GalleryEnemy(p+new Vector3((channel-1.5f)*3f,0,4));
+                bool critical=channel%2==1;
+                var request=new DamageRequest(game.Player.TargetId,DamageSourceType.UpgradeProjectile,p,Vector3.forward,20,critical,critical?1f:0f,1.75f,damageType:channel<2?DamageType.Physical:DamageType.Supernatural);
+                target.ReceiveDamage(in request);target.StepVisuals(.2f);
+            }
+            var executed=GalleryEnemy(p+Vector3.forward*7.5f);GalleryHit(executed,945);
+            Assert.That(game.DamageNumbers.ActiveNumberCount,Is.EqualTo(5));
+            yield return GalleryCapture(camera,folder,"DamageChannels",false);
             File.WriteAllLines(Path.Combine(folder, "Manifest.tsv"), manifest);
             Assert.That(captures, Is.EqualTo(40));
             Object.Destroy(camera.gameObject); source.enabled = true;

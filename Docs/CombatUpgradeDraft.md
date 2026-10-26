@@ -235,10 +235,10 @@ Todas usan «ELEGIR» en el botón y el indicador de navegación dice «ENFOCADA
 El modo de efectos reducidos conserva el contraste sin ampliar la carta.
 Las 35 descripciones explican la acción y sus condiciones en lenguaje cotidiano.
 
-Pulso colector recoge todas las gemas y botiquines al adquirirlo y en cada subida
-de nivel posterior. Antes solo escuchaba el evento de nivel, que ya había ocurrido
-cuando se elegía la carta. La recogida al adquirirlo pasa por la misma protección
-contra reentrada y conserva las elecciones adicionales generadas por la experiencia.
+Pulso colector inicia la atracción global al adquirirlo y en cada subida de nivel.
+Las gemas y botiquines viajan físicamente hasta el jugador; sus recompensas se
+entregan al llegar. La pausa táctica detiene los vuelos y conserva las elecciones
+adicionales generadas por las llegadas posteriores.
 
 ### Galería de efectos actuales (26 de octubre de 2026)
 
@@ -260,3 +260,47 @@ curaciones y recogida usan aros compartidos. Ejecución no tiene una marca exclu
 se observa la muerte normal. Blindaje y Chatarrero afectan estadísticas/HUD;
 Sintonizador modifica la selección de cartas. La cadencia y el movimiento requieren
 verlos en juego; una captura estática no representa su velocidad ni duración.
+
+### Renovación de VFX y tipos de daño (26 de octubre de 2026)
+
+- La luz real, el resplandor del farol y el volumen comparten `FlashlightUpgradeLook`.
+  Alcance usa oro claro; cadencia, naranja; Prisma, azul; Golpe potente, violeta.
+  Los niveles combinan sus colores e intensidad; Rayo solar prevalece con oro blanco.
+- Unity ParticleSystem aporta destellos, estelas, fragmentos, humo, nieve y niebla.
+  La congelación sustituye la antigua carcasa poligonal por escarcha y luz fría.
+  La ralentización tiñe al enemigo de celeste, conserva el flash de impacto y restaura
+  el material al terminar el estado o reutilizar el actor.
+- Nanobots usa una esfera de energía transparente con borde luminoso, celdas y motas.
+  Sierras, minas y torreta tienen sprites de acero propios; las sierras giran con
+  arcos de viento y emiten chispas al golpear, las minas detonan con humo y fragmentos,
+  y la torreta presenta un fogonazo con su disparo.
+- Blindaje muestra cinco placas bajo la barra de vida, un escudo de acero y la reducción
+  porcentual real. No presenta la armadura como si fuera vida adicional.
+- Pulso colector atrae los objetos reales desde sus posiciones, con trayectorias aéreas
+  y hasta 64 estelas simultáneas. Cada objeto conserva su XP, gemas agrupadas y tipo;
+  solo se consume al llegar. Los vuelos también se pausan y limpian al reiniciar.
+- Las cartas indican FÍSICO, SOBRENATURAL, SEGÚN ATAQUE o SIN DAÑO DIRECTO. La tabla
+  individual de las 35 mejoras está en `DamageNumberFeedback.md`. Los colores de daño
+  son amarillo/naranja crítico y rosa violeta/morado crítico. `!` va al final.
+- Ejecución muestra EJECUTADO en rojo solo cuando la mejora causa el remate; su umbral
+  baja a 6/8/10% y sigue excluyendo a los jefes. El daño conserva el tipo del ataque.
+
+`UpgradeEffectPool` reutiliza 32 conjuntos de tres sistemas de partículas y un máximo
+ de seis luces sin sombras. Ocho conjuntos quedan disponibles para efectos breves;
+los estados persistentes no pueden ocupar toda la reserva. Las simulaciones usan
+pasos explícitos, los efectos reducidos conservan las señales esenciales y apagar y
+reactivar esa preferencia recupera las partículas. Los materiales referenciados
+como Resources mantienen los shaders disponibles para el jugador compilado.
+
+Arte editable: `ArtSource/VFX/Upgrades/`, con once fuentes Aseprite y exportaciones
+reabiertas y comprobadas píxel a píxel. `Tools/Aseprite/UpgradeVfxSprites.lua` las
+regenera. Los dispositivos usan Point, sin mipmaps ni compresión; las texturas de
+partículas conservan alfa suave. La auditoría está en `Logs/UpgradeVfxSprites/NativeAudit.json`.
+
+Validación final: 134/134 pruebas PlayMode en una copia aislada. Incluyen simulación,
+tipos de daño, ejecución, recogida diferida, pausa/reinicio, tintes, recursos/shaders,
+UI, linterna y anclaje del farol. La prueba de 150 enemigos con todas las mejoras
+midió aproximadamente 0,73 ms por paso de la simulación de mejoras y cero asignaciones
+gestionadas tras calentar las reservas; no es una medición de la GPU ni del frame completo.
+La galería nueva y las secuencias están en `Logs/UpgradeVfxReview/`; las vistas resumidas,
+animación y HUD están en `ArtSource/VFX/Upgrades/Previews/`.

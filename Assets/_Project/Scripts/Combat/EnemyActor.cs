@@ -442,7 +442,7 @@ namespace EchoScrap.Combat
         public int SpawnVersion { get; private set; }
         private int coldHits;
         public Vector3 PursuitGoal => session != null && session.Upgrades != null ? session.Upgrades.PursuitGoal(transform.position, targetPlayer != null ? targetPlayer.WorldCenter : transform.position) : (targetPlayer != null ? targetPlayer.WorldCenter : transform.position);
-        public void ApplySlow(float fraction, float duration) { SlowFraction = Mathf.Max(SlowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); }
+        public void ApplySlow(float fraction, float duration) { SlowFraction = Mathf.Max(SlowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); visualComposer?.SetStatusTint(new Color(.38f, .78f, 1f)); }
         public void ApplyFreeze(float duration) { FrozenRemaining = Mathf.Max(FrozenRemaining, duration); coldHits = 0; }
         public void ApplyStun(float duration) => StunRemaining = Mathf.Max(StunRemaining, duration);
         public void RegisterColdHit(int required, float duration) { if (SlowRemaining > 0f && !IsFrozen && ++coldHits >= required) ApplyFreeze(duration); }
@@ -452,6 +452,7 @@ namespace EchoScrap.Combat
             FrozenRemaining = Mathf.Max(0f, FrozenRemaining - dt);
             StunRemaining = Mathf.Max(0f, StunRemaining - dt);
             if (SlowRemaining <= 0f) { SlowFraction = 0f; coldHits = 0; }
+            visualComposer?.SetStatusTint(SlowRemaining > 0f || IsFrozen ? new Color(.38f, .78f, 1f) : Color.white);
         }
         public void PushDistance(Vector3 direction, float distance) => ApplyKnockback(direction.normalized * Mathf.Sqrt(2f * Mathf.Max(1f, runtimeArchetype.KnockbackBraking) * distance));
 
@@ -1002,7 +1003,7 @@ namespace EchoScrap.Combat
                     false,
                     false,
                     request.BurstId,
-                    request.PulseIndex);
+                    request.PulseIndex, request.DamageType);
 
                 session?.Events.PublishDamage(in ignored);
                 return ignored;
@@ -1014,6 +1015,7 @@ namespace EchoScrap.Combat
                 ? request.BaseDamage * Mathf.Max(1f, request.CritMultiplier)
                 : request.BaseDamage;
 
+            bool executed = false;
             bool playerAttack = request.SourceType == DamageSourceType.FlashlightPulse || request.SourceType == DamageSourceType.SolarPulse || (int)request.SourceType >= 10;
             var upgradeStats = session != null ? session.PlayerStats : null;
             if (playerAttack && upgradeStats != null)
@@ -1022,8 +1024,12 @@ namespace EchoScrap.Combat
                 if (isCritical && upgradeStats.GetUpgradeTier(UpgradeId.CRIT_05) > 0 && currentHealth / MaxHealth < upgradeStats.Upgrades.eyeHealthThreshold)
                     resolvedDamage *= upgradeStats.Upgrades.eyeCritMultiplier;
                 float threshold = UpgradeTuning.At(upgradeStats.Upgrades.executionThreshold, upgradeStats.GetUpgradeTier(UpgradeId.CRIT_03));
-                if (runtimeArchetype.ArchetypeId != EnemyArchetypeId.GolgoraBoss && threshold > 0f && (currentHealth - resolvedDamage) / MaxHealth < threshold)
-                    resolvedDamage = Mathf.Max(resolvedDamage, currentHealth);
+                if (runtimeArchetype.ArchetypeId != EnemyArchetypeId.GolgoraBoss && threshold > 0f &&
+                    resolvedDamage < currentHealth && (currentHealth - resolvedDamage) / MaxHealth + .000001f < threshold)
+                {
+                    executed = true;
+                    resolvedDamage = currentHealth;
+                }
             }
             float previous = currentHealth;
             currentHealth = Mathf.Max(PreventLethalDamage ? 1f : 0f, currentHealth - resolvedDamage);
@@ -1060,7 +1066,7 @@ namespace EchoScrap.Combat
                 causedDeath,
                 false,
                 request.BurstId,
-                request.PulseIndex);
+                request.PulseIndex, request.DamageType, wasExecuted: executed);
 
             session?.Events.PublishDamage(in result);
 

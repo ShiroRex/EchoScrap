@@ -272,11 +272,12 @@ public class PlayerFlashlightView : MonoBehaviour
         bool emitting = burstShowing || (!reducedEffects && emission > 0f);
         flashlightLight.type = LightType.Spot;
         flashlightLight.transform.localRotation = Quaternion.Euler(downwardAngle, 0f, 0f);
-        flashlightLight.color = lightColor;
+        var upgradeLook = FlashlightUpgradeLook.Resolve(weapon.Stats);
+        flashlightLight.color = upgradeLook.Color;
         float intensityMultiplier = emitting
             ? (reducedEffects ? spotlightBetweenPulseMultiplier : Mathf.Lerp(spotlightBetweenPulseMultiplier, spotlightPulseMultiplier, emission))
             : spotlightCooldownMultiplier;
-        flashlightLight.intensity = baseLightIntensity * intensityMultiplier;
+        flashlightLight.intensity = baseLightIntensity * intensityMultiplier * upgradeLook.Intensity;
         flashlightLight.spotAngle = weapon.ActiveBurstAngle;
         flashlightLight.innerSpotAngle = weapon.ActiveBurstAngle * innerAngleRatio;
         flashlightLight.range = weapon.ActiveBurstRange + lightRangePadding;
@@ -371,8 +372,8 @@ public class PlayerFlashlightView : MonoBehaviour
             ? (reducedEffects ? betweenPulseOpacity : Mathf.Lerp(betweenPulseOpacity, pulseOpacity, emission))
             : cooldownOpacity;
         if (useSpotLight) opacity *= realLightBeamOpacityMultiplier;
-        properties.SetColor(CoreColorId, coreColor);
-        properties.SetColor(EdgeColorId, edgeColor);
+        properties.SetColor(CoreColorId, FlashlightUpgradeLook.Resolve(weapon.Stats).Color);
+        properties.SetColor(EdgeColorId, FlashlightUpgradeLook.Resolve(weapon.Stats).Color * .65f);
         properties.SetColor(ContrastColorId, contrastColor);
         properties.SetVector(GeometryId, new Vector4(weapon.ActiveBurstRange, weapon.ActiveBurstAngle * 0.5f * Mathf.Deg2Rad, edgeFade, lensEdgeWidth));
         properties.SetVector(BeamShapeId, new Vector4(radialFalloffExponent, lateralFillMinimum, 0f, 0f));
@@ -381,7 +382,7 @@ public class PlayerFlashlightView : MonoBehaviour
         coneMeshRenderer.SetPropertyBlock(properties);
         coneMeshRenderer.enabled = showBeam;
         coneLineRenderer.enabled = false;
-        emitterProperties.SetColor(CoreColorId, coreColor);
+        emitterProperties.SetColor(CoreColorId, FlashlightUpgradeLook.Resolve(weapon.Stats).Color);
         emitterProperties.SetColor(ContrastColorId, contrastColor);
         emitterProperties.SetFloat(EmitterOnlyId, 1f);
         emitterProperties.SetVector(EmitterStateId, new Vector4(emittedCount, reducedEffects ? 0f : emission, contact, pilotOpacity));

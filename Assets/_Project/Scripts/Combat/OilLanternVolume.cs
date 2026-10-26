@@ -117,6 +117,9 @@ namespace EchoScrap.Combat
             bool visible = isActiveAndEnabled && weapon.isActiveAndEnabled;
             bool reduced = session != null && session.Effects.ReducedEffectsMode;
             bool decorative = session == null || session.Effects.DecorativeIntensity > 0f;
+            var upgradeLook = FlashlightUpgradeLook.Resolve(weapon.Stats);
+            oilGlow.color = upgradeLook.Color;
+            oilGlow.intensity = 2.8f * upgradeLook.Intensity;
             oilGlow.enabled = visible;
             flicker.enabled = visible && !reduced && decorative;
             flame.gameObject.SetActive(visible && drawFlameMesh);
@@ -140,7 +143,8 @@ namespace EchoScrap.Combat
                 beamMesh.triangles = triangles; beamMesh.RecalculateNormals(); beamMesh.RecalculateBounds();
             }
             float pulse = Mathf.Clamp01((keyLight.intensity / 80f - 0.25f) / 1.25f);
-            Color color = new Color(1f, 0.65f, 0.29f, Mathf.Lerp(0.025f, 0.085f, pulse));
+            Color color = upgradeLook.Color;
+            color.a = Mathf.Lerp(0.035f, 0.11f, pulse) * upgradeLook.Intensity;
             color.a *= session != null ? session.Effects.DecorativeIntensity : 1f;
             block.SetColor("_BeamColor", color);
             beamRenderer.SetPropertyBlock(block);

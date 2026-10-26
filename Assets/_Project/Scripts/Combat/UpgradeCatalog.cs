@@ -148,6 +148,16 @@ namespace EchoScrap.Combat
             UpgradeIcon.Precision => "PRECISIÓN", UpgradeIcon.Demolition => "DEMOLICIÓN",
             UpgradeIcon.Automation => "AUTOMATISMOS", UpgradeIcon.Cryo => "CRIOGENIA", _ => string.Empty
         };
+        /// <summary>Category of the damage introduced or modified by the card; utility cards do not invent damage.</summary>
+        public static string DamageLabel(string id) => id switch
+        {
+            "FLASH_01" or "FLASH_02" or "FLASH_03" or "FLASH_04" or "FLASH_05" or
+            "DASH_03" or "BIO_04" or "DEMO_04" or "CRYO_01" or "CRYO_02" or "CRYO_03" or "CRYO_04" => "SOBRENATURAL",
+            "DASH_02" or "DASH_04" or "DEMO_02" or "DEMO_03" or "SCRAP_02" or "SCRAP_03" or "SCRAP_04" => "FÍSICO",
+            "CRIT_01" or "CRIT_02" or "CRIT_03" or "CRIT_04" or "CRIT_05" or "DEMO_01" => "SEGÚN ATAQUE",
+            _ => "SIN DAÑO DIRECTO"
+        };
+
         public static string PrimaryLabel(string id) => id switch
         {
             "FLASH_01" => "ALCANCE", "FLASH_02" => "VELOCIDAD DE ATAQUE", "FLASH_04" or "FLASH_05" => "DAÑO POR PULSO",

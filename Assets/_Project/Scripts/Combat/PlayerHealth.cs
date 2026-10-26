@@ -183,7 +183,7 @@ namespace EchoScrap.Combat
                     false,
                     true,
                     request.BurstId,
-                    request.PulseIndex);
+                    request.PulseIndex, request.DamageType);
 
                 OnDamageProcessed?.Invoke(immuneResult);
                 session?.Events.PublishDamage(in immuneResult);
@@ -215,7 +215,7 @@ namespace EchoScrap.Combat
                     false,
                     true,
                     request.BurstId,
-                    request.PulseIndex);
+                    request.PulseIndex, request.DamageType);
 
                 OnDamageProcessed?.Invoke(dodgedResult);
                 session?.Events.PublishDamage(in dodgedResult);
@@ -275,7 +275,7 @@ namespace EchoScrap.Combat
                 causedDeath,
                 true,
                 request.BurstId,
-                request.PulseIndex);
+                request.PulseIndex, request.DamageType);
 
             OnHealthChanged?.Invoke(currentHealth, maxHp);
             OnDamageProcessed?.Invoke(finalResult);
