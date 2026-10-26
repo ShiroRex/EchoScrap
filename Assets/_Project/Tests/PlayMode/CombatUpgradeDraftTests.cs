@@ -712,7 +712,7 @@ namespace EchoScrap.Tests
             Transform panel = view.CanvasRoot.transform.Find("UpgradeCard_1/Panel");
             Assert.That(panel.parent.Find("UpgradeArrow").gameObject.activeSelf, Is.True);
             Assert.That(panel.parent.Find("NewBadge").gameObject.activeSelf, Is.False);
-            Assert.That(panel.Find("Level").GetComponent<Text>().text, Is.EqualTo("NIVEL\n1 > 2"));
+            Assert.That(panel.Find("Level").GetComponent<Text>().text, Is.EqualTo("NIVEL\n "));
             Assert.That(panel.Find("Before").GetComponent<Text>().text, Does.Contain("120 HP"));
             Assert.That(panel.Find("After").GetComponent<Text>().text, Does.Contain("140 HP"));
             Assert.That(view.CanvasRoot.transform.Find("UpgradeCard_2/UpgradeArrow").gameObject.activeSelf, Is.False);
@@ -1049,11 +1049,27 @@ namespace EchoScrap.Tests
                 var root=view.CanvasRoot.transform.Find("UpgradeCard_1");var panel=root.Find("Panel");
                 Assert.That(root.Find("NewBadge").gameObject.activeSelf,Is.EqualTo(tier==0),card.Id);
                 Assert.That(root.Find("UpgradeArrow").gameObject.activeSelf,Is.EqualTo(tier>0),card.Id);
-                Assert.That(panel.Find("Level").GetComponent<Text>().text,Is.EqualTo(tier==0?$"NIVEL\n1 / {card.MaxTier}":$"NIVEL\n{tier} > {tier+1}"));
+                Assert.That(panel.Find("Level").GetComponent<Text>().text,Is.EqualTo(tier==0?$"NIVEL\n1 / {card.MaxTier}":"NIVEL\n "));
                 Assert.That(root.Find("NewBadge").GetComponent<Image>().sprite,Is.SameAs(skin.newBadge));
                 Assert.That(root.Find("UpgradeArrow").GetComponent<Image>().sprite,Is.SameAs(skin.upgradeBadge));
                 Assert.That(root.Find("NewBadge").localPosition.x,Is.LessThan(-100));
                 Assert.That(root.Find("UpgradeArrow").localPosition.x,Is.GreaterThan(190));
+                var badge = (RectTransform)root.Find("UpgradeArrow");
+                Assert.That(badge.sizeDelta.x, Is.EqualTo(64f * 1.39f).Within(.001f));
+                Assert.That(badge.sizeDelta.y, Is.EqualTo(badge.sizeDelta.x));
+                Assert.That(badge.anchoredPosition, Is.EqualTo(new Vector2(194f, -276f)));
+                var button = (RectTransform)panel.Find("ChooseButton");
+                Assert.That(badge.anchoredPosition.x - badge.sizeDelta.x / 2f,
+                    Is.GreaterThan(button.anchoredPosition.x + button.sizeDelta.x / 2f));
+                var levelArrow = panel.Find("LevelArrow").GetComponent<Image>();
+                Assert.That(levelArrow.gameObject.activeSelf, Is.EqualTo(tier > 0));
+                Assert.That(levelArrow.sprite, Is.SameAs(panel.Find("ComparisonArrow").GetComponent<Image>().sprite));
+                Assert.That(levelArrow.transform.localRotation, Is.EqualTo(panel.Find("ComparisonArrow").localRotation));
+                if (tier > 0)
+                {
+                    Assert.That(panel.Find("LevelBefore").GetComponent<Text>().text, Is.EqualTo(tier.ToString()));
+                    Assert.That(panel.Find("LevelAfter").GetComponent<Text>().text, Is.EqualTo((tier + 1).ToString()));
+                }
                 foreach(var text in panel.GetComponentsInChildren<Text>())
                     Assert.That(text.preferredHeight,Is.LessThanOrEqualTo(text.rectTransform.rect.height+.5f),card.Id+" tier "+tier+" / "+text.name+" / "+text.text);
                 foreach(var pair in new[]{("Type","Name"),("Name","Description"),("Description","PrimaryLabel"),("PrimaryLabel","Before"),("Before","Detail"),("Detail","ChooseButton")})

@@ -23,6 +23,9 @@ namespace EchoScrap.Combat
             public Image Button;
             public Text ButtonLabel;
             public Text Level;
+            public Text LevelBefore;
+            public Text LevelAfter;
+            public Image LevelArrow;
             public Text Type;
             public Text PrimaryLabel;
             public Text Detail;
@@ -308,8 +311,15 @@ namespace EchoScrap.Combat
                 SetFittedText(cards[i].Name, offer.Card.Name, 36, 30);
                 cards[i].Rarity.text = UpgradeCatalog.RarityName(offer.Card.Rarity);
                 cards[i].Rarity.color = color;
-                cards[i].Level.text = offer.CurrentTier > 0 ? $"NIVEL\n{offer.CurrentTier} > {offer.NextTier}" : $"NIVEL\n1 / {offer.Card.MaxTier}";
+                cards[i].Level.text = offer.CurrentTier > 0 ? "NIVEL\n " : $"NIVEL\n1 / {offer.Card.MaxTier}";
                 cards[i].Level.color = offer.CurrentTier > 0 ? new Color(0.66f, 0.85f, 0.4f) : new Color(0.73f, 0.78f, 0.8f);
+                cards[i].LevelBefore.text = offer.CurrentTier.ToString();
+                cards[i].LevelAfter.text = offer.NextTier.ToString();
+                cards[i].LevelBefore.color = cards[i].Level.color;
+                cards[i].LevelAfter.color = cards[i].Level.color;
+                cards[i].LevelBefore.gameObject.SetActive(offer.CurrentTier > 0);
+                cards[i].LevelAfter.gameObject.SetActive(offer.CurrentTier > 0);
+                cards[i].LevelArrow.gameObject.SetActive(offer.CurrentTier > 0);
                 cards[i].NewBadge.gameObject.SetActive(offer.CurrentTier == 0);
                 cards[i].UpgradeArrow.gameObject.SetActive(offer.CurrentTier > 0);
                 cards[i].Type.text = UpgradeCatalog.TypeName(offer.Card.Icon);
@@ -388,6 +398,11 @@ namespace EchoScrap.Combat
             view.Icon.preserveAspect = true;
             view.Rarity = TextRect(inner, "RarityTier", new Vector2(0f, 270f), new Vector2(166f, 30f), 23, FontStyle.Bold, TextAnchor.MiddleCenter);
             view.Level = TextRect(inner, "Level", new Vector2(132f, 264f), new Vector2(88f, 52f), 18, FontStyle.Bold, TextAnchor.MiddleRight);
+            view.LevelBefore = TextRect(inner, "LevelBefore", new Vector2(128f, 252f), new Vector2(18f, 24f), 18, FontStyle.Bold, TextAnchor.MiddleCenter);
+            view.LevelAfter = TextRect(inner, "LevelAfter", new Vector2(168f, 252f), new Vector2(18f, 24f), 18, FontStyle.Bold, TextAnchor.MiddleCenter);
+            view.LevelArrow = ImageRect(inner, "LevelArrow", new Vector2(148f, 252f), new Vector2(18f, 18f), Color.white).GetComponent<Image>();
+            view.LevelArrow.sprite = skin.upgradeArrow;
+            view.LevelArrow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -90f);
             view.Type = TextRect(inner, "Type", new Vector2(0f, 110f), new Vector2(330f, 24f), 18, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Type.color = new Color(0.59f, 0.66f, 0.68f);
             view.Name = TextRect(inner, "Name", new Vector2(0f, 52f), new Vector2(340f, 84f), 36, FontStyle.Bold, TextAnchor.MiddleCenter);
@@ -420,7 +435,7 @@ namespace EchoScrap.Combat
             view.NewBadge = ImageRect(view.Root, "NewBadge", new Vector2(-160f, 288f), new Vector2(120f, 50f), Color.white).GetComponent<Image>();
             view.NewBadge.sprite = skin.newBadge; view.NewBadge.preserveAspect = true;
             view.NewBadge.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 35f);
-            view.UpgradeArrow = ImageRect(view.Root, "UpgradeArrow", new Vector2(201f, -185f), new Vector2(64f, 64f), Color.white).GetComponent<Image>();
+            view.UpgradeArrow = ImageRect(view.Root, "UpgradeArrow", new Vector2(194f, -276f), Vector2.one * (64f * 1.39f), Color.white).GetComponent<Image>();
             view.UpgradeArrow.sprite = skin.upgradeBadge; view.UpgradeArrow.preserveAspect = true;
             view.Motion.Bind(sheen, skin.surfaceSheen, view.Border, view.Confirmation, skin.litFrames);
             return view;
