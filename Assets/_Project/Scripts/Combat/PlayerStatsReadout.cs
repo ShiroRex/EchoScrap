@@ -5,6 +5,8 @@ using UnityEngine.UI;
 
 namespace EchoScrap.Combat
 {
+    public enum StatsDisplayMode { None = 0, Reduced = 1, Full = 2 }
+
     /// <summary>Noninteractive character readout. Its owner controls visibility and refresh timing.</summary>
     [DisallowMultipleComponent]
     public sealed class PlayerStatsReadout : MonoBehaviour
@@ -14,6 +16,8 @@ namespace EchoScrap.Combat
         private sealed class Row
         {
             public string Key;
+            public RectTransform Root;
+            public Text Label;
             public Text Value;
             public float Cached = float.NaN;
             public ValueFormat Format;
@@ -25,7 +29,15 @@ namespace EchoScrap.Combat
         private static readonly Color Muted = new Color(.67f, .74f, .75f);
         private readonly Row[] rows = new Row[20];
         private RectTransform canvasRect;
+        private RectTransform accent;
+        private RectTransform separator;
+        private Text title;
+        private StatsDisplayMode displayMode = (StatsDisplayMode)(-1);
+        private float panelHeight = 676f;
         private float fittedCanvasHeight = -1f;
+
+        public StatsDisplayMode DisplayMode => displayMode;
+        public int VisibleRowCount { get; private set; }
 
         public static PlayerStatsReadout Create(Transform canvasRoot, Font font, UpgradeCardSkin skin)
         {
@@ -42,9 +54,9 @@ namespace EchoScrap.Combat
             readout.canvasRect = canvasRoot as RectTransform;
             Font regular = font != null ? font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             Font strong = skin != null && skin.semibold != null ? skin.semibold : regular;
-            AddImage(rect, "Accent", new Vector2(0f, -16f), new Vector2(2f, 644f), new Color(Bronze.r, Bronze.g, Bronze.b, .65f));
-            AddText(rect, "Title", new Vector2(16f, -12f), new Vector2(328f, 32f), "ESTADÍSTICAS", strong, 22, TextAnchor.MiddleLeft, Bronze);
-            AddImage(rect, "Separator", new Vector2(16f, -46f), new Vector2(328f, 1f), new Color(Bronze.r, Bronze.g, Bronze.b, .25f));
+            readout.accent = AddImage(rect, "Accent", new Vector2(0f, -16f), new Vector2(2f, 644f), new Color(Bronze.r, Bronze.g, Bronze.b, .65f)).rectTransform;
+            readout.title = AddText(rect, "Title", new Vector2(16f, -12f), new Vector2(328f, 32f), "ESTADÍSTICAS", strong, 22, TextAnchor.MiddleLeft, Bronze);
+            readout.separator = AddImage(rect, "Separator", new Vector2(16f, -46f), new Vector2(328f, 1f), new Color(Bronze.r, Bronze.g, Bronze.b, .25f)).rectTransform;
             readout.AddRow(0, "damage", "Daño por pulso", UpgradeIcon.Power, ValueFormat.Number, regular, strong, skin);
             readout.AddRow(1, "attackSpeed", "Vel. ataque", UpgradeIcon.Cadence, ValueFormat.Multiplier, regular, strong, skin);
             readout.AddRow(2, "range", "Alcance", UpgradeIcon.Lens, ValueFormat.Metres, regular, strong, skin);
@@ -65,23 +77,61 @@ namespace EchoScrap.Combat
             readout.AddRow(17, "execution", "Ejecución", UpgradeIcon.Precision, ValueFormat.Execution, regular, strong, skin);
             readout.AddRow(18, "explosionDamage", "Daño explosivo", UpgradeIcon.Demolition, ValueFormat.BonusPercent, regular, strong, skin);
             readout.AddRow(19, "explosionRadius", "Radio explosivo", UpgradeIcon.Demolition, ValueFormat.BonusPercent, regular, strong, skin);
-            readout.FitToCanvas();
+            readout.SetDisplayMode(StatsDisplayMode.Full);
             return readout;
         }
 
         private void AddRow(int index, string key, string label, UpgradeIcon family, ValueFormat format, Font regular, Font strong, UpgradeCardSkin skin)
         {
             float y = -58f - index * 30f;
-            RectTransform root = (RectTransform)transform;
+            RectTransform root = AddRect(transform, key + "Row", new Vector2(0f, y), new Vector2(360f, 30f));
             if (skin != null && skin.icons != null && (int)family < skin.icons.Length && skin.icons[(int)family] != null)
             {
-                Image icon = AddImage(root, key + "Icon", new Vector2(16f, y - 3f), new Vector2(24f, 24f), Muted);
+                Image icon = AddImage(root, key + "Icon", new Vector2(16f, -3f), new Vector2(24f, 24f), Muted);
                 icon.sprite = skin.icons[(int)family];
                 icon.preserveAspect = true;
             }
-            AddText(root, key + "Label", new Vector2(50f, y), new Vector2(174f, 30f), label, regular, 21, TextAnchor.MiddleLeft, Muted);
-            Text value = AddText(root, key + "Value", new Vector2(230f, y), new Vector2(112f, 30f), "—", strong, 22, TextAnchor.MiddleRight, Ivory);
-            rows[index] = new Row { Key = key, Value = value, Format = format };
+            Text name = AddText(root, key + "Label", new Vector2(50f, 0f), new Vector2(174f, 30f), label, regular, 21, TextAnchor.MiddleLeft, Muted);
+            Text value = AddText(root, key + "Value", new Vector2(230f, 0f), new Vector2(112f, 30f), "—", strong, 22, TextAnchor.MiddleRight, Ivory);
+            rows[index] = new Row { Key = key, Root = root, Label = name, Value = value, Format = format };
+        }
+
+        public void SetDisplayMode(StatsDisplayMode mode)
+        {
+            if (mode != StatsDisplayMode.Full && mode != StatsDisplayMode.Reduced) mode = StatsDisplayMode.None;
+            if (displayMode == mode) return;
+            displayMode = mode;
+            bool reduced = mode == StatsDisplayMode.Reduced;
+            float width = reduced ? 320f : 360f;
+            panelHeight = mode == StatsDisplayMode.Full ? 676f : reduced ? 256f : 76f;
+            ((RectTransform)transform).sizeDelta = new Vector2(width, panelHeight);
+            title.rectTransform.sizeDelta = new Vector2(width - 32f, 32f);
+            separator.sizeDelta = new Vector2(width - 32f, 1f);
+            accent.sizeDelta = new Vector2(2f, panelHeight - 32f);
+            VisibleRowCount = 0;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                Row row = rows[i];
+                bool visible = mode == StatsDisplayMode.Full ||
+                    (reduced && (i == 0 || i == 1 || i == 2 || i == 4 || i == 5 || i == 6));
+                row.Root.gameObject.SetActive(visible);
+                if (!visible) continue;
+                row.Root.anchoredPosition = new Vector2(0f, -58f - VisibleRowCount * 30f);
+                row.Root.sizeDelta = new Vector2(width, 30f);
+                row.Label.rectTransform.sizeDelta = new Vector2(reduced ? 154f : 174f, 30f);
+                row.Value.rectTransform.anchoredPosition = new Vector2(reduced ? 210f : 230f, 0f);
+                row.Value.rectTransform.sizeDelta = new Vector2(reduced ? 94f : 112f, 30f);
+                VisibleRowCount++;
+            }
+            fittedCanvasHeight = -1f;
+            FitToCanvas();
+        }
+
+        public bool IsRowVisible(string key)
+        {
+            foreach (Row row in rows)
+                if (row != null && row.Key == key) return row.Root.gameObject.activeSelf;
+            return false;
         }
 
         public void Refresh(CombatGameBootstrap game)
@@ -120,7 +170,7 @@ namespace EchoScrap.Combat
             float height = canvasRect.rect.height;
             if (Mathf.Approximately(fittedCanvasHeight, height)) return;
             fittedCanvasHeight = height;
-            float scale = Mathf.Min(1f, Mathf.Max(.01f, (height - 188f - 184f) / 676f));
+            float scale = Mathf.Min(1f, Mathf.Max(.01f, (height - 188f - 184f) / panelHeight));
             transform.localScale = Vector3.one * scale;
         }
 

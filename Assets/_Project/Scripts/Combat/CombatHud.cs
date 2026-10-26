@@ -32,12 +32,7 @@ namespace EchoScrap.Combat
         private PauseMenuSkin pauseSkin;
         private GameObject bossPanel;
         private RectTransform bossArrow;
-        private Sprite armorIcon;
         private Image healthFill;
-        private RectTransform armorStrip;
-        private Text armorText;
-        private readonly Image[] armorPlates = new Image[5];
-        private int previousArmor = -1;
         private Image recentHealthFill;
         private Image experienceFill;
         private Image dashFill;
@@ -59,10 +54,11 @@ namespace EchoScrap.Combat
         private Slider shakeSlider;
         private Slider decorativeSlider;
         private Toggle reducedToggle;
-        private Toggle statsToggle;
+        private readonly Button[] statsModeButtons = new Button[3];
         private PlayerStatsReadout statsReadout;
-        private bool showStats;
+        private StatsDisplayMode statsMode;
         private Button resumeButton;
+        private Button pauseRestartButton;
         private Button resultRestartButton;
         private readonly StringBuilder cardsBuilder = new StringBuilder(512);
         private int kills;
@@ -87,7 +83,8 @@ namespace EchoScrap.Combat
         public string DisplayedHealth => healthText != null ? healthText.text : string.Empty;
         public string DisplayedSummary => resultSummary != null ? resultSummary.text : string.Empty;
         public string DisplayedCards => cardsText != null ? cardsText.text : string.Empty;
-        public bool ShowStats => showStats;
+        public bool ShowStats => statsMode != StatsDisplayMode.None;
+        public StatsDisplayMode StatsMode => statsMode;
         public bool IsStatsVisible => statsReadout != null && statsReadout.gameObject.activeSelf;
         public PlayerStatsReadout StatsReadout => statsReadout;
 
@@ -111,7 +108,6 @@ namespace EchoScrap.Combat
         {
             Unsubscribe();
             if (whiteSprite != null) Destroy(whiteSprite);
-            if (armorIcon != null) Destroy(armorIcon);
             if (borderSprite != null) Destroy(borderSprite);
             if (borderTexture != null) Destroy(borderTexture);
         }
@@ -157,7 +153,7 @@ namespace EchoScrap.Combat
 
         private void ResetReadouts()
         {
-            previousSecond = previousHealth = previousMaxHealth = previousCooldown = previousBossHealth = previousArmor = -1;
+            previousSecond = previousHealth = previousMaxHealth = previousCooldown = previousBossHealth = -1;
             previousState = (SessionState)(-1);
             cardsDirty = experienceDirty = true;
             refreshTimer = 0f;
@@ -198,15 +194,6 @@ namespace EchoScrap.Combat
                 previousHealth = hp; previousMaxHealth = maxHp;
                 healthText.text = $"{hp} / {maxHp}";
             }
-            int armor = Mathf.RoundToInt(game.Stats.Armor * 100f);
-            if (previousArmor != armor && armorStrip != null)
-            {
-                previousArmor = armor;
-                armorStrip.gameObject.SetActive(armor > 0);
-                armorText.text = $"ARMADURA {armor}%";
-                int tier = game.Stats.GetUpgradeTier(UpgradeId.SCRAP_01);
-                for (int i = 0; i < armorPlates.Length; i++) armorPlates[i].color = i < tier ? new Color(.66f,.78f,.86f) : new Color(.18f,.24f,.29f);
-            }
             if (experienceDirty)
             {
                 experienceDirty = false;
@@ -234,8 +221,9 @@ namespace EchoScrap.Combat
         {
             if (statsReadout == null || game == null) return;
             var state = game.Session.State;
-            bool visible = showStats && !game.Session.IsPaused && !game.Draft.IsOpen &&
+            bool visible = ShowStats && !game.Session.IsPaused && !game.Draft.IsOpen &&
                 (state == SessionState.Running || state == SessionState.BossIntro);
+            statsReadout.SetDisplayMode(statsMode);
             statsReadout.gameObject.SetActive(visible);
             if (visible) statsReadout.Refresh(game);
         }
@@ -344,11 +332,30 @@ namespace EchoScrap.Combat
         public void SetShakePercent(float value) { if (game != null) game.Session.Effects.ShakeIntensity = value / 100f; }
         public void SetDecorativePercent(float value) { if (game != null) game.Session.Effects.DecorativeIntensity = value / 100f; }
         public void SetReducedEffects(bool value) { if (game != null) game.Session.Effects.ReducedEffectsMode = value; }
-        public void SetStatsVisible(bool value)
+        public void SetStatsVisible(bool value) => SetStatsDisplayMode(value ? StatsDisplayMode.Full : StatsDisplayMode.None);
+        public void SetStatsDisplayMode(StatsDisplayMode value)
         {
-            showStats = value;
-            statsToggle?.SetIsOnWithoutNotify(value);
+            statsMode = value == StatsDisplayMode.Full || value == StatsDisplayMode.Reduced ? value : StatsDisplayMode.None;
+            SyncStatsModeControls();
             RefreshStats();
+        }
+
+        private void SyncStatsModeControls()
+        {
+            for (int i = 0; i < statsModeButtons.Length; i++)
+            {
+                var mode = (StatsDisplayMode)i;
+                Button button = statsModeButtons[i];
+                if (button == null) continue;
+                bool active = statsMode == mode;
+                button.image.color = active ? Apollo : new Color(.15f, .19f, .22f);
+                button.transform.Find("Label").GetComponent<Text>().color = active ? Ink : Pale;
+            }
+            Button selected = statsModeButtons[(int)statsMode];
+            if (selected == null || resumeButton == null || pauseRestartButton == null) return;
+            SetNavigation(reducedToggle, decorativeSlider, selected);
+            SetNavigation(resumeButton, selected, shakeSlider, pauseRestartButton, pauseRestartButton);
+            SetNavigation(pauseRestartButton, selected, shakeSlider, resumeButton, resumeButton);
         }
 
         private void SyncPreferences()
@@ -358,7 +365,7 @@ namespace EchoScrap.Combat
             shakeSlider.SetValueWithoutNotify(preferences.RawShakeIntensity * 100f);
             decorativeSlider.SetValueWithoutNotify(preferences.RawDecorativeIntensity * 100f);
             reducedToggle.SetIsOnWithoutNotify(preferences.ReducedEffectsMode);
-            statsToggle.SetIsOnWithoutNotify(showStats);
+            SyncStatsModeControls();
             shakeLabel.text = $"MOVIMIENTO DE CÁMARA   {Mathf.RoundToInt(preferences.RawShakeIntensity * 100f)}%";
             decorativeLabel.text = $"EFECTOS DECORATIVOS   {Mathf.RoundToInt(preferences.RawDecorativeIntensity * 100f)}%";
         }
@@ -410,22 +417,6 @@ namespace EchoScrap.Combat
             healthText.fontSize=20; healthText.alignment=TextAnchor.MiddleCenter;
             dashText.rectTransform.anchoredPosition=new Vector2(30,-38); dashText.fontSize=20;
             healthText.transform.SetAsLastSibling(); dashText.transform.SetAsLastSibling();
-            armorStrip = Rect(integrity, "Armor", new Vector2(.5f,.5f), new Vector2(43f,-18f), new Vector2(219f,8f));
-            for (int i = 0; i < armorPlates.Length; i++)
-            {
-                var plate = ImageRect(armorStrip, "SteelPlate_" + (i+1), new Vector2((i-2)*43f,0f), new Vector2(40f,6f), new Color(.18f,.24f,.29f));
-                armorPlates[i] = plate;
-                ImageRect(plate.transform, "Bevel", new Vector2(0f,2f), new Vector2(36f,1.5f), new Color(.85f,.91f,.94f,.65f));
-            }
-            var armorTexture = Resources.Load<Texture2D>("Upgrades/Vfx/Armor");
-            if (armorTexture != null)
-            {
-                armorIcon = Sprite.Create(armorTexture, new Rect(0,0,armorTexture.width,armorTexture.height), Vector2.one*.5f, 32);
-                var icon = ImageRect(armorStrip,"SteelShield",new Vector2(-72f,-45f),new Vector2(22f,22f),Color.white);
-                icon.sprite = armorIcon;
-            }
-            armorText = Label(armorStrip, "ArmorValue", new Vector2(0f,-45f), new Vector2(220f,22f), "", 17, TextAnchor.MiddleCenter, new Color(.7f,.83f,.91f));
-            armorStrip.gameObject.SetActive(false);
             statsReadout = PlayerStatsReadout.Create(canvasRect, font, Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin"));
             statsReadout.gameObject.SetActive(false);
             AnchorLabel(canvasRect, "UpgradeHeading", new Vector2(1f, 0f), new Vector2(-275f, 326f), new Vector2(470f, 32f), "MEJORAS", 22, TextAnchor.MiddleRight, Apollo);
@@ -476,19 +467,24 @@ namespace EchoScrap.Combat
             decorativeSlider.onValueChanged.AddListener(SetDecorativePercent);
             reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -85f), "EFECTOS REDUCIDOS");
             reducedToggle.onValueChanged.AddListener(SetReducedEffects);
-            statsToggle = CreateToggle(pauseContent.transform, "ShowStats", new Vector2(0f, -137f), "MOSTRAR ESTADÍSTICAS");
-            statsToggle.SetIsOnWithoutNotify(showStats);
-            statsToggle.onValueChanged.AddListener(SetStatsVisible);
+            var statsModes = Rect(pauseContent.transform, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0f, -137f), new Vector2(640f, 48f));
+            Label(statsModes, "Label", new Vector2(-240f, 0f), new Vector2(160f, 44f), "ESTADÍSTICAS", 21, TextAnchor.MiddleLeft, Pale);
+            CreateStatsModeButton(statsModes, StatsDisplayMode.Full, "Full", -72f, "COMPLETA");
+            CreateStatsModeButton(statsModes, StatsDisplayMode.Reduced, "Reduced", 84f, "REDUCIDA");
+            CreateStatsModeButton(statsModes, StatsDisplayMode.None, "None", 240f, "SIN");
             resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(-170f, -225f), "REANUDAR", pauseSkin != null ? pauseSkin.greenButton : null);
             resumeButton.onClick.AddListener(ResumeGame);
-            var restartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(170f, -225f), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null);
-            restartButton.onClick.AddListener(RestartGame);
+            pauseRestartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(170f, -225f), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null);
+            pauseRestartButton.onClick.AddListener(RestartGame);
             SetNavigation(shakeSlider, resumeButton, decorativeSlider);
             SetNavigation(decorativeSlider, shakeSlider, reducedToggle);
-            SetNavigation(reducedToggle, decorativeSlider, statsToggle);
-            SetNavigation(statsToggle, reducedToggle, resumeButton);
-            SetNavigation(resumeButton, statsToggle, shakeSlider, restartButton, restartButton);
-            SetNavigation(restartButton, statsToggle, shakeSlider, resumeButton, resumeButton);
+            SetNavigation(statsModeButtons[(int)StatsDisplayMode.Full], reducedToggle, resumeButton,
+                statsModeButtons[(int)StatsDisplayMode.None], statsModeButtons[(int)StatsDisplayMode.Reduced]);
+            SetNavigation(statsModeButtons[(int)StatsDisplayMode.Reduced], reducedToggle, resumeButton,
+                statsModeButtons[(int)StatsDisplayMode.Full], statsModeButtons[(int)StatsDisplayMode.None]);
+            SetNavigation(statsModeButtons[(int)StatsDisplayMode.None], reducedToggle, resumeButton,
+                statsModeButtons[(int)StatsDisplayMode.Reduced], statsModeButtons[(int)StatsDisplayMode.Full]);
+            SyncStatsModeControls();
             resultContent = Rect(panel.transform, "Result", Vector2.one * 0.5f, Vector2.zero, new Vector2(760f, 720f)).gameObject;
             resultTitle = Label(resultContent.transform, "Title", new Vector2(0f, 254f), new Vector2(640f, 80f), "VICTORIA", 52, TextAnchor.MiddleCenter, Apollo);
             resultSummary = Label(resultContent.transform, "Summary", new Vector2(0f, 37f), new Vector2(640f, 330f), "", 29, TextAnchor.MiddleCenter, Pale);
@@ -564,6 +560,16 @@ namespace EchoScrap.Combat
             var colors = button.colors; colors.highlightedColor = new Color(1.15f, 1.15f, 1.15f); colors.selectedColor = new Color(1.15f, 1.15f, 1.15f); colors.pressedColor = new Color(0.72f, 0.72f, 0.72f); button.colors = colors;
             Label(panel.transform, "Label", Vector2.zero, new Vector2(600f, 60f), value, 27, TextAnchor.MiddleCenter, color == Apollo ? Ink : Pale);
             return button;
+        }
+        private void CreateStatsModeButton(Transform parent, StatsDisplayMode mode, string name, float x, string value)
+        {
+            Button button = CreateButton(parent, name, new Vector2(x, 0f), value, new Color(.15f, .19f, .22f));
+            button.image.rectTransform.sizeDelta = new Vector2(144f, 44f);
+            var label = button.transform.Find("Label").GetComponent<Text>();
+            label.rectTransform.sizeDelta = new Vector2(136f, 40f);
+            label.fontSize = 20;
+            button.onClick.AddListener(() => SetStatsDisplayMode(mode));
+            statsModeButtons[(int)mode] = button;
         }
         private Button CreatePauseButton(Transform parent, string name, Vector2 position, string value, Sprite sprite)
         {
