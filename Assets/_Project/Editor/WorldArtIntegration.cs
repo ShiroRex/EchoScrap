@@ -103,7 +103,7 @@ namespace EchoScrap.Editor
             Debug.Log("BOSS_PREFAB_OK");
         }
 
-        private static void DecorateGround()
+        public static void DecorateGround()
         {
             const string folder = "Assets/_Project/Art/Mundo3D/Materiales";
             var sand = AssetDatabase.LoadAssetAtPath<Material>(folder + "/SueloVertedero.mat");

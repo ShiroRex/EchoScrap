@@ -341,6 +341,15 @@ namespace EchoScrap.Combat
             RectTransform dash = Rect(canvasRect, "Dash", new Vector2(0f, 0f), new Vector2(220f, 69f), new Vector2(360f, 70f));
             dashText = Label(dash, "DashState", new Vector2(0f, 13f), new Vector2(340f, 36f), "EVASIÓN  LISTA", 24, TextAnchor.MiddleLeft, Apollo);
             dashFill = Fill(ImageRect(dash, "DashTrack", new Vector2(0f, -16f), new Vector2(340f, 7f), new Color(0.15f, 0.17f, 0.19f)).transform, "DashFill", Apollo);
+            integrity.Find("IntegrityLabel").gameObject.SetActive(false);
+            bar.color=Color.clear;
+            dash.Find("DashTrack").GetComponent<Image>().color=Color.clear;
+            HudBarArtwork.Attach(integrity,healthFill,recentHealthFill,true,game);
+            HudBarArtwork.Attach(dash,dashFill,null,false,game);
+            healthText.rectTransform.anchoredPosition=new Vector2(70,-46);
+            healthText.fontSize=20; healthText.alignment=TextAnchor.MiddleCenter;
+            dashText.rectTransform.anchoredPosition=new Vector2(30,-38); dashText.fontSize=20;
+            healthText.transform.SetAsLastSibling(); dashText.transform.SetAsLastSibling();
             AnchorLabel(canvasRect, "UpgradeHeading", new Vector2(1f, 0f), new Vector2(-275f, 326f), new Vector2(470f, 32f), "MEJORAS", 22, TextAnchor.MiddleRight, Apollo);
             cardsText = AnchorLabel(canvasRect, "AcquiredCards", new Vector2(1f, 0f), new Vector2(-275f, 182f), new Vector2(470f, 250f), "Sin mejoras", 22, TextAnchor.UpperRight, new Color(0.73f, 0.78f, 0.77f));
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));

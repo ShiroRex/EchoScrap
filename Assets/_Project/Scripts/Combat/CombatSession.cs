@@ -77,6 +77,12 @@ namespace EchoScrap.Combat
 
         public SessionState State => state;
         public bool IsPaused => Clock.IsPaused;
+        public bool IsInWarehouse { get; private set; }
+        public void SetWarehouseVisit(bool active)
+        {
+            IsInWarehouse = active;
+            PublishSessionState();
+        }
         public float GameplayTime => Clock.GameplayTime;
         public int CurrentSeed => Rng.BaseSeed;
         public PlayerHealth PlayerHealth => playerHealth;
@@ -187,7 +193,7 @@ namespace EchoScrap.Combat
 
         public bool IsGameplayFlowActive()
         {
-            return state == SessionState.Running || state == SessionState.BossIntro;
+            return !IsInWarehouse && (state == SessionState.Running || state == SessionState.BossIntro);
         }
 
         public void SetManualPause(bool paused)
@@ -344,6 +350,7 @@ namespace EchoScrap.Combat
                 initialSeed = newSeed.Value;
 
             pendingPlayerDeath = false;
+            IsInWarehouse = false;
             pendingBossDeath = false;
             bossIntroRequested = false;
             state = SessionState.Running;

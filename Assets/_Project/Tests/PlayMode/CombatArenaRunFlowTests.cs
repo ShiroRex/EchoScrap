@@ -66,9 +66,26 @@ namespace EchoScrap.Tests
             Assert.AreEqual(60f, game.GameplayCamera.fieldOfView, 0.01f);
             Transform arena = GameObject.Find("Arena_120m").transform;
             Assert.AreEqual(new Vector3(200f, 1f, 200f), arena.Find("Floor").localScale);
+            // Se conservan las comprobaciones de los muros de nuestra rama.
+            foreach (string wall in new[] { "Wall_North", "Wall_South", "Wall_East", "Wall_West" })
+            {
+                Transform wallTransform = arena.Find(wall);
+                Assert.IsNotNull(wallTransform, "No se encontro el muro: " + wall);
+                Collider wallCollider = wallTransform.GetComponent<Collider>();
+                Assert.IsNotNull(wallCollider, "El muro no tiene Collider: " + wall);
+                Assert.IsTrue(wallCollider.enabled, "El Collider del muro esta desactivado: " + wall);
+            }
+
+            // Se conservan las comprobaciones nuevas de develop para la arena de 200 m.
             Assert.AreEqual(new Vector2(100f, 100f), game.WaveSettings.ArenaHalfExtents);
             foreach (string edge in new[] { "North", "South", "East", "West" })
-                Assert.IsTrue(arena.Find("ArenaBounds/Border_" + edge).GetComponent<BoxCollider>().enabled);
+            {
+                Transform border = arena.Find("ArenaBounds/Border_" + edge);
+                Assert.IsNotNull(border, "No se encontro el limite: Border_" + edge);
+                BoxCollider borderCollider = border.GetComponent<BoxCollider>();
+                Assert.IsNotNull(borderCollider, "El limite no tiene BoxCollider: Border_" + edge);
+                Assert.IsTrue(borderCollider.enabled, "El Collider del limite esta desactivado: Border_" + edge);
+            }
         }
 
         [Test]
@@ -277,6 +294,23 @@ namespace EchoScrap.Tests
             Assert.IsTrue(game.Hud.IsBossArrowVisible);
         }
 
+        [UnityTest]
+        public IEnumerator ImportedHudUsesOriginalFramesAndPortrait_AndFreezesAnimationWhenPaused()
+        {
+            var root=game.Hud.CanvasRoot.transform;
+            var energy=root.Find("Dash").GetComponent<HudBarArtwork>();
+            Assert.AreEqual(5,energy.FrameCount);
+            Assert.IsNotNull(root.Find("Integrity/Portrait").GetComponent<UnityEngine.UI.Image>().sprite);
+            game.Session.ResumeFromFocusLoss();
+            var seen=new System.Collections.Generic.HashSet<int>();
+            for(int i=0;i<30;i++) { seen.Add(energy.FrameIndex); yield return new WaitForSeconds(.04f); }
+            Assert.Greater(seen.Count,1,"The supplied animation must play.");
+            game.Session.SetManualPause(true);
+            int held=energy.FrameIndex;
+            yield return new WaitForSecondsRealtime(.3f);
+            Assert.AreEqual(held,energy.FrameIndex);
+            game.Session.SetManualPause(false);
+        }
         [UnityTest]
         public IEnumerator HudPreview_CapturesReadable720pAnd1080p_WithAllEightAcquiredCards()
         {
