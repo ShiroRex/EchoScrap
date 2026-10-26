@@ -55,8 +55,11 @@ namespace EchoScrap.Tests
         [Test] public void ObstaclesUseCompoundWorldAlignedBoxes_AndTerrainMatchesItsExpandedHeightProfile()
         {
             var world=GameObject.Find("Mundo3D_EchoScrap");
-            Assert.AreEqual(0,world.GetComponentsInChildren<MeshCollider>(true).Length,"Decorations use stable boxes rather than triangle collisions.");
-            var colliders=world.GetComponentsInChildren<Collider>(true);
+            // The open portal frame and emblem retain their authored mesh surfaces.
+            var colliders=world.GetComponentsInChildren<Collider>(true).Where(c=>
+                !c.transform.IsChildOf(world.transform.Find("Portal")) &&
+                !c.transform.IsChildOf(world.transform.Find("Emblema_triangular"))).ToArray();
+            Assert.AreEqual(0,colliders.OfType<MeshCollider>().Count(),"Scenery uses fitted boxes.");
             Assert.Greater(colliders.Length,100);
             foreach(var collider in colliders)
             {
@@ -74,7 +77,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(200f,game.ArenaGround.bounds.size.z,0.001f);
             for(int x=-95;x<=95;x+=10) for(int z=-95;z<=95;z+=10)
             {
-                Assert.IsTrue(game.ArenaGround.Raycast(new Ray(new Vector3(x,25,z),Vector3.down),out RaycastHit hit,30));
+                Assert.IsTrue(game.ArenaGround.Raycast(new Ray(new Vector3(x,25,z),Vector3.down),out RaycastHit hit,40));
                 Assert.AreEqual(ArenaSurface.Profile(x,z),hit.point.y,0.015f);
             }
             Assert.Greater(ArenaSurface.Height(ArenaSurface.ReferenceToWorld(new Vector3(-24,0,3))),5f);
@@ -352,7 +355,7 @@ namespace EchoScrap.Tests
             for(int i=0;i<300 && body.position.z<-44;i++) yield return new WaitForFixedUpdate();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
             Assert.Greater(body.position.z,-45f,"Can climb back out of the passage.");
-            Assert.AreEqual(1f,body.position.y,0.15f);
+            Assert.AreEqual(ArenaSurface.SupportHeight(body.position,0.5f)+1f,body.position.y,0.15f);
             }
         }
         [UnityTest] public IEnumerator PortalsPreserveCombatAndAllowReturnWithoutBouncing()
@@ -372,6 +375,11 @@ namespace EchoScrap.Tests
             yield return new WaitForFixedUpdate(); yield return null;
             Assert.IsTrue(travel.IsInWarehouse,"Walking into the actual trigger must transport the player.");
             Assert.Greater(body.position.x,170f);
+            var interior=GameObject.Find("BovedaInterior"); Assert.IsNotNull(interior);
+            int slots=0; foreach(var marker in interior.GetComponentsInChildren<Transform>()) if(marker.name.EndsWith("_Coleccionable")) slots++;
+            Assert.AreEqual(8,slots);
+            var confiner=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineConfiner3D>();
+            Assert.IsTrue(confiner.enabled); Assert.AreSame(travel.InteriorCameraBounds,confiner.BoundingVolume);
             float clock=game.Session.GameplayTime;
             Vector3 enemyPosition=enemy.transform.position;
             Assert.IsFalse(travel.TryTravel(true,game.Player),"Prevent an immediate portal bounce.");
@@ -383,10 +391,11 @@ namespace EchoScrap.Tests
             Assert.Less(Vector3.Distance(enemyPosition,enemy.transform.position),0.05f);
             Assert.AreEqual(health,game.Player.CurrentHealth);
             Assert.AreEqual(enemyHealth,enemy.CurrentHealth);
-            yield return Capture("Almacen",new Vector3(199,22,-22),new Vector3(180,0,0));
+            yield return Capture("Almacen",new Vector3(180,5,-15),new Vector3(180,3,15));
             yield return new WaitForSeconds(1.05f);
             body.position=ArenaSurface.OnGround(exit.transform.position,1); Physics.SyncTransforms();
             yield return new WaitForFixedUpdate(); yield return null;
+            if(travel.IsInWarehouse) foreach(var c in Physics.OverlapSphere(body.position,2)) Debug.Log("RETURN_BLOCK body="+body.position+" gate="+exit.transform.position+" collider="+c.name);
             Assert.IsFalse(travel.IsInWarehouse);
             Assert.Less(Vector3.Distance(body.position,travel.CombatArrival.position),0.3f);
             Assert.AreEqual(health,game.Player.CurrentHealth);
@@ -441,6 +450,7 @@ namespace EchoScrap.Tests
             var travel=Object.FindAnyObjectByType<WarehouseTravel>();
             Assert.IsTrue(travel.TryTravel(false,game.Player));
             game.ResetRun(false); yield return null;
+            
             Assert.IsFalse(travel.IsInWarehouse);
             Assert.Less(Vector3.Distance(game.Player.transform.position,game.SpawnPosition),0.1f);
             Assert.IsTrue(game.Session.IsGameplayFlowActive());
@@ -530,3 +540,4 @@ namespace EchoScrap.Tests
         }
     }
 }
+

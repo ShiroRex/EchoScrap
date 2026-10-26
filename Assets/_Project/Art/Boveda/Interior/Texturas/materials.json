@@ -1,0 +1,39 @@
+{
+  "materials": [
+    {
+      "name": "CristalVitrina",
+      "base": "",
+      "normal": "",
+      "emission": "",
+      "metallic": ""
+    },
+    {
+      "name": "HierroVitrina",
+      "base": "",
+      "normal": "",
+      "emission": "",
+      "metallic": ""
+    },
+    {
+      "name": "Material_0",
+      "base": "Assets/_Project/Art/Boveda/Interior/Texturas/2_base.jpg",
+      "normal": "Assets/_Project/Art/Boveda/Interior/Texturas/2_normal.jpg",
+      "emission": "",
+      "metallic": "Assets/_Project/Art/Boveda/Interior/Texturas/2_metallic.png"
+    },
+    {
+      "name": "PiedraVitrina",
+      "base": "",
+      "normal": "",
+      "emission": "",
+      "metallic": ""
+    },
+    {
+      "name": "RemateVitrina",
+      "base": "",
+      "normal": "",
+      "emission": "",
+      "metallic": ""
+    }
+  ]
+}

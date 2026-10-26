@@ -2,6 +2,7 @@ using EchoScrap.Core;
 using EchoScrap.Player;
 using UnityEngine;
 using System.Collections.Generic;
+using Unity.Cinemachine;
 
 namespace EchoScrap.Combat
 {
@@ -10,6 +11,10 @@ namespace EchoScrap.Combat
     {
         public Transform WarehouseArrival;
         public Transform CombatArrival;
+        public Collider InteriorCameraBounds;
+        private Vector3 combatCameraOffset;
+        private Quaternion combatCameraRotation;
+        private bool cameraInside;
         private CombatGameBootstrap game;
         private float nextTravel;
         private struct FrozenBody { public Rigidbody Body; public Vector3 Velocity; public RigidbodyInterpolation Interpolation; }
@@ -22,7 +27,27 @@ namespace EchoScrap.Combat
         }
         private void OnDestroy()
         { if(game!=null) game.Session.SessionReset-=ResetVisit; }
-        private void ResetVisit() { RestoreEnemies(); nextTravel=0f; game.Session.SetWarehouseVisit(false); }
+        private void ResetVisit() { RestoreEnemies(); SetInteriorCamera(false); nextTravel=0f; game.Session.SetWarehouseVisit(false); }
+        private void SetInteriorCamera(bool inside)
+        {
+            if(game==null || InteriorCameraBounds==null || cameraInside==inside) return;
+            var follow=game.CameraRig.GetComponent<CinemachineFollow>();
+            var confiner=game.CameraRig.GetComponent<CinemachineConfiner3D>();
+            if(inside)
+            {
+                combatCameraOffset=follow.FollowOffset; combatCameraRotation=game.CameraRig.transform.rotation;
+                follow.FollowOffset=new Vector3(0,5,-7);
+                game.CameraRig.transform.rotation=Quaternion.Euler(35,0,0);
+                if(confiner==null) confiner=game.CameraRig.gameObject.AddComponent<CinemachineConfiner3D>();
+                confiner.BoundingVolume=InteriorCameraBounds; confiner.enabled=true;
+            }
+            else
+            {
+                follow.FollowOffset=combatCameraOffset; game.CameraRig.transform.rotation=combatCameraRotation;
+                if(confiner!=null) confiner.enabled=false;
+            }
+            cameraInside=inside;
+        }
         private void RestoreEnemies()
         {
             foreach(var snapshot in frozen)
@@ -45,6 +70,7 @@ namespace EchoScrap.Combat
             body.position=position; body.rotation=arrival.rotation;
             body.linearVelocity=Vector3.zero; body.angularVelocity=Vector3.zero;
             game.Session.SetWarehouseVisit(!fromWarehouse);
+            SetInteriorCamera(!fromWarehouse);
             if(fromWarehouse) RestoreEnemies();
             else foreach(var enemy in EnemyActor.ActiveEnemies)
             {

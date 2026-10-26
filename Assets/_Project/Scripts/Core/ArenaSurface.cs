@@ -68,9 +68,6 @@ namespace EchoScrap.Core
             // Escalado dinámico del mapa.
             float scale = Mathf.Max(20f, size) / ReferenceSize;
 
-            x /= scale;
-            z /= scale;
-
             // =================================================
             // EXCAVACIÓN DE LA CUEVA Y PORTAL
             // =================================================
@@ -94,6 +91,11 @@ namespace EchoScrap.Core
 
                 return -8f;
             }
+
+            // El acceso está colocado en metros de mundo. Solo las colinas
+            // heredadas del mapa de referencia usan el escalado horizontal.
+            x /= scale;
+            z /= scale;
 
             // =================================================
             // RELIEVE NATURAL DEL VERTEDERO

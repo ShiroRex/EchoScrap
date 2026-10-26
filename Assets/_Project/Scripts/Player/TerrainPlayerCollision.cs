@@ -14,7 +14,7 @@ namespace EchoScrap.Player
         private readonly RaycastHit[] hits = new RaycastHit[128];
         private float radius, segment;
         private Vector3 centerOffset, lastSafe;
-        private Collider ground;
+        private Collider ground; private Collider stairSupport;
         private bool hasSafe;
 
         public TerrainPlayerCollision(Rigidbody body, CapsuleCollider capsule)
@@ -29,6 +29,15 @@ namespace EchoScrap.Player
             radius = capsule.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
             segment = Mathf.Max(0f, capsule.height * Mathf.Abs(scale.y) * 0.5f - radius);
             centerOffset = body.rotation * Vector3.Scale(capsule.center, scale);
+            // Treads provide support height; their risers are not walls in the clear lane.
+            var stairs=WalkableStairs.Active; stairSupport=null;
+            if(stairs!=null && stairs.Surface!=null) {
+                var b=stairs.Surface.bounds;
+                bool lane=Mathf.Abs(body.position.x-b.center.x)+radius < b.size.x*0.36f
+                    && body.position.z>=b.min.z-radius && body.position.z<=b.max.z+radius;
+                Physics.IgnoreCollision(capsule,stairs.Surface,lane);
+                if(lane) stairSupport=stairs.Surface;
+            }
             body.constraints &= ~RigidbodyConstraints.FreezePositionY;
 
             Vector3 start = Grounded(body.position);
@@ -96,7 +105,7 @@ namespace EchoScrap.Player
             bottom = center - Vector3.up * segment; top = center + Vector3.up * segment;
         }
 
-        private bool Solid(Collider other) => other != null && other != ground;
+        private bool Solid(Collider other) => other != null && other != ground && other != stairSupport;
 
         private bool Blocked(Vector3 root, out Vector3 normal)
         {
