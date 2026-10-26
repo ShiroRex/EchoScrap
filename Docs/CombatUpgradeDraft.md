@@ -304,3 +304,21 @@ midió aproximadamente 0,73 ms por paso de la simulación de mejoras y cero asig
 gestionadas tras calentar las reservas; no es una medición de la GPU ni del frame completo.
 La galería nueva y las secuencias están en `Logs/UpgradeVfxReview/`; las vistas resumidas,
 animación y HUD están en `ArtSource/VFX/Upgrades/Previews/`.
+
+### Normal map de sierras y material mate
+
+`Saw_Normal.png` es un normal tangent-space +Y de 64×64, con alfa idéntica a
+`Saw.png`. Modela biseles de los dientes, ranuras, cubo y tornillo. La fuente
+editable `ArtSource/VFX/Upgrades/Saw_Normal.aseprite` tiene tres capas y etiqueta;
+`Tools/Aseprite/SawNormalMap.lua` lo regenera y audita la coincidencia nativa.
+La importación es NormalMap lineal, Point/Clamp, sin mipmaps ni compresión.
+
+Solo la sierra usa `Resources/Upgrades/Vfx/SawMatte.mat`, con URP/Lit, normal activo,
+suavidad 0,05, emisión negra y especulares/reflejos del cielo desactivados. El tinte
+del material se conserva en el property block; no se sobrescribe con blanco.
+Las tangentes del plano XZ mantienen la orientación del normal al girar la sierra.
+
+Validación: 35/35 pruebas, incluida la escena real con la misma luz antes/después,
+el mismo material con normal desactivado y una luz cambiada de lado. El normal
+modificó 14.030 píxeles del relieve; la respuesta a la luz también cambió. Capturas
+en `Logs/SawNormalMap/` y comparativa en `ArtSource/VFX/Upgrades/Previews/`.

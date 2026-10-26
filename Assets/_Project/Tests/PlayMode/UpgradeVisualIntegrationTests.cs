@@ -52,6 +52,83 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator SawNormalReliefRespondsToLightWithoutEmissionOrSpecularGlare()
+        {
+            var material=Resources.Load<Material>("Upgrades/Vfx/SawMatte");
+            var normal=Resources.Load<Texture2D>("Upgrades/Vfx/Saw_Normal");
+            Assert.That(material,Is.Not.Null);Assert.That(normal,Is.Not.Null);
+            Assert.That(material.shader.name,Is.EqualTo("Universal Render Pipeline/Lit"));
+            Assert.That(material.GetTexture("_BumpMap"),Is.SameAs(normal));
+            Assert.That(material.IsKeywordEnabled("_NORMALMAP"),Is.True);
+            Assert.That(material.GetFloat("_SpecularHighlights"),Is.Zero);
+            Assert.That(material.GetFloat("_EnvironmentReflections"),Is.Zero);
+            Assert.That(material.GetFloat("_Smoothness"),Is.LessThanOrEqualTo(.05f));
+            Assert.That(material.GetColor("_EmissionColor").maxColorComponent,Is.Zero);
+            Assert.That(normal.filterMode,Is.EqualTo(FilterMode.Point));
+            Assert.That(normal.mipmapCount,Is.EqualTo(1));
+#if UNITY_EDITOR
+            var importer=(UnityEditor.TextureImporter)UnityEditor.AssetImporter.GetAtPath("Assets/_Project/Resources/Upgrades/Vfx/Saw_Normal.png");
+            Assert.That(importer.textureType,Is.EqualTo(UnityEditor.TextureImporterType.NormalMap));
+            Assert.That(importer.sRGBTexture,Is.False);Assert.That(importer.flipGreenChannel,Is.False);
+#endif
+            game.Stats.SetUpgradeTier("SCRAP_03",1);game.Upgrades.Step(.001f);
+            MeshRenderer saw=null;
+            foreach(var renderer in game.Upgrades.GetComponentsInChildren<MeshRenderer>())
+                if(renderer.sharedMaterial==material){saw=renderer;break;}
+            Assert.That(saw,Is.Not.Null,"The actual orbital saw must use the matte normal material.");
+            var mesh=saw.GetComponent<MeshFilter>().sharedMesh;
+            Assert.That(mesh.tangents.Length,Is.EqualTo(mesh.vertexCount));
+            Assert.That(mesh.tangents[0].x,Is.GreaterThan(.99f));
+            Assert.That(mesh.tangents[0].w,Is.EqualTo(-1f));
+            var camera=new GameObject("Saw normal review camera").AddComponent<Camera>();
+            camera.CopyFrom(game.GameplayCamera);camera.fieldOfView=38f;
+            var focus=saw.bounds.center;
+            camera.transform.position=focus+new Vector3(0,3.8f,-2f);camera.transform.LookAt(focus);
+            var light=new GameObject("Saw normal test light").AddComponent<Light>();
+            light.type=LightType.Point;light.range=6f;light.intensity=4f;light.shadows=LightShadows.None;
+            light.transform.position=focus+new Vector3(-1.8f,2.2f,0);
+            game.Hud.CanvasRoot.SetActive(false);
+            string folder=Path.Combine(Application.dataPath,"..","Logs","SawNormalMap");Directory.CreateDirectory(folder);
+            var original=saw.sharedMaterial;var block=new MaterialPropertyBlock();saw.GetPropertyBlock(block);
+            var legacy=new Material(Resources.Load<Material>("Upgrades/Vfx/SpriteMaterial"));
+            legacy.SetTexture("_MainTex",Resources.Load<Texture2D>("Upgrades/Vfx/Saw"));
+            legacy.SetFloat("_Glow",1f);
+            var flat=new Material(material);flat.DisableKeyword("_NORMALMAP");
+            try
+            {
+                saw.sharedMaterial=legacy;
+                var oldBlock=new MaterialPropertyBlock();oldBlock.SetColor("_Color",Color.white);saw.SetPropertyBlock(oldBlock);
+                yield return GalleryCapture(camera,folder,"Saw_Before",false);
+                saw.sharedMaterial=original;saw.SetPropertyBlock(block);
+                yield return GalleryCapture(camera,folder,"Saw_Normal_Left",false);
+                saw.sharedMaterial=flat;
+                yield return GalleryCapture(camera,folder,"Saw_Flat_Left",false);
+                saw.sharedMaterial=original;light.transform.position=focus+new Vector3(1.8f,2.2f,0);
+                yield return GalleryCapture(camera,folder,"Saw_Normal_Right",false);
+                var lit=ReadReviewPixels(Path.Combine(folder,"Saw_Normal_Left.png"));
+                var noNormal=ReadReviewPixels(Path.Combine(folder,"Saw_Flat_Left.png"));
+                var right=ReadReviewPixels(Path.Combine(folder,"Saw_Normal_Right.png"));
+                int relief=0,lightResponse=0;
+                for(int y=200;y<700;y++)for(int x=400;x<1000;x++)
+                {
+                    int i=y*1400+x;
+                    int delta=Mathf.Abs(lit[i].r-noNormal[i].r)+Mathf.Abs(lit[i].g-noNormal[i].g)+Mathf.Abs(lit[i].b-noNormal[i].b);
+                    if(delta>8)relief++;
+                    if(Mathf.Abs(lit[i].r-right[i].r)+Mathf.Abs(lit[i].g-right[i].g)+Mathf.Abs(lit[i].b-right[i].b)>12)lightResponse++;
+                }
+                Assert.That(relief,Is.GreaterThan(100),"The normal must change rendered bevels, not just be assigned in the Inspector.");
+                Assert.That(lightResponse,Is.GreaterThan(100));
+                Debug.Log($"[Saw normal] {relief} relief pixels; {lightResponse} moving-light pixels.");
+            }
+            finally{saw.sharedMaterial=original;saw.SetPropertyBlock(block);Object.Destroy(legacy);Object.Destroy(flat);Object.Destroy(camera.gameObject);Object.Destroy(light.gameObject);}
+        }
+        private static Color32[] ReadReviewPixels(string path)
+        {
+            var texture=new Texture2D(2,2,TextureFormat.RGB24,false);texture.LoadImage(File.ReadAllBytes(path));
+            var pixels=texture.GetPixels32();Object.Destroy(texture);return pixels;
+        }
+
+        [UnityTest]
         public IEnumerator PlayableArenaShowsUpgradeEffectsAndRerollWithoutReplacingExistingArt()
         {
             Assert.That(game.Session.Upgrades,Is.SameAs(game.Upgrades));

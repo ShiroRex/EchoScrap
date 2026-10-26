@@ -37,7 +37,7 @@ namespace EchoScrap.Combat
         private readonly View[] views;
         private readonly ParticleRig[] rigs = new ParticleRig[ParticleRigCapacity];
         private readonly Mesh groundQuad, uprightQuad, turretQuad, shieldMesh;
-        private readonly Material flatMaterial, shieldMaterial;
+        private readonly Material flatMaterial, shieldMaterial, sawMaterial;
         private readonly Material[] spriteMaterials = new Material[11];
         private readonly Material[] particleMaterials = new Material[11];
         private readonly Material smokeMaterial;
@@ -61,6 +61,7 @@ namespace EchoScrap.Combat
         public UpgradeEffectPool(Transform parent, int capacity, CollectorSpriteView sprite, EffectPreferences settings)
         {
             collector=sprite; preferences=settings;
+            sawMaterial=Resources.Load<Material>("Upgrades/Vfx/SawMatte");
             groundQuad=Quad(false, false); uprightQuad=Quad(true, false); turretQuad=Quad(true, true); shieldMesh=Sphere();
             flatMaterial=Resources.Load<Material>("Upgrades/UpgradeEffects");
             if(flatMaterial==null) flatMaterial=new Material(Shader.Find("Universal Render Pipeline/Unlit"));
@@ -148,7 +149,7 @@ namespace EchoScrap.Combat
             switch(v.Shape)
             {
                 case Shape.Dart: material=3;break;
-                case Shape.Saw: material=0;break;
+                case Shape.Saw: if(sawMaterial!=null){v.Renderer.sharedMaterial=sawMaterial;return;} material=0;break;
                 case Shape.Mine: material=1;break;
                 case Shape.Turret: material=2;v.Filter.sharedMesh=turretQuad;break;
                 case Shape.Ice: material=4;break;
@@ -169,7 +170,7 @@ namespace EchoScrap.Combat
             if(v==null)return;v.Color=color;
             v.Renderer.GetPropertyBlock(block);
             bool art=v.Shape==Shape.Saw||v.Shape==Shape.Mine||v.Shape==Shape.Turret;
-            Color renderColor=art?Color.white:color;
+            Color renderColor=v.Shape==Shape.Saw&&sawMaterial!=null?sawMaterial.GetColor("_BaseColor"):art?Color.white:color;
             if(v.Shape==Shape.Ring || v.Shape==Shape.Ice)renderColor.a*=.62f;
             block.SetColor(Tint,renderColor);block.SetColor("_BaseColor",renderColor);block.SetFloat(Phase,v.Age);
             block.SetFloat("_Billboard",v.Shape==Shape.Turret?1f:0f);block.SetFloat(Glow,v.Shape==Shape.Shield?1.4f:1f);
@@ -355,7 +356,7 @@ namespace EchoScrap.Combat
         {
             float low=bottomPivot?-.24f:-1f,high=bottomPivot?1.76f:1f;
             var vertices=upright?new[]{new Vector3(-1,low,0),new Vector3(1,low,0),new Vector3(1,high,0),new Vector3(-1,high,0)}:new[]{new Vector3(-1,0,-1),new Vector3(1,0,-1),new Vector3(1,0,1),new Vector3(-1,0,1)};
-            var mesh=new Mesh{name=upright?"Upgrade upright sprite":"Upgrade ground sprite",vertices=vertices,triangles=new[]{0,2,1,0,3,2},uv=new[]{new Vector2(0,0),new Vector2(1,0),new Vector2(1,1),new Vector2(0,1)},colors=new[]{Color.white,Color.white,Color.white,Color.white}};mesh.RecalculateNormals();return mesh;
+            var mesh=new Mesh{name=upright?"Upgrade upright sprite":"Upgrade ground sprite",vertices=vertices,triangles=new[]{0,2,1,0,3,2},uv=new[]{new Vector2(0,0),new Vector2(1,0),new Vector2(1,1),new Vector2(0,1)},colors=new[]{Color.white,Color.white,Color.white,Color.white}};mesh.RecalculateNormals();mesh.RecalculateTangents();return mesh;
         }
         private static Mesh Sphere()
         {
