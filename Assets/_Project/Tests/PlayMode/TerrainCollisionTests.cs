@@ -342,7 +342,8 @@ namespace EchoScrap.Tests
             foreach(float lane in new[]{67f,70f,73f})
             {
             body.position=new Vector3(lane,1,-44); body.linearVelocity=Vector3.zero;
-            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.S)); yield return null;
+            yield return new WaitForSeconds(.5f);
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W)); yield return null;
             for(int i=0;i<300 && body.position.z>-62;i++) yield return new WaitForFixedUpdate();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
             if(body.position.z>=-61.5f)
@@ -351,7 +352,7 @@ namespace EchoScrap.Tests
             Assert.Less(body.position.z,-61.5f,"The stairs must be reachable without invisible blockers, lane="+lane+" body="+body.position);
             Assert.Less(body.position.y,-6.5f);
             yield return Capture("PasilloPortal",new Vector3(88,18,-32),new Vector3(70,-3,-56));
-            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W)); yield return null;
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.S)); yield return null;
             for(int i=0;i<300 && body.position.z<-44;i++) yield return new WaitForFixedUpdate();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
             Assert.Greater(body.position.z,-45f,"Can climb back out of the passage.");
@@ -367,12 +368,37 @@ namespace EchoScrap.Tests
             body.position=ArenaSurface.OnGround(new Vector3(70,0,-50),1); body.linearVelocity=Vector3.zero;
             yield return new WaitForSeconds(1.5f);
             Assert.Greater(director.CaveBlend,.99f);
-            Assert.Less(Quaternion.Angle(game.CameraRig.transform.rotation,Quaternion.Euler(42,180,0)),2);
+            Assert.Less(Quaternion.Angle(game.CameraRig.transform.rotation,Quaternion.Euler(50,180,0)),2);
             Assert.Greater(game.GameplayCamera.transform.position.z,body.position.z);
             yield return Capture("CamaraCueva",game.GameplayCamera.transform.position,game.GameplayCamera.transform.position+game.GameplayCamera.transform.forward*10);
             body.position=Vector3.up; body.linearVelocity=Vector3.zero;
             yield return new WaitForSeconds(1.5f);
             Assert.Less(director.CaveBlend,.01f);Assert.Less(Vector3.Distance(original,follow.FollowOffset),.1f);
+        }
+        [UnityTest] public IEnumerator CaveControlsFollowScreenAndDashUsesW()
+        {
+            foreach(var gateway in Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None)) gateway.GetComponent<Collider>().enabled=false;
+            var body=game.Player.GetComponent<Rigidbody>();
+            body.position=ArenaSurface.OnGround(new Vector3(70,0,-44),1);body.linearVelocity=Vector3.zero;
+            yield return new WaitForSeconds(.5f);
+            var director=Object.FindAnyObjectByType<WarehouseCameraDirector>();
+            Assert.Greater(director.CaveBlend,.99f,"Camera is ready before touching the first stair.");
+            var follow=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineFollow>();
+            Assert.Greater(follow.FollowOffset.magnitude,11.9f,"The orbit never zooms through the player.");
+            foreach(var key in new[]{Key.W,Key.S,Key.A,Key.D}) {
+                body.position=ArenaSurface.OnGround(new Vector3(70,0,-52),1);body.linearVelocity=Vector3.zero;
+                yield return new WaitForFixedUpdate();
+                Vector3 start=body.position;
+                var camera=game.GameplayCamera.transform;
+                Vector3 expected=Vector3.ProjectOnPlane(key==Key.W?camera.forward:key==Key.S?-camera.forward:key==Key.A?-camera.right:camera.right,Vector3.up).normalized;
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState(key));yield return null;
+                for(int i=0;i<8;i++)yield return new WaitForFixedUpdate();
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;
+                Assert.Greater(Vector3.Dot(body.position-start,expected),.25f,key+" must follow screen direction.");
+            }
+            body.position=ArenaSurface.OnGround(new Vector3(70,0,-48),1);body.linearVelocity=Vector3.zero;
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W,Key.Space));yield return null;yield return new WaitForFixedUpdate();yield return new WaitForFixedUpdate();
+            Assert.IsTrue(game.Motor.IsDashing);Assert.Less(game.Motor.DashDirection.z,-.9f,"W + dash heads toward the portal.");
         }
         [Test] public void GarageHasEightLargeAccessibleDisplayAreas()
         {

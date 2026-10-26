@@ -32,6 +32,7 @@ namespace EchoScrap.Player
         private int savedLayer;
         private bool dashLayerApplied;
 
+        public Transform MovementReference { get; set; }
         public LocomotionSettings Settings => settings;
         public Vector3 FacingDirection { get; private set; } = Vector3.forward;
         public Vector3 Velocity => body != null ? body.linearVelocity : Vector3.zero;
@@ -136,6 +137,12 @@ namespace EchoScrap.Player
 
             Vector2 movement = input.Movement;
             Vector3 moveDirection = new Vector3(movement.x, 0f, movement.y);
+            if (MovementReference != null)
+            {
+                Vector3 forward = Vector3.ProjectOnPlane(MovementReference.forward, Vector3.up).normalized;
+                Vector3 right = Vector3.Cross(Vector3.up, forward);
+                moveDirection = right * movement.x + forward * movement.y;
+            }
 
             // Iniciar en el siguiente paso físico disponible si está disponible y hubo una nueva pulsación
             if (!isDashing && cooldownRemaining <= 0.0001f && input.ConsumeDashRequest())
