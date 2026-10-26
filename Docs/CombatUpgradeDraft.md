@@ -36,8 +36,7 @@ La propuesta visual, fuentes individuales y asignación completa están en
 
 Todas las tarjetas comparten además un botón de Aseprite en gris, conectado
 mediante `UpgradeCardSkin.chooseButton`. Se tiñe por rareza y usa 9-slice con
-terminales y esquinas fijos. El texto permanece independiente. Fuente y
-regeneración: `ArtSource/UI/UpgradeCards/Button/README.md`.
+terminales y esquinas fijos. El texto permanece independiente.
 
 `UpgradeDraftPresentation.BindReferences(session, controller)` crea una interfaz de
 tres tarjetas con nombre, rareza, tier, descripción y valores antes/después. Cada
@@ -61,8 +60,7 @@ Cada marco tiene un normal map y material de iluminación de UI. La mayor rareza
 ofrecida, si supera común, recibe un reflejo especular más intenso y un barrido
 lento. Los efectos reducidos conservan el relieve estático.
 Los efectos reducidos conservan la identificación estática y eliminan esos
-movimientos. Arte, fuentes, procedencia y regeneración están
-documentados en `ArtSource/UI/UpgradeCards/README.md`.
+movimientos.
 
 El puntero inclina la superficie con perspectiva: hasta 6° horizontal y 4,5°
 vertical, con retorno por resorte amortiguado. Marco, icono, texto y flechas usan
