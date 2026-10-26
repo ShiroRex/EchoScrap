@@ -182,7 +182,7 @@ namespace EchoScrap.Combat
             "FLASH_02" => "Acelera los pulsos y su descanso.",
             "FLASH_04" => (current == 0 ? "Menos área de ataque.\n" : "Misma área de ataque.\n") + "Empuje +" + Number(OverloadImpulse(next) - OverloadImpulse(current)) + " m/s al elegir.",
             "FLASH_05" => "Alcance " + Number(stats.Settings.SolarBaseRange + stats.LensTier) + " m. Daño x2.5.\n4 pulsos con empuje.",
-            "DASH_01" => stats.GetUpgradeTier(UpgradeId.DASH_04)>0 ? "Cataclismo fija la recarga en 0.5 s.\nVelocidad +8% de la base por nivel." : "Recarga -10% y velocidad +8%\nde la base por nivel.",
+            "DASH_01" => stats.GetUpgradeTier(UpgradeId.DASH_04)>0 ? "Cataclismo mantiene 0.5 s.\nVelocidad +8% de la base." : "Recarga -10% y velocidad +8%\nde la base por nivel.",
             "BIO_01" => "+15 HP de curación al elegir.",
             "GREED_01" => "Atrae gemas y botiquines\ndesde más lejos.",
             "GREED_03" => "Comunes: " + Number(stats.Settings.MedkitChanceAtTier(current, false) * 100f) + "% > " + Number(stats.Settings.MedkitChanceAtTier(next, false) * 100f) + "%\nÉlites: " + Number(stats.Settings.MedkitChanceAtTier(current, true) * 100f) + "% > " + Number(stats.Settings.MedkitChanceAtTier(next, true) * 100f) + "%",

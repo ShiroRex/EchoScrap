@@ -38,3 +38,5 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 0f8ccd760cb92b4499a445efaedc93a9, type: 2}
   - {fileID: 2100000, guid: 7092be5ef393c644fb4a691c9e441ffa, type: 2}
   - {fileID: 2100000, guid: 3cc03547b9a7bb34794e2f4263fb032c, type: 2}
+  newBadge: {fileID: 21300000, guid: 1f6cc5b8140f4e519d326ea6da74b1ec, type: 3}
+  upgradeBadge: {fileID: 21300000, guid: 5f81791764ea4a73acbc28f57d7bb02e, type: 3}

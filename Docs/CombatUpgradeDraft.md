@@ -54,7 +54,15 @@ a partir de 1920 × 1080.
 Los nombres de pantalla se acortaron y el beneficio principal se separó del
 detalle. `UpgradeOffer.PrimaryBefore/PrimaryAfter` muestran el cambio efectivo
 de la estadística principal, sin modificar al jugador. Las ofertas con
-`CurrentTier > 0` incluyen flecha verde y el siguiente nivel. No se cambiaron
+`CurrentTier > 0` incluyen una flecha verde sobre el borde inferior derecho y
+la transición «NIVEL 1 > 2» en la esquina superior derecha. Las nuevas usan una
+pegatina roja «NUEVA» inclinada sobre la esquina superior izquierda y muestran
+«NIVEL 1 / máximo» en la derecha. Ambas etiquetas tienen fuentes por capas de
+Aseprite en `ArtSource/UI/UpgradeCards/Labels/`;
+`Tools/Aseprite/UpgradeCardLabels.lua` las regenera y comprueba contra sus PNG.
+Los nombres disponen de dos líneas y el encaje usa las métricas reales de la
+fuente al cambiar ofertas o escala del Canvas. Reintentar queda arriba a la
+derecha, separado de las pegatinas. No se cambiaron
 IDs, rarezas ni exclusión de cartas saturadas. Los pesos base siguen vigentes
 y Sintonizador aplica su modificador cuando se adquiere. El balance actual
 de botiquines se documenta en `CombatBalance.md`; sus cifras salen del asset.
@@ -192,3 +200,15 @@ La suite Play Mode general produjo 310/316 aprobadas; las seis restantes tambié
 fallan con el código anterior: cruces de rango de mortero, seguimiento de cámara
 en relieve, retorno por portales, paso bajo árboles, posición de un hito e
 intensidad de luz del mapa. Se contrastaron en una copia aislada del proyecto.
+
+
+Revisión de etiquetas (26 de octubre de 2026): sprites nativos de 48×20 y 32×32,
+con cuatro y tres capas editables, alfa binaria y exportación idéntica a la fuente
+reabierta en Aseprite. Las comprobaciones cubren 222 ofertas: todos los niveles de
+las 35 cartas, solas y combinadas con el resto del catálogo al máximo. Se capturan
+los textos largos y las etiquetas nuevas/repetidas a 1040×664, 1280×720 y
+1920×1080 para comprobar que no se solapan ni se recortan.
+
+Validación de esta revisión: 63/63 pruebas de selección, controles, arena y
+mecánicas aprobadas; presentación más reconstrucción del Canvas: 0.009 ms
+por fotograma de media en la comprobación existente de 120 fotogramas.
