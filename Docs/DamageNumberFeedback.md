@@ -179,3 +179,15 @@ continuidad del daño acumulado al moverse el objetivo, distintas cadencias, pau
 efectos reducidos, reciclado y cero asignaciones gestionadas en el recorrido caliente.
 Las 30 capturas de la arena están en `Logs/DamageNumberArcs/` del proyecto de QA y
 la animación revisada en `ArtSource/VFX/Upgrades/Previews/Damage_Number_Arcs.gif`.
+
+La vista previa GIF se exporta con `Tools/ReviewDamageNumberArcs.py`, pasando la
+carpeta de capturas y la ruta del GIF. La paleta usa muestras de las 30 capturas y
+reserva los cuatro colores del daño: amarillo, naranja, rosa y morado. Esto corrige
+la compresión anterior, que fusionaba los tres primeros en un tono anaranjado;
+los colores del juego y de los PNG originales ya eran correctos.
+
+El exportador vuelve a abrir el archivo guardado y comprueba todos sus fotogramas:
+conservación de al menos el 95% de los píxeles identificables de cada tono, composición
+sin restos de fotogramas anteriores y duración total de 1 s. El informe queda junto
+a las capturas en `PaletteAudit.json`. Revisión adicional: 17/17 pruebas de cifras
+de daño y captura de la arena superadas.
