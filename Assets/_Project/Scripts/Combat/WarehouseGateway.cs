@@ -7,6 +7,7 @@ namespace EchoScrap.Combat
     {
         public WarehouseTravel Travel;
         public bool FromWarehouse;
+        private void OnTriggerStay(Collider other) { OnTriggerEnter(other); }
         private void OnTriggerEnter(Collider other)
         {
             var player=other.GetComponentInParent<PlayerHealth>();

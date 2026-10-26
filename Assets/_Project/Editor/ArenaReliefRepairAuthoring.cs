@@ -52,8 +52,7 @@ namespace EchoScrap.Editor
                     if (old != null) Object.DestroyImmediate(old.gameObject);
                     var renderers = anchor.GetComponentsInChildren<Renderer>();
                     if (renderers.Length == 0) continue;
-                    Bounds bounds = renderers[0].bounds;
-                    foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
+                    Bounds bounds = VaultRestorationAuthoring.GeometryBounds(anchor);
                     // The horizontal hill profile scales with the layout; retain local model height.
                     float support = ArenaSurface.Profile(anchor.position.x, anchor.position.z, Size);
                     for (int i = 0; i < 4; i++)
@@ -87,6 +86,12 @@ namespace EchoScrap.Editor
         }
 
         private static bool IsDecoration(string name) => name == "Emblema_triangular" || name == "PortalVortex" || name == "PortalGlow";
+        public static void RebuildGround()
+        {
+            var floor=GameObject.Find("Arena_120m/Floor").transform;
+            floor.GetComponent<ArenaSurface>().WorldSize=Size;
+            BuildFloor(floor); Physics.SyncTransforms();
+        }
         private static void ScalePosition(Transform target, float factor)
         { var p = target.position; p.x *= factor; p.z *= factor; target.position = p; }
 
@@ -161,7 +166,7 @@ namespace EchoScrap.Editor
             mesh.RecalculateNormals(); mesh.RecalculateBounds(); EditorUtility.SetDirty(mesh); return mesh;
         }
 
-        private static int FitBoxes(Transform anchor)
+        public static int FitBoxes(Transform anchor)
         {
             var filters = anchor.GetComponentsInChildren<MeshFilter>();
             if (filters.Length == 0) return 0;
