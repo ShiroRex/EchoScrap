@@ -239,3 +239,24 @@ Pulso colector recoge todas las gemas y botiquines al adquirirlo y en cada subid
 de nivel posterior. Antes solo escuchaba el evento de nivel, que ya había ocurrido
 cuando se elegía la carta. La recogida al adquirirlo pasa por la misma protección
 contra reentrada y conserva las elecciones adicionales generadas por la experiencia.
+
+### Galería de efectos actuales (26 de octubre de 2026)
+
+`UpgradeVisualIntegrationTests.CaptureEachUpgradeEffectForVisualReview` reproduce las
+35 mejoras a nivel 1 en CombatArena. Exporta 40 fotogramas: una referencia sin mejoras,
+una por carta y las fases adicionales de señuelo, Cataclismo, Nanobots y mina. Solo
+se acercan la cámara y se inmoviliza la locomoción de los enemigos; los impactos,
+estados, geometrías, colores y probabilidades proceden de los sistemas del juego.
+Las activaciones aleatorias se intentan hasta observar una activación real.
+
+La salida original del proyecto de pruebas está en `Logs/UpgradeEffectGallery/`,
+con `Manifest.tsv` que describe cada captura. Las copias revisadas, ocho láminas e
+`index.html` se guardan en la misma carpeta Logs del repositorio principal.
+No se modificaron efectos, balance, sprites ni escenas para producir esta galería.
+
+La ralentización usa un aro azul y la congelación una carcasa de cristal. Chispas,
+micro-ensamblador y esquirlas reutilizan dardos con distinto color. Las explosiones,
+curaciones y recogida usan aros compartidos. Ejecución no tiene una marca exclusiva:
+se observa la muerte normal. Blindaje y Chatarrero afectan estadísticas/HUD;
+Sintonizador modifica la selección de cartas. La cadencia y el movimiento requieren
+verlos en juego; una captura estática no representa su velocidad ni duración.
