@@ -18,6 +18,14 @@ se convierte a R=metalizado, A=1-rugosidad para URP. Unity limita las texturas a
 al 3,5 % de su geometría original. El remapeo se hace mediante
 `EchoScrap.Editor.WorldArtIntegration.Materials` en Unity; no requiere mover objetos.
 
+Los 29 materiales importados del escenario usan acabado mate: se desactivan los
+brillos especulares y los reflejos del entorno mediante las propiedades y keywords
+de URP/Lit. La iluminación difusa, las sombras y los mapas originales siguen
+definiendo el volumen. La autoría reaplica esta política al importar materiales de
+`Mundo3D/Texturas`; los materiales del jefe, la bóveda, el vidrio, la lava y el
+vórtice animado del portal tienen su tratamiento independiente. El material
+importado del marco del portal es opaco y comparte el acabado mate del escenario.
+
 ## Plano del vertedero
 
 `EchoScrapWorldBuilder` contiene coordenadas explícitas, sin generador aleatorio:
@@ -79,5 +87,14 @@ Gólgora se conservan para mantener las referencias; la interfaz muestra MataCol
 la frontera 179,99/180 segundos, carga del rig y martillo, ataques, pausa y reinicio.
 También genera capturas en `Logs/WorldArtIntegration/`. Los informes XML y logs de
 la ejecución completa quedan en `Logs/AssetAudit/` (archivos locales excluidos de Git).
+`MatteEnvironmentTests` comprueba los 29 materiales y compara el brillo en la arena
+real con copias temporales de sus materiales. Sus capturas antes/después quedan en
+`Logs/MatteEnvironment/Specular_Before.png` y `Matte_After.png` del proyecto de QA;
+la prueba restaura las referencias originales y no guarda las copias.
 `TerrainCollisionTests` prueba el perfil físico, subida/bajada con controles reales,
 apoyo de enemigos, oclusión de la linterna y proyectiles contra coberturas altas y bajas.
+
+Validación del acabado mate (26 de octubre de 2026): ambas pruebas aprobadas;
+25 materiales presentes en la escena comparados visualmente y los 29 assets
+comprobados. La captura cambia 211476 píxeles al retirar la respuesta especular.
+La ejecución conjunta con las regresiones de UI y combate termina en 66/66.
