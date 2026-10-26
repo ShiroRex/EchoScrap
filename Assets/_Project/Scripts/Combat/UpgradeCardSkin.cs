@@ -8,6 +8,7 @@ namespace EchoScrap.Combat
         public Sprite[] frames;
         public Sprite[] icons;
         public Sprite upgradeArrow;
+        public Sprite chooseButton;
         public Font regular;
         public Font semibold;
         public Material surfaceSheen;

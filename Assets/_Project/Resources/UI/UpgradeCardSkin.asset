@@ -18,15 +18,18 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 68feeed2cfae9e74992407b7627176df, type: 3}
   - {fileID: 21300000, guid: f48a43f47648adf4e88e7825661601c6, type: 3}
   icons:
-  - {fileID: 21300000, guid: 39fac0e4afc1bfa48918ee49752d1a1a, type: 3}
-  - {fileID: 21300000, guid: ccf3140e89d11124a87a75cc85f3ed63, type: 3}
-  - {fileID: 21300000, guid: 772520d69d3ae3f4ebb5fc94882272c3, type: 3}
-  - {fileID: 21300000, guid: 139110c9646bcc0468c1032216d370a9, type: 3}
-  - {fileID: 21300000, guid: 13e39bfedf969a244b09a728cfe42354, type: 3}
-  - {fileID: 21300000, guid: def40ef1a63fda341bb51516a45f3f78, type: 3}
-  - {fileID: 21300000, guid: 280dcae46a01bb648899d8e7c3d79c69, type: 3}
-  - {fileID: 21300000, guid: 344247f3af71e1a4bb6c68df65d17fed, type: 3}
+  - {fileID: 21300000, guid: e2ec024292460534d9a11f39cc233d39, type: 3}
+  - {fileID: 21300000, guid: 3f10ac0afc07bb24b9189dcd9d0f73cd, type: 3}
+  - {fileID: 21300000, guid: 7d807b56fb68c674b988627c52c47912, type: 3}
+  - {fileID: 21300000, guid: c0bdee2007329e94ea90d05b63bbb571, type: 3}
+  - {fileID: 21300000, guid: a942e3387878eff42961d6e5a4217acd, type: 3}
+  - {fileID: 21300000, guid: bea365816968ba7469b2cc61e089e3c6, type: 3}
+  - {fileID: 21300000, guid: 3f4806e07b29eec46b55c28832544319, type: 3}
+  - {fileID: 21300000, guid: 560d61397a008e44b84e50078efe1f84, type: 3}
+  - {fileID: 21300000, guid: e6a5474ea839e2543b2be8eb3d1782db, type: 3}
+  - {fileID: 21300000, guid: 1b2ffc957d0be854b9e1c3a184eac511, type: 3}
   upgradeArrow: {fileID: 21300000, guid: 301984d5d33a9864893c8cee1b61189a, type: 3}
+  chooseButton: {fileID: 21300000, guid: 179c6bcd61e24f1428ee8e7645a0ceb5, type: 3}
   regular: {fileID: 12800000, guid: 241cd391e6f71d24d9b72b418e818501, type: 3}
   semibold: {fileID: 12800000, guid: 7fb2bfea73b128244a62e71eef11a129, type: 3}
   surfaceSheen: {fileID: 2100000, guid: f3e01a057ff092b44bf5331eb1f02649, type: 2}

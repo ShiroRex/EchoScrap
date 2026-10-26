@@ -306,7 +306,7 @@ namespace EchoScrap.Combat
                 cards[i].Detail.text = offer.Detail;
                 cards[i].Confirmation.color = new Color(color.r, color.g, color.b, 0f);
                 cards[i].Icon.sprite = skin.icons[(int)offer.Card.Icon];
-                cards[i].Button.color = Color.Lerp(color, new Color(0.14f, 0.18f, 0.21f), 0.15f);
+                cards[i].Icon.color = color;
             }
             ApplySelection();
             AnimateCards(0f);
@@ -321,6 +321,8 @@ namespace EchoScrap.Combat
                 cards[i].Number.text = i == selectedIndex ? $"[ {i + 1} ]  SELECCIONADA" : $"[ {i + 1} ]";
                 cards[i].Number.color = i == selectedIndex ? color : new Color(0.6f, 0.65f, 0.7f);
                 cards[i].ButtonLabel.text = i == selectedIndex ? "ELEGIR" : "SELECCIONAR";
+                float buttonBrightness = i == selectedIndex ? 1f : 0.82f;
+                cards[i].Button.color = new Color(color.r * buttonBrightness, color.g * buttonBrightness, color.b * buttonBrightness, 1f);
             }
         }
 
@@ -386,6 +388,10 @@ namespace EchoScrap.Combat
             view.Detail = TextRect(inner, "Detail", new Vector2(0f, -207f), new Vector2(320f, 74f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Detail.color = new Color(0.73f, 0.78f, 0.78f);
             view.Button = ImageRect(inner, "ChooseButton", new Vector2(0f, -268f), new Vector2(280f, 42f), Color.white).GetComponent<Image>();
+            view.Button.sprite = skin.chooseButton;
+            view.Button.type = Image.Type.Sliced;
+            view.Button.fillCenter = true;
+            view.Button.pixelsPerUnitMultiplier = 0.5f;
             view.ButtonLabel = TextRect(view.Button.transform, "Label", Vector2.zero, new Vector2(260f, 38f), 22, FontStyle.Bold, TextAnchor.MiddleCenter);
             view.ButtonLabel.color = new Color(0.035f, 0.045f, 0.07f);
             view.Confirmation = ImageRect(view.Root, "ConfirmationFlash", Vector2.zero, new Vector2(400f, 620f), Color.clear, true).GetComponent<Image>();
