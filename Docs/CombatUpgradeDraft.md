@@ -61,8 +61,7 @@ pegatina roja «NUEVA» inclinada sobre la esquina superior izquierda y muestran
 Aseprite en `ArtSource/UI/UpgradeCards/Labels/`;
 `Tools/Aseprite/UpgradeCardLabels.lua` las regenera y comprueba contra sus PNG.
 Los nombres disponen de dos líneas y el encaje usa las métricas reales de la
-fuente al cambiar ofertas o escala del Canvas. Reintentar queda arriba a la
-derecha, separado de las pegatinas. No se cambiaron
+fuente al cambiar ofertas o escala del Canvas. Reintentar queda centrado sobre las cartas, separado de las pegatinas. No se cambiaron
 IDs, rarezas ni exclusión de cartas saturadas. Los pesos base siguen vigentes
 y Sintonizador aplica su modificador cuando se adquiere. El balance actual
 de botiquines se documenta en `CombatBalance.md`; sus cifras salen del asset.
@@ -212,3 +211,17 @@ los textos largos y las etiquetas nuevas/repetidas a 1040×664, 1280×720 y
 Validación de esta revisión: 63/63 pruebas de selección, controles, arena y
 mecánicas aprobadas; presentación más reconstrucción del Canvas: 0.009 ms
 por fotograma de media en la comprobación existente de 120 fotogramas.
+
+
+Centrado (26 de octubre de 2026): rareza, icono, nombre, descripción, valores y
+botón comparten el eje central de cada marco; las dos columnas de comparación
+conservan la misma distancia al centro. Las tres tarjetas usan una geometría base
+idéntica. Se mantiene la ampliación uniforme del 1.8% al seleccionar y la
+confirmación multiplica esa escala en lugar de sustituirla. Pegatinas y flechas
+participan de la misma perspectiva que el resto de la carta. La cabecera queda
+centrada y la escala sigue la altura para conservarla visible también en
+pantallas ultrapanorámicas. Pruebas de ejes, proporciones, márgenes y capturas
+reproducen las cartas de la referencia en 1040×664, 1280×720 y 2560×1080.
+
+Validación del centrado: 64/64 comprobaciones de cartas, controles, arena y
+mecánicas; 66/66 al añadir la comprobación de materiales mates.

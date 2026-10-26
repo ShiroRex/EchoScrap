@@ -972,6 +972,58 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator CardCentersAndButtonsRemainSymmetricWithProportionalSelection()
+        {
+            var view=draft.gameObject.AddComponent<UpgradeDraftPresentation>();view.BindReferences(session,draft);progression.AddExperience(100);
+            stats.SetUpgradeTier("SCRAP_02",1);stats.SetUpgradeTier("GREED_04",2);
+            SetVisualOffers("SCRAP_02","GREED_04","CRIT_04");view.RefreshOffers();view.StepPresentation(.8f);Canvas.ForceUpdateCanvases();
+            for(int selection=0;selection<3;selection++)
+            {
+                if(selection>0)view.MoveSelection(1);
+                view.StepPresentation(.8f);Canvas.ForceUpdateCanvases();
+                for(int i=0;i<3;i++)
+                {
+                    var root=(RectTransform)view.CanvasRoot.transform.Find($"UpgradeCard_{i+1}");
+                    Assert.That(root.rect.size,Is.EqualTo(new Vector2(400,620)));
+                    Assert.That(root.anchoredPosition,Is.EqualTo(new Vector2((i-1)*456,-20)));
+                    float scale=i==selection?1.018f:1f;
+                    Assert.That(root.localScale.x,Is.EqualTo(scale).Within(.0001));
+                    Assert.That(root.localScale.y,Is.EqualTo(scale).Within(.0001));
+                    foreach(string centered in new[]{"RarityTier","TypeIcon","Type","Name","Description","PrimaryLabel","ComparisonArrow","Detail","ChooseButton"})
+                    {
+                        var rect=(RectTransform)root.Find("Panel/"+centered);
+                        Assert.That(rect.anchoredPosition.x,Is.Zero,centered+" must share the frame center.");
+                        Assert.That(root.InverseTransformPoint(rect.position).x,Is.Zero.Within(.0001),centered);
+                    }
+                    var before=(RectTransform)root.Find("Panel/Before");var after=(RectTransform)root.Find("Panel/After");
+                    Assert.That(before.anchoredPosition.x,Is.EqualTo(-after.anchoredPosition.x));
+                    Assert.That(before.anchoredPosition.y,Is.EqualTo(after.anchoredPosition.y));
+                    var button=(RectTransform)root.Find("Panel/ChooseButton");
+                    Assert.That(button.anchoredPosition,Is.EqualTo(new Vector2(0,-272)));
+                    Assert.That(button.rect.size,Is.EqualTo(new Vector2(280,40)));
+                    Assert.That(root.Find("NewBadge").GetComponent<UpgradeCardPerspective>(),Is.Not.Null);
+                    Assert.That(root.Find("UpgradeArrow").GetComponent<UpgradeCardPerspective>(),Is.Not.Null);
+                }
+            }
+            foreach(string name in new[]{"Title","Subtitle","RerollButton"})
+                Assert.That(((RectTransform)view.CanvasRoot.transform.Find(name)).anchoredPosition.x,Is.Zero,name);
+            var camera=new GameObject("Centered cards camera").AddComponent<Camera>();camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.025f,.035f,.05f);
+            camera.transform.position=new Vector3(0,15,-8);camera.transform.LookAt(Vector3.zero);
+            var canvas=view.CanvasRoot.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;
+            view.MoveSelection(1);view.StepPresentation(.8f);
+            yield return CapturePixelCards(camera,view,"Centered_Repeat_720.png",1280,720);
+            yield return CapturePixelCards(camera,view,"Centered_Repeat_1040.png",1040,664);
+            yield return CapturePixelCards(camera,view,"Centered_Repeat_Ultrawide.png",2560,1080);
+            SetVisualOffers("CRYO_01","DEMO_02","CRIT_03");view.RefreshOffers();view.MoveSelection(1);view.StepPresentation(.8f);
+            Assert.That(view.ConfirmSelection(),Is.True);view.StepPresentation(.08f);Canvas.ForceUpdateCanvases();
+            var middle=(RectTransform)view.CanvasRoot.transform.Find("UpgradeCard_2");
+            Assert.That(middle.localScale.x,Is.EqualTo(1.018f*1.045f).Within(.0001));
+            var rerollBounds=RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,view.CanvasRoot.transform.Find("RerollButton"));
+            var labelBounds=RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,middle.Find("NewBadge"));
+            Assert.That(rerollBounds.Intersects(labelBounds),Is.False,"The larger confirmation must not collide with the header.");
+        }
+
+        [UnityTest]
         public IEnumerator CornerLabelsAndAllThirtyFiveCardsFitAtEveryOfferedTier()
         {
             var skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");

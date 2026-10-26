@@ -109,7 +109,7 @@ namespace EchoScrap.Combat
             new UpgradeCardDefinition("DEMO_03", "Minas de chatarra", UpgradeRarity.SR, 3, UpgradeIcon.Demolition, "Coloca minas periódicamente"),
             new UpgradeCardDefinition("DEMO_04", "Termobárica", UpgradeRarity.SSR, 1, UpgradeIcon.Demolition, "Explosiones con implosión"),
             new UpgradeCardDefinition("SCRAP_01", "Blindaje", UpgradeRarity.N, 5, UpgradeIcon.Automation, "+4% armadura y +10 HP"),
-            new UpgradeCardDefinition("SCRAP_02", "Micro-ensamblador", UpgradeRarity.R, 3, UpgradeIcon.Automation, "Un disparo guiado cada 15 gemas"),
+            new UpgradeCardDefinition("SCRAP_02", "Micro-ensamblador", UpgradeRarity.R, 3, UpgradeIcon.Automation, "Disparo cada 15 gemas"),
             new UpgradeCardDefinition("SCRAP_03", "Sierras orbitales", UpgradeRarity.SR, 3, UpgradeIcon.Automation, "Sierras que dañan y empujan"),
             new UpgradeCardDefinition("SCRAP_04", "Torreta centinela", UpgradeRarity.SSR, 1, UpgradeIcon.Automation, "Torreta de ráfagas temporal"),
             new UpgradeCardDefinition("CRYO_01", "Freón residual", UpgradeRarity.N, 5, UpgradeIcon.Cryo, "Los pulsos ralentizan"),

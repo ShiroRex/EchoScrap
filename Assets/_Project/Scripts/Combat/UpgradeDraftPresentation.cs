@@ -58,6 +58,7 @@ namespace EchoScrap.Combat
         private bool pointerMotionActive;
         private Vector2 lastPointerPosition;
         private float fittedCanvasScale = -1f;
+        private const float SelectedCardScale = 1.018f;
 
         public int SelectedIndex => selectedIndex;
         public bool IsConfirming => confirmationIndex >= 0;
@@ -124,7 +125,8 @@ namespace EchoScrap.Combat
             if (confirmationIndex < cards.Length)
             {
                 bool reduced = session != null && (session.Effects.ReducedEffectsMode || session.Effects.DecorativeIntensity <= 0f);
-                cards[confirmationIndex].Root.localScale = Vector3.one * (1f + (reduced ? 0f : Mathf.Sin(t * Mathf.PI) * 0.045f));
+                float selectionScale = reduced ? 1f : SelectedCardScale;
+                cards[confirmationIndex].Root.localScale = Vector3.one * selectionScale * (1f + (reduced ? 0f : Mathf.Sin(t * Mathf.PI) * 0.045f));
                 var tint = cards[confirmationIndex].Confirmation.color;
                 tint.a = Mathf.Sin(t * Mathf.PI) * 0.2f;
                 cards[confirmationIndex].Confirmation.color = tint;
@@ -151,7 +153,7 @@ namespace EchoScrap.Combat
                 float ease = 1f - Mathf.Pow(1f - t, 3f);
                 card.Root.anchoredPosition = card.RestPosition + Vector2.down * ((1f - ease) * 18f);
                 float scale = reduced ? 1f : Mathf.Lerp(0.96f, 1f, ease) + Mathf.Sin(t * Mathf.PI) * 0.015f;
-                if (i == selectedIndex && !reduced) scale *= 1.018f;
+                if (i == selectedIndex && !reduced) scale *= SelectedCardScale;
                 if (confirmationIndex != i) card.Root.localScale = Vector3.one * scale;
                 float shake = !reduced && rarity == UpgradeRarity.SSR && t < 1f ? Mathf.Sin(t * 36f) * (1f - t) * 1.1f : 0f;
                 card.Root.localRotation = Quaternion.Euler(0f, 0f, shake);
@@ -354,15 +356,15 @@ namespace EchoScrap.Combat
             var scaler = canvasRoot.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.matchWidthOrHeight = 1f;
             canvasRect = (RectTransform)canvasRoot.transform;
             RectTransform shade = ImageRect(canvasRect, "Backdrop", Vector2.zero, Vector2.zero, new Color(0.02f, 0.035f, 0.06f, 0.94f));
             shade.anchorMin = Vector2.zero; shade.anchorMax = Vector2.one; shade.offsetMin = Vector2.zero; shade.offsetMax = Vector2.zero;
-            title = TextRect(canvasRect, "Title", new Vector2(0f, 423f), new Vector2(1300f, 65f), 48, FontStyle.Bold, TextAnchor.MiddleCenter);
+            title = TextRect(canvasRect, "Title", new Vector2(0f, 470f), new Vector2(1300f, 65f), 48, FontStyle.Bold, TextAnchor.MiddleCenter);
             title.color = new Color(0.91f, 0.84f, 0.70f);
-            subtitle = TextRect(canvasRect, "Subtitle", new Vector2(0f, 365f), new Vector2(880f, 40f), 21, FontStyle.Normal, TextAnchor.MiddleCenter);
+            subtitle = TextRect(canvasRect, "Subtitle", new Vector2(0f, 418f), new Vector2(1400f, 32f), 21, FontStyle.Normal, TextAnchor.MiddleCenter);
             subtitle.color = new Color(0.62f, 0.68f, 0.72f);
-            rerollButton = ImageRect(canvasRect, "RerollButton", new Vector2(620f, 365f), new Vector2(340f, 40f), new Color(.55f,.72f,.8f));
+            rerollButton = ImageRect(canvasRect, "RerollButton", new Vector2(0f, 372f), new Vector2(340f, 34f), new Color(.55f,.72f,.8f));
             var rerollImage = rerollButton.GetComponent<Image>(); rerollImage.sprite=skin.chooseButton; rerollImage.type=Image.Type.Sliced;
             rerollLabel=TextRect(rerollButton,"RerollLabel",Vector2.zero,new Vector2(330f,44f),20,FontStyle.Bold,TextAnchor.MiddleCenter);
             for (int i = 0; i < cards.Length; i++) cards[i] = BuildCard(i);
@@ -384,7 +386,7 @@ namespace EchoScrap.Combat
             view.Number = TextRect(view.Root, "Selection", new Vector2(0f, -346f), new Vector2(400f, 30f), 21, FontStyle.Bold, TextAnchor.MiddleCenter);
             view.Icon = ImageRect(inner, "TypeIcon", new Vector2(0f, 181f), new Vector2(112f, 112f), Color.white).GetComponent<Image>();
             view.Icon.preserveAspect = true;
-            view.Rarity = TextRect(inner, "RarityTier", new Vector2(-12f, 270f), new Vector2(166f, 30f), 23, FontStyle.Bold, TextAnchor.MiddleCenter);
+            view.Rarity = TextRect(inner, "RarityTier", new Vector2(0f, 270f), new Vector2(166f, 30f), 23, FontStyle.Bold, TextAnchor.MiddleCenter);
             view.Level = TextRect(inner, "Level", new Vector2(132f, 264f), new Vector2(88f, 52f), 18, FontStyle.Bold, TextAnchor.MiddleRight);
             view.Type = TextRect(inner, "Type", new Vector2(0f, 110f), new Vector2(330f, 24f), 18, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Type.color = new Color(0.59f, 0.66f, 0.68f);
@@ -415,12 +417,12 @@ namespace EchoScrap.Combat
             sheen.rectTransform.sizeDelta = new Vector2(376f, 596f);
             sheen.raycastTarget = false;
             view.Motion = view.Root.gameObject.AddComponent<UpgradeCardMotion>();
-            view.Motion.Bind(sheen, skin.surfaceSheen, view.Border, view.Confirmation, skin.litFrames);
             view.NewBadge = ImageRect(view.Root, "NewBadge", new Vector2(-160f, 288f), new Vector2(120f, 50f), Color.white).GetComponent<Image>();
             view.NewBadge.sprite = skin.newBadge; view.NewBadge.preserveAspect = true;
             view.NewBadge.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 35f);
             view.UpgradeArrow = ImageRect(view.Root, "UpgradeArrow", new Vector2(201f, -185f), new Vector2(64f, 64f), Color.white).GetComponent<Image>();
             view.UpgradeArrow.sprite = skin.upgradeBadge; view.UpgradeArrow.preserveAspect = true;
+            view.Motion.Bind(sheen, skin.surfaceSheen, view.Border, view.Confirmation, skin.litFrames);
             return view;
         }
         private static void SetFittedText(Text text, string value, int maximumSize, int minimumSize)
