@@ -1,0 +1,32 @@
+{
+  "materials": [
+    {
+      "name": "AceroPersiana",
+      "base": "",
+      "normal": "",
+      "emission": "",
+      "metallic": ""
+    },
+    {
+      "name": "InteriorFusion",
+      "base": "",
+      "normal": "",
+      "emission": "",
+      "metallic": ""
+    },
+    {
+      "name": "LuzFusion",
+      "base": "",
+      "normal": "",
+      "emission": "",
+      "metallic": ""
+    },
+    {
+      "name": "Material_0",
+      "base": "Assets/_Project/Art/Fusion/Texturas/3_base.jpg",
+      "normal": "Assets/_Project/Art/Fusion/Texturas/3_normal.jpg",
+      "emission": "",
+      "metallic": "Assets/_Project/Art/Fusion/Texturas/3_metallic.png"
+    }
+  ]
+}

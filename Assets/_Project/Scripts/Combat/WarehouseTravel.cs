@@ -12,9 +12,7 @@ namespace EchoScrap.Combat
         public Transform WarehouseArrival;
         public Transform CombatArrival;
         public Collider InteriorCameraBounds;
-        private Vector3 combatCameraOffset;
-        private Quaternion combatCameraRotation;
-        private bool cameraInside;
+        private WarehouseCameraDirector cameraDirector;
         private CombatGameBootstrap game;
         private float nextTravel;
         private struct FrozenBody { public Rigidbody Body; public Vector3 Velocity; public RigidbodyInterpolation Interpolation; }
@@ -23,31 +21,17 @@ namespace EchoScrap.Combat
         private void Start()
         {
             game=FindAnyObjectByType<CombatGameBootstrap>();
-            if(game!=null) game.Session.SessionReset+=ResetVisit;
+            if(game!=null) {
+                cameraDirector=GetComponent<WarehouseCameraDirector>();
+                if(cameraDirector==null) cameraDirector=gameObject.AddComponent<WarehouseCameraDirector>();
+                cameraDirector.Initialize(game,this);
+                game.Session.SessionReset+=ResetVisit;
+            }
         }
         private void OnDestroy()
         { if(game!=null) game.Session.SessionReset-=ResetVisit; }
-        private void ResetVisit() { RestoreEnemies(); SetInteriorCamera(false); nextTravel=0f; game.Session.SetWarehouseVisit(false); }
-        private void SetInteriorCamera(bool inside)
-        {
-            if(game==null || InteriorCameraBounds==null || cameraInside==inside) return;
-            var follow=game.CameraRig.GetComponent<CinemachineFollow>();
-            var confiner=game.CameraRig.GetComponent<CinemachineConfiner3D>();
-            if(inside)
-            {
-                combatCameraOffset=follow.FollowOffset; combatCameraRotation=game.CameraRig.transform.rotation;
-                follow.FollowOffset=new Vector3(0,5,-7);
-                game.CameraRig.transform.rotation=Quaternion.Euler(35,0,0);
-                if(confiner==null) confiner=game.CameraRig.gameObject.AddComponent<CinemachineConfiner3D>();
-                confiner.BoundingVolume=InteriorCameraBounds; confiner.enabled=true;
-            }
-            else
-            {
-                follow.FollowOffset=combatCameraOffset; game.CameraRig.transform.rotation=combatCameraRotation;
-                if(confiner!=null) confiner.enabled=false;
-            }
-            cameraInside=inside;
-        }
+        private void ResetVisit() { RestoreEnemies(); cameraDirector?.ResetView(); nextTravel=0f; game.Session.SetWarehouseVisit(false); }
+        private void SetInteriorCamera(bool inside) => cameraDirector?.SetWarehouse(inside);
         private void RestoreEnemies()
         {
             foreach(var snapshot in frozen)

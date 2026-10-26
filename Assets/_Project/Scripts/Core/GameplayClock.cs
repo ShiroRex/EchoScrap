@@ -10,7 +10,8 @@ namespace EchoScrap.Core
         Manual = 1 << 0,
         TacticalDraft = 1 << 1,
         FocusLost = 1 << 2,
-        SessionEnded = 1 << 3
+        SessionEnded = 1 << 3,
+        FusionMenu = 1 << 4
     }
 
     /// <summary>
