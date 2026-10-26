@@ -43,6 +43,35 @@ namespace EchoScrap.Tests
             CombatTargetRegistry.Clear();
         }
 
+        [UnityTest]
+        public IEnumerator NormalAndQuickScenesStartBossAtTheirOwnConfiguredTime()
+        {
+            foreach (var variant in new[] { ("CombatArena_8Min", 480f), ("CombatArena_3Min", 180f) })
+            {
+                Assert.That(Application.CanStreamedLevelBeLoaded(variant.Item1), Is.True);
+                yield return SceneManager.LoadSceneAsync(variant.Item1, LoadSceneMode.Single);
+                yield return null;
+                game = Object.FindAnyObjectByType<CombatGameBootstrap>();
+                Assert.That(game.IsInitialized, Is.True);
+                game.Director.AutoTick = false;
+                game.Encounter.AutoTick = false;
+                game.ResetRun(false);
+                Assert.That(game.WaveSettings.BossStartTime, Is.EqualTo(variant.Item2));
+                Assert.That(game.WaveSettings.name, Is.EqualTo(variant.Item2 == 480f ? "CombatWaves_8Min" : "CombatWaves_3Min"));
+                game.Session.Clock.SetGameplayTimeForTesting(variant.Item2 - .1f);
+                game.Director.Step();
+                Assert.That(game.Director.IsBossPhase, Is.False);
+                game.Session.Clock.SetGameplayTimeForTesting(variant.Item2);
+                game.Director.Step();
+                Assert.That(game.Director.IsBossPhase, Is.True);
+                Assert.That(game.Encounter.Boss, Is.Not.Null);
+                Assert.That(game.Session.State, Is.EqualTo(SessionState.BossIntro));
+                game.ResetRun(false);
+                Assert.That(game.WaveSettings.BossStartTime, Is.EqualTo(variant.Item2));
+                Assert.That(game.Director.IsBossPhase, Is.False);
+            }
+        }
+
         [Test]
         public void PlayableScene_ComposesOneSession_PlayerWeaponPoolsDraftDirectorBossAndPhysicalArena()
         {

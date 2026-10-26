@@ -21,3 +21,15 @@ XML y hashes de 280 fuentes en `Logs/CombatHudRunFlow/`.
 Tercera build Windows x86_64 completada con `CombatArenaBuilder.BuildWindows`.
 La copia entregada está en `Builds/WindowsCombatPrototype/EchoScrap.exe`; registro
 en `Logs/CombatArenaWindows/Unity.log`. El rendimiento final se mide en la actividad 14.
+
+### Escenas de duración normal y rápida
+
+- `Assets/_Project/Scenes/CombatArena_8Min.unity` usa `CombatWaves_8Min.asset`: Golgora aparece a los 480 segundos de juego.
+- `Assets/_Project/Scenes/CombatArena_3Min.unity` usa `CombatWaves_3Min.asset`: Golgora aparece a los 180 segundos de juego.
+
+Ambas están incluidas en Build Settings y se pueden abrir directamente en Unity.
+Cada variante conserva el mapa, los sistemas y las fases de oleadas de CombatArena,
+con un asset de oleadas independiente. El tiempo indica la entrada del jefe, no una
+victoria automática; el combate continúa. CombatArena original conserva su ajuste.
+La prueba `NormalAndQuickScenesStartBossAtTheirOwnConfiguredTime` carga ambas escenas,
+comprueba la transición justo antes y al alcanzar su tiempo y verifica el reinicio.

@@ -17,5 +17,11 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Project/Scenes/EnemyLaboratory.unity
     guid: d4a114191e119794aa898a849c5ffaaa
+  - enabled: 1
+    path: Assets/_Project/Scenes/CombatArena_8Min.unity
+    guid: 94492f757a57491597373a4fc075cc37
+  - enabled: 1
+    path: Assets/_Project/Scenes/CombatArena_3Min.unity
+    guid: 8e7748952df54017a6ae8b64385c54b8
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
