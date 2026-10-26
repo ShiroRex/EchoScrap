@@ -34,6 +34,11 @@ el catálogo jugable sigue compuesto por las ocho cartas implementadas.
 La propuesta visual, fuentes individuales y asignación completa están en
 `ArtSource/UI/UpgradeCards/Grayscale/DESIGN.md`.
 
+Todas las tarjetas comparten además un botón de Aseprite en gris, conectado
+mediante `UpgradeCardSkin.chooseButton`. Se tiñe por rareza y usa 9-slice con
+terminales y esquinas fijos. El texto permanece independiente. Fuente y
+regeneración: `ArtSource/UI/UpgradeCards/Button/README.md`.
+
 `UpgradeDraftPresentation.BindReferences(session, controller)` crea una interfaz de
 tres tarjetas con nombre, rareza, tier, descripción y valores antes/después. Cada
 tarjeta utiliza un icono pixel art de tipo, un marco por rareza y Chakra Petch;

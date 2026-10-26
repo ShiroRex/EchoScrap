@@ -42,6 +42,7 @@ namespace EchoScrap.Editor
             }
             for (int i = 0; i < skin.icons.Length; i++) skin.icons[i] = Import("Grayscale/Icon_" + (UpgradeIcon)i);
             skin.upgradeArrow = Import("UpgradeArrow");
+            skin.chooseButton = Import("Grayscale/UpgradeButton", new Vector4(6f, 4f, 6f, 4f));
             skin.regular = AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/UI/Fonts/ChakraPetch-Regular.ttf");
             skin.semibold = AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/UI/Fonts/ChakraPetch-SemiBold.ttf");
             if (skin.regular == null || skin.semibold == null) throw new BuildFailedException("Chakra Petch font assets are required.");
@@ -59,13 +60,15 @@ namespace EchoScrap.Editor
             EditorUtility.SetDirty(skin); AssetDatabase.SaveAssets();
             Debug.Log("[EchoScrap] Upgrade cards: four lit 9-sliced frames, ten grayscale icons and Chakra Petch ready.");
         }
-        private static Sprite Import(string name, int border = 0)
+        private static Sprite Import(string name, int border = 0) => Import(name, Vector4.one * border);
+
+        private static Sprite Import(string name, Vector4 border)
         {
             string path = Art + name + ".png";
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
             if (importer == null) throw new BuildFailedException("Missing card art: " + path);
             importer.textureType = TextureImporterType.Sprite; importer.spriteImportMode = SpriteImportMode.Single;
-            importer.spritePixelsPerUnit = 100; importer.spriteBorder = Vector4.one * border;
+            importer.spritePixelsPerUnit = 100; importer.spriteBorder = border;
             var settings = new TextureImporterSettings(); importer.ReadTextureSettings(settings);
             settings.spriteMeshType = SpriteMeshType.FullRect; importer.SetTextureSettings(settings);
             importer.alphaIsTransparency = true; importer.sRGBTexture = true;
