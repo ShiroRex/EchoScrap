@@ -1,0 +1,13 @@
+{
+  "name": "EchoScrap.EditorTests",
+  "rootNamespace": "EchoScrap.Tests",
+  "references": [
+    "EchoScrap.Core",
+    "EchoScrap.Player",
+    "EchoScrap.Combat",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}
