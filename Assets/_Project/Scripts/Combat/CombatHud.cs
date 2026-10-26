@@ -59,6 +59,9 @@ namespace EchoScrap.Combat
         private Slider shakeSlider;
         private Slider decorativeSlider;
         private Toggle reducedToggle;
+        private Toggle statsToggle;
+        private PlayerStatsReadout statsReadout;
+        private bool showStats;
         private Button resumeButton;
         private Button resultRestartButton;
         private readonly StringBuilder cardsBuilder = new StringBuilder(512);
@@ -84,6 +87,9 @@ namespace EchoScrap.Combat
         public string DisplayedHealth => healthText != null ? healthText.text : string.Empty;
         public string DisplayedSummary => resultSummary != null ? resultSummary.text : string.Empty;
         public string DisplayedCards => cardsText != null ? cardsText.text : string.Empty;
+        public bool ShowStats => showStats;
+        public bool IsStatsVisible => statsReadout != null && statsReadout.gameObject.activeSelf;
+        public PlayerStatsReadout StatsReadout => statsReadout;
 
         public void BindReferences(CombatGameBootstrap bootstrap, PlayerHurtPresentation hurt)
         {
@@ -140,7 +146,7 @@ namespace EchoScrap.Combat
             subscribedProgression = null;
         }
 
-        private void HandleStatsChanged() { cardsDirty = true; experienceDirty = true; }
+        private void HandleStatsChanged() { cardsDirty = true; experienceDirty = true; RefreshStats(); }
         private void HandleExperienceChanged(ProgressionSnapshot _) => experienceDirty = true;
         private void HandleSessionState(SessionStateEvent _) => RefreshNow();
         private void HandleDeath(ActorDeathEvent death)
@@ -173,6 +179,7 @@ namespace EchoScrap.Combat
         private void LateUpdate()
         {
             if (game != null) UpdateBossArrow();
+            if (IsStatsVisible) statsReadout.FitToCanvas();
         }
 
         public void RefreshNow()
@@ -220,6 +227,17 @@ namespace EchoScrap.Combat
             if (cardsDirty) RefreshCards();
             RefreshBoss();
             RefreshModal();
+            RefreshStats();
+        }
+
+        private void RefreshStats()
+        {
+            if (statsReadout == null || game == null) return;
+            var state = game.Session.State;
+            bool visible = showStats && !game.Session.IsPaused && !game.Draft.IsOpen &&
+                (state == SessionState.Running || state == SessionState.BossIntro);
+            statsReadout.gameObject.SetActive(visible);
+            if (visible) statsReadout.Refresh(game);
         }
 
         private void RefreshCards()
@@ -326,6 +344,12 @@ namespace EchoScrap.Combat
         public void SetShakePercent(float value) { if (game != null) game.Session.Effects.ShakeIntensity = value / 100f; }
         public void SetDecorativePercent(float value) { if (game != null) game.Session.Effects.DecorativeIntensity = value / 100f; }
         public void SetReducedEffects(bool value) { if (game != null) game.Session.Effects.ReducedEffectsMode = value; }
+        public void SetStatsVisible(bool value)
+        {
+            showStats = value;
+            statsToggle?.SetIsOnWithoutNotify(value);
+            RefreshStats();
+        }
 
         private void SyncPreferences()
         {
@@ -334,6 +358,7 @@ namespace EchoScrap.Combat
             shakeSlider.SetValueWithoutNotify(preferences.RawShakeIntensity * 100f);
             decorativeSlider.SetValueWithoutNotify(preferences.RawDecorativeIntensity * 100f);
             reducedToggle.SetIsOnWithoutNotify(preferences.ReducedEffectsMode);
+            statsToggle.SetIsOnWithoutNotify(showStats);
             shakeLabel.text = $"MOVIMIENTO DE CÁMARA   {Mathf.RoundToInt(preferences.RawShakeIntensity * 100f)}%";
             decorativeLabel.text = $"EFECTOS DECORATIVOS   {Mathf.RoundToInt(preferences.RawDecorativeIntensity * 100f)}%";
         }
@@ -401,6 +426,8 @@ namespace EchoScrap.Combat
             }
             armorText = Label(armorStrip, "ArmorValue", new Vector2(0f,-45f), new Vector2(220f,22f), "", 17, TextAnchor.MiddleCenter, new Color(.7f,.83f,.91f));
             armorStrip.gameObject.SetActive(false);
+            statsReadout = PlayerStatsReadout.Create(canvasRect, font, Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin"));
+            statsReadout.gameObject.SetActive(false);
             AnchorLabel(canvasRect, "UpgradeHeading", new Vector2(1f, 0f), new Vector2(-275f, 326f), new Vector2(470f, 32f), "MEJORAS", 22, TextAnchor.MiddleRight, Apollo);
             cardsText = AnchorLabel(canvasRect, "AcquiredCards", new Vector2(1f, 0f), new Vector2(-275f, 182f), new Vector2(470f, 250f), "Sin mejoras", 22, TextAnchor.UpperRight, new Color(0.73f, 0.78f, 0.77f));
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));
@@ -447,11 +474,21 @@ namespace EchoScrap.Combat
             decorativeLabel = Label(pauseContent.transform, "EffectsLabel", new Vector2(0f, -2f), new Vector2(640f, 38f), "EFECTOS DECORATIVOS   100%", 23, TextAnchor.MiddleLeft, Pale);
             decorativeSlider = CreateSlider(pauseContent.transform, "EffectsSlider", new Vector2(0f, -42f));
             decorativeSlider.onValueChanged.AddListener(SetDecorativePercent);
-            reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -93f), "EFECTOS REDUCIDOS");
+            reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -85f), "EFECTOS REDUCIDOS");
             reducedToggle.onValueChanged.AddListener(SetReducedEffects);
-            resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(-170f, -190f), "REANUDAR", pauseSkin != null ? pauseSkin.greenButton : null);
+            statsToggle = CreateToggle(pauseContent.transform, "ShowStats", new Vector2(0f, -137f), "MOSTRAR ESTADÍSTICAS");
+            statsToggle.SetIsOnWithoutNotify(showStats);
+            statsToggle.onValueChanged.AddListener(SetStatsVisible);
+            resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(-170f, -225f), "REANUDAR", pauseSkin != null ? pauseSkin.greenButton : null);
             resumeButton.onClick.AddListener(ResumeGame);
-            CreatePauseButton(pauseContent.transform, "Restart", new Vector2(170f, -190f), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null).onClick.AddListener(RestartGame);
+            var restartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(170f, -225f), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null);
+            restartButton.onClick.AddListener(RestartGame);
+            SetNavigation(shakeSlider, resumeButton, decorativeSlider);
+            SetNavigation(decorativeSlider, shakeSlider, reducedToggle);
+            SetNavigation(reducedToggle, decorativeSlider, statsToggle);
+            SetNavigation(statsToggle, reducedToggle, resumeButton);
+            SetNavigation(resumeButton, statsToggle, shakeSlider, restartButton, restartButton);
+            SetNavigation(restartButton, statsToggle, shakeSlider, resumeButton, resumeButton);
             resultContent = Rect(panel.transform, "Result", Vector2.one * 0.5f, Vector2.zero, new Vector2(760f, 720f)).gameObject;
             resultTitle = Label(resultContent.transform, "Title", new Vector2(0f, 254f), new Vector2(640f, 80f), "VICTORIA", 52, TextAnchor.MiddleCenter, Apollo);
             resultSummary = Label(resultContent.transform, "Summary", new Vector2(0f, 37f), new Vector2(640f, 330f), "", 29, TextAnchor.MiddleCenter, Pale);
@@ -573,6 +610,15 @@ namespace EchoScrap.Combat
             Toggle toggle = rect.gameObject.AddComponent<Toggle>(); toggle.targetGraphic = background; toggle.graphic = check;
             Label(rect, "Label", new Vector2(33f, 0f), new Vector2(560f, 48f), value, 23, TextAnchor.MiddleLeft, Pale);
             return toggle;
+        }
+        private static void SetNavigation(Selectable control, Selectable up, Selectable down,
+            Selectable left = null, Selectable right = null)
+        {
+            control.navigation = new Navigation
+            {
+                mode = Navigation.Mode.Explicit,
+                selectOnUp = up, selectOnDown = down, selectOnLeft = left, selectOnRight = right
+            };
         }
         private static void Stretch(RectTransform rect)
         {
