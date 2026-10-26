@@ -129,6 +129,41 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator ThrownDamageNumbersShowTheirFullArcInThePlayableArena()
+        {
+            var camera=new GameObject("Thrown damage review camera").AddComponent<Camera>();
+            camera.CopyFrom(game.GameplayCamera);camera.fieldOfView=48f;
+            var p=game.Player.WorldCenter;
+            camera.transform.position=p+new Vector3(0,12,-11);camera.transform.LookAt(p+Vector3.forward*3f);
+            game.DamageNumbers.BindReferences(game.Session,camera);
+            game.Hud.CanvasRoot.SetActive(false);game.Pickups.AutoTick=false;
+            var actors=new EnemyActor[4];
+            for(int i=0;i<actors.Length;i++)actors[i]=GalleryEnemy(p+new Vector3((i-1.5f)*3f,0,4));
+            string folder=Path.Combine(Application.dataPath,"..","Logs","DamageNumberArcs");Directory.CreateDirectory(folder);
+            try
+            {
+                for(int frame=0;frame<30;frame++)
+                {
+                    if(frame==0||frame==4||frame==8)
+                    {
+                        for(int i=0;i<actors.Length;i++)
+                        {
+                            bool critical=i%2==1;
+                            var request=new DamageRequest(game.Player.TargetId,DamageSourceType.UpgradeProjectile,p,Vector3.forward,20,critical,critical?1f:0f,1.75f,damageType:i<2?DamageType.Physical:DamageType.Supernatural);
+                            actors[i].ReceiveDamage(in request);
+                        }
+                    }
+                    game.DamageNumbers.StepPresentation(1f/30);
+                    foreach(var actor in actors)actor.StepVisuals(1f/30);
+                    yield return GalleryCapture(camera,folder,"Frame_"+frame.ToString("00"),false);
+                }
+                Assert.That(game.DamageNumbers.TotalShownCount,Is.EqualTo(12));
+                Assert.That(game.DamageNumbers.ActiveNumberCount,Is.Zero);
+            }
+            finally{Object.Destroy(camera.gameObject);}
+        }
+
+        [UnityTest]
         public IEnumerator PlayableArenaShowsUpgradeEffectsAndRerollWithoutReplacingExistingArt()
         {
             Assert.That(game.Session.Upgrades,Is.SameAs(game.Upgrades));

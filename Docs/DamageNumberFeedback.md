@@ -7,7 +7,7 @@ Añadir un `DamageNumberPresenter` al objeto de presentación de la escena y lla
 canal de eventos de esa sesión. Puede enlazarse después de que exista la cámara;
 no busca cámaras ni actores en el bucle de actualización.
 
-`DamageNumberSettings` permite editar duración, tamaño, colores, ascenso, pop y
+`DamageNumberSettings` permite editar duración, tamaño, colores, altura del arco, lanzamiento, giro, pop y
 altura del anclaje. Puede asignarse como asset. Sin asset crea una configuración
 local y la libera al destruir el presentador. Utiliza la fuente opcional del asset
 o `LegacyRuntime.ttf`, ya empleada por el HUD del proyecto; no necesita importar
@@ -30,7 +30,7 @@ fuentes TMP del prototipo.
 ## Presentación y presupuesto
 
 La referencia visual es `DamageNumberPresenter` del prototipo: duración de 0,65 s,
-ascenso de 48 px, tamaños de 26/32 px, escala 0,82→1,12 en 0,055 s y recuperación a
+altura de referencia de 48 px, tamaños de 26/32 px, escala 0,82→1,12 en 0,055 s y recuperación a
 1 en 0,075 s. La normalización y el presupuesto siguientes corresponden al plan
 aprobado para el proyecto final:
 
@@ -47,7 +47,7 @@ aprobado para el proyecto final:
   de Cinemachine. Los anclajes de impacto no se desplazan por un camera shake.
 - Pausa congela duración y animación, conservando la reproyección si cambia la
   cámara. Efectos reducidos mantienen valores, crítico y prioridades, eliminando
-  el pop y el ascenso decorativo.
+  el pop, el lanzamiento y el giro decorativos.
 - El canvas de daño usa orden 10, por debajo del HUD y sus menús (20). Al pausar,
   el fondo y el panel cubren las etiquetas; reanudar conserva su duración restante.
 - Reinicio, desactivación, entrada del jefe y fin de sesión limpian las etiquetas
@@ -152,3 +152,30 @@ exclusión de jefes. Los datos serializados y los valores predeterminados coinci
 `UpgradeCatalog.DamageLabel(id)` proporciona la etiqueta de la carta. Las reglas
 anteriores separan la categoría visual del daño del color de las partículas de
 la habilidad: una cuchilla celeste no convierte automáticamente su daño en magia.
+
+## Lanzamiento parabólico de los números
+
+Los números salen con impulso, ascienden y caen antes de desvanecerse. Cada etiqueta
+elige dirección izquierda/derecha, desplazamiento de 48–92 unidades de Canvas,
+altura de referencia 48 con variación del 25% e inclinación hasta 9°. Los críticos
+aumentan el impulso un 20%. Los parámetros están expuestos en `DamageNumberSettings`.
+La trayectoria se evalúa como posición inicial + velocidad × tiempo − gravedad ×
+tiempo² / 2; no integra posiciones por frame, por lo que mantiene la forma a otras
+cadencias. Un hash local por aparición proporciona variación sin consumir RNG del
+combate ni de presentación.
+
+Los pulsos acumulados mantienen su cifra y vida útil de 0,65 s desde el último golpe.
+El impacto siguiente añade un impulso menor desde la posición e inclinación actuales,
+sin reiniciar el pop. Si el enemigo se ha desplazado, se compensa el cambio del anclaje
+en pantalla para evitar saltos. La separación entre cifras considera también los
+tramos próximos de las parábolas. EJECUTADO conserva una presentación más estable.
+
+Pausa congela vuelo, giro y caducidad. Los efectos reducidos eliminan el desplazamiento,
+giro y pop conservando los números y colores. Al reciclar una etiqueta se limpian
+su rotación y datos del vuelo. No se crean objetos ni cadenas durante la animación.
+
+Verificación de esta revisión: 26/26 pruebas, incluyendo ascenso/caída, variaciones,
+continuidad del daño acumulado al moverse el objetivo, distintas cadencias, pausa,
+efectos reducidos, reciclado y cero asignaciones gestionadas en el recorrido caliente.
+Las 30 capturas de la arena están en `Logs/DamageNumberArcs/` del proyecto de QA y
+la animación revisada en `ArtSource/VFX/Upgrades/Previews/Damage_Number_Arcs.gif`.

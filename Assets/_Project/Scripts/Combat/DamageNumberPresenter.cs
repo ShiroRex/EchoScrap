@@ -60,6 +60,14 @@ namespace EchoScrap.Combat
             public float UpdatedAt;
             public float HorizontalOffset;
             public float VerticalOffset;
+            public Vector2 FlightOrigin;
+            public Vector2 LaunchVelocity;
+            public float FlightStartedAt;
+            public float LaunchHeight;
+            public float InitialTravel;
+            public float Gravity;
+            public float RotationDegrees;
+            public float RotationOrigin;
         }
 
         private readonly Entry[] entries = new Entry[MaxActiveNumbers];
@@ -72,6 +80,7 @@ namespace EchoScrap.Combat
         private bool initialized;
         private bool ownsSettings;
         private float presentationTime;
+        private uint motionSequence;
 
         public int ActiveNumberCount { get; private set; }
         public int PoolCapacity => initialized ? entries.Length : 0;
@@ -209,12 +218,19 @@ namespace EchoScrap.Combat
                 {
                     if (!existing.Active || !existing.CanAggregate || existing.Critical || existing.TargetId != damage.TargetId ||
                         existing.SourceId != damage.SourceId || existing.BurstId != damage.BurstId || existing.SourceType != damage.SourceType || existing.DamageType != damage.DamageType) continue;
+                    Vector2 currentFlight = FlightOffset(existing);
+                    float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
+                    Camera uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+                    if (intensity > .0001f &&
+                        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, worldCamera.WorldToScreenPoint(existing.WorldPosition), uiCamera, out Vector2 oldAnchor) &&
+                        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, worldCamera.WorldToScreenPoint(anchor), uiCamera, out Vector2 newAnchor))
+                        currentFlight += (oldAnchor-newAnchor)/intensity;
                     existing.Damage = (float)Math.Min(float.MaxValue, (double)existing.Damage + damage.HealthLost);
                     existing.UpdatedAt = presentationTime;
                     existing.WorldPosition = anchor;
                     existing.CanAggregate = !damage.CausedDeath && damage.RemainingHealth > 0f;
                     existing.Label.text = FormattedNumber(existing.Damage, false);
-                    existing.VerticalOffset = ChooseVerticalLane(existing);
+                    StartFlight(existing, currentFlight, settings.AggregateBounceMultiplier);
                     AggregatedHitCount++;
                     Present(existing);
                     return true;
@@ -235,10 +251,46 @@ namespace EchoScrap.Combat
             entry.Label.fontSize = entry.Critical || entry.Executed ? settings.CriticalFontSize : settings.NormalFontSize;
             entry.Label.color = entry.Executed ? settings.ExecutionColor : settings.DamageColor(entry.DamageType, entry.Critical);
             entry.Label.text = entry.Executed ? "EJECUTADO" : FormattedNumber(entry.Damage, entry.Critical);
+            InitializeFlight(entry, in damage);
             entry.VerticalOffset = ChooseVerticalLane(entry);
             TotalShownCount++;
             Present(entry);
             return true;
+        }
+
+        // A local hash varies cosmetics without sampling combat or presentation RNG streams.
+        private static float MotionSample(uint value)
+        {
+            unchecked { value ^= value >> 16; value *= 0x7feb352d; value ^= value >> 15; value *= 0x846ca68b; value ^= value >> 16; }
+            return (value & 0xffffff) / 16777216f;
+        }
+        private void InitializeFlight(Entry entry, in DamageResult damage)
+        {
+            uint seed = unchecked(++motionSequence * 0x9e3779b9u ^ (uint)damage.TargetId * 0x85ebca6bu ^ (uint)damage.SourceId ^ (uint)damage.BurstId * 65711u ^ (uint)damage.PulseIndex << 16);
+            float sign = MotionSample(seed) < .5f ? -1f : 1f;
+            Vector2 travel = settings.HorizontalTravelPixels;
+            float punch = entry.Critical ? settings.CriticalLaunchMultiplier : 1f;
+            entry.InitialTravel = sign * Mathf.Lerp(travel.x, travel.y, MotionSample(seed ^ 0xa511e9b3u)) * punch;
+            entry.LaunchHeight = settings.RisePixels * Mathf.Lerp(1f-settings.HeightVariation, 1f+settings.HeightVariation, MotionSample(seed ^ 0x63d83595u)) * punch;
+            entry.RotationDegrees = Mathf.Lerp(-settings.MaximumTiltDegrees, settings.MaximumTiltDegrees, MotionSample(seed ^ 0xb5297a4du));
+            StartFlight(entry, Vector2.zero, 1f);
+        }
+        private void StartFlight(Entry entry, Vector2 origin, float kick)
+        {
+            float duration = settings.Lifetime;
+            float height = entry.LaunchHeight * kick;
+            entry.FlightOrigin = origin;
+            entry.RotationOrigin = Mathf.DeltaAngle(0f, entry.Rect.localEulerAngles.z);
+            entry.FlightStartedAt = presentationTime;
+            entry.LaunchVelocity = new Vector2(entry.InitialTravel * Mathf.Lerp(.6f, 1f, kick) / duration, 4f*height/duration);
+            entry.Gravity = (8f*height + 2f*settings.LandingDropPixels) / (duration*duration);
+        }
+        private Vector2 FlightOffset(Entry entry) => FlightOffset(entry, presentationTime);
+        private Vector2 FlightOffset(Entry entry, float atTime)
+        {
+            if (entry.Executed) return Vector2.up * (settings.RisePixels*.5f*Mathf.Clamp01((atTime-entry.StartedAt)/settings.ExecutionLifetime));
+            float t = Mathf.Max(0f, atTime-entry.FlightStartedAt);
+            return entry.FlightOrigin + entry.LaunchVelocity*t - Vector2.up*(.5f*entry.Gravity*t*t);
         }
 
         private Entry GetAvailableEntry(bool critical, Vector3 anchor)
@@ -299,7 +351,9 @@ namespace EchoScrap.Combat
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, uiCamera, out Vector2 position))
             {
                 float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
-                position += new Vector2(entry.HorizontalOffset, entry.VerticalOffset + settings.RisePixels * Mathf.Clamp01(age / settings.Lifetime) * intensity);
+                position += new Vector2(entry.HorizontalOffset, entry.VerticalOffset) + FlightOffset(entry)*intensity;
+                float flightProgress = Mathf.Clamp01((presentationTime-entry.FlightStartedAt)/settings.Lifetime);
+                entry.Rect.localRotation = Quaternion.Euler(0f,0f,entry.Executed?0f:(Mathf.Lerp(entry.RotationOrigin,0f,flightProgress)+entry.RotationDegrees*Mathf.Sin(flightProgress*Mathf.PI))*intensity);
                 entry.Rect.anchoredPosition = position;
                 float scale = age < settings.PopInDuration
                     ? Mathf.Lerp(settings.InitialScale, settings.PeakScale, age / settings.PopInDuration)
@@ -321,12 +375,22 @@ namespace EchoScrap.Combat
                 {
                     if (!other.Active || other == entry) continue;
                     Vector3 projected = worldCamera.WorldToScreenPoint(other.WorldPosition);
-                    float otherX = projected.x / scale + other.HorizontalOffset;
-                    float otherY = projected.y / scale + other.VerticalOffset;
                     float otherWidth = other.Label.text.Length * other.Label.fontSize * 0.62f;
-                    if (Mathf.Abs(anchor.x - otherX) < (width + otherWidth) * 0.5f + 6f
-                        && Mathf.Abs(anchor.y + offset - otherY) < settings.CriticalFontSize + 5f)
-                    { overlaps = true; break; }
+                    float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
+                    // Reserve a clear lane through the upcoming arc, not only at its starting point.
+                    for (int sample=0;sample<3;sample++)
+                    {
+                        float atTime=presentationTime+sample*.18f;
+                        if (atTime-other.UpdatedAt >= (other.Executed?settings.ExecutionLifetime:settings.Lifetime)) continue;
+                        Vector2 flight=FlightOffset(other,atTime)*intensity;
+                        Vector2 ownFlight=FlightOffset(entry,atTime)*intensity;
+                        float otherX=projected.x/scale+other.HorizontalOffset+flight.x;
+                        float otherY=projected.y/scale+other.VerticalOffset+flight.y;
+                        if (Mathf.Abs(anchor.x+ownFlight.x-otherX)<(width+otherWidth)*.5f+6f &&
+                            Mathf.Abs(anchor.y+offset+ownFlight.y-otherY)<settings.CriticalFontSize+5f)
+                        {overlaps=true;break;}
+                    }
+                    if (overlaps) break;
                 }
                 if (!overlaps) return offset;
             }
@@ -386,6 +450,9 @@ namespace EchoScrap.Combat
             entry.Active = false; entry.CanAggregate = false; entry.Executed = false;
             entry.Label.canvasRenderer.SetAlpha(0f); entry.Label.canvasRenderer.cull = true;
             entry.Rect.localScale = Vector3.one;
+            entry.Rect.localRotation = Quaternion.identity;
+            entry.FlightOrigin = entry.LaunchVelocity = Vector2.zero;
+            entry.Gravity = entry.RotationDegrees = entry.RotationOrigin = 0f;
         }
         public void Clear()
         {
@@ -395,7 +462,7 @@ namespace EchoScrap.Combat
         }
         private void ResetForSession()
         {
-            Clear(); presentationTime = 0f;
+            Clear(); presentationTime = 0f; motionSequence = 0;
             TotalShownCount = AggregatedHitCount = RecycledNumberCount = DroppedNumberCount = 0;
         }
         private Entry GetActiveEntry(int index)

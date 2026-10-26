@@ -289,6 +289,92 @@ namespace EchoScrap.Tests
             Assert.That(presenter.ActiveNumberCount, Is.EqualTo(1));
         }
 
+        [Test]
+        public void ThrownDamageRisesThenFallsWhileDriftingAndRotating()
+        {
+            var hit=Damage(1,7f,burst:0,type:DamageSourceType.UpgradeSaw);
+            presenter.TryShowDamage(in hit);
+            var label=presenter.GetActiveLabel(0);Vector2 initial=label.rectTransform.anchoredPosition;
+            presenter.StepPresentation(.26f);Vector2 peak=label.rectTransform.anchoredPosition;
+            Assert.That(peak.y,Is.GreaterThan(initial.y+15f));
+            Assert.That(Quaternion.Angle(label.rectTransform.localRotation,Quaternion.identity),Is.GreaterThan(.01f));
+            presenter.StepPresentation(.38f);Vector2 landed=label.rectTransform.anchoredPosition;
+            Assert.That(landed.y,Is.LessThan(initial.y-10f));
+            Assert.That(Mathf.Abs(landed.x-initial.x),Is.GreaterThan(40f));
+            Assert.That(label.canvasRenderer.GetAlpha(),Is.LessThan(.1f));
+            Assert.That(presenter.ActiveNumberCount,Is.EqualTo(1));
+            presenter.StepPresentation(.02f);Assert.That(presenter.ActiveNumberCount,Is.Zero);
+        }
+        [Test]
+        public void IdenticalHitsHaveVariedDirectionsAndHeightsWithoutConsumingRng()
+        {
+            int combat=session.Rng.Combat.SampleCount,visual=session.Rng.Presentation.SampleCount;
+            var starts=new Vector2[12];
+            for(int i=0;i<starts.Length;i++)
+            {
+                var hit=Damage(1,7f,burst:0,type:DamageSourceType.UpgradeSaw);
+                presenter.TryShowDamage(in hit);starts[i]=presenter.GetActiveLabel(i).rectTransform.anchoredPosition;
+            }
+            presenter.StepPresentation(.2f);bool left=false,right=false;float low=float.MaxValue,high=float.MinValue;
+            for(int i=0;i<starts.Length;i++)
+            {
+                Vector2 delta=presenter.GetActiveLabel(i).rectTransform.anchoredPosition-starts[i];
+                left|=delta.x<0;right|=delta.x>0;low=Mathf.Min(low,delta.y);high=Mathf.Max(high,delta.y);
+            }
+            Assert.That(left&&right,Is.True);Assert.That(high-low,Is.GreaterThan(5f));
+            Assert.That(session.Rng.Combat.SampleCount,Is.EqualTo(combat));
+            Assert.That(session.Rng.Presentation.SampleCount,Is.EqualTo(visual));
+        }
+        [Test]
+        public void AggregationKeepsScreenPositionScaleAndTiltWhenTheTargetMoves()
+        {
+            var first=Damage(1,3.75f,burst:42,position:Vector3.up);
+            presenter.TryShowDamage(in first);presenter.StepPresentation(.2f);
+            var label=presenter.GetActiveLabel(0);Vector2 point=label.rectTransform.anchoredPosition;
+            Quaternion tilt=label.rectTransform.localRotation;Vector3 scale=label.rectTransform.localScale;
+            var second=Damage(1,3.75f,burst:42,pulse:2,position:new Vector3(.5f,1,0));
+            presenter.TryShowDamage(in second);
+            Assert.That(presenter.ActiveNumberCount,Is.EqualTo(1));Assert.That(label.text,Is.EqualTo("7.5"));
+            Assert.That(Vector2.Distance(label.rectTransform.anchoredPosition,point),Is.LessThan(.01f));
+            Assert.That(Quaternion.Angle(label.rectTransform.localRotation,tilt),Is.LessThan(.01f));
+            Assert.That(label.rectTransform.localScale,Is.EqualTo(scale));
+            presenter.StepPresentation(.1f);Assert.That(Vector2.Distance(label.rectTransform.anchoredPosition,point),Is.GreaterThan(5f));
+        }
+        [Test]
+        public void ArcIsIndependentOfFrameRateAndPauseFreezesPositionAndTilt()
+        {
+            var hit=Damage(1,7f,burst:0,type:DamageSourceType.UpgradeSaw);
+            presenter.TryShowDamage(in hit);presenter.StepPresentation(.32f);
+            Vector2 single=presenter.GetActiveLabel(0).rectTransform.anchoredPosition;
+            Quaternion singleTilt=presenter.GetActiveLabel(0).rectTransform.localRotation;
+            session.ResetSession(140014);presenter.TryShowDamage(in hit);
+            for(int i=0;i<32;i++)presenter.StepPresentation(.01f);
+            var label=presenter.GetActiveLabel(0);
+            Assert.That(Vector2.Distance(single,label.rectTransform.anchoredPosition),Is.LessThan(.01f));
+            Assert.That(Quaternion.Angle(singleTilt,label.rectTransform.localRotation),Is.LessThan(.01f));
+            session.SetManualPause(true);presenter.StepPresentation(5f);
+            Assert.That(Vector2.Distance(single,label.rectTransform.anchoredPosition),Is.LessThan(.01f));
+            Assert.That(Quaternion.Angle(singleTilt,label.rectTransform.localRotation),Is.LessThan(.01f));
+            session.Effects.ReducedEffectsMode=true;presenter.RefreshProjection();
+            Assert.That(label.rectTransform.localRotation,Is.EqualTo(Quaternion.identity));
+            presenter.Clear();Assert.That(label.rectTransform.localRotation,Is.EqualTo(Quaternion.identity));
+        }
+        [Test]
+        public void WarmedArcSimulationReusesThePoolWithoutManagedAllocations()
+        {
+            var hit=Damage(1,7f,burst:0,type:DamageSourceType.UpgradeSaw);
+            for(int i=0;i<96;i++)presenter.TryShowDamage(in hit);presenter.StepPresentation(.7f);
+            int children=presenter.NumberCanvas.transform.childCount;
+            long before=System.GC.GetAllocatedBytesForCurrentThread();
+            for(int frame=0;frame<120;frame++)
+            {
+                if(frame%3==0)presenter.TryShowDamage(in hit);
+                presenter.StepPresentation(1f/60f);
+            }
+            long allocated=System.GC.GetAllocatedBytesForCurrentThread()-before;
+            Assert.That(allocated,Is.Zero);Assert.That(presenter.NumberCanvas.transform.childCount,Is.EqualTo(children));
+        }
+
         [UnityTest]
         public IEnumerator PreviewShowsAggregatedDamageAndCriticalEmphasisWithoutMaskingActorSilhouettes()
         {
