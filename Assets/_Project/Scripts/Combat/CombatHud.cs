@@ -27,6 +27,9 @@ namespace EchoScrap.Combat
         private GameObject modal;
         private GameObject pauseContent;
         private GameObject resultContent;
+        private Image modalPanel;
+        private Image modalAccent;
+        private PauseMenuSkin pauseSkin;
         private GameObject bossPanel;
         private RectTransform bossArrow;
         private Image healthFill;
@@ -269,6 +272,9 @@ namespace EchoScrap.Combat
             modal.SetActive((ended && !closingVisible) || showPause);
             pauseContent.SetActive(showPause);
             resultContent.SetActive(ended);
+            modalPanel.color = showPause && pauseSkin != null ? Color.clear : Ink;
+            modalPanel.rectTransform.sizeDelta = showPause ? new Vector2(904f, 696f) : new Vector2(760f, 720f);
+            modalAccent.gameObject.SetActive(!showPause || pauseSkin == null);
             if (ended && (state != previousState || !wasVisible))
             {
                 resultTitle.text = state == SessionState.Victory ? "VICTORIA" : "DERROTA";
@@ -308,6 +314,7 @@ namespace EchoScrap.Combat
         {
             if (canvas != null) return;
             font = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.regular ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            pauseSkin = Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin");
             whiteSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height), Vector2.one * 0.5f);
             CreateBorderSprite();
             var root = new GameObject("CombatHUDCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -378,23 +385,29 @@ namespace EchoScrap.Combat
             modal = Rect(canvasRect, "PauseAndResultOverlay", new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero).gameObject;
             Stretch((RectTransform)modal.transform);
             FullScreenImage(modal.transform, "Backdrop", new Color(0.02f, 0.025f, 0.04f, 0.90f)).raycastTarget = true;
-            Image panel = ImageRect(modal.transform, "Panel", Vector2.zero, new Vector2(760f, 720f), Ink);
+            Image panel = modalPanel = ImageRect(modal.transform, "Panel", Vector2.zero, new Vector2(760f, 720f), Ink);
             panel.raycastTarget = true;
-            ImageRect(panel.transform, "TopAccent", new Vector2(0f, 357f), new Vector2(760f, 4f), Apollo);
-            pauseContent = Rect(panel.transform, "Pause", Vector2.one * 0.5f, Vector2.zero, new Vector2(760f, 720f)).gameObject;
-            Label(pauseContent.transform, "Title", new Vector2(0f, 285f), new Vector2(640f, 70f), "PAUSA", 48, TextAnchor.MiddleLeft, Apollo);
-            Label(pauseContent.transform, "Subtitle", new Vector2(0f, 227f), new Vector2(640f, 42f), "ESC / START PARA VOLVER", 22, TextAnchor.MiddleLeft, Pale);
-            shakeLabel = Label(pauseContent.transform, "ShakeLabel", new Vector2(0f, 153f), new Vector2(640f, 38f), "MOVIMIENTO DE CÁMARA   100%", 23, TextAnchor.MiddleLeft, Pale);
-            shakeSlider = CreateSlider(pauseContent.transform, "ShakeSlider", new Vector2(0f, 109f));
+            modalAccent = ImageRect(panel.transform, "TopAccent", new Vector2(0f, 357f), new Vector2(760f, 4f), Apollo);
+            pauseContent = Rect(panel.transform, "Pause", Vector2.one * 0.5f, Vector2.zero, new Vector2(904f, 696f)).gameObject;
+            if (pauseSkin != null)
+            {
+                Image artwork = ImageRect(pauseContent.transform, "Artwork", Vector2.zero, new Vector2(904f, 696f), Color.white);
+                artwork.sprite = pauseSkin.frame;
+                artwork.preserveAspect = true; // Exactly 8x the delivered 113x87 frame, including every ornament.
+            }
+            Label(pauseContent.transform, "Title", new Vector2(0f, 201f), new Vector2(640f, 58f), "PAUSA", 42, TextAnchor.MiddleCenter, Apollo);
+            Label(pauseContent.transform, "Subtitle", new Vector2(0f, 151f), new Vector2(640f, 32f), "ESC / START PARA VOLVER", 20, TextAnchor.MiddleCenter, Pale);
+            shakeLabel = Label(pauseContent.transform, "ShakeLabel", new Vector2(0f, 92f), new Vector2(640f, 38f), "MOVIMIENTO DE CÁMARA   100%", 23, TextAnchor.MiddleLeft, Pale);
+            shakeSlider = CreateSlider(pauseContent.transform, "ShakeSlider", new Vector2(0f, 52f));
             shakeSlider.onValueChanged.AddListener(SetShakePercent);
-            decorativeLabel = Label(pauseContent.transform, "EffectsLabel", new Vector2(0f, 56f), new Vector2(640f, 38f), "EFECTOS DECORATIVOS   100%", 23, TextAnchor.MiddleLeft, Pale);
-            decorativeSlider = CreateSlider(pauseContent.transform, "EffectsSlider", new Vector2(0f, 12f));
+            decorativeLabel = Label(pauseContent.transform, "EffectsLabel", new Vector2(0f, -2f), new Vector2(640f, 38f), "EFECTOS DECORATIVOS   100%", 23, TextAnchor.MiddleLeft, Pale);
+            decorativeSlider = CreateSlider(pauseContent.transform, "EffectsSlider", new Vector2(0f, -42f));
             decorativeSlider.onValueChanged.AddListener(SetDecorativePercent);
-            reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -68f), "EFECTOS REDUCIDOS");
+            reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -93f), "EFECTOS REDUCIDOS");
             reducedToggle.onValueChanged.AddListener(SetReducedEffects);
-            resumeButton = CreateButton(pauseContent.transform, "Resume", new Vector2(0f, -169f), "REANUDAR", Apollo);
+            resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(-170f, -190f), "REANUDAR", pauseSkin != null ? pauseSkin.greenButton : null);
             resumeButton.onClick.AddListener(ResumeGame);
-            CreateButton(pauseContent.transform, "Restart", new Vector2(0f, -261f), "REINICIAR", new Color(0.24f, 0.29f, 0.31f)).onClick.AddListener(RestartGame);
+            CreatePauseButton(pauseContent.transform, "Restart", new Vector2(170f, -190f), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null).onClick.AddListener(RestartGame);
             resultContent = Rect(panel.transform, "Result", Vector2.one * 0.5f, Vector2.zero, new Vector2(760f, 720f)).gameObject;
             resultTitle = Label(resultContent.transform, "Title", new Vector2(0f, 254f), new Vector2(640f, 80f), "VICTORIA", 52, TextAnchor.MiddleCenter, Apollo);
             resultSummary = Label(resultContent.transform, "Summary", new Vector2(0f, 37f), new Vector2(640f, 330f), "", 29, TextAnchor.MiddleCenter, Pale);
@@ -469,6 +482,23 @@ namespace EchoScrap.Combat
             Button button = panel.gameObject.AddComponent<Button>(); button.targetGraphic = panel;
             var colors = button.colors; colors.highlightedColor = new Color(1.15f, 1.15f, 1.15f); colors.selectedColor = new Color(1.15f, 1.15f, 1.15f); colors.pressedColor = new Color(0.72f, 0.72f, 0.72f); button.colors = colors;
             Label(panel.transform, "Label", Vector2.zero, new Vector2(600f, 60f), value, 27, TextAnchor.MiddleCenter, color == Apollo ? Ink : Pale);
+            return button;
+        }
+        private Button CreatePauseButton(Transform parent, string name, Vector2 position, string value, Sprite sprite)
+        {
+            Button button = CreateButton(parent, name, position, value, Color.white);
+            button.image.rectTransform.sizeDelta = new Vector2(304f, 112f);
+            var label = button.transform.Find("Label").GetComponent<Text>();
+            label.rectTransform.sizeDelta = new Vector2(244f, 72f);
+            if (sprite == null || pauseSkin == null) return button;
+            button.image.sprite = sprite;
+            button.image.type = Image.Type.Sliced;
+            button.image.pixelsPerUnitMultiplier = 0.5f;
+            button.transition = Selectable.Transition.SpriteSwap;
+            SpriteState states = button.spriteState;
+            states.highlightedSprite = states.selectedSprite = pauseSkin.blueButton;
+            states.pressedSprite = states.disabledSprite = sprite;
+            button.spriteState = states;
             return button;
         }
         private Slider CreateSlider(Transform parent, string name, Vector2 position)
