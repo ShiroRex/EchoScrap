@@ -25,7 +25,8 @@ namespace EchoScrap.Core
         BossBombardmentImpact = 6,
         BossBombardmentPuddle = 7,
         DummyOrHazard = 8,
-        Lava = 9
+        Lava = 9,
+        UpgradeProjectile = 10, UpgradeExplosion = 11, UpgradeFrost = 12, UpgradeSaw = 13, UpgradeTurret = 14, UpgradeBlade = 15
     }
 
     public readonly struct DamageRequest

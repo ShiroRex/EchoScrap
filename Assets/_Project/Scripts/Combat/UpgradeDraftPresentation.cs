@@ -38,6 +38,8 @@ namespace EchoScrap.Combat
         private RectTransform canvasRect;
         private Canvas cardCanvas;
         private RectTransform continueButton;
+        private RectTransform rerollButton;
+        private Text rerollLabel;
         private Text title;
         private Text subtitle;
         private Text emptyMessage;
@@ -177,13 +179,15 @@ namespace EchoScrap.Combat
             Mouse mouse = Mouse.current;
             bool pointerMoved = TrackPointer(mouse);
             bool held = (keyboard != null && (keyboard.enterKey.isPressed || keyboard.spaceKey.isPressed ||
-                keyboard.digit1Key.isPressed || keyboard.digit2Key.isPressed || keyboard.digit3Key.isPressed)) ||
-                (gamepad != null && gamepad.buttonSouth.isPressed) || (mouse != null && mouse.leftButton.isPressed);
+                keyboard.rKey.isPressed || keyboard.digit1Key.isPressed || keyboard.digit2Key.isPressed || keyboard.digit3Key.isPressed)) ||
+                (gamepad != null && (gamepad.buttonSouth.isPressed || gamepad.buttonNorth.isPressed)) || (mouse != null && mouse.leftButton.isPressed);
             if (!inputArmed)
             {
                 if (!held) inputArmed = true;
                 return;
             }
+            if ((keyboard != null && keyboard.rKey.wasPressedThisFrame) || (gamepad != null && gamepad.buttonNorth.wasPressedThisFrame))
+            { controller.TryReroll(); return; }
             if (keyboard != null)
             {
                 if (keyboard.leftArrowKey.wasPressedThisFrame || keyboard.aKey.wasPressedThisFrame) MoveSelection(-1);
@@ -210,6 +214,7 @@ namespace EchoScrap.Combat
             if (mouse != null)
             {
                 Vector2 position = mouse.position.ReadValue();
+                if (mouse.leftButton.wasPressedThisFrame && rerollButton.gameObject.activeSelf && RectTransformUtility.RectangleContainsScreenPoint(rerollButton,position,InputCamera)) {controller.TryReroll();return;}
                 for (int i = 0; i < controller.Offers.Count; i++)
                 {
                     if (!RectTransformUtility.RectangleContainsScreenPoint(cards[i].Root, position, InputCamera)) continue;
@@ -269,6 +274,8 @@ namespace EchoScrap.Combat
             if (!canvasRoot.activeSelf) return;
             title.text = "ELIGE UNA MEJORA";
             subtitle.text = controller.PendingChoices > 1 ? $"SUBIDA DE NIVEL  /  {controller.PendingChoices} ELECCIONES PENDIENTES" : "SUBIDA DE NIVEL  /  EL COMBATE ESTÁ EN PAUSA";
+            rerollButton.gameObject.SetActive(controller.RerollsRemaining > 0);
+            rerollLabel.text = "REINTENTAR [R / Y]  ·  " + controller.RerollsRemaining;
             bool empty = controller.Offers.Count == 0;
             emptyMessage.gameObject.SetActive(empty);
             continueButton.gameObject.SetActive(empty);
@@ -349,6 +356,9 @@ namespace EchoScrap.Combat
             title.color = new Color(0.91f, 0.84f, 0.70f);
             subtitle = TextRect(canvasRect, "Subtitle", new Vector2(0f, 365f), new Vector2(1400f, 40f), 21, FontStyle.Normal, TextAnchor.MiddleCenter);
             subtitle.color = new Color(0.62f, 0.68f, 0.72f);
+            rerollButton = ImageRect(canvasRect, "RerollButton", new Vector2(0f, 320f), new Vector2(380f, 40f), new Color(.55f,.72f,.8f));
+            var rerollImage = rerollButton.GetComponent<Image>(); rerollImage.sprite=skin.chooseButton; rerollImage.type=Image.Type.Sliced;
+            rerollLabel=TextRect(rerollButton,"RerollLabel",Vector2.zero,new Vector2(370f,44f),20,FontStyle.Bold,TextAnchor.MiddleCenter);
             for (int i = 0; i < cards.Length; i++) cards[i] = BuildCard(i);
             emptyMessage = TextRect(canvasRect, "ExhaustedCatalog", new Vector2(0f, 70f), new Vector2(1200f, 130f), 32, FontStyle.Normal, TextAnchor.MiddleCenter);
             emptyMessage.text = "Todas las mejoras han alcanzado su nivel máximo.\nPuedes continuar la partida.";
@@ -375,6 +385,7 @@ namespace EchoScrap.Combat
             view.Type = TextRect(inner, "Type", new Vector2(0f, 74f), new Vector2(330f, 25f), 18, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Type.color = new Color(0.59f, 0.66f, 0.68f);
             view.Name = TextRect(inner, "Name", new Vector2(0f, 31f), new Vector2(330f, 48f), 36, FontStyle.Bold, TextAnchor.MiddleCenter);
+            view.Name.resizeTextForBestFit=true; view.Name.resizeTextMinSize=28; view.Name.resizeTextMaxSize=36;
             view.Description = TextRect(inner, "Description", new Vector2(0f, -15f), new Vector2(330f, 48f), 25, FontStyle.Bold, TextAnchor.MiddleCenter);
             view.Description.color = new Color(0.91f, 0.84f, 0.69f);
             ImageRect(inner, "Divider", new Vector2(0f, -55f), new Vector2(290f, 2f), new Color(0.18f, 0.23f, 0.26f));

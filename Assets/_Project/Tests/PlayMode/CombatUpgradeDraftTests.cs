@@ -69,9 +69,9 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void CatalogPreviewsDoNotMutateStats_AndAllEightMaxTierFormulasAgree()
+        public void CatalogPreviewsDoNotMutateStats_AndAllMaxTierFormulasAgree()
         {
-            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(8));
+            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(35));
             var ids = new HashSet<string>();
             foreach (var card in UpgradeCatalog.Cards)
             {
@@ -92,7 +92,7 @@ namespace EchoScrap.Tests
             Assert.That(stats.EffectiveBurstRestDuration, Is.Zero);
             Assert.That(stats.DashSpeed, Is.EqualTo(30.8f).Within(0.0001f));
             Assert.That(stats.DashCooldown, Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(stats.MaxHealth, Is.EqualTo(200f));
+            Assert.That(stats.MaxHealth, Is.EqualTo(250f));
             Assert.That(stats.MagnetRadius, Is.EqualTo(12.5f));
             Assert.That(stats.MedkitHealAmount, Is.EqualTo(21f));
             Assert.That(stats.GetMedkitDropChance(false), Is.EqualTo(0.06f));
@@ -182,7 +182,7 @@ namespace EchoScrap.Tests
 
             // Exercise SSR eligibility while all other cards are still tier zero.
             bool solarOfferedWithoutPrerequisites = false;
-            for (int seed = 1; seed <= 128 && !solarOfferedWithoutPrerequisites; seed++)
+            for (int seed = 1; seed <= 1024 && !solarOfferedWithoutPrerequisites; seed++)
             {
                 session.ResetSession(seed);
                 progression.AddExperience(100);
@@ -220,14 +220,14 @@ namespace EchoScrap.Tests
             int choices = 0;
             draft.OnCardChosen += card => { if (card.Id == "BIO_01") choices++; };
             Assert.That(draft.TryChoose(0), Is.True);
-            Assert.That(health.MaxHealth, Is.EqualTo(120f));
+            Assert.That(health.MaxHealth, Is.EqualTo(170f));
             Assert.That(health.CurrentHealth, Is.EqualTo(85f));
             Assert.That(stats.BioAlloyTier, Is.EqualTo(1));
             Assert.That(draft.TryChoose(0), Is.True);
-            Assert.That(health.MaxHealth, Is.EqualTo(140f));
+            Assert.That(health.MaxHealth, Is.EqualTo(190f));
             Assert.That(health.CurrentHealth, Is.EqualTo(100f));
             Assert.That(draft.TryChoose(0), Is.True);
-            Assert.That(health.MaxHealth, Is.EqualTo(160f));
+            Assert.That(health.MaxHealth, Is.EqualTo(210f));
             Assert.That(health.CurrentHealth, Is.EqualTo(115f));
             Assert.That(choices, Is.EqualTo(3));
             Assert.That(draft.TryChoose(0), Is.False);
@@ -658,7 +658,7 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void SharedIconFamiliesCoverAllDesignedCardsWithoutEnablingUnimplementedUpgrades()
+        public void SharedIconFamiliesCoverAllThirtyFiveImplementedCards()
         {
             var expected = new HashSet<string>();
             foreach (var group in new[] { ("FLASH", 5), ("DASH", 4), ("BIO", 4), ("GREED", 5), ("CRIT", 5), ("DEMO", 4), ("SCRAP", 4), ("CRYO", 4) })
@@ -670,8 +670,8 @@ namespace EchoScrap.Tests
                 Assert.That(UpgradeCatalog.TryGetIcon(card.Id, out var icon), Is.True);
                 Assert.That(card.Icon, Is.EqualTo(icon));
             }
-            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(8));
-            Assert.That(UpgradeCatalog.TryGet("CRYO_01", out _), Is.False);
+            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(35));
+            Assert.That(UpgradeCatalog.TryGet("CRYO_01", out _), Is.True);
             Assert.That(UpgradeCatalog.TryGetIcon("UNKNOWN", out _), Is.False);
         }
 

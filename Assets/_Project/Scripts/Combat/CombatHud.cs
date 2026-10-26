@@ -219,6 +219,19 @@ namespace EchoScrap.Combat
                 if (count++ > 0) cardsBuilder.Append('\n');
                 cardsBuilder.Append(card.Name).Append("  ").Append(tier).Append('/').Append(card.MaxTier);
             }
+            if (count > 8)
+            {
+                cardsBuilder.Clear();
+                for(int group=0;group<10;group++)
+                {
+                    int owned=0,levels=0;
+                    foreach(var card in UpgradeCatalog.Cards) if((int)card.Icon==group && game.Stats.GetUpgradeTier(card.Id)>0) {owned++;levels+=game.Stats.GetUpgradeTier(card.Id);}
+                    if(owned==0)continue;
+                    if(cardsBuilder.Length>0)cardsBuilder.Append('\n');
+                    cardsBuilder.Append(UpgradeCatalog.TypeName((UpgradeIcon)group)).Append("  ").Append(owned).Append(" mejoras · ").Append(levels).Append(" niveles");
+                }
+                cardsText.fontSize=18;
+            } else cardsText.fontSize=22;
             cardsText.text = count == 0 ? "Sin mejoras" : cardsBuilder.ToString();
         }
 

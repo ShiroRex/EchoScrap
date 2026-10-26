@@ -5,7 +5,7 @@ namespace EchoScrap.Core
 {
     /// <summary>
     /// Estado de estadísticas y mejoras adquiridas por instancia del jugador.
-    /// Aplica los límites de mitigación y las fórmulas de las ocho cartas del GDD.
+    /// Aplica los límites de mitigación y las fórmulas de las 35 cartas del GDD.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerRuntimeStats : MonoBehaviour
@@ -19,15 +19,18 @@ namespace EchoScrap.Core
         private float bonusCritChance;
         private float bonusMoveSpeed;
 
-        // Tiers de las 8 cartas del GDD
-        private int lensTier;           // FLASH_01: +1 m y +10° por tier (max 5)
-        private int ballastTier;        // FLASH_02: +15% AS por tier (max 5)
-        private int overloadTier;       // FLASH_04: -20° una vez; daño +50/+80/+120%; impulso +8/+14/+20 (max 3)
-        private int solarTier;          // FLASH_05: base 14 m, daño x2.5, sin descanso (max 1)
-        private int dashServosTier;     // DASH_01: CD -10% y velocidad dash +8% por tier (max 5)
-        private int bioAlloyTier;       // BIO_01: +20 HP máx y cura 15 HP por adquisición (max 5)
-        private int magnetCoreTier;     // GREED_01: +2 m radio magnético por tier (max 5)
-        private int emergencyMedTier;   // GREED_03: mejora drop y curación de botiquines (max 3)
+        private readonly int[] tiers = new int[UpgradeRules.Count];
+        [SerializeField] private UpgradeTuning upgradeTuning;
+        public UpgradeTuning Upgrades => upgradeTuning != null ? upgradeTuning :
+            (upgradeTuning = Resources.Load<UpgradeTuning>("Upgrades/UpgradeTuning") ?? ScriptableObject.CreateInstance<UpgradeTuning>());
+        private int lensTier => LensTier;
+        private int ballastTier => BallastTier;
+        private int overloadTier => OverloadTier;
+        private int solarTier => SolarTier;
+        private int dashServosTier => DashServosTier;
+        private int bioAlloyTier => BioAlloyTier;
+        private int magnetCoreTier => MagnetCoreTier;
+        private int emergencyMedTier => EmergencyMedTier;
 
         public event Action OnStatsChanged;
 
@@ -46,19 +49,23 @@ namespace EchoScrap.Core
             }
         }
 
-        public float MaxHealth => Settings.MaxHealth + bonusMaxHealth + (bioAlloyTier * 20f);
+        public float MaxHealth => Settings.MaxHealth + bonusMaxHealth + (bioAlloyTier * 20f) + GetUpgradeTier(UpgradeId.SCRAP_01) * Upgrades.armorHealthPerTier;
         public float DamageProtectionDuration => Settings.DamageProtectionDuration;
 
-        public float Armor => Mathf.Clamp(Settings.InitialArmor + bonusArmor, 0f, Settings.MaxArmor);
+        public float Armor => Mathf.Clamp(Settings.InitialArmor + bonusArmor + GetUpgradeTier(UpgradeId.SCRAP_01) * Upgrades.armorPerTier, 0f, Settings.MaxArmor);
         public float Evasion => Mathf.Clamp(Settings.InitialEvasion + bonusEvasion, 0f, Settings.MaxEvasion);
         public float BlockChance => Mathf.Clamp(Settings.InitialBlockChance + bonusBlockChance, 0f, Settings.MaxBlockChance);
         public float BlockDamageReduction => Settings.BlockDamageReduction;
-        public float CritChance => Mathf.Clamp01(Settings.InitialCritChance + bonusCritChance);
-        public float CritMultiplier => Settings.CritMultiplier;
+        public float CritChance => Mathf.Clamp01(Settings.InitialCritChance + bonusCritChance + GetUpgradeTier(UpgradeId.CRIT_01) * Upgrades.critChancePerTier + (GetUpgradeTier(UpgradeId.CRIT_05) > 0 ? Upgrades.eyeCritChance : 0f));
+        public float CritMultiplier => Settings.CritMultiplier + GetUpgradeTier(UpgradeId.CRIT_02) * Upgrades.critDamagePerTier;
 
         public float DashSpeed => Settings.DashSpeed * (1f + 0.08f * dashServosTier);
         public float DashDuration => Settings.DashDuration;
-        public float DashCooldown => Mathf.Max(0.05f, Settings.DashCooldown * (1f - 0.10f * dashServosTier));
+        public float DashCooldown => GetUpgradeTier(UpgradeId.DASH_04) > 0 ? Upgrades.cataclysmCooldown : Mathf.Max(0.05f, Settings.DashCooldown * (1f - 0.10f * dashServosTier));
+        public float ExperienceMultiplier => 1f + GetUpgradeTier(UpgradeId.GREED_02) * Upgrades.experiencePerTier;
+        public float ExplosionDamageMultiplier => 1f + GetUpgradeTier(UpgradeId.DEMO_01) * Upgrades.explosionDamagePerTier;
+        public float ExplosionRadiusMultiplier => 1f + GetUpgradeTier(UpgradeId.DEMO_01) * Upgrades.explosionRadiusPerTier;
+        public bool HasExplosionSource => GetUpgradeTier(UpgradeId.DASH_02) > 0 || GetUpgradeTier(UpgradeId.DASH_03) > 0 || GetUpgradeTier(UpgradeId.DASH_04) > 0 || GetUpgradeTier(UpgradeId.DEMO_02) > 0 || GetUpgradeTier(UpgradeId.DEMO_03) > 0 || GetUpgradeTier(UpgradeId.BIO_04) > 0;
 
         public bool IsSolarActive => solarTier > 0;
         public float AttackSpeedMultiplier => 1f + 0.15f * ballastTier;
@@ -125,14 +132,14 @@ namespace EchoScrap.Core
             return Settings.MedkitChanceAtTier(emergencyMedTier, isEliteOrColossusOrMortar);
         }
 
-        public int LensTier => lensTier;
-        public int BallastTier => ballastTier;
-        public int OverloadTier => overloadTier;
-        public int SolarTier => solarTier;
-        public int DashServosTier => dashServosTier;
-        public int BioAlloyTier => bioAlloyTier;
-        public int MagnetCoreTier => magnetCoreTier;
-        public int EmergencyMedTier => emergencyMedTier;
+        public int LensTier => GetUpgradeTier(UpgradeId.FLASH_01);
+        public int BallastTier => GetUpgradeTier(UpgradeId.FLASH_02);
+        public int OverloadTier => GetUpgradeTier(UpgradeId.FLASH_04);
+        public int SolarTier => GetUpgradeTier(UpgradeId.FLASH_05);
+        public int DashServosTier => GetUpgradeTier(UpgradeId.DASH_01);
+        public int BioAlloyTier => GetUpgradeTier(UpgradeId.BIO_01);
+        public int MagnetCoreTier => GetUpgradeTier(UpgradeId.GREED_01);
+        public int EmergencyMedTier => GetUpgradeTier(UpgradeId.GREED_03);
 
         private void Awake()
         {
@@ -157,35 +164,17 @@ namespace EchoScrap.Core
 
         public void SetUpgradeTier(string cardId, int tier)
         {
-            switch (cardId)
-            {
-                case "FLASH_01": lensTier = Mathf.Clamp(tier, 0, 5); break;
-                case "FLASH_02": ballastTier = Mathf.Clamp(tier, 0, 5); break;
-                case "FLASH_04": overloadTier = Mathf.Clamp(tier, 0, 3); break;
-                case "FLASH_05": solarTier = Mathf.Clamp(tier, 0, 1); break;
-                case "DASH_01": dashServosTier = Mathf.Clamp(tier, 0, 5); break;
-                case "BIO_01": bioAlloyTier = Mathf.Clamp(tier, 0, 5); break;
-                case "GREED_01": magnetCoreTier = Mathf.Clamp(tier, 0, 5); break;
-                case "GREED_03": emergencyMedTier = Mathf.Clamp(tier, 0, 3); break;
-            }
+            if (!UpgradeRules.TryGetId(cardId, out UpgradeId id)) return;
+            tiers[(int)id] = Mathf.Clamp(tier, 0, UpgradeRules.MaxTier(id));
             OnStatsChanged?.Invoke();
         }
 
         public int GetUpgradeTier(string cardId)
         {
-            return cardId switch
-            {
-                "FLASH_01" => lensTier,
-                "FLASH_02" => ballastTier,
-                "FLASH_04" => overloadTier,
-                "FLASH_05" => solarTier,
-                "DASH_01" => dashServosTier,
-                "BIO_01" => bioAlloyTier,
-                "GREED_01" => magnetCoreTier,
-                "GREED_03" => emergencyMedTier,
-                _ => 0
-            };
+            return UpgradeRules.TryGetId(cardId, out UpgradeId id) ? GetUpgradeTier(id) : 0;
         }
+        public int GetUpgradeTier(UpgradeId id) => tiers[(int)id];
+        public void CopyUpgradeTiers(int[] destination) => Array.Copy(tiers, destination, tiers.Length);
 
         public void ResetToInitial()
         {
@@ -195,14 +184,7 @@ namespace EchoScrap.Core
             bonusBlockChance = 0f;
             bonusCritChance = 0f;
             bonusMoveSpeed = 0f;
-            lensTier = 0;
-            ballastTier = 0;
-            overloadTier = 0;
-            solarTier = 0;
-            dashServosTier = 0;
-            bioAlloyTier = 0;
-            magnetCoreTier = 0;
-            emergencyMedTier = 0;
+            Array.Clear(tiers, 0, tiers.Length);
             OnStatsChanged?.Invoke();
         }
 

@@ -168,8 +168,9 @@ bloqueo y 30 % de armadura termina quitando 7: `20 × 0,5 × 0,7`.
 
 Armadura, evasión, bloqueo y probabilidad de crítico empiezan en 0 %. El código
 admite esos atributos, con límites de 60 % / 35 % / 50 % para las tres defensas.
-El multiplicador crítico base es ×1,75. Las ocho cartas actuales no aumentan
-directamente estas probabilidades o la armadura.
+El multiplicador crítico base es ×1,75. Óptica precisa y Ojo aumentan la
+probabilidad crítica; Calibración aumenta su multiplicador y Blindaje añade
+armadura porcentual y salud máxima. Los límites defensivos se mantienen.
 
 La reacción al daño incluye flash y desplazamiento visual breve. El hit-stop
 retiene la pose local; el cuerpo físico continúa su simulación. El HUD puede

@@ -1,7 +1,7 @@
 # Arena y flujo de partida
 
 `Assets/_Project/Scenes/CombatArena.unity` monta la partida completa con cinco
-arquetipos, oleadas hasta ocho minutos, Gólgora, XP, ocho mejoras, pausa y reinicio.
+arquetipos, oleadas hasta ocho minutos, Gólgora, XP, 35 mejoras, pausa y reinicio.
 La arena física mide 200×200 m y conserva el centro libre para la entrada del jefe.
 El jugador de combate, sus estadísticas y los sistemas de la escena ya están
 preparados antes de Play. Consulta [EditarCombatArena.md](EditarCombatArena.md)

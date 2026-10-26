@@ -74,9 +74,14 @@ namespace EchoScrap.Combat
             subscribedSession = null;
         }
 
-        public int AddExperience(int amount)
+        private bool dispatching;
+        private int queuedExperience;
+        public int AddExperience(int amount) => AddExperienceInternal(amount, false);
+        internal int AddCollectedExperience(int amount) => AddExperienceInternal(amount, true);
+        private int AddExperienceInternal(int amount, bool collected)
         {
-            if (amount <= 0 || (session != null && (session.IsPaused || !session.IsGameplayFlowActive())))
+            if (dispatching) { if(amount>0 && collected) queuedExperience += amount; return 0; }
+            if (amount <= 0 || (!collected && session != null && (session.IsPaused || !session.IsGameplayFlowActive())))
                 return 0;
 
             TotalXp += amount;
@@ -96,12 +101,16 @@ namespace EchoScrap.Combat
 
             if (gainedLevels > 0)
             {
+                dispatching = true;
+                int lastLevel = Level;
                 int firstLevel = Level - gainedLevels + 1;
-                for (int level = firstLevel; level <= Level; level++)
+                for (int level = firstLevel; level <= lastLevel; level++)
                     OnLevelGained?.Invoke(level);
                 OnPendingChoicesChanged?.Invoke(PendingChoices);
             }
             OnExperienceChanged?.Invoke(Snapshot);
+            dispatching = false;
+            if (queuedExperience > 0) { int queued = queuedExperience; queuedExperience = 0; gainedLevels += AddExperienceInternal(queued, true); }
             return gainedLevels;
         }
 
@@ -118,6 +127,7 @@ namespace EchoScrap.Combat
 
         public void ResetForSession()
         {
+            dispatching = false; queuedExperience = 0;
             Level = 1;
             CurrentXp = 0;
             RequiredXp = 100;

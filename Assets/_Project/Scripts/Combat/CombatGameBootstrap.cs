@@ -33,6 +33,7 @@ namespace EchoScrap.Combat
         public PlayerMotor Motor => playerMotor;
         public PlayerRuntimeStats Stats { get; private set; }
         public CombatProgression Progression { get; private set; }
+        public UpgradeCombatRuntime Upgrades { get; private set; }
         public CombatPickupPool Pickups { get; private set; }
         public EnemyPool Enemies { get; private set; }
         public CorrosivePuddlePool Hazards { get; private set; }
@@ -108,6 +109,8 @@ namespace EchoScrap.Combat
             dashPresentation = GetOrAdd<PlayerDashPresentation>(playerObject);
             Pickups = SystemObject<CombatPickupPool>("Pickups");
             Pickups.BindReferences(Session, Player, Stats, Progression);
+            Upgrades = SystemObject<UpgradeCombatRuntime>("UpgradeMechanics");
+            Upgrades.Bind(Session, Stats, Player, Weapon, Pickups, Progression);
             Draft = SystemObject<UpgradeDraftController>("UpgradeDraft");
             Draft.BindReferences(Session, Stats, Player, Progression);
             DraftPresentation = GetOrAdd<UpgradeDraftPresentation>(Draft.gameObject);

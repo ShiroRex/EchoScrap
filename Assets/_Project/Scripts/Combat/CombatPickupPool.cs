@@ -13,14 +13,16 @@ namespace EchoScrap.Combat
         public readonly CombatPickupKind Kind;
         public readonly Vector3 Position;
         public readonly int Experience;
+        public readonly int GemCount;
         public readonly bool IsAttracted;
 
-        public CombatPickupInfo(int id, CombatPickupKind kind, Vector3 position, int experience, bool attracted)
+        public CombatPickupInfo(int id, CombatPickupKind kind, Vector3 position, int experience, bool attracted, int gemCount = 1)
         {
             Id = id;
             Kind = kind;
             Position = position;
             Experience = experience;
+            GemCount = gemCount;
             IsAttracted = attracted;
         }
     }
@@ -53,6 +55,7 @@ namespace EchoScrap.Combat
             public Vector3 Position;
             public int Id;
             public int Experience;
+            public int GemCount;
             public bool Active;
             public bool Attracted;
             public float Age;
@@ -259,7 +262,7 @@ namespace EchoScrap.Combat
                     delta.y = 0f;
                     if (delta.sqrMagnitude > ExperienceMergeRadius * ExperienceMergeRadius)
                         continue;
-                    existing.Experience += xpValue;
+                    existing.Experience += xpValue; existing.GemCount++;
                     existing.Age = 0f;
                     TotalSpawnedExperience += xpValue;
                     return existing.Id;
@@ -278,6 +281,7 @@ namespace EchoScrap.Combat
             // Los recogibles no se descartan por un límite cosmético. El pool puede crecer y luego reutilizarse.
             slot ??= CreateSlot(kind);
             slot.Id = nextId++;
+            slot.GemCount = kind == CombatPickupKind.Experience ? 1 : 0;
             slot.Experience = kind == CombatPickupKind.Experience ? xpValue : 0;
             slot.Position = position;
             slot.Age = 0f;
@@ -372,9 +376,15 @@ namespace EchoScrap.Combat
             StepAbsorption(deltaTime, decorative);
         }
 
+        private float experienceRemainder;
+        public void CollectAll()
+        {
+            if (session == null || !playerHealth.IsAlive || session.State == SessionState.Victory || session.State == SessionState.Defeat) return;
+            for (int i=0;i<slots.Count;i++) if (slots[i].Active) Collect(slots[i]);
+        }
         private void Collect(PickupSlot slot)
         {
-            var info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted);
+            var info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted, slot.GemCount);
             slot.Active = false;
             slot.Attracted = false;
             slot.Root.SetActive(false);
@@ -383,7 +393,10 @@ namespace EchoScrap.Combat
             {
                 ActiveExperienceCount--;
                 TotalCollectedExperience += slot.Experience;
-                progression.AddExperience(slot.Experience);
+                float boosted = slot.Experience * (stats != null ? stats.ExperienceMultiplier : 1f) + experienceRemainder;
+                int awarded = Mathf.FloorToInt(boosted + .00001f);
+                experienceRemainder = boosted - awarded;
+                progression.AddCollectedExperience(awarded);
                 TriggerAbsorption(new Color(0.35f, 0.95f, 1f));
             }
             else
@@ -449,7 +462,7 @@ namespace EchoScrap.Combat
                 PickupSlot slot = slots[i];
                 if (!slot.Active || slot.Id != id)
                     continue;
-                info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted);
+                info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted, slot.GemCount);
                 return true;
             }
             info = default;
@@ -469,7 +482,7 @@ namespace EchoScrap.Combat
                 Vector3 delta = slot.Position - origin; delta.y = 0f;
                 if (delta.sqrMagnitude >= best) continue;
                 best = delta.sqrMagnitude;
-                info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted);
+                info = new CombatPickupInfo(slot.Id, slot.Kind, slot.Position, slot.Experience, slot.Attracted, slot.GemCount);
                 found = true;
             }
             return found;
@@ -496,6 +509,7 @@ namespace EchoScrap.Combat
             ActivePickupCount = ActiveExperienceCount = ActiveMedkitCount = 0;
             TotalSpawnedExperience = TotalCollectedExperience = 0;
             TotalCollectedMedkits = 0;
+            experienceRemainder = 0f;
             nextMedkitDropTime = 0f;
         }
 

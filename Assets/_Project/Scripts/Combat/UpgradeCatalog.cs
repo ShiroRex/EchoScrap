@@ -49,10 +49,10 @@ namespace EchoScrap.Combat
         }
     }
 
-    /// <summary>Initial closed pool. Stats stay owned by PlayerRuntimeStats; previews never mutate them.</summary>
+    /// <summary>Complete GDD catalogue. Stats stay owned by PlayerRuntimeStats; previews never mutate them.</summary>
     public static class UpgradeCatalog
     {
-        // Visual coverage of the 35 designed cards. This does not add unimplemented cards to the draft.
+        // Shared visual families for all 35 playable cards.
         private static readonly IReadOnlyDictionary<string, UpgradeIcon> iconAssignments =
             new System.Collections.ObjectModel.ReadOnlyDictionary<string, UpgradeIcon>(new Dictionary<string, UpgradeIcon>
             {
@@ -88,7 +88,34 @@ namespace EchoScrap.Combat
             new UpgradeCardDefinition("DASH_01", "Dash ágil", UpgradeRarity.N, 5, UpgradeIcon.Dash, "Dash más frecuente"),
             new UpgradeCardDefinition("BIO_01", "Más vida", UpgradeRarity.N, 5, UpgradeIcon.Vitality, "+20 HP máximos"),
             new UpgradeCardDefinition("GREED_01", "Imán", UpgradeRarity.N, 5, UpgradeIcon.Magnet, "+2 m de recogida"),
-            new UpgradeCardDefinition("GREED_03", "Botiquín mejor", UpgradeRarity.R, 3, UpgradeIcon.Vitality, "Más curación por botiquín")
+            new UpgradeCardDefinition("GREED_03", "Botiquín mejor", UpgradeRarity.R, 3, UpgradeIcon.Vitality, "Más curación por botiquín"),
+            new UpgradeCardDefinition("FLASH_03", "Prisma ígneo", UpgradeRarity.R, 3, UpgradeIcon.Lens, "Chispas en el cuarto pulso"),
+            new UpgradeCardDefinition("DASH_02", "Onda sísmica", UpgradeRarity.R, 3, UpgradeIcon.Dash, "Onda al terminar el dash"),
+            new UpgradeCardDefinition("DASH_03", "Holo-señuelo", UpgradeRarity.SR, 3, UpgradeIcon.Dash, "Atrae enemigos y explota"),
+            new UpgradeCardDefinition("DASH_04", "Cataclismo", UpgradeRarity.SSR, 1, UpgradeIcon.Dash, "Explosión y cuchilla de dash"),
+            new UpgradeCardDefinition("BIO_02", "Sifón", UpgradeRarity.R, 3, UpgradeIcon.Vitality, "El cuarto pulso puede curar"),
+            new UpgradeCardDefinition("BIO_03", "Nanobots", UpgradeRarity.SR, 3, UpgradeIcon.Vitality, "Regeneración y protección"),
+            new UpgradeCardDefinition("BIO_04", "Nova de plasma", UpgradeRarity.SSR, 1, UpgradeIcon.Vitality, "La sobrecuración causa daño"),
+            new UpgradeCardDefinition("GREED_02", "Chatarrero", UpgradeRarity.N, 5, UpgradeIcon.Magnet, "+15% de XP por nivel"),
+            new UpgradeCardDefinition("GREED_04", "Sintonizador", UpgradeRarity.SR, 3, UpgradeIcon.Cadence, "Reintentos y mejores rarezas"),
+            new UpgradeCardDefinition("GREED_05", "Pulso colector", UpgradeRarity.SSR, 1, UpgradeIcon.Magnet, "Recoge todo al subir nivel"),
+            new UpgradeCardDefinition("CRIT_01", "Óptica precisa", UpgradeRarity.N, 5, UpgradeIcon.Precision, "+8% de crítico por nivel"),
+            new UpgradeCardDefinition("CRIT_02", "Calibración letal", UpgradeRarity.N, 5, UpgradeIcon.Precision, "+0.20 al daño crítico"),
+            new UpgradeCardDefinition("CRIT_03", "Ejecución", UpgradeRarity.R, 3, UpgradeIcon.Precision, "Ejecuta enemigos heridos"),
+            new UpgradeCardDefinition("CRIT_04", "Ráfaga crítica", UpgradeRarity.SR, 3, UpgradeIcon.Precision, "Prepara una ráfaga crítica"),
+            new UpgradeCardDefinition("CRIT_05", "Ojo del verdugo", UpgradeRarity.SSR, 1, UpgradeIcon.Precision, "Potencia críticos y aturde"),
+            new UpgradeCardDefinition("DEMO_01", "Pólvora volátil", UpgradeRarity.N, 5, UpgradeIcon.Demolition, "+15% área y +12% daño"),
+            new UpgradeCardDefinition("DEMO_02", "Reacción en cadena", UpgradeRarity.R, 3, UpgradeIcon.Demolition, "Los enemigos pueden explotar"),
+            new UpgradeCardDefinition("DEMO_03", "Minas de chatarra", UpgradeRarity.SR, 3, UpgradeIcon.Demolition, "Coloca minas periódicamente"),
+            new UpgradeCardDefinition("DEMO_04", "Termobárica", UpgradeRarity.SSR, 1, UpgradeIcon.Demolition, "Explosiones con implosión"),
+            new UpgradeCardDefinition("SCRAP_01", "Blindaje", UpgradeRarity.N, 5, UpgradeIcon.Automation, "+4% armadura y +10 HP"),
+            new UpgradeCardDefinition("SCRAP_02", "Micro-ensamblador", UpgradeRarity.R, 3, UpgradeIcon.Automation, "Un disparo guiado cada 15 gemas"),
+            new UpgradeCardDefinition("SCRAP_03", "Sierras orbitales", UpgradeRarity.SR, 3, UpgradeIcon.Automation, "Sierras que dañan y empujan"),
+            new UpgradeCardDefinition("SCRAP_04", "Torreta centinela", UpgradeRarity.SSR, 1, UpgradeIcon.Automation, "Torreta de ráfagas temporal"),
+            new UpgradeCardDefinition("CRYO_01", "Freón residual", UpgradeRarity.N, 5, UpgradeIcon.Cryo, "Los pulsos ralentizan"),
+            new UpgradeCardDefinition("CRYO_02", "Cero absoluto", UpgradeRarity.R, 3, UpgradeIcon.Cryo, "Congela con pulsos de luz"),
+            new UpgradeCardDefinition("CRYO_03", "Ventisca", UpgradeRarity.SR, 3, UpgradeIcon.Cryo, "Daño y congelación radial"),
+            new UpgradeCardDefinition("CRYO_04", "Quiebre de hielo", UpgradeRarity.SSR, 1, UpgradeIcon.Cryo, "Los congelados sueltan hielo")
         };
         private static readonly IReadOnlyList<UpgradeCardDefinition> readOnlyCards = Array.AsReadOnly(cards);
         public static IReadOnlyList<UpgradeCardDefinition> Cards => readOnlyCards;
@@ -124,7 +151,14 @@ namespace EchoScrap.Combat
         public static string PrimaryLabel(string id) => id switch
         {
             "FLASH_01" => "ALCANCE", "FLASH_02" => "BONO DE ATAQUE", "FLASH_04" or "FLASH_05" => "DAÑO POR PULSO",
-            "DASH_01" => "RECARGA DE DASH", "BIO_01" => "VIDA MÁXIMA", "GREED_01" => "RADIO DE RECOGIDA", _ => "CURACIÓN"
+            "DASH_01" => "RECARGA DE DASH", "BIO_01" => "VIDA MÁXIMA", "GREED_01" => "RADIO DE RECOGIDA", "GREED_03" => "CURACIÓN", "FLASH_03" => "CHISPAS", "DASH_02" or "BIO_04" or "SCRAP_02" => "DAÑO",
+            "DASH_03" => "DURACIÓN", "DASH_04" => "RECARGA DE DASH", "BIO_02" => "CURACIÓN POR ACTIVACIÓN",
+            "BIO_03" => "REGENERACIÓN CADA 2.5 s", "GREED_02" => "BONO DE EXPERIENCIA", "GREED_04" => "REINTENTOS POR PARTIDA",
+            "GREED_05" => "ALCANCE DE RECOGIDA", "CRIT_01" or "CRIT_05" => "PROBABILIDAD CRÍTICA", "CRIT_02" => "MULTIPLICADOR CRÍTICO",
+            "CRIT_03" => "UMBRAL DE EJECUCIÓN", "CRIT_04" => "PULSOS GARANTIZADOS", "DEMO_01" => "BONO DE DAÑO EXPLOSIVO",
+            "DEMO_02" => "PROBABILIDAD AL MORIR", "DEMO_03" => "INTERVALO ENTRE MINAS", "DEMO_04" => "DAÑO REPETIDO",
+            "SCRAP_01" => "BONO DE ARMADURA", "SCRAP_03" => "SIERRAS ORBITALES", "SCRAP_04" => "DAÑO POR RÁFAGA",
+            "CRYO_01" => "RALENTIZACIÓN", "CRYO_02" => "DURACIÓN DEL HIELO", "CRYO_03" => "INTERVALO DE VENTISCA", "CRYO_04" => "ESQUIRLAS", _ => "EFECTO"
         };
         public static string PrimaryValue(string id, PlayerRuntimeStats stats, int tier)
         {
@@ -135,11 +169,11 @@ namespace EchoScrap.Combat
                 "FLASH_02" => "+" + Number(tier * 15f) + "%",
                 "FLASH_04" => Number(stats.Settings.DamagePerPulse * OverloadDamage(tier) * (stats.IsSolarActive ? 2.5f : 1f)),
                 "FLASH_05" => Number(stats.Settings.DamagePerPulse * OverloadDamage(stats.OverloadTier) * (tier > 0 ? 2.5f : 1f)),
-                "DASH_01" => Number(Mathf.Max(0.05f, stats.Settings.DashCooldown * (1f - tier * 0.1f))) + " s",
+                "DASH_01" => Number(stats.GetUpgradeTier(UpgradeId.DASH_04)>0 ? stats.Upgrades.cataclysmCooldown : Mathf.Max(0.05f, stats.Settings.DashCooldown * (1f - tier * 0.1f))) + " s",
                 "BIO_01" => Number(stats.MaxHealth + delta * 20f) + " HP",
                 "GREED_01" => Number(stats.Settings.BaseMagnetRadius + tier * 2f) + " m",
                 "GREED_03" => Number(stats.Settings.MedkitHealingAtTier(tier)) + " HP",
-                _ => string.Empty
+                _ => UpgradeDescriptions.Value(id, stats, tier)
             };
         }
         public static string QuickDetail(string id, PlayerRuntimeStats stats, int current, int next) => id switch
@@ -148,11 +182,11 @@ namespace EchoScrap.Combat
             "FLASH_02" => "Acelera los pulsos y su descanso.",
             "FLASH_04" => (current == 0 ? "Menos área de ataque.\n" : "Misma área de ataque.\n") + "Empuje +" + Number(OverloadImpulse(next) - OverloadImpulse(current)) + " m/s al elegir.",
             "FLASH_05" => "Alcance " + Number(stats.Settings.SolarBaseRange + stats.LensTier) + " m. Daño x2.5.\n4 pulsos con empuje.",
-            "DASH_01" => "Recarga -10% y velocidad +8%\nde la base por nivel.",
+            "DASH_01" => stats.GetUpgradeTier(UpgradeId.DASH_04)>0 ? "Cataclismo fija la recarga en 0.5 s.\nVelocidad +8% de la base por nivel." : "Recarga -10% y velocidad +8%\nde la base por nivel.",
             "BIO_01" => "+15 HP de curación al elegir.",
             "GREED_01" => "Atrae gemas y botiquines\ndesde más lejos.",
             "GREED_03" => "Comunes: " + Number(stats.Settings.MedkitChanceAtTier(current, false) * 100f) + "% > " + Number(stats.Settings.MedkitChanceAtTier(next, false) * 100f) + "%\nÉlites: " + Number(stats.Settings.MedkitChanceAtTier(current, true) * 100f) + "% > " + Number(stats.Settings.MedkitChanceAtTier(next, true) * 100f) + "%",
-            _ => string.Empty
+            _ => UpgradeDescriptions.Detail(id, stats, next)
         };
 
         private static float OverloadDamage(int tier) => tier switch { 1 => 1.5f, 2 => 1.8f, 3 => 2.2f, _ => 1f };
@@ -176,7 +210,7 @@ namespace EchoScrap.Combat
                 case "FLASH_05":
                     return $"Alcance {Number((tier > 0 ? stats.Settings.SolarBaseRange : stats.Settings.FlashlightRange) + stats.LensTier)} m\nDaño/pulso {Number(stats.Settings.DamagePerPulse * OverloadDamage(stats.OverloadTier) * (tier > 0 ? 2.5f : 1f))}\nDescanso {Number(tier > 0 ? 0f : stats.Settings.BurstRestDuration / stats.AttackSpeedMultiplier)} s";
                 case "DASH_01":
-                    return $"Velocidad {Number(stats.Settings.DashSpeed * (1f + tier * 0.08f))} m/s\nRecarga {Number(Mathf.Max(0.05f, stats.Settings.DashCooldown * (1f - tier * 0.1f)))} s";
+                    return $"Velocidad {Number(stats.Settings.DashSpeed * (1f + tier * 0.08f))} m/s\nRecarga {Number(stats.GetUpgradeTier(UpgradeId.DASH_04)>0 ? stats.Upgrades.cataclysmCooldown : Mathf.Max(0.05f, stats.Settings.DashCooldown * (1f - tier * 0.1f)))} s";
                 case "BIO_01": return $"Salud máxima {Number(stats.MaxHealth + delta * 20f)} HP" + (delta > 0 ? "\nReparación inmediata +15 HP" : "");
                 case "GREED_01": return $"Recogida {Number(stats.Settings.BaseMagnetRadius + tier * 2f)} m";
                 case "GREED_03":
@@ -184,7 +218,7 @@ namespace EchoScrap.Combat
                     float elite = stats.Settings.MedkitChanceAtTier(tier, true) * 100f;
                     float heal = stats.Settings.MedkitHealingAtTier(tier);
                     return $"Botiquín común {Number(normal)}%\nBotiquín élite {Number(elite)}%\nReparación {Number(heal)} HP";
-                default: return string.Empty;
+                default: return UpgradeDescriptions.Value(id, stats, tier) + "\n" + UpgradeDescriptions.Detail(id, stats, tier);
             }
         }
     }

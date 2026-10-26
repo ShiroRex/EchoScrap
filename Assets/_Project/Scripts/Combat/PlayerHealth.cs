@@ -25,6 +25,9 @@ namespace EchoScrap.Combat
         private float lastMaxHealth;
         private float protectionRemaining;
         private bool dashInvulnerable;
+        private float upgradeProtection;
+        public float UpgradeProtectionRemaining => upgradeProtection;
+        public void GrantUpgradeProtection(float duration) => upgradeProtection = Mathf.Max(upgradeProtection, duration);
         private bool isDead;
         private bool initialized;
 
@@ -38,7 +41,7 @@ namespace EchoScrap.Combat
         public bool HasDamageProtection => protectionRemaining > 0.0001f;
         public bool IsDashInvulnerable => dashInvulnerable || (motor != null && motor.IsDashInvulnerable);
         public bool IgnoreIncomingDamage { get; set; }
-        public bool IsInvulnerable => IgnoreIncomingDamage || HasDamageProtection || IsDashInvulnerable;
+        public bool IsInvulnerable => IgnoreIncomingDamage || HasDamageProtection || IsDashInvulnerable || upgradeProtection > 0f;
         public Vector3 WorldCenter => transform.position;
         public float HitRadius => hurtboxCollider is CapsuleCollider cap ? cap.radius : 0.5f;
         public Collider HurtboxCollider => hurtboxCollider;
@@ -120,6 +123,7 @@ namespace EchoScrap.Combat
             if (deltaTime <= 0f || isDead)
                 return;
 
+            upgradeProtection = Mathf.Max(0f, upgradeProtection - deltaTime);
             if (protectionRemaining > 0f)
                 protectionRemaining = Mathf.Max(0f, protectionRemaining - deltaTime);
 
@@ -334,6 +338,7 @@ namespace EchoScrap.Combat
             isDead = true;
             protectionRemaining = 0f;
             dashInvulnerable = false;
+            upgradeProtection = 0f;
 
             // Desactivar inmediatamente daño, selección y colisión del actor; cancelar dash si estaba activo
             if (hurtboxCollider != null)
@@ -371,6 +376,7 @@ namespace EchoScrap.Combat
             isDead = false;
             protectionRemaining = 0f;
             dashInvulnerable = false;
+            upgradeProtection = 0f;
             currentHealth = stats.MaxHealth;
             lastMaxHealth = currentHealth;
             if (hurtboxCollider != null)

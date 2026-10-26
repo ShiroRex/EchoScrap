@@ -75,6 +75,7 @@ namespace EchoScrap.Combat
             }
         }
 
+        public UpgradeCombatRuntime Upgrades { get; internal set; }
         public SessionState State => state;
         public bool IsPaused => Clock.IsPaused;
         public bool IsInWarehouse { get; private set; }

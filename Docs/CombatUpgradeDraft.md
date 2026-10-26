@@ -1,9 +1,9 @@
-# Selección táctica y ocho mejoras
+# Selección táctica y 35 mejoras
 
 ## Comportamiento
 
-`UpgradeCatalog` define ocho cartas del GDD: `FLASH_01`, `FLASH_02`, `FLASH_04`,
-`FLASH_05`, `DASH_01`, `BIO_01`, `GREED_01` y `GREED_03`. Los valores efectivos
+`UpgradeCatalog` define las 35 cartas del GDD. Las diez familias de iconos se
+comparten entre todas ellas. Los valores efectivos
 permanecen en `PlayerRuntimeStats`; construir una oferta no modifica estadísticas.
 
 `UpgradeDraftController` se enlaza mediante
@@ -11,7 +11,12 @@ permanecen en `PlayerRuntimeStats`; construir una oferta no modifica estadístic
 de `CombatProgression`. Cada elección ofrece hasta tres cartas distintas. Selecciona
 primero una rareza disponible con pesos N/R/SR/SSR de 60/25/12/3 y después una carta
 de esa rareza. Se recalculan las rarezas disponibles después de retirar cada candidata.
-No hay prerrequisitos para Solar; las cartas en su tier máximo quedan excluidas.
+Solar no requiere otra carta. Pólvora y Termobárica necesitan una fuente de
+explosiones; Cero absoluto necesita Freón; Quiebre necesita Cero absoluto o
+Ventisca; Ráfaga crítica necesita probabilidad crítica. Las cartas al máximo
+quedan excluidas. Sintonizador concede 1/2/3 reintentos totales por partida,
+con R, botón norte o clic. Cada nivel mueve 5 puntos de peso a R y 3 a SR
+desde N; SSR permanece en 3. Repintar nunca consume ni vuelve a sortear cartas.
 
 La pausa táctica se mantiene durante todas las elecciones acumuladas. Elegir la
 última elimina solo la razón de pausa del draft; las pausas manual y de foco siguen
@@ -30,7 +35,7 @@ Los iconos activos son diez emblemas simétricos de 64×64 con base gris y
 alfa binaria. La UI aplica `UpgradeCatalog.RarityColor` a `Image.color` al
 repintar cada oferta, por lo que una misma textura cambia de rareza sin
 duplicar dibujos. `UpgradeCatalog.IconAssignments` cubre los 35 IDs del GDD;
-el catálogo jugable sigue compuesto por las ocho cartas implementadas.
+las 35 están disponibles en el catálogo jugable.
 La propuesta visual, fuentes individuales y asignación completa están en
 `ArtSource/UI/UpgradeCards/Grayscale/DESIGN.md`.
 
@@ -50,7 +55,8 @@ Los nombres de pantalla se acortaron y el beneficio principal se separó del
 detalle. `UpgradeOffer.PrimaryBefore/PrimaryAfter` muestran el cambio efectivo
 de la estadística principal, sin modificar al jugador. Las ofertas con
 `CurrentTier > 0` incluyen flecha verde y el siguiente nivel. No se cambiaron
-IDs, rarezas, pesos de oferta ni exclusión de cartas saturadas. El balance actual
+IDs, rarezas ni exclusión de cartas saturadas. Los pesos base siguen vigentes
+y Sintonizador aplica su modificador cuando se adquiere. El balance actual
 de botiquines se documenta en `CombatBalance.md`; sus cifras salen del asset.
 
 La aparición de las cartas dura 0,42 s con un pequeño escalonado. La legendaria
@@ -100,9 +106,9 @@ antes de poder confirmar una carta.
 
 ## Verificación incluida
 
-`CombatUpgradeDraftTests` contiene once pruebas Play Mode:
+`CombatUpgradeDraftTests` incluye, entre otras, estas comprobaciones Play Mode:
 
-1. Catálogo cerrado, previews sin mutación y combinación de los ocho tiers máximos.
+1. Catálogo de 35 cartas, previews sin mutación y combinación de todos los tiers máximos.
 2. Ofertas únicas y estables; reproducción por semilla y separación del RNG visual.
 3. Elecciones consecutivas sin reanudación y coexistencia de pausas.
 4. Exclusión de cartas agotadas, normalización de rarezas y Solar sin prerrequisitos.
@@ -128,3 +134,61 @@ confirmación suspendida sin duplicados y conservación de la pausa manual. Suit
 completa: **187/187 Play Mode**, cero fallos. Resultados de reproducción previa,
 validación final y fuentes en `Logs/DraftFocusFix/`. Se probó una copia aislada
 para conservar abierto el editor del usuario; no se generó una nueva build Windows.
+
+
+## Mecánicas y efectos de las 35 cartas
+
+`UpgradeCombatRuntime` se compone automáticamente en `CombatGameBootstrap`, sin
+reconstruir la escena. `UpgradeTuning.asset`, en `Assets/_Project/Resources/Upgrades/`,
+expone daño, radios, probabilidades, cadencias, duración y reservas. El runtime
+reutiliza proyectiles, dispositivos, mallas y efectos; no instancia objetos al
+atacar. El reinicio vacía reservas, estados, cargas y temporizadores. La pausa
+congela la simulación; efectos reducidos acortan el desvanecimiento y atenúan las
+ondas conservando sus indicadores de alcance.
+
+| Familia | Cartas conectadas | Señal de gameplay |
+|---|---|---|
+| Linterna | FLASH_01–05 | Cono y cadencia existentes; chispas dirigidas en el cuarto pulso. |
+| Dash | DASH_01–04 | Dash existente; onda de impacto, holograma del jugador, explosión y cuchilla perforante. |
+| Biomecánica | BIO_01–04 | Salud en HUD, pulsos verdes de reparación, aro de protección y nova de sobrecuración. |
+| Recursos | GREED_01–05 | Recogida y XP en HUD, botón de reintento y onda entrante de recogida global. |
+| Críticos | CRIT_01–05 | Feedback crítico existente, ejecución, preparación de ráfaga y aturdimiento ámbar. |
+| Demolición | DEMO_01–04 | Radios ampliados, explosiones encadenadas, minas dentadas y ecos de vacío entrantes. |
+| Automatismos | SCRAP_01–04 | Salud y armadura, proyectil guiado, sierras dentadas y torretas con cañón orientable. |
+| Criogenia | CRYO_01–04 | Aro azul de lentitud, cristal de congelación, ventisca radial y seis esquirlas perforantes. |
+
+Los impactos de una ráfaga capturan los niveles al iniciarse. Sus chispas y
+esquirlas no vuelven a activar efectos del cuarto pulso. Las explosiones se
+resuelven en una cola después del impacto inicial; las muertes conservan una
+sola recompensa y pueden originar cadenas. El eco termobárico usa el daño y radio
+ya modificados de su explosión, y no genera otro eco. Las esquirlas distinguen
+instancias reutilizadas mediante la versión de aparición del enemigo.
+
+El frío congela la locomoción y las cadencias de ataque, incluido Gólgora; la
+ejecución excluye al jefe. El aturdimiento permite el desplazamiento del empuje
+sin reanudar ataques. El señuelo redirige persecución, cargas y objetivos de
+mortero. La recogida global conserva el número de gemas originales agrupadas,
+el saldo fraccionario del bono de XP y las elecciones de nivel encadenadas.
+
+Se conserva el balance vigente del proyecto: críticos base ×1.75, armadura
+porcentual con tope 60%, y botiquines de `CombatBalance.md`. Por coherencia,
+Blindaje suma 4 puntos porcentuales por nivel y Calibración suma 0.20 al
+multiplicador vigente. El texto individual antiguo del GDD que cita defensa
+plana, crítico base ×1.5 y otras tablas de botiquines no sustituye ese balance.
+Los parámetros no especificados por el GDD quedan editables: cuchilla de 80 daño,
+radio de Ojo 3 m, contacto de sierra cada 0.3 s y congelación de esquirla 1.5 s.
+
+`CompleteUpgradeTests` verifica estados, daño, curación, dispositivos, sinergias,
+reintentos, dependencias, pausa, reutilización y carga con 150 enemigos.
+`UpgradeVisualIntegrationTests` captura la arena real y la UI con reintentos en
+`Logs/CompleteUpgradesVisuals/` del proyecto usado para las pruebas.
+
+
+Validación del catálogo completo (26 de octubre de 2026): 110/110 pruebas
+específicas aprobadas, más 24/24 en la comprobación final de mecánicas y captura
+visual. La prueba de carga con 150 enemigos mide aproximadamente 0.6 ms por paso
+para el runtime de mejoras y cero bytes administrados en el bucle medido.
+La suite Play Mode general produjo 310/316 aprobadas; las seis restantes también
+fallan con el código anterior: cruces de rango de mortero, seguimiento de cámara
+en relieve, retorno por portales, paso bajo árboles, posición de un hito e
+intensidad de luz del mapa. Se contrastaron en una copia aislada del proyecto.
