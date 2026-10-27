@@ -36,6 +36,7 @@ namespace EchoScrap.Combat
         {
             if(game==null || deltaTime<=0 || game.Session.IsPaused || !game.Session.IsGameplayFlowActive()) return;
             AnimationTime+=deltaTime;
+            properties.SetFloat("_LavaTime",AnimationTime);
             // Desplazamiento continuo del magma y emisión pulsante, calculados en Unity.
             properties.SetVector("_BaseMap_ST",new Vector4(1,1,AnimationTime*0.012f,AnimationTime*0.008f));
             properties.SetColor("_EmissionColor",new Color(2.8f,1.1f,0.35f)*(1f+0.22f*Mathf.Sin(AnimationTime*2.5f)));
