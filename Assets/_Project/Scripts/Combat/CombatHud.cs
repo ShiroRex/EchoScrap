@@ -438,7 +438,7 @@ namespace EchoScrap.Combat
             bossArrow.gameObject.SetActive(false);
 
             Image border = FullScreenImage(canvasRect, "HurtBorder", Color.clear);
-            border.sprite = borderSprite; border.type = Image.Type.Sliced;
+            border.sprite = borderSprite; border.type = Image.Type.Simple;
             Image heal = FullScreenImage(canvasRect, "HealBorder", Color.clear);
             heal.sprite = borderSprite; heal.type = Image.Type.Sliced;
             RectTransform directionalRoot = Rect(canvasRect, "DamageDirection", new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * 240f);
@@ -501,17 +501,18 @@ namespace EchoScrap.Combat
 
         private void CreateBorderSprite()
         {
-            borderTexture = new Texture2D(64, 64, TextureFormat.RGBA32, false) { name = "SoftScreenEdge", wrapMode = TextureWrapMode.Clamp };
-            var pixels = new Color[64 * 64];
-            for (int y = 0; y < 64; y++)
-            for (int x = 0; x < 64; x++)
-            {
-                float edge = Mathf.Min(Mathf.Min(x, y), Mathf.Min(63 - x, 63 - y));
-                float alpha = Mathf.Pow(Mathf.Clamp01(1f - edge / 24f), 1.6f);
-                pixels[y * 64 + x] = new Color(1f, 1f, 1f, alpha);
+            const int size=256;
+            borderTexture=new Texture2D(size,size,TextureFormat.RGBA32,false){name="SoftScreenEdge",wrapMode=TextureWrapMode.Clamp};
+            var pixels=new Color[size*size];
+            for(int y=0;y<size;y++)for(int x=0;x<size;x++){
+                float u=x/(size-1f),v=y/(size-1f);
+                float edge=Mathf.Min(Mathf.Min(u,1-u),Mathf.Min(v,1-v));
+                float width=Mathf.Lerp(.045f,.095f,Mathf.PerlinNoise(u*24,v*24));
+                float alpha=Mathf.Pow(Mathf.Clamp01(1-edge/width),1.5f);
+                pixels[y*size+x]=new Color(1,1,1,alpha);
             }
-            borderTexture.SetPixels(pixels); borderTexture.Apply(false, true);
-            borderSprite = Sprite.Create(borderTexture, new Rect(0f, 0f, 64f, 64f), Vector2.one * 0.5f, 100f, 0, SpriteMeshType.FullRect, Vector4.one * 24f);
+            borderTexture.SetPixels(pixels);borderTexture.Apply(false,true);
+            borderSprite=Sprite.Create(borderTexture,new Rect(0,0,size,size),Vector2.one*.5f,100,0,SpriteMeshType.FullRect,Vector4.one*96);
         }
 
         private static void EnsureEventSystem()
