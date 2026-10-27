@@ -46,27 +46,27 @@ namespace EchoScrap.Tests
             Assert.IsFalse(station.TryOpenMenu(),"Cannot open remotely.");yield return Approach();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;
             Assert.IsTrue(station.IsMenuOpen);Assert.IsTrue(game.Session.Clock.HasPauseReason(PauseReason.FusionMenu));
-            var ui=station.GetComponent<FusionStationUI>();ui.AddIngredient(0);ui.AddIngredient(0);ui.AddIngredient(0);
+            var ui=station.GetComponent<FusionStationUI>();ui.AddIngredient(0);ui.AddIngredient(0);ui.AddIngredient(0);ui.AddIngredient(0);
             yield return Capture("InventarioFusion",true);
-            Assert.IsTrue(station.StartFusion(new[]{0,0,0}));Assert.IsFalse(station.IsMenuOpen);Assert.IsFalse(game.Session.IsPaused);Assert.AreEqual(60,station.Progress.duration);
+            Assert.IsTrue(station.StartFusion(new[]{0,0,0,0}));Assert.IsFalse(station.IsMenuOpen);Assert.IsFalse(game.Session.IsPaused);Assert.AreEqual(60,station.Progress.duration);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;
-            Assert.IsFalse(station.TryOpenMenu(),"A running fusion cannot be restarted.");station.Advance(60);Assert.AreEqual(FusionPhase.Opening,station.Progress.phase);station.Advance(1.3f);
-            yield return new WaitForSeconds(.7f);
-            int id=station.Progress.result;int before=station.Progress.owned[id];Assert.IsTrue(station.TryOpenMenu());
+            Assert.IsFalse(station.TryOpenMenu(),"A running fusion cannot be restarted.");station.Advance(60);Assert.AreEqual(FusionPhase.Ready,station.Progress.phase);Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);
+            yield return new WaitForSecondsRealtime(.7f);
+            int id=station.Progress.result;int before=station.Progress.owned[id];Assert.IsTrue(station.IsMenuOpen);
             yield return Capture("ResultadoFusion",true);
             Assert.IsTrue(station.Resolve(true));Assert.AreEqual(before+1,station.Progress.owned[id]);Assert.IsFalse(station.Resolve(true));
             Assert.IsFalse(game.Session.IsPaused);Assert.IsTrue(game.Motor.GetComponent<PlayerInputReader>().CanRead);
         }
         [UnityTest] public IEnumerator LegendaryRevealOpensDoorAndReleaseRemovesIt()
         {
-            yield return Approach();Assert.IsTrue(station.Progress.Begin(new[]{2,3,1},0,0));station.Advance(180);station.Advance(1.3f);yield return new WaitForSeconds(.8f);
+            yield return Approach();Assert.IsTrue(station.Progress.Begin(new[]{2,3,1,1},0,0));station.Advance(180);Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);yield return new WaitForSecondsRealtime(.8f);
             Assert.AreEqual(4,station.Progress.result);
             var viewPoint=station.ResultPoint.position+Vector3.up*1.8f;
             Assert.IsFalse(Physics.Raycast(viewPoint+Vector3.back*4,Vector3.forward,4,1,QueryTriggerInteraction.Ignore),"The revealed chamber must not retain a solid facade blocking the collectible.");
             Assert.IsTrue(station.Door.GetComponentsInChildren<MeshRenderer>().All(r=>!r.enabled),"Shutter retracts completely.");
             var outcome=station.transform.Find("ResultadoFusion").GetComponent<CollectibleDisplay>();Assert.AreEqual(4,outcome.CollectibleId);Assert.AreSame(CollectibleDisplay.FrontSprite(4),outcome.GetComponentInChildren<SpriteRenderer>().sprite,"Directional back view is not an idle animation frame.");
             yield return Capture("MaquinaAbierta",false);
-            Assert.IsTrue(station.TryOpenMenu());Assert.IsTrue(station.Resolve(false));Assert.AreEqual(-1,outcome.CollectibleId);Assert.AreEqual(0,station.Progress.owned[4]);
+            Assert.IsTrue(station.IsMenuOpen);Assert.IsTrue(station.Resolve(false));Assert.AreEqual(-1,outcome.CollectibleId);Assert.AreEqual(0,station.Progress.owned[4]);
             yield return new WaitForSeconds(.8f);Assert.IsTrue(station.Door.GetComponentsInChildren<MeshRenderer>().All(r=>r.enabled));
             yield return Capture("MaquinaCerrada",false);
         }
@@ -80,9 +80,9 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator PausingFreezesFusionAndClosingMenuKeepsOtherPauseReasons()
         {
-            station.Progress.Begin(new[]{0,0,0},9999,0);game.Session.SetManualPause(true);float remaining=station.Progress.remaining;
+            station.Progress.Begin(new[]{0,0,0,0},9999,0);game.Session.SetManualPause(true);float remaining=station.Progress.remaining;
             yield return new WaitForSecondsRealtime(.15f);Assert.AreEqual(remaining,station.Progress.remaining);game.Session.SetManualPause(false);
-            station.Advance(60);station.Advance(1.3f);yield return Approach();Assert.IsTrue(station.TryOpenMenu());game.Session.SetManualPause(true);station.CloseMenu();Assert.IsTrue(game.Session.IsPaused);game.Session.SetManualPause(false);Assert.IsFalse(game.Session.IsPaused);
+            station.Advance(60);yield return Approach();Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);game.Session.SetManualPause(true);station.CloseMenu();Assert.IsTrue(game.Session.IsPaused);game.Session.SetManualPause(false);Assert.IsFalse(game.Session.IsPaused);
         }
         [UnityTest] public IEnumerator HeaderUsesCardFontAndParticlesSurroundMachine()
         {
@@ -92,18 +92,31 @@ namespace EchoScrap.Tests
             Assert.AreEqual(48,station.transform.position.x);Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
             Assert.AreEqual(3,station.GetComponent<FusionAura>().GetComponentsInChildren<ParticleSystem>().Length);
             Assert.IsNull(station.GetComponentInChildren<LineRenderer>());
-            station.Progress.Begin(new[]{0,0,0},9999,0);game.Session.SetManualPause(true);yield return null;
+            station.Progress.Begin(new[]{0,0,0,0},9999,0);game.Session.SetManualPause(true);yield return null;
             Assert.AreEqual("FUSIONANDO",ui.HeaderTitle);Assert.AreEqual("01:00",ui.HeaderTime);
             foreach(var particles in station.GetComponentsInChildren<ParticleSystem>())particles.Simulate(2);
             yield return Capture("RotuloYAura",true);game.Session.SetManualPause(false);
         }
         [UnityTest] public IEnumerator PauseHidesFloatingFusionLabels()
         {
-            yield return Approach();station.Progress.Begin(new[]{0,0,0},9999,0);yield return null;
+            yield return Approach();station.Progress.Begin(new[]{0,0,0,0},9999,0);yield return null;
             var canvas=station.GetComponentInChildren<Canvas>();var title=canvas.transform.Find("TituloSobreMaquina");
             game.Session.SetManualPause(true);yield return null;
             Assert.IsFalse(title.gameObject.activeSelf);Assert.IsFalse(canvas.transform.Find("IndicadorFusion").gameObject.activeSelf);
             game.Session.SetManualPause(false);yield return null;Assert.IsTrue(title.gameObject.activeSelf);
+        }
+        [UnityTest] public IEnumerator FourEmptySlotsPickFromGarageAndReadyWaitsForNearbyE()
+        {
+            yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();Assert.AreEqual(0,ui.SelectedCount);
+            yield return Capture("CuatroEspaciosVacios",true);
+            for(int i=0;i<4;i++){ui.OpenPicker(i);Assert.IsTrue(ui.PickerIsOpen);if(i==0)yield return Capture("SelectorGaraje",true);ui.AddIngredient(i);Assert.IsFalse(ui.PickerIsOpen);}
+            Assert.AreEqual(4,ui.SelectedCount);yield return Capture("CuatroSeleccionados",true);
+            Assert.IsTrue(station.StartFusion(new[]{0,1,2,3}));
+            game.Player.transform.position=Vector3.up;game.Player.GetComponent<Rigidbody>().position=Vector3.up;Physics.SyncTransforms();
+            station.Advance(180);station.Advance(10);yield return null;Assert.AreEqual(FusionPhase.Ready,station.Progress.phase);
+            Assert.IsTrue(station.Door.GetComponentsInChildren<MeshRenderer>().All(r=>r.enabled));Assert.IsFalse(station.TryOpenMenu());Assert.AreEqual(0,station.GetComponent<FusionRevealSmoke>().RevealCount);
+            yield return Approach();Assert.IsTrue(station.TryOpenMenu());Assert.AreEqual(FusionPhase.Opening,station.Progress.phase);Assert.AreEqual(1,station.GetComponent<FusionRevealSmoke>().RevealCount);
+            yield return new WaitForSecondsRealtime(.45f);yield return Capture("AbriendoConHumo",false);yield return new WaitForSecondsRealtime(1.5f);Assert.AreEqual(FusionPhase.AwaitingDecision,station.Progress.phase);Assert.IsTrue(station.IsMenuOpen);Assert.IsTrue(station.Resolve(true));
         }
         private IEnumerator Capture(string name,bool showUi,bool garage=false)
         {

@@ -36,13 +36,11 @@ Shader "EchoScrap/PortalVortex"
                 float arms=pow(saturate(sin(spin*3)*0.5+0.5),3)*clouds*(0.35+dust*1.7);
                 float ring=exp(-pow((r-0.94)*35,2));
                 float stars=step(0.992,hash(floor(flow*25)))*pow(saturate(1-length(frac(flow*25)-0.5)*2),3);
-                float horizon=smoothstep(0.22,0.29,r);
-                float photonRing=exp(-pow((r-0.275)*90,2));
-                float accretion=exp(-pow((r-0.36)*12,2))*(0.55+0.45*sin(angle*2-_Time.y*1.2+r*30));
+                float core=exp(-r*12);
                 float3 color=float3(0.008,0.003,0.035)+clouds*float3(0.10,0.015,0.23);
                 color+=arms*lerp(float3(0.65,0.12,1.4),float3(0.35,0.7,1.6),saturate(1-r*2))*smoothstep(1,0.1,r);
                 color+=ring*float3(0.5,0.12,1.8)+stars*float3(1.4,1.1,2);
-                color=color*horizon+photonRing*float3(1.8,0.7,3)+accretion*horizon*float3(0.8,0.18,1.6);
+                color+=core*float3(.5,.25,.9);
                 return half4(color,1);
             }
             ENDHLSL

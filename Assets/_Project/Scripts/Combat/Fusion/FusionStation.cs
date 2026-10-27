@@ -17,6 +17,7 @@ namespace EchoScrap.Combat
         public bool IsMenuOpen=>ui!=null&&ui.IsOpen;
         public bool CanInteract=>game!=null&&game.Player.IsAlive&&Vector3.Distance(game.Player.transform.position,InteractionPoint.position+Vector3.up)<InteractionDistance;
         public string Notice {get;private set;}="";
+        private FusionRevealSmoke smoke;
         private CombatGameBootstrap game;private FusionStationUI ui;private CollectibleDisplay resultView;
         private CollectibleDisplay[] displays;private Transform[] slats;private Vector3[] closed;private float doorTop,doorAmount,saveClock;
         private void Start()
@@ -30,6 +31,7 @@ namespace EchoScrap.Combat
             resultView=new GameObject("ResultadoFusion").AddComponent<CollectibleDisplay>();resultView.transform.SetParent(transform,false);resultView.transform.position=ResultPoint.position;
             displays=new CollectibleDisplay[DisplaySlots.Length];
             for(int i=0;i<displays.Length;i++){displays[i]=new GameObject("Coleccionable_"+(i+1)).AddComponent<CollectibleDisplay>();displays[i].transform.SetParent(DisplaySlots[i],false);}
+            smoke=gameObject.AddComponent<FusionRevealSmoke>();
             ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);RefreshDisplays();UpdateResult();
             if(game!=null)game.Session.SessionReset+=OnSessionReset;
         }
@@ -39,6 +41,7 @@ namespace EchoScrap.Combat
             if(IsMenuOpen&&(!CanInteract||!game.Player.IsAlive))CloseMenu();
             if(Keyboard.current!=null&&Keyboard.current.eKey.wasPressedThisFrame){if(IsMenuOpen)CloseMenu();else TryOpenMenu();}
             if(!game.Session.IsPaused && (game.Session.State==SessionState.Running||game.Session.IsInWarehouse)) Advance(Time.deltaTime);
+            if(Progress.phase==FusionPhase.Opening&&game.Session.Clock.HasPauseReason(PauseReason.FusionMenu)&&!game.Session.Clock.HasPauseReason(PauseReason.Manual)) Advance(Time.unscaledDeltaTime);
             float target=Progress.phase==FusionPhase.Opening?Progress.opening:Progress.phase==FusionPhase.AwaitingDecision?1:0;
             doorAmount=Mathf.MoveTowards(doorAmount,target,Time.unscaledDeltaTime*1.8f);
             for(int i=0;i<slats.Length;i++){
@@ -50,7 +53,9 @@ namespace EchoScrap.Combat
         public bool TryOpenMenu()
         {
             if(!CanInteract || game.Session.IsPaused || game.Session.State!=SessionState.Running || Progress.phase==FusionPhase.Fusing || Progress.phase==FusionPhase.Opening)return false;
-            game.Motor.CancelDashAndRestoreState();game.Motor.Stop();game.Session.Clock.SetPause(PauseReason.FusionMenu,true);ui.Show();return true;
+            game.Motor.CancelDashAndRestoreState();game.Motor.Stop();game.Session.Clock.SetPause(PauseReason.FusionMenu,true);
+            if(Progress.OpenReady()){smoke.Play(ResultPoint.position);UpdateResult();Save();return true;}
+            ui.Show();return true;
         }
         public void CloseMenu(){if(ui!=null)ui.Hide();if(game!=null)game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}
         public bool StartFusion(int[] ingredients)
@@ -59,7 +64,7 @@ namespace EchoScrap.Combat
             if(!Progress.Begin(ingredients,UnityEngine.Random.Range(0,10000),UnityEngine.Random.Range(0,2)))return false;
             Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();CloseMenu();return true;
         }
-        public void Advance(float seconds){if(Progress.Advance(seconds)){UpdateResult();Save();}}
+        public void Advance(float seconds){if(Progress.Advance(seconds)){UpdateResult();Save();if(Progress.phase==FusionPhase.AwaitingDecision&&CanInteract&&game.Session.Clock.HasPauseReason(PauseReason.FusionMenu))ui.Show();}}
         public bool Resolve(bool collect)
         {
             if(!IsMenuOpen||!CanInteract)return false;
@@ -69,7 +74,7 @@ namespace EchoScrap.Combat
         }
         private void UpdateResult(){resultView.Configure(Progress.phase==FusionPhase.Opening||Progress.phase==FusionPhase.AwaitingDecision?Progress.result:-1,3.7f,false);}
         private void RefreshDisplays(){for(int i=0;i<displays.Length;i++)displays[i].Configure(i<Progress.displays.Length?Progress.displays[i]:-1,5.5f,true);}
-        private void OnSessionReset(){CloseMenu();}
+        private void OnSessionReset(){if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();}
         private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}
         private void OnApplicationPause(bool paused){if(paused)Save();}
         private void OnApplicationQuit(){Save();}

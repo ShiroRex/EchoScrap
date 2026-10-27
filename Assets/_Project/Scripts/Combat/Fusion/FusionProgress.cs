@@ -3,7 +3,7 @@ using UnityEngine;
 namespace EchoScrap.Combat
 {
     public enum CollectibleRarity { Common, Rare, Epic, Legendary }
-    public enum FusionPhase { Idle, Fusing, Opening, AwaitingDecision }
+    public enum FusionPhase { Idle, Fusing, Opening, AwaitingDecision, Ready }
     public static class FusionCatalog
     {
         public static readonly string[] Names={"Lobito","Mago","Demonio","Shireen","Yanikua"};
@@ -20,14 +20,18 @@ namespace EchoScrap.Combat
         public string Odds=>$"Común {Common}%  ·  Raro {Rare}%  ·  Épico {Epic}%  ·  Yanikua {Legendary}%";
         public static bool TryCreate(int[] ingredients,out FusionRecipe recipe)
         {
-            recipe=default;if(ingredients==null || ingredients.Length!=3)return false;
+            recipe=default;return ingredients!=null&&ingredients.Length==4&&TryPreview(ingredients,out recipe);
+        }
+        public static bool TryPreview(int[] ingredients,out FusionRecipe recipe)
+        {
+            recipe=default;if(ingredients==null||ingredients.Length==0||ingredients.Length>4)return false;
             int epics=0,rares=0;
             foreach(int id in ingredients) {
                 if(!FusionCatalog.Valid(id)||id==4)return false; // Legendary collectibles are protected.
                 if(FusionCatalog.Rarities[id]==CollectibleRarity.Epic)epics++;
                 else if(FusionCatalog.Rarities[id]==CollectibleRarity.Rare)rares++;
             }
-            recipe=epics>=2 && epics+rares==3 ? new FusionRecipe(180,0,0,99,1)
+            recipe=epics>=2 && epics+rares==ingredients.Length ? new FusionRecipe(180,0,0,99,1)
                 :epics>0?new FusionRecipe(180,0,20,80,0)
                 :rares>0?new FusionRecipe(120,20,60,20,0):new FusionRecipe(60,70,25,5,0);
             return true;
@@ -45,7 +49,7 @@ namespace EchoScrap.Combat
     [Serializable]
     public sealed class FusionProgress
     {
-        public int version=1;
+        public int version=2;
         public FusionPhase phase;
         public float remaining, duration, opening;
         public int result=-1;
@@ -60,10 +64,12 @@ namespace EchoScrap.Combat
         {
             if(seconds<=0 || float.IsNaN(seconds)||float.IsInfinity(seconds))return false;
             var before=phase;
-            if(phase==FusionPhase.Fusing) {remaining=Mathf.Max(0,remaining-seconds);if(remaining<=0){phase=FusionPhase.Opening;opening=0;}}
+            if(phase==FusionPhase.Fusing) {remaining=Mathf.Max(0,remaining-seconds);if(remaining<=0){phase=FusionPhase.Ready;opening=0;}}
             else if(phase==FusionPhase.Opening) {opening=Mathf.Min(1,opening+seconds/1.2f);if(opening>=1)phase=FusionPhase.AwaitingDecision;}
             return before!=phase;
         }
+        public bool OpenReady()
+        {if(phase!=FusionPhase.Ready)return false;opening=0;phase=FusionPhase.Opening;return true;}
         public bool Resolve(bool collect)
         {
             if(phase!=FusionPhase.AwaitingDecision || !FusionCatalog.Valid(result))return false;
@@ -86,7 +92,9 @@ namespace EchoScrap.Combat
             if(displays==null||displays.Length!=8)displays=new[]{0,1,-1,-1,2,3,-1,-1};
             for(int i=0;i<owned.Length;i++)owned[i]=Mathf.Max(i<4?1:0,owned[i]);
             for(int i=0;i<displays.Length;i++)if(!FusionCatalog.Valid(displays[i]) || owned[displays[i]]==0)displays[i]=-1;
-            if(phase<FusionPhase.Idle || phase>FusionPhase.AwaitingDecision || (phase!=FusionPhase.Idle&&!FusionCatalog.Valid(result))) {phase=FusionPhase.Idle;result=-1;}
+            if(phase<FusionPhase.Idle || phase>FusionPhase.Ready || (phase!=FusionPhase.Idle&&!FusionCatalog.Valid(result))) {phase=FusionPhase.Idle;result=-1;}
+            if(phase==FusionPhase.Opening){phase=FusionPhase.Ready;opening=0;}
+            version=2;
             remaining=float.IsNaN(remaining)||float.IsInfinity(remaining)?180:Mathf.Clamp(remaining,0,180);
             duration=Mathf.Clamp(duration,60,180);opening=Mathf.Clamp01(opening);
         }
