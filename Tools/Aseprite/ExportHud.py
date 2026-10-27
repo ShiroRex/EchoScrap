@@ -5,7 +5,7 @@ from pathlib import Path
 import struct,zlib,json,shutil
 from PIL import Image
 root=Path(__file__).resolve().parents[2]
-for key,filename in [('Health','Barra de vida.aseprite'),('Energy','Barra_Energia.aseprite')]:
+for key,filename in [('Health','Barra de vida.aseprite'),('Energy','Barra_Energia.aseprite'),('Experience','Barra_XPP.aseprite')]:
     source=Path('C:/Users/USER/Downloads')/filename
     archive=root/'ArtSource/UI/Hud'; archive.mkdir(parents=True,exist_ok=True); shutil.copy2(source,archive/filename)
     data=source.read_bytes(); frames,w,h,depth=struct.unpack_from('<HHHH',data,6)

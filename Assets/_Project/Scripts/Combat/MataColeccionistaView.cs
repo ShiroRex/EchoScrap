@@ -24,6 +24,10 @@ namespace EchoScrap.Combat
             var model = Instantiate(prefab, actor.VisualComposer.PresentationPivot, false);
             model.name = "MataColeccionista";
             model.transform.localPosition = Vector3.down * (0.95f / actor.transform.lossyScale.y);
+            var glow=new GameObject("ResplandorLava").AddComponent<Light>();
+            glow.transform.SetParent(actor.transform,false);glow.transform.localPosition=Vector3.up*.85f;
+            glow.type=LightType.Point;glow.color=new Color(1f,.32f,.055f);glow.range=14f;glow.intensity=2.5f;
+            glow.shadows=LightShadows.None;
             animator = model.GetComponentInChildren<Animator>();
             animator.applyRootMotion = false;
             animator.speed = 0f;

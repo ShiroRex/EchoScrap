@@ -84,6 +84,27 @@ namespace EchoScrap.Tests
             yield return new WaitForSecondsRealtime(.15f);Assert.AreEqual(remaining,station.Progress.remaining);game.Session.SetManualPause(false);
             station.Advance(60);station.Advance(1.3f);yield return Approach();Assert.IsTrue(station.TryOpenMenu());game.Session.SetManualPause(true);station.CloseMenu();Assert.IsTrue(game.Session.IsPaused);game.Session.SetManualPause(false);Assert.IsFalse(game.Session.IsPaused);
         }
+        [UnityTest] public IEnumerator HeaderUsesCardFontAndParticlesSurroundMachine()
+        {
+            yield return Approach();var ui=station.GetComponent<FusionStationUI>();
+            Assert.AreEqual("MÁQUINA DE FUSIÓN",ui.HeaderTitle);Assert.AreEqual("",ui.HeaderTime);
+            Assert.AreSame(Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").semibold,ui.HeaderFont);
+            Assert.AreEqual(48,station.transform.position.x);Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
+            Assert.AreEqual(3,station.GetComponent<FusionAura>().GetComponentsInChildren<ParticleSystem>().Length);
+            Assert.IsNull(station.GetComponentInChildren<LineRenderer>());
+            station.Progress.Begin(new[]{0,0,0},9999,0);game.Session.SetManualPause(true);yield return null;
+            Assert.AreEqual("FUSIONANDO",ui.HeaderTitle);Assert.AreEqual("01:00",ui.HeaderTime);
+            foreach(var particles in station.GetComponentsInChildren<ParticleSystem>())particles.Simulate(2);
+            yield return Capture("RotuloYAura",true);game.Session.SetManualPause(false);
+        }
+        [UnityTest] public IEnumerator PauseHidesFloatingFusionLabels()
+        {
+            yield return Approach();station.Progress.Begin(new[]{0,0,0},9999,0);yield return null;
+            var canvas=station.GetComponentInChildren<Canvas>();var title=canvas.transform.Find("TituloSobreMaquina");
+            game.Session.SetManualPause(true);yield return null;
+            Assert.IsFalse(title.gameObject.activeSelf);Assert.IsFalse(canvas.transform.Find("IndicadorFusion").gameObject.activeSelf);
+            game.Session.SetManualPause(false);yield return null;Assert.IsTrue(title.gameObject.activeSelf);
+        }
         private IEnumerator Capture(string name,bool showUi,bool garage=false)
         {
             var camera=new GameObject("FusionAuditCamera").AddComponent<Camera>();camera.fieldOfView=60;

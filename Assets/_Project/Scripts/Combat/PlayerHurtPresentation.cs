@@ -234,7 +234,7 @@ namespace EchoScrap.Combat
         private void Update()
         {
             if (session != null && session.IsPaused)
-                return;
+            { ApplyToUiElements(); return; }
             if (Time.timeScale <= 0f)
                 return;
 
@@ -274,7 +274,12 @@ namespace EchoScrap.Combat
                 ? maxBorder * Mathf.Clamp01(borderTimer / Mathf.Max(0.01f, borderFadeDuration))
                 : 0f;
             if (immediateRatio > 0f && immediateRatio <= 0.30f)
-                ScreenBorderAlpha = Mathf.Max(ScreenBorderAlpha, reduced ? 0.07f : 0.14f);
+                {
+                float severity=1f-immediateRatio/.30f;
+                float breath=.5f+.5f*Mathf.Sin((session!=null?session.GameplayTime:Time.time)*4f);
+                float lowHealth=reduced?.07f:Mathf.Lerp(.10f,.22f,severity)*Mathf.Lerp(.72f,1f,breath);
+                ScreenBorderAlpha=Mathf.Max(ScreenBorderAlpha,lowHealth);
+            }
 
             DirectionalMarkerAlpha = directionalTimer > 0f
                 ? Mathf.Clamp01(directionalTimer / Mathf.Max(0.01f, directionalDuration))
@@ -295,7 +300,7 @@ namespace EchoScrap.Combat
 
             if (screenBorderOverlay != null)
             {
-                Color c = new Color(0.86f, 0.12f, 0.10f, ScreenBorderAlpha);
+                Color c = new Color(0.68f, 0.035f, 0.025f, session!=null&&session.IsPaused?0:ScreenBorderAlpha);
                 screenBorderOverlay.color = c;
             }
 

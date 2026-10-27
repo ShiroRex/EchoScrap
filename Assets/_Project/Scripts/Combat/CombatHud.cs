@@ -198,7 +198,7 @@ namespace EchoScrap.Combat
             {
                 experienceDirty = false;
                 var xp = game.Progression;
-                experienceFill.fillAmount = Mathf.Clamp01((float)xp.CurrentXp / Mathf.Max(1, xp.RequiredXp));
+                // ExperienceBarArtwork animates the actual progression snapshot.
                 levelText.text = $"NIVEL {xp.Level}";
                 experienceText.text = $"{xp.CurrentXp} / {xp.RequiredXp} XP";
             }
@@ -400,11 +400,16 @@ namespace EchoScrap.Combat
             killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), new Vector2(-220f, -53f), new Vector2(350f, 40f), "BAJAS  0", 27, TextAnchor.MiddleRight, Pale);
             AnchorLabel(canvasRect, "PauseHint", new Vector2(1f, 1f), new Vector2(-220f, -92f), new Vector2(350f, 30f), "ESC / START   PAUSA", 20, TextAnchor.MiddleRight, new Color(0.62f, 0.67f, 0.67f));
 
-            RectTransform experience = Rect(canvasRect, "Experience", new Vector2(0.5f, 0f), new Vector2(0f, 51f), new Vector2(620f, 70f));
+            RectTransform experience = Rect(canvasRect, "Experience", new Vector2(0.5f, 0f), new Vector2(0f, 60f), new Vector2(620f, 70f));
             levelText = Label(experience, "Level", new Vector2(-160f, 14f), new Vector2(300f, 34f), "NIVEL 1", 25, TextAnchor.MiddleLeft, Pale);
             experienceText = Label(experience, "ExperienceText", new Vector2(160f, 14f), new Vector2(300f, 34f), "0 / 100 XP", 22, TextAnchor.MiddleRight, new Color(0.42f, 0.86f, 0.91f));
             experienceFill = Fill(ImageRect(experience, "ExperienceTrack", new Vector2(0f, -18f), new Vector2(620f, 7f), new Color(0.12f, 0.17f, 0.19f)).transform,
                 "ExperienceFill", new Color(0.35f, 0.84f, 0.90f));
+            experience.Find("ExperienceTrack").GetComponent<Image>().color=Color.clear;
+            ExperienceBarArtwork.Attach(experience,experienceFill,game.Progression);
+            levelText.rectTransform.anchoredPosition=new Vector2(-160,38);
+            experienceText.rectTransform.anchoredPosition=new Vector2(160,38);
+            levelText.transform.SetAsLastSibling();experienceText.transform.SetAsLastSibling();
             RectTransform dash = Rect(canvasRect, "Dash", new Vector2(0f, 0f), new Vector2(220f, 69f), new Vector2(360f, 70f));
             dashText = Label(dash, "DashState", new Vector2(0f, 13f), new Vector2(340f, 36f), "EVASIÓN  LISTA", 24, TextAnchor.MiddleLeft, Apollo);
             dashFill = Fill(ImageRect(dash, "DashTrack", new Vector2(0f, -16f), new Vector2(340f, 7f), new Color(0.15f, 0.17f, 0.19f)).transform, "DashFill", Apollo);
@@ -433,7 +438,7 @@ namespace EchoScrap.Combat
             bossArrow.gameObject.SetActive(false);
 
             Image border = FullScreenImage(canvasRect, "HurtBorder", Color.clear);
-            border.sprite = borderSprite; border.type = Image.Type.Sliced;
+            border.sprite = borderSprite; border.type = Image.Type.Simple;
             Image heal = FullScreenImage(canvasRect, "HealBorder", Color.clear);
             heal.sprite = borderSprite; heal.type = Image.Type.Sliced;
             RectTransform directionalRoot = Rect(canvasRect, "DamageDirection", new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * 240f);
@@ -496,17 +501,18 @@ namespace EchoScrap.Combat
 
         private void CreateBorderSprite()
         {
-            borderTexture = new Texture2D(64, 64, TextureFormat.RGBA32, false) { name = "SoftScreenEdge", wrapMode = TextureWrapMode.Clamp };
-            var pixels = new Color[64 * 64];
-            for (int y = 0; y < 64; y++)
-            for (int x = 0; x < 64; x++)
-            {
-                float edge = Mathf.Min(Mathf.Min(x, y), Mathf.Min(63 - x, 63 - y));
-                float alpha = Mathf.Pow(Mathf.Clamp01(1f - edge / 24f), 1.6f);
-                pixels[y * 64 + x] = new Color(1f, 1f, 1f, alpha);
+            const int size=256;
+            borderTexture=new Texture2D(size,size,TextureFormat.RGBA32,false){name="SoftScreenEdge",wrapMode=TextureWrapMode.Clamp};
+            var pixels=new Color[size*size];
+            for(int y=0;y<size;y++)for(int x=0;x<size;x++){
+                float u=x/(size-1f),v=y/(size-1f);
+                float edge=Mathf.Min(Mathf.Min(u,1-u),Mathf.Min(v,1-v));
+                float width=Mathf.Lerp(.045f,.095f,Mathf.PerlinNoise(u*24,v*24));
+                float alpha=Mathf.Pow(Mathf.Clamp01(1-edge/width),1.5f);
+                pixels[y*size+x]=new Color(1,1,1,alpha);
             }
-            borderTexture.SetPixels(pixels); borderTexture.Apply(false, true);
-            borderSprite = Sprite.Create(borderTexture, new Rect(0f, 0f, 64f, 64f), Vector2.one * 0.5f, 100f, 0, SpriteMeshType.FullRect, Vector4.one * 24f);
+            borderTexture.SetPixels(pixels);borderTexture.Apply(false,true);
+            borderSprite=Sprite.Create(borderTexture,new Rect(0,0,size,size),Vector2.one*.5f,100,0,SpriteMeshType.FullRect,Vector4.one*96);
         }
 
         private static void EnsureEventSystem()

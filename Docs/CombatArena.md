@@ -54,3 +54,7 @@ victoria automática; el combate continúa. CombatArena original conserva su aju
 La prueba `NormalAndQuickScenesStartBossAtTheirOwnConfiguredTime` carga ambas escenas,
 comprueba la estación, el garaje, la transición justo antes y al alcanzar su tiempo
 y verifica el reinicio.
+
+## Arte de experiencia
+
+La barra usa el original `ArtSource/UI/Hud/Barra_XPP.aseprite` (256×65, un fotograma). `ExperienceBarArtwork` recorta el relleno verde, lo anima hacia la XP real y aplica un pulso al subir de nivel; al reiniciar vuelve a cero. La animación de interfaz continúa durante la elección de mejora. Exportación reproducible con `Tools/Aseprite/ExportHud.py`; texturas Point, sin compresión ni cambio de proporción.

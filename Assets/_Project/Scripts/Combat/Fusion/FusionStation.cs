@@ -7,12 +7,13 @@ namespace EchoScrap.Combat
 {
     public sealed class FusionStation : MonoBehaviour
     {
-        public Transform InteractionPoint, ResultPoint, Door;
+        public Transform InteractionPoint, ResultPoint, Door, HeaderPoint;
         public Transform[] DisplaySlots;
         public float InteractionDistance=4.5f;
         public bool PersistProgress=true;
         public const string SaveKey="EchoScrap.FusionPrototype.v1";
         public FusionProgress Progress {get;private set;}
+        public bool WorldLabelsAllowed=>game!=null&&!game.Session.IsPaused&&game.Player.IsAlive;
         public bool IsMenuOpen=>ui!=null&&ui.IsOpen;
         public bool CanInteract=>game!=null&&game.Player.IsAlive&&Vector3.Distance(game.Player.transform.position,InteractionPoint.position+Vector3.up)<InteractionDistance;
         public string Notice {get;private set;}="";

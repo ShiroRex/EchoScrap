@@ -375,6 +375,29 @@ namespace EchoScrap.Tests
             session.SetManualPause(false);
         }
 
+        [UnityTest]
+        public IEnumerator ImportedBossLavaRemainsVisibleInDarkArena()
+        {
+            var boss=SpawnBoss();boss.ActivateCombat();boss.Step(.01f);
+            var view=boss.GetComponent<MataColeccionistaView>();Assert.IsTrue(view.IsReady);
+            var glow=boss.transform.Find("ResplandorLava").GetComponent<Light>();
+            Assert.Greater(glow.intensity,0);Assert.AreEqual(LightType.Point,glow.type);
+            bool emissive=false;
+            foreach(var renderer in boss.GetComponentsInChildren<Renderer>())
+                foreach(var material in renderer.sharedMaterials)
+                    if(material!=null&&material.HasProperty("_EmissionMap")&&material.GetTexture("_EmissionMap")!=null){
+                        Assert.IsTrue(material.IsKeywordEnabled("_EMISSION"));Assert.Greater(material.GetColor("_EmissionColor").maxColorComponent,1);emissive=true;
+                    }
+            Assert.IsTrue(emissive,"The imported model must retain its lava emission texture.");
+            var lighting=RenderSettings.ambientLight;float intensity=RenderSettings.ambientIntensity;
+            foreach(var light in Object.FindObjectsByType<Light>())if(light.type==LightType.Directional)light.intensity=.05f;
+            RenderSettings.ambientLight=Color.black;RenderSettings.ambientIntensity=0;
+            camera.transform.position=new Vector3(10,8,-15);camera.transform.LookAt(new Vector3(0,3,0));
+            try{yield return Capture("LavaEnOscuridad");}
+            finally{RenderSettings.ambientLight=lighting;RenderSettings.ambientIntensity=intensity;}
+            enemies.ReturnToPool(boss);Assert.IsFalse(glow.isActiveAndEnabled,"Pool return also disables the lava light.");
+        }
+
         private GolgoraActor SpawnBoss()
         {
             var boss = enemies.Spawn(EnemyArchetypeId.GolgoraBoss, Vector3.up) as GolgoraActor;
