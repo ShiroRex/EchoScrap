@@ -19,7 +19,7 @@ namespace EchoScrap.Tests
         public IEnumerator SetUp()
         {
             Time.timeScale = 1f;
-            Assert.IsTrue(Application.CanStreamedLevelBeLoaded("CombatArena"), "Generate CombatArena with CombatArenaBuilder.Rebuild before running this fixture.");
+            Assert.IsTrue(Application.CanStreamedLevelBeLoaded("CombatArena"), "Include the saved CombatArena scene in Build Settings before running this fixture.");
             yield return SceneManager.LoadSceneAsync("CombatArena", LoadSceneMode.Single);
             yield return null;
             game = Object.FindAnyObjectByType<CombatGameBootstrap>();
