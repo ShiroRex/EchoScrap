@@ -88,10 +88,10 @@ namespace EchoScrap.Combat
             headerTime.text=phase==FusionPhase.Fusing?$"{seconds/60:00}:{seconds%60:00}":"";
             var anchor=station.HeaderPoint!=null?station.HeaderPoint.position:station.transform.position+Vector3.up*10;
             var screen=camera.WorldToScreenPoint(anchor);
-            bool visible=!IsOpen&&screen.z>0&&Vector3.Distance(camera.transform.position,anchor)<65;
+            bool visible=station.WorldLabelsAllowed&&!IsOpen&&screen.z>0&&Vector3.Distance(camera.transform.position,anchor)<65;
             header.gameObject.SetActive(visible);
             if(visible){RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect,screen,canvas.renderMode==RenderMode.ScreenSpaceOverlay?null:canvas.worldCamera,out var point);header.anchoredPosition=point;}
-            bool interact=station.CanInteract&&!IsOpen&&(phase==FusionPhase.Idle||phase==FusionPhase.AwaitingDecision);
+            bool interact=station.WorldLabelsAllowed&&station.CanInteract&&!IsOpen&&(phase==FusionPhase.Idle||phase==FusionPhase.AwaitingDecision);
             prompt.gameObject.SetActive(interact);
             if(!interact)return;
             screen=camera.WorldToScreenPoint(station.InteractionPoint.position+Vector3.up*1.4f);

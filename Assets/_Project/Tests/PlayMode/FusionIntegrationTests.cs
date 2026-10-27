@@ -97,6 +97,14 @@ namespace EchoScrap.Tests
             foreach(var particles in station.GetComponentsInChildren<ParticleSystem>())particles.Simulate(2);
             yield return Capture("RotuloYAura",true);game.Session.SetManualPause(false);
         }
+        [UnityTest] public IEnumerator PauseHidesFloatingFusionLabels()
+        {
+            yield return Approach();station.Progress.Begin(new[]{0,0,0},9999,0);yield return null;
+            var canvas=station.GetComponentInChildren<Canvas>();var title=canvas.transform.Find("TituloSobreMaquina");
+            game.Session.SetManualPause(true);yield return null;
+            Assert.IsFalse(title.gameObject.activeSelf);Assert.IsFalse(canvas.transform.Find("IndicadorFusion").gameObject.activeSelf);
+            game.Session.SetManualPause(false);yield return null;Assert.IsTrue(title.gameObject.activeSelf);
+        }
         private IEnumerator Capture(string name,bool showUi,bool garage=false)
         {
             var camera=new GameObject("FusionAuditCamera").AddComponent<Camera>();camera.fieldOfView=60;
