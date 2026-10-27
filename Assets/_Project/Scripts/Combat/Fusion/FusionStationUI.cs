@@ -4,7 +4,11 @@ namespace EchoScrap.Combat
 {
     public sealed class FusionStationUI : MonoBehaviour
     {
-        private FusionStation station;private Font font;private Canvas canvas;private RectTransform canvasRect,prompt;
+        private FusionStation station;private Font font;private Canvas canvas;private RectTransform canvasRect,prompt,header;
+        private Text headerTitle,headerTime;
+        public string HeaderTitle=>headerTitle.text;
+        public string HeaderTime=>headerTime.text;
+        public Font HeaderFont=>headerTitle.font;
         private GameObject modal,inventory,result;private Text promptText,selection,odds,status,resultTitle,resultDescription;
         private readonly Text[] stock=new Text[5];
         private Button start;private Image resultImage;private readonly int[] ingredients={-1,-1,-1};
@@ -18,6 +22,13 @@ namespace EchoScrap.Combat
             root.AddComponent<GraphicRaycaster>();var scaler=root.AddComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;canvasRect=root.GetComponent<RectTransform>();
             prompt=Panel("IndicadorFusion",canvasRect,new Vector2(0,0),new Vector2(550,82),Ink);prompt.anchorMin=prompt.anchorMax=prompt.pivot=new Vector2(.5f,.5f);
             promptText=Label(prompt,"",new Vector2(12,8),new Vector2(526,66),24,TextAnchor.MiddleCenter);
+            header=Panel("TituloSobreMaquina",canvasRect,Vector2.zero,new Vector2(620,110),Color.clear);
+            header.GetComponent<Image>().raycastTarget=false;header.anchorMin=header.anchorMax=header.pivot=new Vector2(.5f,.5f);
+            headerTitle=Label(header,"MÁQUINA DE FUSIÓN",Vector2.zero,new Vector2(620,52),34,TextAnchor.MiddleCenter);
+            headerTime=Label(header,"",new Vector2(0,53),new Vector2(620,48),36,TextAnchor.MiddleCenter);
+            var cardFont=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.semibold??font;
+            foreach(var text in new[]{headerTitle,headerTime}){text.font=cardFont;var shadow=text.gameObject.AddComponent<Shadow>();shadow.effectColor=new Color(0,0,0,.9f);shadow.effectDistance=new Vector2(2,-2);}
+            headerTitle.color=new Color(.88f,.76f,1);headerTime.color=Color.white;
             var shade=Panel("InventarioFusion",canvasRect,Vector2.zero,Vector2.zero,new Color(0,0,0,.65f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;modal=shade.gameObject;
             var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1120,740),Ink);panel.anchorMin=panel.anchorMax=panel.pivot=new Vector2(.5f,.5f);panel.anchoredPosition=Vector2.zero;
             Label(panel,"MÁQUINA DE FUSIÓN",new Vector2(36,22),new Vector2(900,44),32);
@@ -71,13 +82,22 @@ namespace EchoScrap.Combat
         private void LateUpdate()
         {
             if(station==null||station.Progress==null||prompt==null)return;
-            bool visible=station.CanInteract&&!IsOpen;prompt.gameObject.SetActive(visible);if(!visible)return;
-            var camera=Camera.main;if(camera==null)return;
-            var screen=camera.WorldToScreenPoint(station.InteractionPoint.position+Vector3.up*2.4f);
-            if(screen.z<0){prompt.gameObject.SetActive(false);return;}
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect,screen,null,out var local);prompt.anchoredPosition=local;
+            var camera=canvas.renderMode==RenderMode.ScreenSpaceCamera?canvas.worldCamera:Camera.main;if(camera==null)return;
             var phase=station.Progress.phase;int seconds=Mathf.CeilToInt(station.Progress.remaining);
-            promptText.text=phase==FusionPhase.Fusing?$"FUSIONANDO  {seconds/60:00}:{seconds%60:00}":phase==FusionPhase.Opening?"ABRIENDO…":phase==FusionPhase.AwaitingDecision?"E · VER RESULTADO / COLECCIONAR":"E · FUSIONAR";
+            headerTitle.text=phase==FusionPhase.Fusing?"FUSIONANDO":phase==FusionPhase.Opening?"ABRIENDO":phase==FusionPhase.AwaitingDecision?"FUSIÓN COMPLETADA":"MÁQUINA DE FUSIÓN";
+            headerTime.text=phase==FusionPhase.Fusing?$"{seconds/60:00}:{seconds%60:00}":"";
+            var anchor=station.HeaderPoint!=null?station.HeaderPoint.position:station.transform.position+Vector3.up*10;
+            var screen=camera.WorldToScreenPoint(anchor);
+            bool visible=!IsOpen&&screen.z>0&&Vector3.Distance(camera.transform.position,anchor)<65;
+            header.gameObject.SetActive(visible);
+            if(visible){RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect,screen,canvas.renderMode==RenderMode.ScreenSpaceOverlay?null:canvas.worldCamera,out var point);header.anchoredPosition=point;}
+            bool interact=station.CanInteract&&!IsOpen&&(phase==FusionPhase.Idle||phase==FusionPhase.AwaitingDecision);
+            prompt.gameObject.SetActive(interact);
+            if(!interact)return;
+            screen=camera.WorldToScreenPoint(station.InteractionPoint.position+Vector3.up*1.4f);
+            if(screen.z<0){prompt.gameObject.SetActive(false);return;}
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect,screen,canvas.renderMode==RenderMode.ScreenSpaceOverlay?null:canvas.worldCamera,out var local);prompt.anchoredPosition=local;
+            promptText.text=phase==FusionPhase.AwaitingDecision?"E · VER RESULTADO / COLECCIONAR":"E · FUSIONAR";
         }
         private static void Rect(RectTransform t,Vector2 p,Vector2 size){t.anchorMin=t.anchorMax=new Vector2(0,1);t.pivot=new Vector2(0,1);t.anchoredPosition=new Vector2(p.x,-p.y);t.sizeDelta=size;}
         private static RectTransform Panel(string name,Transform parent,Vector2 p,Vector2 size,Color color){var o=new GameObject(name,typeof(RectTransform));o.transform.SetParent(parent,false);var t=o.GetComponent<RectTransform>();Rect(t,p,size);o.AddComponent<Image>().color=color;return t;}

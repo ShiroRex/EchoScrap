@@ -7,7 +7,7 @@ namespace EchoScrap.Combat
 {
     public sealed class FusionStation : MonoBehaviour
     {
-        public Transform InteractionPoint, ResultPoint, Door;
+        public Transform InteractionPoint, ResultPoint, Door, HeaderPoint;
         public Transform[] DisplaySlots;
         public float InteractionDistance=4.5f;
         public bool PersistProgress=true;
