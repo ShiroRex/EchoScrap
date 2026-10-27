@@ -11,6 +11,8 @@ namespace EchoScrap.Combat
     {
         private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int StatusTintId = Shader.PropertyToID("_StatusTint");
+        private static readonly int StatusAmountId = Shader.PropertyToID("_StatusAmount");
         private static readonly int GlowStrengthId = Shader.PropertyToID("_GlowStrength");
         private EnemyActor actor;
         private MortarSpriteSet sprites;
@@ -149,6 +151,10 @@ namespace EchoScrap.Combat
             pixels.GetPropertyBlock(properties);
             properties.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
             if (!actor.VisualComposer.IsFlashActive) properties.SetColor(BaseColorId, Color.white);
+            Color status = actor.VisualComposer.StatusTint;
+            properties.SetColor(StatusTintId, status);
+            properties.SetFloat(StatusAmountId, !actor.VisualComposer.IsFlashActive && status != Color.white ? .9f : 0f);
+            glow.Color = status != Color.white ? status : new Color(.2f, 1f, .04f);
             bool reduced = actor.Session != null && actor.Session.Effects.ReducedEffectsMode;
             float pulse = reduced || paused ? 1f : 1f + 0.06f * Mathf.Sin(clock * 6f);
             // Only the authored acid mask emits. The increasing light on the floor makes the

@@ -89,7 +89,7 @@ namespace EchoScrap.Combat
             new UpgradeCardDefinition("BIO_01", "Más vida", UpgradeRarity.N, 5, UpgradeIcon.Vitality, "Ganas 20 de vida máxima"),
             new UpgradeCardDefinition("GREED_01", "Imán", UpgradeRarity.N, 5, UpgradeIcon.Magnet, "Recoges objetos más lejos"),
             new UpgradeCardDefinition("GREED_03", "Botiquín mejor", UpgradeRarity.R, 3, UpgradeIcon.Vitality, "Cada botiquín te cura más"),
-            new UpgradeCardDefinition("FLASH_03", "Prisma ígneo", UpgradeRarity.R, 3, UpgradeIcon.Lens, "El cuarto pulso lanza chispas"),
+            new UpgradeCardDefinition("FLASH_03", "Prisma voltaico", UpgradeRarity.R, 3, UpgradeIcon.Lens, "El cuarto pulso encadena rayos"),
             new UpgradeCardDefinition("DASH_02", "Onda sísmica", UpgradeRarity.R, 3, UpgradeIcon.Dash, "Aturdes al terminar la esquiva"),
             new UpgradeCardDefinition("DASH_03", "Holo-señuelo", UpgradeRarity.SR, 3, UpgradeIcon.Dash, "Al esquivar dejas un señuelo"),
             new UpgradeCardDefinition("DASH_04", "Cataclismo", UpgradeRarity.SSR, 1, UpgradeIcon.Dash, "Tu esquiva explota y corta"),
@@ -161,7 +161,7 @@ namespace EchoScrap.Combat
         public static string PrimaryLabel(string id) => id switch
         {
             "FLASH_01" => "ALCANCE", "FLASH_02" => "VELOCIDAD DE ATAQUE", "FLASH_04" or "FLASH_05" => "DAÑO POR PULSO",
-            "DASH_01" => "RECARGA DE DASH", "BIO_01" => "VIDA MÁXIMA", "GREED_01" => "RADIO DE RECOGIDA", "GREED_03" => "CURACIÓN", "FLASH_03" => "CHISPAS POR IMPACTO", "DASH_02" or "BIO_04" or "SCRAP_02" => "DAÑO",
+            "DASH_01" => "RECARGA DE DASH", "BIO_01" => "VIDA MÁXIMA", "GREED_01" => "RADIO DE RECOGIDA", "GREED_03" => "CURACIÓN", "FLASH_03" => "ENEMIGOS ENLAZADOS", "DASH_02" or "BIO_04" or "SCRAP_02" => "DAÑO",
             "DASH_03" => "DURACIÓN", "DASH_04" => "RECARGA DE DASH", "BIO_02" => "CURACIÓN POR ACTIVACIÓN",
             "BIO_03" => "REGENERACIÓN CADA 2.5 s", "GREED_02" => "BONO DE EXPERIENCIA", "GREED_04" => "REINTENTOS POR PARTIDA",
             "GREED_05" => "ALCANCE DE RECOGIDA", "CRIT_01" or "CRIT_05" => "PROBABILIDAD CRÍTICA", "CRIT_02" => "MULTIPLICADOR CRÍTICO",

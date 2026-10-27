@@ -115,7 +115,7 @@ exclusión de jefes. Los datos serializados y los valores predeterminados coinci
 |---|---|---|
 | FLASH_01 | Más alcance | Sobrenatural: luz |
 | FLASH_02 | Pulso rápido | Sobrenatural: luz |
-| FLASH_03 | Prisma ígneo | Sobrenatural: chispas de plasma |
+| FLASH_03 | Prisma voltaico | Sobrenatural: cadena de electricidad |
 | FLASH_04 | Golpe potente | Sobrenatural: luz; el empuje no es otro daño |
 | FLASH_05 | Rayo solar | Sobrenatural: luz |
 | DASH_01 | Dash ágil | Sin daño directo |

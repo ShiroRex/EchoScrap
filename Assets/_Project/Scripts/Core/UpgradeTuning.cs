@@ -5,10 +5,17 @@ namespace EchoScrap.Core
     [CreateAssetMenu(menuName = "EchoScrap/Combat/Upgrade Tuning")]
     public sealed class UpgradeTuning : ScriptableObject
     {
-        [Header("Prisma y sifón: niveles 1/2/3")]
+        [Header("Prisma: niveles 1/2/3")]
         public Vector3 prismCounts = new Vector3(2, 3, 4);
         public Vector3 prismDamage = new Vector3(.4f, .6f, .8f);
         public float prismRadius = 5f, plasmaSpeed = 24f;
+        [Header("Cadena voltaica")]
+        [Min(.01f)] public float voltaicHopDelay = .045f;
+        [Min(.08f)] public float voltaicLinkLifetime = .22f;
+        [Min(.015f)] public float voltaicCoreWidth = .035f;
+        [Min(.03f)] public float voltaicJitter = .16f;
+        [Min(8)] public int voltaicVisualCapacity = 64;
+        [Header("Sifón: niveles 1/2/3")]
         public Vector3 siphonChance = new Vector3(.12f, .2f, .3f);
         public Vector3 siphonHealing = new Vector3(2, 3, 4);
         [Header("Dash")]

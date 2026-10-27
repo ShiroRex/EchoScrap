@@ -16,6 +16,11 @@ MonoBehaviour:
   prismDamage: {x: .4, y: .6, z: .8}
   prismRadius: 5
   plasmaSpeed: 24
+  voltaicHopDelay: .045
+  voltaicLinkLifetime: .22
+  voltaicCoreWidth: .035
+  voltaicJitter: .16
+  voltaicVisualCapacity: 64
   siphonChance: {x: .12, y: .2, z: .3}
   siphonHealing: {x: 2, y: 3, z: 4}
   shockRadius: {x: 3.5, y: 4.5, z: 5.5}

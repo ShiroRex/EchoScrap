@@ -246,10 +246,10 @@ namespace EchoScrap.Combat
                 if (flightTrailMaterial == null) flightTrailMaterial = new Material(Shader.Find("Sprites/Default")) { name = "Collector flight trails" };
                 slot.FlightTrail = root.AddComponent<LineRenderer>();
                 slot.FlightTrail.sharedMaterial = flightTrailMaterial;
-                slot.FlightTrail.useWorldSpace = true; slot.FlightTrail.positionCount = 3;
-                slot.FlightTrail.startWidth = .10f; slot.FlightTrail.endWidth = .01f;
-                slot.FlightTrail.startColor = new Color(.44f, .95f, 1f, .8f);
-                slot.FlightTrail.endColor = new Color(.28f, .66f, 1f, 0f);
+                slot.FlightTrail.useWorldSpace = true; slot.FlightTrail.positionCount = 5;
+                slot.FlightTrail.startWidth = .065f; slot.FlightTrail.endWidth = .005f;
+                slot.FlightTrail.startColor = new Color(.36f, .85f, 1f, .68f);
+                slot.FlightTrail.endColor = new Color(.23f, .52f, .9f, 0f);
                 slot.FlightTrail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 slot.FlightTrail.receiveShadows = false; slot.FlightTrail.enabled = false;
             }
@@ -376,21 +376,15 @@ namespace EchoScrap.Combat
                 {
                     slot.FlightAge += deltaTime;
                     float progress = Mathf.Clamp01(slot.FlightAge / slot.FlightDuration);
-                    float eased = progress * progress * (3f - 2f * progress);
-                    Vector3 previous = slot.Position;
-                    slot.Position = Vector3.Lerp(slot.FlightStart, target, eased);
-                    float height = decorative ? Mathf.Min(3f, Vector3.Distance(slot.FlightStart, target) * .05f) * Mathf.Sin(progress * Mathf.PI) : 0f;
-                    slot.Position.y += height;
+                    slot.Position = CollectorFlightPosition(slot, target, progress, decorative);
                     slot.Root.transform.position = slot.Position;
                     slot.Visual.localScale = Vector3.one * 1.4f;
                     slot.Visual.localRotation = slot.Kind == CombatPickupKind.Experience ? Quaternion.Euler(0f, slot.Age * 180f, 0f) : Quaternion.identity;
                     if (slot.FlightTrail != null)
                     {
                         slot.FlightTrail.enabled = decorative && progress > .02f;
-                        Vector3 tail = slot.Position + (slot.FlightStart - slot.Position).normalized * Mathf.Min(1.8f, Vector3.Distance(previous, slot.Position) * 4f);
-                        slot.FlightTrail.SetPosition(0, slot.Position);
-                        slot.FlightTrail.SetPosition(1, Vector3.Lerp(slot.Position, tail, .5f));
-                        slot.FlightTrail.SetPosition(2, tail);
+                        for (int point = 0; point < 5; point++)
+                            slot.FlightTrail.SetPosition(point, CollectorFlightPosition(slot, target, Mathf.Max(0f, progress - point * .025f), true));
                     }
                     if (progress >= 1f) Collect(slot);
                     continue;
@@ -421,6 +415,23 @@ namespace EchoScrap.Combat
         }
 
         /// <summary>Move the actual map pickups to the player; rewards resolve only on arrival.</summary>
+        private static Vector3 CollectorFlightPosition(PickupSlot slot, Vector3 target, float progress, bool decorative)
+        {
+            float eased = progress * progress;
+            Vector3 position = Vector3.Lerp(slot.FlightStart, target, eased);
+            if (!decorative) return position;
+            Vector3 path = target - slot.FlightStart;
+            path.y = 0f;
+            float distance = path.magnitude;
+            Vector3 side = new Vector3(-path.z, 0f, path.x) / Mathf.Max(.001f, distance);
+            float envelope = Mathf.Sin(progress * Mathf.PI);
+            float swirl = slot.Id * 2.3999632f + progress * Mathf.PI * 2.5f;
+            float width = Mathf.Min(1.6f, distance * .085f) * envelope * (1f - progress);
+            position += side * (Mathf.Sin(swirl) * width);
+            position.y += Mathf.Min(2.5f, distance * .045f) * envelope;
+            return position;
+        }
+
         public int AttractAll()
         {
             if (session == null || playerHealth == null || !playerHealth.IsAlive || session.State == SessionState.Victory || session.State == SessionState.Defeat) return 0;

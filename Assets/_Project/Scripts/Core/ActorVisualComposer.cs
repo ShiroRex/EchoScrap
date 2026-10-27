@@ -16,6 +16,8 @@ namespace EchoScrap.Core
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
+        private static readonly int StatusTintId = Shader.PropertyToID("_StatusTint");
+        private static readonly int StatusAmountId = Shader.PropertyToID("_StatusAmount");
 
         [Header("Jerarquía Visual")]
         [SerializeField] private Transform orientationRoot;
@@ -457,6 +459,7 @@ namespace EchoScrap.Core
                     flashBlock.SetColor(BaseColorId, activeFlashColor);
                     flashBlock.SetColor(ColorId, activeFlashColor);
                     flashBlock.SetColor(EmissionColorId, activeFlashColor * 1.6f);
+                    flashBlock.SetFloat(StatusAmountId, 0f);
                     r.SetPropertyBlock(flashBlock);
                 }
                 else if (statusTint != Color.white)
@@ -468,6 +471,8 @@ namespace EchoScrap.Core
                     flashBlock.SetColor(BaseColorId, tinted);
                     flashBlock.SetColor(ColorId, tinted);
                     flashBlock.SetColor(EmissionColorId, statusTint * .06f);
+                    flashBlock.SetColor(StatusTintId, statusTint);
+                    flashBlock.SetFloat(StatusAmountId, .8f);
                     r.SetPropertyBlock(flashBlock);
                 }
                 else r.SetPropertyBlock(null);

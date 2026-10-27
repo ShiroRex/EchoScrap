@@ -256,9 +256,10 @@ namespace EchoScrap.Tests
                         break;
                     case "FLASH_03":
                         GalleryHit(main, 10, 4);
-                        game.Upgrades.Step(.055f);
-                        Assert.That(game.Upgrades.ActiveProjectileCount, Is.EqualTo(2));
-                        note = "Dos chispas turquesa salen del enemigo alcanzado y buscan a otros.";
+                        game.Upgrades.Step(.1f);
+                        Assert.That(game.Upgrades.ChainHitsResolved, Is.EqualTo(2));
+                        Assert.That(game.Upgrades.ActiveLightningCount, Is.GreaterThan(0));
+                        note = "Una descarga azul violácea conecta dos enemigos sucesivamente.";
                         break;
                     case "DASH_01":
                         typeof(EchoScrap.Player.PlayerMotor).GetMethod("StartDashInFixedStep", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).Invoke(game.Motor, new object[] { Vector3.right });

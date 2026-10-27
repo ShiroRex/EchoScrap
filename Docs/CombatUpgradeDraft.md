@@ -155,7 +155,7 @@ ondas conservando sus indicadores de alcance.
 
 | Familia | Cartas conectadas | Señal de gameplay |
 |---|---|---|
-| Linterna | FLASH_01–05 | Cono y cadencia existentes; chispas dirigidas en el cuarto pulso. |
+| Linterna | FLASH_01–05 | Cono y cadencia existentes; cadena eléctrica en el cuarto pulso. |
 | Dash | DASH_01–04 | Dash existente; onda de impacto, holograma del jugador, explosión y cuchilla perforante. |
 | Biomecánica | BIO_01–04 | Salud en HUD, pulsos verdes de reparación, aro de protección y nova de sobrecuración. |
 | Recursos | GREED_01–05 | Recogida y XP en HUD, botón de reintento y onda entrante de recogida global. |
@@ -265,17 +265,20 @@ verlos en juego; una captura estática no representa su velocidad ni duración.
 
 - La luz real, el resplandor del farol y el volumen comparten `FlashlightUpgradeLook`.
   Alcance usa oro claro; cadencia, naranja; Prisma, azul; Golpe potente, violeta.
-  Los niveles combinan sus colores e intensidad; Rayo solar prevalece con oro blanco.
+  La mejora dominante determina el color y los niveles aumentan la intensidad;
+  Rayo solar prevalece con oro cálido.
 - Unity ParticleSystem aporta destellos, estelas, fragmentos, humo, nieve y niebla.
-  La congelación sustituye la antigua carcasa poligonal por escarcha y luz fría.
+  La congelación combina cristales de volumen, escarcha, niebla y un tinte frío
+  que crece sobre el cuerpo durante 0,14 s y desaparece al descongelarse.
   La ralentización tiñe al enemigo de celeste, conserva el flash de impacto y restaura
   el material al terminar el estado o reutilizar el actor.
-- Nanobots usa una esfera de energía transparente con borde luminoso, celdas y motas.
+- Nanobots usa una esfera de energía transparente ajustada al cuerpo visible, con
+  superficies delantera y trasera, borde curvo, celdas, motas y ondas al recibir golpes.
   Sierras, minas y torreta tienen sprites de acero propios; las sierras giran con
   arcos de viento y emiten chispas al golpear, las minas detonan con humo y fragmentos,
   y la torreta presenta un fogonazo con su disparo.
-- Blindaje muestra cinco placas bajo la barra de vida, un escudo de acero y la reducción
-  porcentual real. No presenta la armadura como si fuera vida adicional.
+- Blindaje muestra su reducción real en las estadísticas completas; el indicador
+  bajo la barra de vida se retiró al incorporar los modos de estadísticas.
 - Pulso colector atrae los objetos reales desde sus posiciones, con trayectorias aéreas
   y hasta 64 estelas simultáneas. Cada objeto conserva su XP, gemas agrupadas y tipo;
   solo se consume al llegar. Los vuelos también se pausan y limpian al reiniciar.
@@ -304,6 +307,43 @@ midió aproximadamente 0,73 ms por paso de la simulación de mejoras y cero asig
 gestionadas tras calentar las reservas; no es una medición de la GPU ni del frame completo.
 La galería nueva y las secuencias están en `Logs/UpgradeVfxReview/`; las vistas resumidas,
 animación y HUD están en `ArtSource/VFX/Upgrades/Previews/`.
+
+### Animación y lectura de los efectos
+
+Prisma voltaico sustituye los proyectiles de Prisma ígneo por una cadena eléctrica
+secuencial: el cuarto pulso alcanza 2/3/4 enemigos adicionales e inflige el
+40/60/80% del daño recibido por el objetivo inicial. Todos los blancos deben estar
+a 5 m del impacto inicial. No vuelve a tirar críticos ni genera otra cadena.
+Los enlaces duran 0,22 s y saltan cada 0,045 s; el núcleo permanece con efectos
+reducidos. Muerte, reutilización del enemigo, pausa y reinicio se comprueban en pruebas.
+
+Ocho fuentes Aseprite nuevas contienen 70 fotogramas editables: impacto eléctrico,
+escarcha, explosión, humo, viento, onda, metal y fragmentos de hielo. Sus nueve
+atlas (incluida la variante de plasma) alimentan 14 prefabs nativos de Unity,
+cada uno con tres ParticleSystems editables. `Tools/Aseprite/UpgradeVfxFlipbooks.lua`
+regenera las fuentes; `Tools/Vfx/BakeUpgradeVfx.ps1` importa y construye los prefabs
+en la copia de autoría aislada, sin añadir scripts permanentes al Editor del juego.
+La auditoría nativa está en `Logs/UpgradeVfxAnimated/NativeAudit.json`.
+
+Las reservas precalientan 54 conjuntos específicos por familia y limitan los
+activos a 32, con ocho plazas reservadas para impactos breves y seis luces sin
+sombras. Los rayos reutilizan hasta 64 enlaces. El pulso colector acelera los
+objetos reales hacia el jugador con curvatura y estelas; entrega la XP al llegar.
+Los tintes de frío también se aplican a los sprites de Polilla y Mortero sin
+perder su textura ni los flashes de impacto.
+
+Validación de esta revisión: **189/189 pruebas PlayMode**, incluyendo recursos,
+cadena eléctrica, pausa/reinicio, estados, recogida, HUD, enemigos y escenas reales.
+Las ocho animaciones de cámara real y la lámina comparativa están en
+`ArtSource/VFX/Upgrades/Previews/VfxRework/`. Sus GIF conservan la paleta comprobada
+al decodificar y muestran recortes de las capturas originales de 1280×720.
+
+El perfil separado usa 150 enemigos y todas las mejoras al máximo. La simulación
+aislada midió 2,18 ms por paso y cero bytes gestionados tras calentar las reservas.
+La CPU del frame completo en Editor/batch a 640×480 midió una media de 16,05 ms
+y p95 de 50,30 ms, frente a 4,24 ms de media sin mejoras. La GPU no entregó tiempos:
+estos datos no certifican 60 FPS estables. El informe completo se conserva junto
+a las vistas en `FrameProfile.json`.
 
 ### Normal map de sierras y material mate
 
