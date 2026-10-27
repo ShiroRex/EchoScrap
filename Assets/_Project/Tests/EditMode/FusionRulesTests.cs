@@ -23,6 +23,15 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(epics>=2&&epics+rares==4?100:0,counts[3]);
             }
         }
+        [Test] public void IndividualResultPercentagesMatchEveryRollAndSumToOneHundred()
+        {
+            foreach(var ids in new[]{new[]{0,0,0,0},new[]{1,0,0,0},new[]{2,0,0,0},new[]{2,3,1,1}}){
+                FusionRecipe.TryCreate(ids,out var recipe);var counts=new int[5];
+                for(int roll=0;roll<10000;roll++)counts[recipe.Roll(roll,0)]++;
+                int total=0;for(int id=0;id<5;id++){Assert.AreEqual(recipe.ResultWeight(id),counts[id]);total+=counts[id];}
+                Assert.AreEqual(10000,total);Assert.Greater(recipe.ResultPercent(2),recipe.ResultPercent(3));
+            }
+        }
         [Test] public void PartialPreviewDoesNotDependOnSelectionOrder()
         {FusionRecipe.TryPreview(new[]{1,2},out var a);FusionRecipe.TryPreview(new[]{2,1},out var b);Assert.AreEqual(a.Odds,b.Odds);Assert.AreEqual(a.Seconds,b.Seconds);Assert.AreEqual(0,a.Legendary);Assert.IsFalse(FusionRecipe.TryCreate(new[]{0,0,0},out _));}
         [Test] public void LegendaryIsProtectedAndInvalidRecipesAreRejected()

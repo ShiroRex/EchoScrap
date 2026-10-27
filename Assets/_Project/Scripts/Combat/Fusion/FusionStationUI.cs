@@ -5,6 +5,7 @@ namespace EchoScrap.Combat
 {
     public sealed class FusionStationUI : MonoBehaviour
     {
+        private Font strongFont;
         private FusionStation station;private Font font;private Canvas canvas;private RectTransform canvasRect,prompt,header;
         private Text headerTitle,headerTime;
         public string HeaderTitle=>headerTitle.text;
@@ -17,16 +18,17 @@ namespace EchoScrap.Combat
         private readonly Text[] stock=new Text[5];
         private Button start;private Image resultImage;private readonly int[] ingredients={-1,-1,-1,-1};
         public bool IsOpen=>modal!=null&&modal.activeSelf;
-        private static readonly Color Ink=new Color(.045f,.055f,.08f,.98f),Pale=new Color(.9f,.94f,1);
+        private static readonly Color Ink=new Color(.045f,.055f,.08f,1f),Pale=new Color(.9f,.94f,1);
         public void Build(FusionStation owner)
         {
-            station=owner;font=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.semibold??Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            station=owner;var cardSkin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            font=cardSkin?.regular??Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");strongFont=cardSkin?.semibold??font;
             var root=new GameObject("FusionCanvas",typeof(RectTransform));root.transform.SetParent(transform,false);
             canvas=root.AddComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=120;
             root.AddComponent<GraphicRaycaster>();var scaler=root.AddComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;canvasRect=root.GetComponent<RectTransform>();
-            prompt=Panel("IndicadorFusion",canvasRect,new Vector2(0,0),new Vector2(420,66),Ink);prompt.anchorMin=prompt.anchorMax=prompt.pivot=new Vector2(.5f,.5f);
+            prompt=Panel("IndicadorFusion",canvasRect,new Vector2(0,0),new Vector2(220,44),Ink);prompt.anchorMin=prompt.anchorMax=prompt.pivot=new Vector2(.5f,.5f);
             Frame(prompt.GetComponent<Image>(),true);
-            promptText=Label(prompt,"",new Vector2(12,8),new Vector2(396,50),24,TextAnchor.MiddleCenter);
+            promptText=Label(prompt,"",new Vector2(8,4),new Vector2(204,36),20,TextAnchor.MiddleCenter);
             header=Panel("TituloSobreMaquina",canvasRect,Vector2.zero,new Vector2(620,110),Color.clear);
             header.GetComponent<Image>().raycastTarget=false;header.anchorMin=header.anchorMax=header.pivot=new Vector2(.5f,.5f);
             headerTitle=Label(header,"MÁQUINA DE FUSIÓN",Vector2.zero,new Vector2(620,52),34,TextAnchor.MiddleCenter);
@@ -36,6 +38,7 @@ namespace EchoScrap.Combat
             headerTitle.color=new Color(.88f,.76f,1);headerTime.color=Color.white;
             var shade=Panel("InventarioFusion",canvasRect,Vector2.zero,Vector2.zero,new Color(0,0,0,.65f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;modal=shade.gameObject;
             var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1120,800),Ink);panel.anchorMin=panel.anchorMax=panel.pivot=new Vector2(.5f,.5f);panel.anchoredPosition=Vector2.zero;
+            var rim=Panel("MarcoFusion",panel,new Vector2(-20,-20),new Vector2(1160,840),Color.white);Frame(rim.GetComponent<Image>(),false);rim.GetComponent<Image>().raycastTarget=false;
             Label(panel,"MÁQUINA DE FUSIÓN",new Vector2(36,22),new Vector2(900,44),32);
             ButtonAt(panel,"Cerrar · E",new Vector2(925,25),new Vector2(160,44),()=>station.CloseMenu());
             inventory=Panel("Ingredientes",panel,new Vector2(0,85),new Vector2(1120,650),Color.clear).gameObject;
@@ -55,8 +58,8 @@ namespace EchoScrap.Combat
             }
             odds=Label(inventory.transform,"",new Vector2(36,498),new Vector2(1048,48),24,TextAnchor.MiddleCenter);
             selection=Label(inventory.transform,"",new Vector2(36,550),new Vector2(1048,34),18,TextAnchor.MiddleCenter);
-            ButtonAt(inventory.transform,"VACIAR",new Vector2(110,602),new Vector2(320,60),ClearSelection);
-            start=ButtonAt(inventory.transform,"FUSIONAR",new Vector2(610,602),new Vector2(390,60),()=>station.StartFusion((int[])ingredients.Clone()));
+            ButtonAt(inventory.transform,"VACIAR",new Vector2(290,602),new Vector2(210,48),ClearSelection);
+            start=ButtonAt(inventory.transform,"FUSIONAR",new Vector2(620,602),new Vector2(210,48),()=>station.StartFusion((int[])ingredients.Clone()));
             picker=Panel("MiGaraje",panel,new Vector2(20,90),new Vector2(1080,610),Ink).gameObject;
             Label(picker.transform,"TU GARAJE · ELIGE UN COLECCIONABLE",new Vector2(28,15),new Vector2(1024,46),27,TextAnchor.MiddleCenter);
             for(int i=0;i<5;i++){
@@ -101,14 +104,17 @@ namespace EchoScrap.Combat
                 int id=ingredients[i];slotArt[i].gameObject.SetActive(id>=0);slotArt[i].sprite=id>=0?CollectibleDisplay.FrontSprite(id):null;
                 slotText[i].text=id>=0?FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]:"+";
                 Rect(slotText[i].rectTransform,id>=0?new Vector2(8,150):new Vector2(8,35),id>=0?new Vector2(229,70):new Vector2(229,160));
-                slotText[i].fontSize=id>=0?22:64;slotText[i].color=id>=0?FusionCatalog.ColorOf(id):Pale;
+                slotText[i].font=strongFont;slotText[i].fontSize=id>=0?22:64;slotText[i].color=id>=0?FusionCatalog.ColorOf(id):Pale;
             }
             var chosen=ingredients.Where(id=>id>=0).ToArray();bool preview=FusionRecipe.TryPreview(chosen,out var recipe);
             bool valid=FusionRecipe.TryCreate(ingredients,out var final);if(valid)recipe=final;start.interactable=valid;
-            float[] chance={recipe.Common,recipe.Rare,recipe.Epic/2f,recipe.Epic/2f,recipe.Legendary};
+            float[] chance=Enumerable.Range(0,5).Select(recipe.ResultPercent).ToArray();
+            int visibleCount=preview?chance.Count(value=>value>0):0,index=0;
             for(int i=0;i<5;i++){
-                possibleArt[i].gameObject.SetActive(preview&&chance[i]>0);
-                possibleText[i].text=preview&&chance[i]>0?FusionCatalog.Names[i]+"\n"+chance[i].ToString("0.#")+"%":"—";
+                bool visible=preview&&chance[i]>0;
+                possibleArt[i].gameObject.SetActive(visible);possibleText[i].gameObject.SetActive(visible);
+                possibleText[i].text=visible?FusionCatalog.Names[i]+"\n"+chance[i].ToString("0.#")+"%":"";
+                if(visible){float x=517+(index++-(visibleCount-1)*.5f)*202;Rect(possibleArt[i].rectTransform,new Vector2(x-50,8),new Vector2(100,90));Rect(possibleText[i].rectTransform,new Vector2(x-97,100),new Vector2(194,48));}
             }
             odds.text=preview?"TIEMPO DE FUSIÓN  "+recipe.Seconds/60+":00"+(valid?"":" · ESTIMADO"):"TIEMPO DE FUSIÓN  —";
             selection.text=valid?"4 / 4 · Listo para fusionar":chosen.Length+" / 4 · Vista previa según la calidad actual; completa los cuatro espacios.";
@@ -117,9 +123,16 @@ namespace EchoScrap.Combat
         {var image=new GameObject("Retrato",typeof(RectTransform)).AddComponent<Image>();image.transform.SetParent(parent,false);Rect(image.rectTransform,position,size);image.preserveAspect=true;image.raycastTarget=false;return image;}
         private void Frame(Image image,bool button)
         {
-            var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
-            if(button&&skin?.chooseButton!=null){image.sprite=skin.chooseButton;image.type=Image.Type.Sliced;image.color=new Color(.65f,.55f,.8f);}
-            else{image.sprite=null;image.color=new Color(.07f,.10f,.13f);var outline=image.gameObject.AddComponent<Outline>();outline.effectColor=new Color(.55f,.36f,.18f);outline.effectDistance=new Vector2(2,-2);}
+            image.sprite=null;image.type=Image.Type.Simple;
+            image.color=button?new Color(.15f,.19f,.27f):Ink;
+            if(image.transform.Find("BordeFusion")!=null)return;
+            var size=image.rectTransform.sizeDelta;
+            Color metal=new Color(.31f,.38f,.48f),accent=new Color(.66f,.48f,.84f);
+            var edge=Panel("BordeFusion",image.transform,Vector2.zero,size,Color.clear);edge.GetComponent<Image>().raycastTarget=false;
+            void Strip(string name,float x,float y,float w,float h,Color color){var strip=Panel(name,edge,new Vector2(x,y),new Vector2(w,h),color);strip.GetComponent<Image>().raycastTarget=false;}
+            Strip("Superior",0,0,size.x,2,metal);Strip("Inferior",0,size.y-2,size.x,2,metal);
+            Strip("Izquierdo",0,0,2,size.y,metal);Strip("Derecho",size.x-2,0,2,size.y,metal);
+            for(int corner=0;corner<4;corner++){float x=corner%2==0?0:size.x-16,y=corner<2?0:size.y-5;Strip("Remache"+corner,x,y,16,5,accent);}
         }
         public void Show()
         {
@@ -152,7 +165,9 @@ namespace EchoScrap.Combat
         }
         private static void Rect(RectTransform t,Vector2 p,Vector2 size){t.anchorMin=t.anchorMax=new Vector2(0,1);t.pivot=new Vector2(0,1);t.anchoredPosition=new Vector2(p.x,-p.y);t.sizeDelta=size;}
         private static RectTransform Panel(string name,Transform parent,Vector2 p,Vector2 size,Color color){var o=new GameObject(name,typeof(RectTransform));o.transform.SetParent(parent,false);var t=o.GetComponent<RectTransform>();Rect(t,p,size);o.AddComponent<Image>().color=color;return t;}
-        private Text Label(Transform parent,string value,Vector2 p,Vector2 size,int points,TextAnchor alignment=TextAnchor.MiddleLeft){var text=new GameObject("Texto",typeof(RectTransform)).AddComponent<Text>();text.transform.SetParent(parent,false);Rect(text.rectTransform,p,size);text.font=font;text.text=value;text.fontSize=points;text.color=Pale;text.alignment=alignment;text.raycastTarget=false;return text;}
-        private Button ButtonAt(Transform parent,string value,Vector2 p,Vector2 size,UnityEngine.Events.UnityAction action){var t=Panel("Boton_"+value,parent,p,size,new Color(.16f,.18f,.25f));Frame(t.GetComponent<Image>(),true);var button=t.gameObject.AddComponent<Button>();button.targetGraphic=t.GetComponent<Image>();button.onClick.AddListener(action);Label(t,value,Vector2.zero,size,23,TextAnchor.MiddleCenter);return button;}
+        private Text Label(Transform parent,string value,Vector2 p,Vector2 size,int points,TextAnchor alignment=TextAnchor.MiddleLeft){var text=new GameObject("Texto",typeof(RectTransform)).AddComponent<Text>();text.transform.SetParent(parent,false);Rect(text.rectTransform,p,size);text.font=points>=26?strongFont:font;text.fontStyle=FontStyle.Normal;text.text=value;text.fontSize=points;text.color=Pale;text.alignment=alignment;text.raycastTarget=false;return text;}
+        private Button ButtonAt(Transform parent,string value,Vector2 p,Vector2 size,UnityEngine.Events.UnityAction action){var t=Panel("Boton_"+value,parent,p,size,new Color(.16f,.18f,.25f));Frame(t.GetComponent<Image>(),true);var button=t.gameObject.AddComponent<Button>();button.targetGraphic=t.GetComponent<Image>();
+            var colors=button.colors;colors.highlightedColor=new Color(.8f,.75f,1);colors.pressedColor=new Color(.6f,.5f,.8f);colors.disabledColor=new Color(.45f,.45f,.5f);button.colors=colors;
+            button.onClick.AddListener(action);Label(t,value,Vector2.zero,size,23,TextAnchor.MiddleCenter);return button;}
     }
 }

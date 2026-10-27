@@ -36,12 +36,14 @@ namespace EchoScrap.Combat
                 :rares>0?new FusionRecipe(120,20,60,20,0):new FusionRecipe(60,70,25,5,0);
             return true;
         }
+        public int ResultWeight(int id)=>id==0?Common*100:id==1?Rare*100:id==2?Epic*60:id==3?Epic*40:id==4?Legendary*100:0;
+        public float ResultPercent(int id)=>ResultWeight(id)/100f;
         public int Roll(int roll,int variant)
         {
             if(roll<0||roll>=10000)throw new ArgumentOutOfRangeException(nameof(roll));
             if(roll<Legendary*100)return 4;
             roll-=Legendary*100;
-            if(roll<Epic*100)return 2+Math.Abs(variant%2);
+            if(roll<Epic*100)return roll<ResultWeight(2)?2:3;
             roll-=Epic*100;
             return roll<Rare*100?1:0;
         }

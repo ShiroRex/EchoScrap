@@ -301,7 +301,7 @@ namespace EchoScrap.Combat
             bool closingVisible = state == SessionState.Victory && closing != null
                 && closing.IsPlaying && closing.PresentationTime < 1.3f;
             bool userPause = game.Session.Clock.HasPauseReason(PauseReason.Manual) || game.Session.Clock.HasPauseReason(PauseReason.FocusLost);
-            bool showPause = !ended && userPause && !game.Draft.IsOpen;
+            bool showPause = !ended && userPause && !game.Draft.IsOpen && !game.Session.Clock.HasPauseReason(PauseReason.FusionMenu);
             bool wasVisible = modal.activeSelf;
             modal.SetActive((ended && !closingVisible) || showPause);
             pauseContent.SetActive(showPause);

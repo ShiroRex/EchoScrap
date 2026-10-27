@@ -118,6 +118,26 @@ namespace EchoScrap.Tests
             yield return Approach();Assert.IsTrue(station.TryOpenMenu());Assert.AreEqual(FusionPhase.Opening,station.Progress.phase);Assert.AreEqual(1,station.GetComponent<FusionRevealSmoke>().RevealCount);
             yield return new WaitForSecondsRealtime(.45f);yield return Capture("AbriendoConHumo",false);yield return new WaitForSecondsRealtime(1.5f);Assert.AreEqual(FusionPhase.AwaitingDecision,station.Progress.phase);Assert.IsTrue(station.IsMenuOpen);Assert.IsTrue(station.Resolve(true));
         }
+        [UnityTest] public IEnumerator FusionUsesOwnFrameAndCardFontsWithoutPauseMenuBleedingThrough()
+        {
+            yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();
+            var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");var pause=Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin");
+            var canvas=station.GetComponentInChildren<Canvas>();var panel=canvas.transform.Find("InventarioFusion/Panel");
+            Assert.IsNull(panel.Find("MarcoFusion").GetComponent<UnityEngine.UI.Image>().sprite);
+            var possible=panel.Find("Ingredientes/PosiblesFusiones");Assert.IsNotNull(possible.Find("BordeFusion"));
+            Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
+            var close=panel.Find("Boton_Cerrar · E").GetComponent<UnityEngine.UI.Button>();Assert.IsNull(close.image.sprite);Assert.AreSame(skin.regular,close.GetComponentInChildren<UnityEngine.UI.Text>().font);
+            Assert.AreSame(skin.semibold,panel.GetComponentInChildren<UnityEngine.UI.Text>().font);
+            game.Session.SetManualPause(true);yield return null;game.Hud.RefreshNow();
+            Assert.IsFalse(game.Hud.HudCanvas.transform.Find("PauseAndResultOverlay").gameObject.activeSelf);
+            foreach(int id in new[]{0,1,2,3})ui.AddIngredient(id);
+            var text=string.Join(" ",possible.GetComponentsInChildren<UnityEngine.UI.Text>().Select(t=>t.text));
+            Assert.AreEqual(3,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);StringAssert.DoesNotContain("—",text);
+            Assert.LessOrEqual(canvas.transform.Find("IndicadorFusion").GetComponent<RectTransform>().sizeDelta.x,220);
+            Assert.LessOrEqual(panel.Find("Ingredientes/Boton_FUSIONAR").GetComponent<RectTransform>().sizeDelta.x,210);
+            StringAssert.Contains("20%",text);StringAssert.Contains("48%",text);StringAssert.Contains("32%",text);
+            yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
+        }
         private IEnumerator Capture(string name,bool showUi,bool garage=false)
         {
             var camera=new GameObject("FusionAuditCamera").AddComponent<Camera>();camera.fieldOfView=60;
