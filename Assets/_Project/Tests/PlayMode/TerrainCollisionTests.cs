@@ -382,6 +382,7 @@ namespace EchoScrap.Tests
             body.position=ArenaSurface.OnGround(new Vector3(70,0,-44),1);body.linearVelocity=Vector3.zero;
             yield return new WaitForSeconds(.5f);
             var director=Object.FindAnyObjectByType<WarehouseCameraDirector>();
+            var collector=game.Player.GetComponent<CollectorSpriteView>();
             Assert.Greater(director.CaveBlend,.99f,"Camera is ready before touching the first stair.");
             var follow=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineFollow>();
             Assert.Greater(follow.FollowOffset.magnitude,11.9f,"The orbit never zooms through the player.");
@@ -393,8 +394,13 @@ namespace EchoScrap.Tests
                 Vector3 expected=Vector3.ProjectOnPlane(key==Key.W?camera.forward:key==Key.S?-camera.forward:key==Key.A?-camera.right:camera.right,Vector3.up).normalized;
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState(key));yield return null;
                 for(int i=0;i<8;i++)yield return new WaitForFixedUpdate();
+                game.Weapon.UpdateAim(1f);
+                Assert.Greater(Vector3.Dot(game.Weapon.CurrentAimDirection,expected),.99f,key+" must aim in the same world direction as movement after the orbit.");
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;
                 Assert.Greater(Vector3.Dot(body.position-start,expected),.25f,key+" must follow screen direction.");
+                CharacterFacing facing=key==Key.W?CharacterFacing.Up:key==Key.S?CharacterFacing.Down:key==Key.A?CharacterFacing.Left:CharacterFacing.Right;
+                Assert.AreEqual(facing,collector.Facing,key+" must use the matching screen-facing walk animation.");
+                Assert.Greater(Vector3.Dot(collector.CharacterRenderer.transform.right,camera.right),.99f,"The sprite must face the orbiting camera without mirroring.");
             }
             body.position=ArenaSurface.OnGround(new Vector3(70,0,-48),1);body.linearVelocity=Vector3.zero;
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W,Key.Space));yield return null;yield return new WaitForFixedUpdate();yield return new WaitForFixedUpdate();
