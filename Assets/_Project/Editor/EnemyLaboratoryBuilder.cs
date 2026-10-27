@@ -15,6 +15,7 @@ namespace EchoScrap.Editor
     public static class EnemyLaboratoryBuilder
     {
         public const string ScenePath = "Assets/_Project/Scenes/EnemyLaboratory.unity";
+        private const string PlayerPrefabPath = "Assets/_Project/Prefabs/CombatPlayer.prefab";
         private const string Materials = "Assets/_Project/Materials/EnemyLaboratory";
 
         [MenuItem("EchoScrap/Laboratorio/Abrir laboratorio de enemigos")]
@@ -56,7 +57,7 @@ namespace EchoScrap.Editor
                 Cube("Borde X", arena, new Vector3(side * 49.8f, 0.012f, 0), new Vector3(0.08f, 0.01f, 99.6f), boundary, false);
                 Cube("Borde Z", arena, new Vector3(0, 0.012f, side * 49.8f), new Vector3(99.6f, 0.01f, 0.08f), boundary, false);
             }
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CombatArenaAuthoring.PlayerPrefabPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
             var player = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
             player.name = "Player";
             player.transform.position = Vector3.up;

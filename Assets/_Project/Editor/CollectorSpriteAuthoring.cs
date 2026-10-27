@@ -18,6 +18,7 @@ namespace EchoScrap.Editor
         public const string DataPath = ArtPath + "Data/";
         public const string SetPath = DataPath + "Coleccionista_Sprites.asset";
         private const string MaterialPath = "Assets/_Project/Materials/Characters/";
+        private const string PlayerPrefabPath = "Assets/_Project/Prefabs/CombatPlayer.prefab";
 
         [MenuItem("EchoScrap/Art/Connect Collector To Player")]
         public static void Prepare()
@@ -48,7 +49,7 @@ namespace EchoScrap.Editor
             Mesh quad = Quad(DataPath + "Coleccionista_Quad.asset", new Rect(-32f / set.pixelsPerUnit, -2f / set.pixelsPerUnit, 64f / set.pixelsPerUnit, 64f / set.pixelsPerUnit));
             Mesh shadowQuad = Quad(DataPath + "Coleccionista_ShadowQuad.asset", new Rect(-0.72f, -0.45f, 1.44f, 0.9f));
 
-            GameObject root = PrefabUtility.LoadPrefabContents(CombatArenaAuthoring.PlayerPrefabPath);
+            GameObject root = PrefabUtility.LoadPrefabContents(PlayerPrefabPath);
             try
             {
                 ActorVisualComposer composer = root.GetComponent<ActorVisualComposer>();
@@ -87,7 +88,7 @@ namespace EchoScrap.Editor
                 serialized = new SerializedObject(root.GetComponentInChildren<OilLanternVolume>(true));
                 serialized.FindProperty("drawFlameMesh").boolValue = false;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
-                PrefabUtility.SaveAsPrefabAsset(root, CombatArenaAuthoring.PlayerPrefabPath);
+                PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
             EditorUtility.SetDirty(set); EditorUtility.SetDirty(color); EditorUtility.SetDirty(ghost); EditorUtility.SetDirty(shadow); EditorUtility.SetDirty(cast);
