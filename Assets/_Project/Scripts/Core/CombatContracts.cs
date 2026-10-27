@@ -26,7 +26,8 @@ namespace EchoScrap.Core
         BossBombardmentPuddle = 7,
         DummyOrHazard = 8,
         Lava = 9,
-        UpgradeProjectile = 10, UpgradeExplosion = 11, UpgradeFrost = 12, UpgradeSaw = 13, UpgradeTurret = 14, UpgradeBlade = 15
+        UpgradeProjectile = 10, UpgradeExplosion = 11, UpgradeFrost = 12, UpgradeSaw = 13, UpgradeTurret = 14, UpgradeBlade = 15,
+        SpectralSweep = 16, CopperBolt = 17
     }
 
     public enum DamageType { Inherit = -1, Physical = 0, Supernatural = 1 }
@@ -38,7 +39,7 @@ namespace EchoScrap.Core
         {
             DamageSourceType.FlashlightPulse or DamageSourceType.SolarPulse or
             DamageSourceType.UpgradeProjectile or DamageSourceType.UpgradeFrost or
-            DamageSourceType.Lava or DamageSourceType.BossBombardmentPuddle => DamageType.Supernatural,
+            DamageSourceType.Lava or DamageSourceType.BossBombardmentPuddle or DamageSourceType.SpectralSweep => DamageType.Supernatural,
             _ => DamageType.Physical
         };
         public static DamageType Resolve(DamageSourceType source, DamageType requested) =>
@@ -114,6 +115,7 @@ namespace EchoScrap.Core
         public readonly bool CausedDeath;
         public readonly bool IsPlayerTarget;
         public readonly bool WasExecuted;
+        public readonly bool WasResisted;
         public readonly int BurstId;
         public readonly int PulseIndex;
 
@@ -140,7 +142,8 @@ namespace EchoScrap.Core
             int burstId = 0,
             int pulseIndex = 0,
             DamageType damageType = global::EchoScrap.Core.DamageType.Inherit,
-            bool wasExecuted = false)
+            bool wasExecuted = false,
+            bool wasResisted = false)
         {
             SourceId = sourceId;
             TargetId = targetId;
@@ -161,6 +164,7 @@ namespace EchoScrap.Core
             CausedDeath = causedDeath;
             IsPlayerTarget = isPlayerTarget;
             WasExecuted = wasExecuted && causedDeath && !isPlayerTarget;
+            WasResisted = wasResisted && healthLost > 0f && !wasImmune && !wasDodged && !isPlayerTarget;
             BurstId = burstId;
             PulseIndex = pulseIndex;
         }

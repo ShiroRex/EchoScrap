@@ -17,13 +17,15 @@ namespace EchoScrap.Combat
         public readonly bool CanAggregate;
         public readonly DamageType DamageType;
         public readonly bool WasExecuted;
+        public readonly bool WasResisted;
 
         public DamageNumberSnapshot(int targetId, int sourceId, int burstId, float damage,
-            Vector3 worldPosition, bool critical, bool canAggregate, DamageType damageType = global::EchoScrap.Core.DamageType.Physical, bool wasExecuted = false)
+            Vector3 worldPosition, bool critical, bool canAggregate, DamageType damageType = global::EchoScrap.Core.DamageType.Physical, bool wasExecuted = false, bool wasResisted = false)
         {
             TargetId = targetId; SourceId = sourceId; BurstId = burstId; Damage = damage;
             WorldPosition = worldPosition; IsCritical = critical; CanAggregate = canAggregate;
             DamageType = damageType; WasExecuted = wasExecuted;
+            WasResisted = wasResisted;
         }
     }
 
@@ -44,11 +46,13 @@ namespace EchoScrap.Combat
         private sealed class Entry
         {
             public Text Label;
+            public Text ResistanceLabel;
             public RectTransform Rect;
             public bool Active;
             public bool Critical;
             public bool CanAggregate;
             public bool Executed;
+            public bool Resisted;
             public DamageType DamageType;
             public int TargetId;
             public int SourceId;
@@ -141,7 +145,7 @@ namespace EchoScrap.Combat
             scaler.referenceResolution = new Vector2(1280f, 720f);
             scaler.matchWidthOrHeight = 0.5f;
             Font font = settings.Font != null ? settings.Font : Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.semibold ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            font.RequestCharactersInTexture("0123456789.! EJECUTADO", settings.NormalFontSize, FontStyle.Bold);
+            font.RequestCharactersInTexture("0123456789.! EJECUTADO Resistido", settings.NormalFontSize, FontStyle.Bold);
             font.RequestCharactersInTexture("0123456789.! EJECUTADO", settings.CriticalFontSize, FontStyle.Bold);
             WarmKnownValues();
             for (int i = 0; i < entries.Length; i++)
@@ -161,7 +165,17 @@ namespace EchoScrap.Combat
                 outline.effectColor = new Color(0.06f, 0.025f, 0.08f, 0.95f);
                 outline.effectDistance = new Vector2(1f, -1f);
                 label.canvasRenderer.SetAlpha(0f);
-                entries[i] = new Entry { Label = label, Rect = rect };
+                var resistanceObject = new GameObject("Resistido", typeof(RectTransform), typeof(Text), typeof(Outline));
+                var resistanceRect = (RectTransform)resistanceObject.transform;
+                resistanceRect.SetParent(rect, false);
+                resistanceRect.sizeDelta = new Vector2(220f, 28f);
+                resistanceRect.anchoredPosition = new Vector2(0f, -25f);
+                Text resistance = resistanceObject.GetComponent<Text>();
+                resistance.font = font; resistance.fontSize = 18; resistance.fontStyle = FontStyle.Bold;
+                resistance.alignment = TextAnchor.MiddleCenter; resistance.text = "Resistido";
+                resistance.color = new Color(.75f,.85f,1f); resistance.raycastTarget = false;
+                resistanceObject.GetComponent<Outline>().effectColor = new Color(.04f,.04f,.07f,.95f);
+                entries[i] = new Entry { Label = label, ResistanceLabel = resistance, Rect = rect };
             }
             Canvas.ForceUpdateCanvases();
             foreach (Entry entry in entries) Hide(entry);
@@ -217,7 +231,7 @@ namespace EchoScrap.Combat
                 foreach (Entry existing in entries)
                 {
                     if (!existing.Active || !existing.CanAggregate || existing.Critical || existing.TargetId != damage.TargetId ||
-                        existing.SourceId != damage.SourceId || existing.BurstId != damage.BurstId || existing.SourceType != damage.SourceType || existing.DamageType != damage.DamageType) continue;
+                        existing.SourceId != damage.SourceId || existing.BurstId != damage.BurstId || existing.SourceType != damage.SourceType || existing.DamageType != damage.DamageType || existing.Resisted != damage.WasResisted) continue;
                     Vector2 currentFlight = FlightOffset(existing);
                     float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
                     Camera uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
@@ -242,6 +256,7 @@ namespace EchoScrap.Combat
             if (entry.Active) RecycledNumberCount++;
             else ActiveNumberCount++;
             entry.Active = true; entry.Critical = damage.IsCritical; entry.Executed = damage.WasExecuted; entry.DamageType = damage.DamageType;
+            entry.Resisted = damage.WasResisted;
             entry.TargetId = damage.TargetId; entry.SourceId = damage.SourceId; entry.BurstId = damage.BurstId;
             entry.SourceType = damage.SourceType; entry.Damage = damage.HealthLost; entry.WorldPosition = anchor;
             entry.CanAggregate = aggregate && !damage.CausedDeath && damage.RemainingHealth > 0f;
@@ -342,11 +357,13 @@ namespace EchoScrap.Combat
             Vector3 screen = worldCamera.WorldToScreenPoint(entry.WorldPosition);
             bool visible = InsideCamera(entry.WorldPosition);
             entry.Label.canvasRenderer.cull = !visible;
-            if (!visible) { entry.Label.canvasRenderer.SetAlpha(0f); return; }
+            entry.ResistanceLabel.canvasRenderer.cull = !visible || !entry.Resisted || entry.Executed;
+            if (!visible) { entry.Label.canvasRenderer.SetAlpha(0f); entry.ResistanceLabel.canvasRenderer.SetAlpha(0f); return; }
             float age = Mathf.Max(0f, presentationTime - entry.StartedAt);
             float fadeProgress = Mathf.Clamp01((presentationTime - entry.UpdatedAt) / (entry.Executed ? settings.ExecutionLifetime : settings.Lifetime));
             float alpha = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1f, fadeProgress));
             entry.Label.canvasRenderer.SetAlpha(alpha);
+            entry.ResistanceLabel.canvasRenderer.SetAlpha(entry.Resisted && !entry.Executed ? alpha : 0f);
             Camera uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, uiCamera, out Vector2 position))
             {
@@ -369,7 +386,7 @@ namespace EchoScrap.Combat
             float width = entry.Label.text.Length * entry.Label.fontSize * 0.62f;
             for (int lane = 0; lane < 4; lane++)
             {
-                float offset = lane * (settings.CriticalFontSize + 8f);
+                float offset = lane * (settings.CriticalFontSize + 8f + (entry.Resisted ? 28f : 0f));
                 bool overlaps = false;
                 foreach (Entry other in entries)
                 {
@@ -387,14 +404,14 @@ namespace EchoScrap.Combat
                         float otherX=projected.x/scale+other.HorizontalOffset+flight.x;
                         float otherY=projected.y/scale+other.VerticalOffset+flight.y;
                         if (Mathf.Abs(anchor.x+ownFlight.x-otherX)<(width+otherWidth)*.5f+6f &&
-                            Mathf.Abs(anchor.y+offset+ownFlight.y-otherY)<settings.CriticalFontSize+5f)
+                            Mathf.Abs(anchor.y+offset+ownFlight.y-otherY)<settings.CriticalFontSize+5f+((entry.Resisted || other.Resisted)?28f:0f))
                         {overlaps=true;break;}
                     }
                     if (overlaps) break;
                 }
                 if (!overlaps) return offset;
             }
-            return 3f * (settings.CriticalFontSize + 8f);
+            return 3f * (settings.CriticalFontSize + 8f + (entry.Resisted ? 28f : 0f));
         }
         private bool InsideCamera(Vector3 position)
         {
@@ -448,6 +465,8 @@ namespace EchoScrap.Combat
         private static void Hide(Entry entry)
         {
             entry.Active = false; entry.CanAggregate = false; entry.Executed = false;
+            entry.Resisted = false;
+            entry.ResistanceLabel.canvasRenderer.SetAlpha(0f); entry.ResistanceLabel.canvasRenderer.cull = true;
             entry.Label.canvasRenderer.SetAlpha(0f); entry.Label.canvasRenderer.cull = true;
             entry.Rect.localScale = Vector3.one;
             entry.Rect.localRotation = Quaternion.identity;
@@ -472,11 +491,12 @@ namespace EchoScrap.Combat
             return null;
         }
         public Text GetActiveLabel(int index) => index >= 0 ? GetActiveEntry(index)?.Label : null;
+        public Text GetActiveResistanceLabel(int index) => index >= 0 ? GetActiveEntry(index)?.ResistanceLabel : null;
         public DamageNumberSnapshot GetActiveNumber(int index)
         {
             Entry entry = index >= 0 ? GetActiveEntry(index) : null;
             return entry != null ? new DamageNumberSnapshot(entry.TargetId, entry.SourceId, entry.BurstId,
-                entry.Damage, entry.WorldPosition, entry.Critical, entry.CanAggregate, entry.DamageType, entry.Executed) : default;
+                entry.Damage, entry.WorldPosition, entry.Critical, entry.CanAggregate, entry.DamageType, entry.Executed, entry.Resisted) : default;
         }
     }
 }

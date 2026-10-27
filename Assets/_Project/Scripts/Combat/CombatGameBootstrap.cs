@@ -141,6 +141,8 @@ namespace EchoScrap.Combat
                 Enemies.Prewarm(EnemyArchetypeId.Colossus, 10);
                 Enemies.Prewarm(EnemyArchetypeId.Mortar, 20);
                 Enemies.Prewarm(EnemyArchetypeId.ExplosiveMoth, 15);
+                Enemies.Prewarm(EnemyArchetypeId.GhostKnight, 2);
+                Enemies.Prewarm(EnemyArchetypeId.CopperSentinel, 2);
             }
             initialized = true;
             return true;

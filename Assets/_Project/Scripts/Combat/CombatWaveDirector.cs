@@ -43,6 +43,8 @@ namespace EchoScrap.Combat
         private float nextSpawnTime;
         private float nextMinionTime;
         private int phaseIndex = -1;
+        private float nextEliteTime;
+        private bool nextEliteCopper;
 
         public event Action OnBossPhaseRequested;
 
@@ -165,7 +167,7 @@ namespace EchoScrap.Combat
         private void PrepareSpawnGeometry()
         {
             if (enemyPool == null) return;
-            for (int id = (int)EnemyArchetypeId.Residual; id <= (int)EnemyArchetypeId.ExplosiveMoth; id++)
+            for (int id = (int)EnemyArchetypeId.Residual; id <= (int)EnemyArchetypeId.CopperSentinel; id++)
                 enemyPool.GetSpawnGeometry(Settings.GetArchetype((EnemyArchetypeId)id));
         }
 
@@ -201,6 +203,8 @@ namespace EchoScrap.Combat
             nextMinionTime = 0f;
             reservationCount = 0;
             minionOrderOffset = 0;
+            nextEliteTime = Mathf.Max(0f, Settings.EliteFirstAppearance);
+            nextEliteCopper = false;
             IsBossPhase = false;
             BossActive = false;
             TotalSpawnedCount = 0;
@@ -305,6 +309,7 @@ namespace EchoScrap.Combat
                 hazards = FindAnyObjectByType<CorrosivePuddlePool>();
             hazards?.ClearAll();
             MothExplosionPool.GetOrCreate(session, player).ClearAll();
+            session.GetComponent<EliteProjectilePool>()?.ClearAll();
             session.SetBossIntroState(true);
             OnBossPhaseRequested?.Invoke();
         }
@@ -345,13 +350,22 @@ namespace EchoScrap.Combat
             RecordDiscard(requested - size, DiscardReason.PopulationCap);
             if (size == 0) return;
             int mortarCount = 0;
+            int eliteCount = 0;
             var activeEnemies = EnemyActor.ActiveEnemies;
             for (int i = 0; i < activeEnemies.Count; i++)
                 if (activeEnemies[i] != null && activeEnemies[i].IsAlive && activeEnemies[i].gameObject.activeInHierarchy
-                    && (session == null || activeEnemies[i].Session == session) && activeEnemies[i].ArchetypeId == EnemyArchetypeId.Mortar) mortarCount++;
+                    && (session == null || activeEnemies[i].Session == session))
+                {
+                    if (activeEnemies[i].ArchetypeId == EnemyArchetypeId.Mortar) mortarCount++;
+                    if (activeEnemies[i].Elite != null) eliteCount++;
+                }
+            bool includeElite = !minions && Settings.ElitePopulationCap > eliteCount &&
+                Elapsed >= Mathf.Max(Settings.EliteFirstAppearance, nextEliteTime);
             for (int i = 0; i < size; i++)
             {
-                EnemyArchetypeId id = minions
+                EnemyArchetypeId id = includeElite && i == 0
+                    ? (nextEliteCopper ? EnemyArchetypeId.CopperSentinel : EnemyArchetypeId.GhostKnight)
+                    : minions
                     ? Settings.BossMinionOrder[(i + minionOrderOffset) % Settings.BossMinionOrder.Length]
                     : weights.Choose(RandomSource.NextFloat());
                 if (id == EnemyArchetypeId.Mortar)
@@ -391,6 +405,11 @@ namespace EchoScrap.Combat
                 }
                 LastGroupSpawnedCount = size;
                 TotalSpawnedCount += size;
+                if (includeElite)
+                {
+                    nextEliteTime = Elapsed + Mathf.Max(1f, Settings.EliteSpawnInterval);
+                    nextEliteCopper = !nextEliteCopper;
+                }
             }
             finally
             {
