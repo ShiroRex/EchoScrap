@@ -33,7 +33,7 @@ de 200 m, paso perimetral y hueco físico del portal. Capturas locales en
 El acceso usa las tres piezas importadas de Meshy, con muros simétricos, losas
 y fondo adaptado al portal. La escalera mide 14 m de ancho y encaja en los lados.
 Puede reaplicarse con `PassageFinishAuthoring.Apply` sin reconstruir
-el mundo. Referencias y prompts de las piezas artísticas en
+el mundo. Referencias visuales y notas de integración de las piezas artísticas en
 [Acceso_Boveda_Meshy.md](Acceso_Boveda_Meshy.md).
 
 La distribución conserva el plano fijo: diez acumulaciones adicionales ocupan

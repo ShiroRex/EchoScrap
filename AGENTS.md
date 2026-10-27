@@ -11,6 +11,10 @@
 5. Flujo similar a Gitflow: `main` es la rama estable y `develop` es la rama de
    integración. Crea las ramas de trabajo desde `develop`; no implementes cambios
    directamente en `main` ni en `develop`.
+6. Guarda los prompts y registros auxiliares de generación de IA fuera del
+   proyecto, en `../EchoScrap_Referencias_IA/Prompts/`. No los añadas a `EchoScrap/`
+   ni al repositorio del juego. Entrega las propuestas exploratorias en el chat
+   salvo que el usuario solicite expresamente guardarlas en otra ubicación.
 
 ## Proyecto activo
 
