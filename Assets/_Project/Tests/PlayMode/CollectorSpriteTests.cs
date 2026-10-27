@@ -384,10 +384,11 @@ namespace EchoScrap.Tests
             for (int i = 0; i < moves.Length; i++)
             {
                 InputSystem.QueueStateEvent(pad, new GamepadState { leftStick = moves[i] });
-                yield return new WaitForSeconds(0.16f);
+                yield return null;
+                for (int tick = 0; tick < 8; tick++) yield return new WaitForFixedUpdate();
                 yield return null; // Read the sprite after its LateUpdate has consumed the new motor direction.
-                Assert.That(view.Motion, Is.EqualTo(CharacterMotion.Walk));
-                Assert.That(view.Facing, Is.EqualTo(facings[i]));
+                Assert.That(view.Motion, Is.EqualTo(CharacterMotion.Walk), "Movement " + moves[i]);
+                Assert.That(view.Facing, Is.EqualTo(facings[i]), "Movement " + moves[i]);
                 var spriteBlock = new MaterialPropertyBlock();
                 var shadowBlock = new MaterialPropertyBlock();
                 view.CharacterRenderer.GetPropertyBlock(spriteBlock);

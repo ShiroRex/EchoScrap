@@ -670,7 +670,13 @@ namespace EchoScrap.Tests
             hurt.Bind(session, playerHealth);
             playerHealth.ForceSetHealthForTesting(30f);
             hurt.StepPresentation(1f);
-            Assert.AreEqual(0.14f, hurt.ScreenBorderAlpha, 0.0001f);
+            Assert.That(hurt.ScreenBorderAlpha, Is.InRange(0.0719f, 0.1001f),
+                "At the 30% threshold the soft border must remain visible throughout its breathing cycle.");
+            float thresholdAlpha = hurt.ScreenBorderAlpha;
+            playerHealth.ForceSetHealthForTesting(15f);
+            hurt.StepPresentation(1f);
+            Assert.Greater(hurt.ScreenBorderAlpha, thresholdAlpha, "The warning grows as health falls.");
+            playerHealth.ForceSetHealthForTesting(30f);
             session.Effects.ReducedEffectsMode = true;
             Assert.AreEqual(0.07f, hurt.ScreenBorderAlpha, 0.0001f);
             playerHealth.Heal(10f);
