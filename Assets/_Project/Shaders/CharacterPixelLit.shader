@@ -11,6 +11,8 @@ Shader "EchoScrap/Character Pixel Lit"
         _GlowStrength("Reactor intensity", Float) = 0
         _FrameRect("Frame UV rect", Vector) = (0,0.9375,0.125,0.0625)
         _NormalStrength("Relief", Range(0,2)) = 1
+        _StatusTint("Cold status tint", Color) = (1,1,1,1)
+        _StatusAmount("Cold status coverage", Range(0,1)) = 0
     }
     SubShader
     {
@@ -44,6 +46,8 @@ Shader "EchoScrap/Character Pixel Lit"
                 half4 _BaseColor, _EmissionColor;
                 half4 _GlowColor;
                 half _NormalStrength, _GlowStrength;
+                half4 _StatusTint;
+                half _StatusAmount;
             CBUFFER_END
             struct Attributes { float4 positionOS:POSITION; float3 normalOS:NORMAL; float4 tangentOS:TANGENT; float2 uv:TEXCOORD0; };
             struct Varyings { float4 positionCS:SV_POSITION; float3 positionWS:TEXCOORD0; half3 normalWS:TEXCOORD1; half3 tangentWS:TEXCOORD2; half3 bitangentWS:TEXCOORD3; float2 uv:TEXCOORD4; half3 vertexLighting:TEXCOORD5; };
@@ -78,12 +82,16 @@ Shader "EchoScrap/Character Pixel Lit"
                 inputData.shadowMask=half4(1,1,1,1);
                 half flash=saturate(max(_EmissionColor.r,max(_EmissionColor.g,_EmissionColor.b)));
                 SurfaceData surface=(SurfaceData)0;
-                surface.albedo=lerp(color.rgb*_BaseColor.rgb,_BaseColor.rgb,flash*0.75h);
+                half luminance=dot(color.rgb,half3(.299h,.587h,.114h));
+                half3 cold=max(.08h,luminance)*_StatusTint.rgb*1.45h;
+                half3 albedo=lerp(color.rgb*_BaseColor.rgb,cold,saturate(_StatusAmount));
+                surface.albedo=lerp(albedo,_BaseColor.rgb,flash*0.55h);
                 surface.alpha=color.a;
                 surface.normalTS=normalTS;
                 surface.occlusion=1;
-                surface.emission=_EmissionColor.rgb*flash
-                    + SAMPLE_TEXTURE2D(_GlowMap,sampler_GlowMap,uv).r * _GlowColor.rgb * _GlowStrength;
+                half3 reactor=lerp(_GlowColor.rgb,_StatusTint.rgb,saturate(_StatusAmount));
+                surface.emission=saturate(_EmissionColor.rgb)*flash*.16h
+                    + SAMPLE_TEXTURE2D(_GlowMap,sampler_GlowMap,uv).r * reactor * _GlowStrength * (1.0h-.6h*_StatusAmount);
                 // URP Simple Lit: scene ambient/probes, directional and local lights, shadows and AO.
                 // No permanent color fill, light clamp or specular sheen on the cloth.
                 half4 result=UniversalFragmentBlinnPhong(inputData,surface);

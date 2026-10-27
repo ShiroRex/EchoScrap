@@ -144,7 +144,7 @@ namespace EchoScrap.Combat
             }
             float pulse = Mathf.Clamp01((keyLight.intensity / 80f - 0.25f) / 1.25f);
             Color color = upgradeLook.Color;
-            color.a = Mathf.Lerp(0.035f, 0.11f, pulse) * upgradeLook.Intensity;
+            color.a = Mathf.Lerp(0.026f, 0.075f, pulse) * upgradeLook.Intensity;
             color.a *= session != null ? session.Effects.DecorativeIntensity : 1f;
             block.SetColor("_BeamColor", color);
             beamRenderer.SetPropertyBlock(block);

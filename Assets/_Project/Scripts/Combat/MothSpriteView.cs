@@ -10,6 +10,8 @@ namespace EchoScrap.Combat
         private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int GlowStrengthId = Shader.PropertyToID("_GlowStrength");
+        private static readonly int StatusTintId = Shader.PropertyToID("_StatusTint");
+        private static readonly int StatusAmountId = Shader.PropertyToID("_StatusAmount");
         private EnemyActor actor;
         private Prototype.EnemyMoth fuse;
         private MothSpriteSet sprites;
@@ -65,6 +67,10 @@ namespace EchoScrap.Combat
             properties.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
             // The old fuse blink belongs to placeholder meshes; the reactor communicates urgency through its core.
             if (!actor.VisualComposer.IsFlashActive) properties.SetColor(BaseColorId, Color.white);
+            Color status = actor.VisualComposer.StatusTint;
+            properties.SetColor(StatusTintId, status);
+            properties.SetFloat(StatusAmountId, !actor.VisualComposer.IsFlashActive && status != Color.white ? .9f : 0f);
+            glow.Color = status != Color.white ? status : new Color(1f, .48f, .12f);
             bool reduced = actor.Session != null && actor.Session.Effects.ReducedEffectsMode;
             float pulse = reduced || paused ? 1f : 1f + 0.12f * Mathf.Sin(clock * (IsPrimed ? 24f : 5f));
             float strength = (IsPrimed ? Mathf.Lerp(1.2f, 2.8f, fuse.FuseProgress) : 0.9f) * pulse;

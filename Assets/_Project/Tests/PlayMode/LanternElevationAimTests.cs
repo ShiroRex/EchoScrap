@@ -7,6 +7,7 @@ using EchoScrap.Player;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
@@ -135,16 +136,56 @@ namespace EchoScrap.Tests
                 game.Weapon.UpdateAim(1f);
                 yield return null;
                 yield return null;
-                Assert.IsNull(game.Weapon.CurrentTarget);
-                AssertOriginAndCombatContract();
-                Vector3 point = game.Weapon.OriginPosition + game.Weapon.CurrentAimDirection * Mathf.Min(3f, game.Weapon.ActiveBurstRange);
-                point.y = ArenaSurface.Height(point) + 0.05f;
-                Vector3 expected = (point - presentation.ImportedView.KeyLight.transform.position).normalized;
-                Vector3 actual = presentation.ImportedView.KeyLight.transform.forward;
-                Assert.Greater(Vector3.Dot(expected, actual), 0.999f,
-                    "Without a target the cone must preview the terrain rather than retain a fixed downward pitch.");
-                if (uphill) Assert.Greater(actual.y, 0.1f, "The terrain sample must be uphill from the held lantern.");
-                else Assert.Less(actual.y, -0.1f, "Descending terrain must lower the terrain preview.");
+                yield return AssertAfterGameplayCameraRender(() =>
+                {
+                    Assert.IsNull(game.Weapon.CurrentTarget);
+                    AssertOriginAndCombatContract();
+                    Vector3 point = game.Weapon.OriginPosition + game.Weapon.CurrentAimDirection * Mathf.Min(3f, game.Weapon.ActiveBurstRange);
+                    point.y = ArenaSurface.Height(point) + 0.05f;
+                    Vector3 expected = (point - presentation.ImportedView.KeyLight.transform.position).normalized;
+                    Vector3 actual = presentation.ImportedView.KeyLight.transform.forward;
+                    Assert.Greater(Vector3.Dot(expected, actual), 0.999f,
+                        "Without a target the cone must preview the terrain rather than retain a fixed downward pitch.");
+                    if (uphill) Assert.Greater(actual.y, 0.1f, "The terrain sample must be uphill from the held lantern.");
+                    else Assert.Less(actual.y, -0.1f, "Descending terrain must lower the terrain preview.");
+                });
+            }
+        }
+
+        private IEnumerator AssertAfterGameplayCameraRender(System.Action assertions)
+        {
+            bool rendered = false;
+            System.Exception failure = null;
+            Camera gameplayCamera = game.GameplayCamera;
+            RenderTexture previousTarget = gameplayCamera.targetTexture;
+            var target = new RenderTexture(1280, 720, 24);
+            void OnEndCameraRendering(ScriptableRenderContext context, Camera camera)
+            {
+                if (rendered || camera != game.GameplayCamera) return;
+                rendered = true;
+                try { assertions(); }
+                catch (System.Exception exception) { failure = exception; }
+            }
+
+            // Update can move the light's parent before the sprite and volume settle in
+            // LateUpdate. Check the pose actually rendered, without refreshing it manually.
+            // Batch-mode tests need an explicit target to render the gameplay camera.
+            gameplayCamera.targetTexture = target;
+            RenderPipelineManager.endCameraRendering += OnEndCameraRendering;
+            try
+            {
+                for (int frame = 0; frame < 10 && !rendered; frame++)
+                    yield return null;
+                Assert.IsTrue(rendered, "The gameplay camera must render within ten frames.");
+                if (failure != null)
+                    System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+            }
+            finally
+            {
+                RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
+                gameplayCamera.targetTexture = previousTarget;
+                target.Release();
+                Object.Destroy(target);
             }
         }
 

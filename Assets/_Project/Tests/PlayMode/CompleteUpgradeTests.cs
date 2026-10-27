@@ -91,15 +91,17 @@ namespace EchoScrap.Tests
             e.ApplyFreeze(2);e.ResetForSpawn(new Vector3(0,1,3));Assert.That(e.IsFrozen,Is.False);Assert.That(e.SlowFraction,Is.Zero);
         }
         [TestCase(1,2,.4f)] [TestCase(2,3,.6f)] [TestCase(3,4,.8f)]
-        public void FourthPulsePrismFiresDistinctGuidedSparks(int tier,int count,float fraction)
+        public void FourthPulsePrismLinksDistinctEnemiesInSequence(int tier,int count,float fraction)
         {
             Set("FLASH_03",tier);var origin=Enemy(0,3);var neighbors=new EnemyActor[count];
             for(int i=0;i<count;i++)neighbors[i]=Enemy(i%2==0?1:-1,3+i*.15f);
-            Hit(origin,10,4);Assert.That(upgrades.ProjectilesFired,Is.EqualTo(count));
+            Hit(origin,10,4);Assert.That(upgrades.ChainsTriggered,Is.EqualTo(1));
             for(int i=0;i<20;i++)upgrades.Step(.02f);
             float damage=0;foreach(var neighbor in neighbors)damage+=1000-neighbor.CurrentHealth;
             Assert.That(damage,Is.EqualTo(count*10*fraction).Within(.01));
-            Assert.That(upgrades.ProjectilesFired,Is.EqualTo(count),"Derived sparks must not generate more sparks.");
+            Assert.That(upgrades.ChainHitsResolved,Is.EqualTo(count),"A chain hits each selected enemy once.");
+            Assert.That(upgrades.ProjectilesFired,Is.Zero,"Electrical links do not create guided bullets.");
+            Assert.That(upgrades.ChainsTriggered,Is.EqualTo(1),"Derived links must not create another chain.");
         }
         [Test]
         public void SiphonRepairsAndOverhealingPowersNova()

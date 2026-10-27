@@ -191,7 +191,7 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator CameraAngleDoesNotRotateOrReshapeTheStandingPlane()
+        public IEnumerator CameraYawTurnsTheStandingPlaneWithoutTiltingOrReshapingIt()
         {
             var camera = new GameObject("Collector angle validation camera").AddComponent<Camera>();
             camera.CopyFrom(game.GameplayCamera);
@@ -199,15 +199,40 @@ namespace EchoScrap.Tests
             view.Bind(camera, game.Session);
             view.AlignToCamera();
             Quaternion rotation = view.CharacterRenderer.transform.rotation;
+            Assert.That(Quaternion.Angle(rotation, Quaternion.Euler(0, 20, 0)), Is.LessThan(.01f));
             Vector3 scale = view.CharacterRenderer.transform.localScale;
             float aspect = scale.y / scale.x;
             camera.transform.rotation = Quaternion.Euler(65, -15, 0);
             view.AlignToCamera();
-            Assert.That(Quaternion.Angle(rotation, view.CharacterRenderer.transform.rotation), Is.LessThan(0.01f));
+            Assert.That(Quaternion.Angle(view.CharacterRenderer.transform.rotation, Quaternion.Euler(0, -15, 0)), Is.LessThan(.01f));
             scale = view.CharacterRenderer.transform.localScale;
             Assert.That(scale.y / scale.x, Is.EqualTo(aspect).Within(0.001f),
                 "World proportions must stay fixed when the camera pitch changes.");
             Assert.That(Quaternion.Angle(rotation, camera.transform.rotation), Is.GreaterThan(30f));
+            view.Bind(game.GameplayCamera, game.Session);
+            Object.Destroy(camera.gameObject);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator IdleFacingReprojectsThroughCameraOrbitWithoutAdvancingTheAnimation()
+        {
+            var camera = new GameObject("Collector orbit validation camera").AddComponent<Camera>();
+            camera.CopyFrom(game.GameplayCamera);
+            view.Bind(camera, game.Session);
+            view.ResetPresentation();
+            float clipTime = view.ClipTime;
+            CharacterFacing[] expected = { CharacterFacing.Down, CharacterFacing.Right, CharacterFacing.Up, CharacterFacing.Left, CharacterFacing.Down };
+            for (int step = 0; step < expected.Length; step++)
+            {
+                camera.transform.rotation = Quaternion.Euler(50, step * 90, 0);
+                view.AlignToCamera();
+                Assert.That(view.Facing, Is.EqualTo(expected[step]), "Idle pose must preserve its world facing as the camera orbits.");
+                Assert.That(view.ClipTime, Is.EqualTo(clipTime));
+                Assert.That(Vector3.Dot(view.CharacterRenderer.transform.right, camera.transform.right), Is.GreaterThan(.999f), "The sprite must not be mirrored or edge-on.");
+                Assert.That(Vector3.Dot(view.CharacterRenderer.transform.up, Vector3.up), Is.GreaterThan(.999f));
+                Assert.That(Quaternion.Angle(view.CharacterRenderer.transform.rotation, view.ProjectedShadowRenderer.transform.rotation), Is.LessThan(.01f));
+            }
             view.Bind(game.GameplayCamera, game.Session);
             Object.Destroy(camera.gameObject);
             yield return null;
@@ -359,9 +384,11 @@ namespace EchoScrap.Tests
             for (int i = 0; i < moves.Length; i++)
             {
                 InputSystem.QueueStateEvent(pad, new GamepadState { leftStick = moves[i] });
-                yield return new WaitForSeconds(0.16f);
-                Assert.That(view.Motion, Is.EqualTo(CharacterMotion.Walk));
-                Assert.That(view.Facing, Is.EqualTo(facings[i]));
+                yield return null;
+                for (int tick = 0; tick < 8; tick++) yield return new WaitForFixedUpdate();
+                yield return null; // Read the sprite after its LateUpdate has consumed the new motor direction.
+                Assert.That(view.Motion, Is.EqualTo(CharacterMotion.Walk), "Movement " + moves[i]);
+                Assert.That(view.Facing, Is.EqualTo(facings[i]), "Movement " + moves[i]);
                 var spriteBlock = new MaterialPropertyBlock();
                 var shadowBlock = new MaterialPropertyBlock();
                 view.CharacterRenderer.GetPropertyBlock(spriteBlock);

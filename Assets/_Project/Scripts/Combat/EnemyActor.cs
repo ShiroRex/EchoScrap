@@ -440,10 +440,17 @@ namespace EchoScrap.Combat
         public bool IsFrozen => FrozenRemaining > 0f;
         public bool IsControlLocked => IsFrozen || StunRemaining > 0f;
         public int SpawnVersion { get; private set; }
+        public float FrozenVisualCoverage { get; private set; }
         private int coldHits;
         public Vector3 PursuitGoal => session != null && session.Upgrades != null ? session.Upgrades.PursuitGoal(transform.position, targetPlayer != null ? targetPlayer.WorldCenter : transform.position) : (targetPlayer != null ? targetPlayer.WorldCenter : transform.position);
-        public void ApplySlow(float fraction, float duration) { SlowFraction = Mathf.Max(SlowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); visualComposer?.SetStatusTint(new Color(.38f, .78f, 1f)); }
-        public void ApplyFreeze(float duration) { FrozenRemaining = Mathf.Max(FrozenRemaining, duration); coldHits = 0; }
+        public void ApplySlow(float fraction, float duration) { SlowFraction = Mathf.Max(SlowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); RefreshColdTint(); }
+        public void ApplyFreeze(float duration)
+        {
+            FrozenRemaining = Mathf.Max(FrozenRemaining, duration);
+            if (FrozenRemaining > 0f) FrozenVisualCoverage = Mathf.Max(.12f, FrozenVisualCoverage);
+            coldHits = 0;
+            RefreshColdTint();
+        }
         public void ApplyStun(float duration) => StunRemaining = Mathf.Max(StunRemaining, duration);
         public void RegisterColdHit(int required, float duration) { if (SlowRemaining > 0f && !IsFrozen && ++coldHits >= required) ApplyFreeze(duration); }
         public void StepUpgradeStatus(float dt)
@@ -452,7 +459,13 @@ namespace EchoScrap.Combat
             FrozenRemaining = Mathf.Max(0f, FrozenRemaining - dt);
             StunRemaining = Mathf.Max(0f, StunRemaining - dt);
             if (SlowRemaining <= 0f) { SlowFraction = 0f; coldHits = 0; }
-            visualComposer?.SetStatusTint(SlowRemaining > 0f || IsFrozen ? new Color(.38f, .78f, 1f) : Color.white);
+            FrozenVisualCoverage = Mathf.MoveTowards(FrozenVisualCoverage, IsFrozen ? 1f : 0f, Mathf.Max(0f, dt) / (IsFrozen ? .14f : .12f));
+            RefreshColdTint();
+        }
+        private void RefreshColdTint()
+        {
+            Color baseTint = SlowRemaining > 0f ? new Color(.38f, .78f, 1f) : Color.white;
+            visualComposer?.SetStatusTint(Color.Lerp(baseTint, new Color(.65f, .88f, 1f), FrozenVisualCoverage));
         }
         public void PushDistance(Vector3 direction, float distance) => ApplyKnockback(direction.normalized * Mathf.Sqrt(2f * Mathf.Max(1f, runtimeArchetype.KnockbackBraking) * distance));
 
@@ -464,7 +477,7 @@ namespace EchoScrap.Combat
             PhysicsLayers.EnsureConfigured();
 
             // 1. Salud máxima y estado de muerte/recompensas
-            SpawnVersion++; SlowRemaining = FrozenRemaining = StunRemaining = SlowFraction = 0f; coldHits = 0;
+            SpawnVersion++; SlowRemaining = FrozenRemaining = StunRemaining = SlowFraction = FrozenVisualCoverage = 0f; coldHits = 0;
             currentHealth = Mathf.Max(1f, runtimeArchetype.MaxHealth);
             isDead = false;
             deathRewardResolved = false;

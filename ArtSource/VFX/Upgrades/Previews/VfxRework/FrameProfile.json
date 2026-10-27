@@ -1,0 +1,9 @@
+{
+"environment":{"unity":"6000.6.3f1","editor":true,"batchMode":true,"gpu":"AMD Radeon RX 6650 XT","graphicsApi":"Direct3D11","width":640,"height":480,"vSyncCount":0,"targetFrameRate":-1,"cpuCounter":"CPU Main Thread Frame Time","gpuCounter":"GPU Frame Time"},
+"targetFrameBudgetMs":16.666667,
+"comparison":"Same arena, camera and 150 stationary registered enemies (146 real Moths plus four nearby Residuals for saw contact). Stress adds maximum upgrades, real automatic flashlight and periodic dash procs. No ReadPixels or screenshot capture occurs during sampling.",
+"baseline":{"renderedFrames":45,"gpuAvailable":false,"wallFrameMs":{"samples":45,"mean":4.665576,"median":2.7366,"p95":11.448,"maximum":12.2361},"mainThreadRecorderMs":{"samples":45,"mean":4.23908,"median":2.5065,"p95":11.2988,"maximum":11.5364},"frameTimingMainThreadMs":{"samples":45,"mean":4.274011,"median":2.5065,"p95":11.4077,"maximum":11.9241},"gpuFrameMs":null,"peakParticleRigs":0,"peakLights":0,"peakParticles":0,"peakLightning":0,"peakProjectiles":0},
+"stress":{"renderedFrames":60,"gpuAvailable":false,"wallFrameMs":{"samples":60,"mean":16.753523,"median":9.9902,"p95":52.3508,"maximum":89.7842},"mainThreadRecorderMs":{"samples":60,"mean":16.051768,"median":9.0201,"p95":50.2971,"maximum":91.3073},"frameTimingMainThreadMs":{"samples":60,"mean":16.06929,"median":9.0201,"p95":50.2971,"maximum":91.3073},"gpuFrameMs":null,"peakParticleRigs":32,"peakLights":6,"peakParticles":284,"peakLightning":64,"peakProjectiles":3},
+"isolatedUpgradeStep":{"samples":180,"meanCpuMs":2.17803,"managedAllocatedBytes":0,"hudAndDamageLabelsDisabled":true},
+"interpretation":"Editor frame timings include test/editor overhead and waits; isolated Step CPU is not total frame time. Missing GPU measurements are null and do not establish a 60 FPS result. Target frame budget is 16.67 ms; no whole-frame threshold is asserted on this machine."
+}

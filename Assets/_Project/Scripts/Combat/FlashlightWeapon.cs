@@ -324,7 +324,8 @@ namespace EchoScrap.Combat
             }
             else if (inputReader != null && inputReader.Movement.sqrMagnitude > 0.0001f)
             {
-                desiredDirection = new Vector3(inputReader.Movement.x, 0f, inputReader.Movement.y);
+                desiredDirection = motor != null ? motor.ResolveMovementDirection(inputReader.Movement)
+                    : new Vector3(inputReader.Movement.x, 0f, inputReader.Movement.y);
             }
             else if (motor != null && motor.FacingDirection.sqrMagnitude > 0.0001f)
             {

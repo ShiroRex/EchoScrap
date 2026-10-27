@@ -37,6 +37,7 @@ namespace EchoScrap.Combat
         private float clipTime;
         private bool initialized;
         private Vector4 frameRect;
+        private Vector3 worldFacing = Vector3.back;
 
         public CharacterMotion Motion { get; private set; }
         public CharacterFacing Facing { get; private set; } = CharacterFacing.Down;
@@ -98,6 +99,7 @@ namespace EchoScrap.Combat
             clipTime = 0f;
             Motion = CharacterMotion.Idle;
             Facing = CharacterFacing.Down;
+            worldFacing = Vector3.back;
             FrameIndex = 0;
             if (characterRenderer != null && sprites != null && properties != null) ApplyFrame();
             if (shadowRenderer != null) shadowRenderer.enabled = true;
@@ -146,9 +148,9 @@ namespace EchoScrap.Combat
             CharacterMotion next = dead ? CharacterMotion.Death : motor.IsDashing ? CharacterMotion.Dash
                 : speed > sprites.movingThreshold ? CharacterMotion.Walk : CharacterMotion.Idle;
             if (next != Motion) { Motion = next; clipTime = 0f; }
-            if (!dead && (speed > sprites.movingThreshold || motor.IsDashing) && viewCamera != null)
-                Facing = ResolveFacing(motor.IsDashing ? motor.DashDirection : motor.FacingDirection,
-                    viewCamera.transform.rotation, Facing, sprites.directionHysteresis);
+            if (!dead && (speed > sprites.movingThreshold || motor.IsDashing))
+                worldFacing = motor.IsDashing ? motor.DashDirection : motor.FacingDirection;
+            RefreshFacing();
             float rate = Motion == CharacterMotion.Walk && motor.Settings != null
                 ? Mathf.Clamp(speed / motor.Settings.MoveSpeed, 0.4f, 1.6f) : 1f;
             if (Motion == CharacterMotion.Dash)
@@ -161,6 +163,12 @@ namespace EchoScrap.Combat
             if (clip.loop) clipTime = Mathf.Repeat(clipTime, clip.Duration);
             else clipTime = Mathf.Min(clipTime, clip.Duration);
             ApplyFrame();
+        }
+
+        private void RefreshFacing()
+        {
+            if (viewCamera == null || sprites == null || (health != null && health.IsDead)) return;
+            Facing = ResolveFacing(worldFacing, viewCamera.transform.rotation, Facing, sprites.directionHysteresis);
         }
 
         private void ApplyFrame()
@@ -190,6 +198,9 @@ namespace EchoScrap.Combat
         public void AlignToCamera()
         {
             if (viewCamera == null || characterRenderer == null) return;
+            CharacterFacing previousFacing = Facing;
+            RefreshFacing();
+            if (Facing != previousFacing) ApplyFrame();
             Vector3 foot = transform.TransformPoint(footOffset) + Vector3.up * 0.025f;
             Vector3 recoil = composer != null && composer.OrientationRoot != null
                 ? composer.OrientationRoot.TransformVector(composer.CurrentPresentationLocalPosition) : Vector3.zero;
@@ -210,9 +221,11 @@ namespace EchoScrap.Combat
                     if (floor.Raycast(snappedRay, out float distance)) position = snappedRay.GetPoint(distance);
                 }
             }
-            // The arena uses a fixed XY character plane. The camera observes its real perspective;
-            // neither the plane orientation nor its proportions follow camera pitch/yaw.
-            Quaternion upright = Quaternion.identity;
+            // Follow camera yaw through the warehouse orbit, while keeping the sprite upright
+            // and its world proportions fixed instead of tilting it with camera pitch.
+            Vector3 horizontalForward = Vector3.ProjectOnPlane(viewCamera.transform.forward, Vector3.up);
+            Quaternion upright = horizontalForward.sqrMagnitude > .0001f
+                ? Quaternion.LookRotation(horizontalForward, Vector3.up) : Quaternion.identity;
             characterRenderer.transform.SetPositionAndRotation(position, upright);
             characterRenderer.transform.localScale = new Vector3(scale, scale * standingHeight, scale);
             if (shadowRenderer != null)

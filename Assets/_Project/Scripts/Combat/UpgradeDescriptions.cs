@@ -49,7 +49,7 @@ namespace EchoScrap.Combat
             float A(Vector3 levels) => UpgradeTuning.At(levels, t);
             return id switch
             {
-                "FLASH_03" => "Saltan a enemigos cercanos.\nCada una hace " + N(A(u.prismDamage) * 100) + "% del daño.\nBuscan a " + N(u.prismRadius) + " m del impacto.",
+                "FLASH_03" => "Encadena enemigos a " + N(u.prismRadius) + " m.\nDaño: " + N(A(u.prismDamage) * 100) + "% del cuarto pulso.",
                 "DASH_02" => "Empuja a los enemigos cercanos.\nLos aturde " + N(A(u.shockStun)) + " s\nen un radio de " + N(A(u.shockRadius)) + " m.",
                 "DASH_03" => "Distrae a los enemigos y luego\nexplota: " + N(A(u.decoyDamage)) + " de daño.",
                 "DASH_04" => "Al salir, explotas: " + N(u.cataclysmDamage) + " de daño.\nAl llegar, lanzas una cuchilla\nque hace " + N(u.bladeDamage) + " de daño.",
