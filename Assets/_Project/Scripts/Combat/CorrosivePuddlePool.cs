@@ -11,6 +11,7 @@ namespace EchoScrap.Combat
     [DisallowMultipleComponent]
     public sealed class CorrosivePuddlePool : MonoBehaviour
     {
+        public enum HazardStyle { Acid = 0, BossMagma = 1 }
         public const int MaxActivePuddles = 96;
         public const int MaxInFlightProjectiles = 96;
         public const float DefaultMortarFlightDuration = 0.65f;
@@ -30,6 +31,7 @@ namespace EchoScrap.Combat
 
         public struct ProjectileSpec
         {
+            public HazardStyle Style;
             public int SourceId;
             public Vector3 LaunchOrigin;
             public Vector3 TargetPosition;
@@ -62,6 +64,7 @@ namespace EchoScrap.Combat
 
         public struct ActivePuddleInfo
         {
+            public HazardStyle Style;
             public int SpawnSequenceId;
             public Vector3 CenterXZ;
             public float Radius;
@@ -74,6 +77,7 @@ namespace EchoScrap.Combat
         {
             public GameObject Root;
             public Transform Shell;
+            public MeshFilter ShellFilter;
             public Renderer ShellRenderer;
             public Transform Reticle;
             public Renderer ReticleRenderer;
@@ -110,6 +114,7 @@ namespace EchoScrap.Combat
             public float TickInterval;
             public float FadeAlpha;
             public DamageSourceType DamageSource;
+            public HazardStyle Style;
             public bool Active;
             public bool Reserved;
         }
@@ -126,6 +131,8 @@ namespace EchoScrap.Combat
         private readonly ProjectileSlot[] projectiles = new ProjectileSlot[MaxInFlightProjectiles];
         private readonly PuddleSlot[] puddles = new PuddleSlot[MaxActivePuddles];
         private Material acidMaterial;
+        private Material magmaGroundMaterial, magmaShellMaterial;
+        private Mesh magmaShellMesh;
         private Mesh ringMesh;
         private Mesh discMesh;
         private Mesh shellMesh;
@@ -172,6 +179,15 @@ namespace EchoScrap.Combat
             acidMaterial.SetFloat("_ZWrite", 0f);
             acidMaterial.SetFloat("_Cull", (float)CullMode.Off);
             acidMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            var magmaAsset = Resources.Load<Material>("Golgora/Magma");
+            magmaGroundMaterial = magmaAsset != null ? new Material(magmaAsset) : new Material(acidMaterial);
+            magmaGroundMaterial.name = "GolgoraMagmaGround";
+            magmaShellMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? shader);
+            magmaShellMaterial.name = "GolgoraMoltenProjectile";
+            magmaShellMaterial.SetColor("_BaseColor", new Color(.38f, .1f, .025f));
+            magmaShellMaterial.SetColor("_EmissionColor", new Color(3.8f, .85f, .025f));
+            magmaShellMaterial.EnableKeyword("_EMISSION");
+            magmaShellMesh = CreateMagmaShellMesh();
             acidArt = MortarAcidSet.Load();
             if (acidArt != null && !acidArt.IsReady) acidArt = null;
             presentationCamera = Camera.main;
@@ -208,7 +224,7 @@ namespace EchoScrap.Combat
                 Transform fill = CreateGroundVisual(root.transform, "GroundReticleFill", discMesh, out Renderer fillRenderer, out GroundPatch fillPatch);
                 projectiles[i] = new ProjectileSlot
                 {
-                    Root = root, Shell = shell.transform, ShellRenderer = shellRenderer,
+                    Root = root, Shell = shell.transform, ShellFilter = shell.GetComponent<MeshFilter>(), ShellRenderer = shellRenderer,
                     Reticle = reticle, ReticleRenderer = reticleRenderer,
                     Fill = fill, FillRenderer = fillRenderer, Trail = trail,
                     ReticlePatch = reticlePatch, FillPatch = fillPatch
@@ -263,6 +279,9 @@ namespace EchoScrap.Combat
         {
             UnsubscribeFromSession();
             if (acidMaterial != null) Destroy(acidMaterial);
+            if (magmaGroundMaterial != null) Destroy(magmaGroundMaterial);
+            if (magmaShellMaterial != null) Destroy(magmaShellMaterial);
+            if (magmaShellMesh != null) Destroy(magmaShellMesh);
             if (ringMesh != null) Destroy(ringMesh);
             if (discMesh != null) Destroy(discMesh);
             if (shellMesh != null) Destroy(shellMesh);
@@ -289,7 +308,7 @@ namespace EchoScrap.Combat
                 if (presentationCamera == null) return;
             }
             Quaternion rotation = presentationCamera.transform.rotation;
-            foreach (var slot in projectiles) if (slot.Active) slot.Shell.rotation = rotation;
+            foreach (var slot in projectiles) if (slot.Active && slot.Spec.Style == HazardStyle.Acid) slot.Shell.rotation = rotation;
         }
 
         public bool LaunchParabolicProjectile(in ProjectileSpec spec) => TryLaunchParabolicProjectile(in spec);
@@ -302,6 +321,12 @@ namespace EchoScrap.Combat
             if (projectileIndex < 0 || (spec.PuddleDuration > 0f && spec.PuddleRadius > 0f && puddleIndex < 0)) return false;
             ProjectileSlot slot = projectiles[projectileIndex];
             slot.Spec = spec; slot.Elapsed = 0f; slot.ReservedPuddle = puddleIndex;
+            bool magma = spec.Style == HazardStyle.BossMagma;
+            slot.ShellFilter.sharedMesh = magma ? magmaShellMesh : acidArt != null ? shellMesh : magmaShellMesh;
+            slot.ShellRenderer.sharedMaterial = magma ? magmaShellMaterial : acidArt != null ? acidArt.projectileMaterial : acidMaterial;
+            slot.Shell.localScale = Vector3.one * (magma ? .72f : acidArt != null ? acidArt.projectileSize : .34f);
+            slot.Trail.startColor = magma ? new Color(1f, .42f, .035f, .9f) : new Color(.65f, 1f, .18f, .7f);
+            slot.Trail.endColor = magma ? new Color(.8f, .08f, .01f, 0f) : new Color(.35f, .85f, .15f, 0f);
             if (ArenaSurface.Active != null) slot.Spec.TargetPosition = ArenaSurface.OnGround(spec.TargetPosition);
             if (puddleIndex >= 0) puddles[puddleIndex].Reserved = true;
             slot.Active = true;
@@ -339,7 +364,7 @@ namespace EchoScrap.Combat
             return true;
         }
         private int ActivatePuddle(int index, int sourceId, Vector3 position, float radius, float duration,
-            float damage, float interval, DamageSourceType source)
+            float damage, float interval, DamageSourceType source, HazardStyle style = HazardStyle.Acid)
         {
             PuddleSlot slot = puddles[index];
             slot.Reserved = false; slot.Active = true; slot.SourceId = sourceId; slot.SequenceId = ++sequenceId;
@@ -348,6 +373,10 @@ namespace EchoScrap.Combat
             slot.Elapsed = 0f; slot.NextTickAge = 0f;
             slot.TickDamage = Mathf.Max(0f, damage); slot.TickInterval = Mathf.Max(0.05f, interval);
             slot.DamageSource = source; slot.FadeAlpha = 1f;
+            slot.Style = source == DamageSourceType.BossBombardmentPuddle ? HazardStyle.BossMagma : style;
+            bool magma = slot.Style == HazardStyle.BossMagma;
+            slot.CoreRenderer.sharedMaterial = magma ? magmaGroundMaterial : acidArt != null ? acidArt.puddleMaterial : acidMaterial;
+            slot.ImpactRenderer.sharedMaterial = magma ? magmaGroundMaterial : acidArt != null ? acidArt.impactMaterial : acidMaterial;
             slot.Root.transform.position = slot.Center + Vector3.up * 0.03f;
             slot.Root.transform.up = ArenaSurface.Normal(position);
             slot.Root.SetActive(true);
@@ -408,7 +437,7 @@ namespace EchoScrap.Combat
                     int reserved = slot.ReservedPuddle;
                     slot.ReservedPuddle = -1;
                     ActivatePuddle(reserved, slot.Spec.SourceId, slot.Spec.TargetPosition, slot.Spec.PuddleRadius,
-                        slot.Spec.PuddleDuration, slot.Spec.PuddleTickDamage, slot.Spec.PuddleTickInterval, slot.Spec.PuddleDamageSource);
+                        slot.Spec.PuddleDuration, slot.Spec.PuddleTickDamage, slot.Spec.PuddleTickInterval, slot.Spec.PuddleDamageSource, slot.Spec.Style);
                     AdvancePuddle(puddles[reserved], Mathf.Max(0f, slot.Elapsed - impactAge));
                 }
             }
@@ -447,6 +476,12 @@ namespace EchoScrap.Combat
             (session.Effects.ReducedEffectsMode ? 0f : session.Effects.DecorativeIntensity);
         private void UpdateProjectileVisual(ProjectileSlot slot)
         {
+            if (slot.Spec.Style == HazardStyle.BossMagma)
+            {
+                slot.Shell.rotation = Quaternion.Euler(slot.Elapsed * 170f, slot.Elapsed * 95f, slot.Elapsed * 65f);
+                ApplyColor(slot.ShellRenderer, new Color(.52f, .13f, .018f));
+                return;
+            }
             if (acidArt == null)
             {
                 ApplyColor(slot.ShellRenderer, new Color(0.75f, 1f, 0.27f, 1f));
@@ -459,6 +494,17 @@ namespace EchoScrap.Combat
         private void UpdatePuddleVisuals(PuddleSlot slot)
         {
             // Fade only the core; the damaging boundary stays fully readable until expiry.
+            if (slot.Style == HazardStyle.BossMagma)
+            {
+                ApplyColor(slot.BorderRenderer, new Color(1f, .43f, .035f, 1f));
+                ApplyColor(slot.CoreRenderer, new Color(1f, .38f, .025f, .8f * slot.FadeAlpha));
+                float magmaLanding = Mathf.Clamp01(slot.Elapsed / .35f);
+                slot.ImpactRing.gameObject.SetActive(magmaLanding < 1f && DecorativeIntensity > 0f);
+                ProjectGroundVisual(slot.ImpactRing, slot.ImpactPatch, slot.Center,
+                    slot.Radius * 2f * Mathf.Lerp(.2f, 1f, magmaLanding), .055f);
+                ApplyColor(slot.ImpactRenderer, new Color(1f, .75f, .12f, (1f - magmaLanding) * DecorativeIntensity));
+                return;
+            }
             ApplyColor(slot.BorderRenderer, AcidBorderColor);
             if (acidArt != null)
             {
@@ -507,7 +553,7 @@ namespace EchoScrap.Combat
                 if (slot.Active && slot.SequenceId == id)
                     return new ActivePuddleInfo
                     {
-                        SpawnSequenceId = id, CenterXZ = slot.Center, Radius = slot.Radius,
+                        Style = slot.Style, SpawnSequenceId = id, CenterXZ = slot.Center, Radius = slot.Radius,
                         RemainingTime = slot.Duration - slot.Elapsed, TotalDuration = slot.Duration, FadeAlpha = slot.FadeAlpha
                     };
             return default;
@@ -597,6 +643,20 @@ namespace EchoScrap.Combat
             patch.Mesh.RecalculateBounds();
         }
 
+        private static Mesh CreateMagmaShellMesh()
+        {
+            var vertices = new Vector3[24]; var indices = new int[24];
+            Vector3 top = Vector3.up * .65f, bottom = Vector3.down * .55f;
+            Vector3[] sides = { new Vector3(.5f, 0f, .1f), new Vector3(.04f, 0f, .48f), new Vector3(-.45f, 0f, -.08f), new Vector3(-.07f, 0f, -.53f) };
+            for (int i = 0; i < 4; i++)
+            {
+                int t = i * 6; vertices[t] = top; vertices[t + 1] = sides[i]; vertices[t + 2] = sides[(i + 1) % 4];
+                vertices[t + 3] = bottom; vertices[t + 4] = sides[(i + 1) % 4]; vertices[t + 5] = sides[i];
+                for (int j = 0; j < 6; j++) indices[t + j] = t + j;
+            }
+            var mesh = new Mesh { name = "GolgoraMoltenShard", vertices = vertices, triangles = indices };
+            mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
+        }
         private static Mesh CreateShellMesh()
         {
             return new Mesh
