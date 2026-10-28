@@ -324,70 +324,89 @@ namespace EchoScrap.Tests
             var passage=GameObject.Find("WarehouseConnection/PasilloDescendente").transform;
             var west=passage.Find("MuroOeste").GetComponent<BoxCollider>().bounds;
             var east=passage.Find("MuroEste").GetComponent<BoxCollider>().bounds;
-            Assert.AreEqual(140f,west.center.x+east.center.x,0.01f);
+            Assert.AreEqual(0f,west.center.x+east.center.x,0.01f);
             Assert.Less(Vector3.Distance(west.size,east.size),0.001f);
             var stairs=passage.Find("EscaleraImportada").GetComponentInChildren<MeshCollider>().bounds;
-            Assert.LessOrEqual(stairs.min.x,west.max.x);
-            Assert.GreaterOrEqual(stairs.max.x,east.min.x);
-            foreach(float x in new[]{67f,70f,73f})
-                for(float z=-48;z>=-60;z-=1)
+            Assert.LessOrEqual(stairs.min.x,Mathf.Min(west.max.x,east.max.x));
+            Assert.GreaterOrEqual(stairs.max.x,Mathf.Max(west.min.x,east.min.x));
+            foreach(float x in new[]{-3f,0f,3f})
+                for(float z=63;z<=75;z+=1)
                     Assert.IsTrue(WalkableStairs.Active.TryHeight(new Vector3(x,0,z),out _),"Missing tread at "+x+","+z);
             Assert.IsNotNull(passage.Find("PiezasImportadas/Fondo"));
+        }
+        [Test] public void NorthAccessMovesBothPortalAndTerrain_WhileRestoringTheOldGround()
+        {
+            var travel=Object.FindAnyObjectByType<WarehouseTravel>();
+            var entry=Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None).First(g=>!g.FromWarehouse);
+            var fusion=Object.FindAnyObjectByType<FusionStation>();
+            Assert.AreEqual(0f,entry.transform.position.x,.01f);
+            Assert.That(entry.transform.position.z,Is.InRange(77f,79f));
+            Assert.Less(travel.CombatArrival.position.z,entry.transform.position.z-2f);
+            Assert.AreEqual(-18f,fusion.transform.position.x,.01f);
+            Assert.AreEqual(55f,fusion.transform.position.z,.01f);
+            Assert.Less(ArenaSurface.Profile(0,78,200),-7.9f);
+            Assert.Greater(ArenaSurface.Profile(70,-58,200),-1f,"The old southern excavation must be filled.");
+            foreach(var p in new[]{new Vector3(70,0,-58),new Vector3(0,0,78)})
+            {
+                Assert.IsTrue(game.ArenaGround.Raycast(new Ray(p+Vector3.up*20,Vector3.down),out var hit,40));
+                Assert.AreEqual(ArenaSurface.Profile(p.x,p.z,200),hit.point.y,.15f,"Saved mesh and locomotion must agree.");
+            }
         }
         [UnityTest] public IEnumerator PortalStairsAllowDescentAndAscent()
         {
             // Este recorrido prueba escalones; el viaje por trigger tiene su propia prueba.
             foreach(var gateway in Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None)) gateway.GetComponent<Collider>().enabled=false;
             var body=game.Player.GetComponent<Rigidbody>();
-            foreach(float lane in new[]{67f,70f,73f})
+            foreach(float lane in new[]{-3f,0f,3f})
             {
-            body.position=new Vector3(lane,1,-44); body.linearVelocity=Vector3.zero;
+            body.position=new Vector3(lane,1,59); body.linearVelocity=Vector3.zero;
             yield return new WaitForSeconds(.5f);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W)); yield return null;
-            for(int i=0;i<300 && body.position.z>-62;i++) yield return new WaitForFixedUpdate();
+            for(int i=0;i<300 && body.position.z<77;i++) yield return new WaitForFixedUpdate();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
-            if(body.position.z>=-61.5f)
+            if(body.position.z<=76.5f)
                 foreach(var contact in Physics.OverlapSphere(body.position,2))
                     Debug.Log("STAIR_BLOCK lane="+lane+" body="+body.position+" height="+ArenaSurface.Height(body.position)+" collider="+contact.name+" bounds="+contact.bounds);
-            Assert.Less(body.position.z,-61.5f,"The stairs must be reachable without invisible blockers, lane="+lane+" body="+body.position);
+            Assert.Greater(body.position.z,76.5f,"The stairs must be reachable without invisible blockers, lane="+lane+" body="+body.position);
             Assert.Less(body.position.y,-6.5f);
-            yield return Capture("PasilloPortal",new Vector3(88,18,-32),new Vector3(70,-3,-56));
+            yield return Capture("PasilloPortal",new Vector3(18,18,47),new Vector3(0,-3,71));
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.S)); yield return null;
-            for(int i=0;i<300 && body.position.z<-44;i++) yield return new WaitForFixedUpdate();
+            for(int i=0;i<300 && body.position.z>59;i++) yield return new WaitForFixedUpdate();
             InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
-            Assert.Greater(body.position.z,-45f,"Can climb back out of the passage.");
+            Assert.Less(body.position.z,60f,"Can climb back out of the passage.");
             Assert.AreEqual(ArenaSurface.SupportHeight(body.position,0.5f)+1f,body.position.y,0.15f);
             }
         }
-        [UnityTest] public IEnumerator CaveCameraShowsEntranceAndRestoresCombatView()
+        [UnityTest] public IEnumerator NorthVaultApproachKeepsCombatCameraOrientation()
         {
             var director=Object.FindAnyObjectByType<WarehouseCameraDirector>();
             var follow=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineFollow>();
             Vector3 original=follow.FollowOffset;
             var body=game.Player.GetComponent<Rigidbody>();
-            body.position=ArenaSurface.OnGround(new Vector3(70,0,-50),1); body.linearVelocity=Vector3.zero;
+            Quaternion originalRotation=game.CameraRig.transform.rotation;
+            body.position=ArenaSurface.OnGround(new Vector3(0,0,65),1); body.linearVelocity=Vector3.zero;
             yield return new WaitForSeconds(1.5f);
-            Assert.Greater(director.CaveBlend,.99f);
-            Assert.Less(Quaternion.Angle(game.CameraRig.transform.rotation,Quaternion.Euler(50,180,0)),2);
-            Assert.Greater(game.GameplayCamera.transform.position.z,body.position.z);
+            Assert.AreEqual(0f,director.CaveBlend);
+            Assert.Less(Quaternion.Angle(game.CameraRig.transform.rotation,originalRotation),.1f);
+            Assert.Less(game.GameplayCamera.transform.position.z,body.position.z);
             yield return Capture("CamaraCueva",game.GameplayCamera.transform.position,game.GameplayCamera.transform.position+game.GameplayCamera.transform.forward*10);
             body.position=Vector3.up; body.linearVelocity=Vector3.zero;
             yield return new WaitForSeconds(1.5f);
             Assert.Less(director.CaveBlend,.01f);Assert.Less(Vector3.Distance(original,follow.FollowOffset),.1f);
         }
-        [UnityTest] public IEnumerator CaveControlsFollowScreenAndDashUsesW()
+        [UnityTest] public IEnumerator NorthVaultControlsFollowScreenAndDashUsesW()
         {
             foreach(var gateway in Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None)) gateway.GetComponent<Collider>().enabled=false;
             var body=game.Player.GetComponent<Rigidbody>();
-            body.position=ArenaSurface.OnGround(new Vector3(70,0,-44),1);body.linearVelocity=Vector3.zero;
+            body.position=ArenaSurface.OnGround(new Vector3(0,0,59),1);body.linearVelocity=Vector3.zero;
             yield return new WaitForSeconds(.5f);
             var director=Object.FindAnyObjectByType<WarehouseCameraDirector>();
             var collector=game.Player.GetComponent<CollectorSpriteView>();
-            Assert.Greater(director.CaveBlend,.99f,"Camera is ready before touching the first stair.");
+            Assert.AreEqual(0f,director.CaveBlend,"The north-facing access requires no camera orbit.");
             var follow=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineFollow>();
-            Assert.Greater(follow.FollowOffset.magnitude,11.9f,"The orbit never zooms through the player.");
+            Assert.Greater(follow.FollowOffset.magnitude,11.9f,"The exterior view keeps its ordinary distance.");
             foreach(var key in new[]{Key.W,Key.S,Key.A,Key.D}) {
-                body.position=ArenaSurface.OnGround(new Vector3(70,0,-52),1);body.linearVelocity=Vector3.zero;
+                body.position=ArenaSurface.OnGround(new Vector3(0,0,67),1);body.linearVelocity=Vector3.zero;
                 yield return new WaitForFixedUpdate();
                 Vector3 start=body.position;
                 var camera=game.GameplayCamera.transform;
@@ -402,9 +421,9 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(facing,collector.Facing,key+" must use the matching screen-facing walk animation.");
                 Assert.Greater(Vector3.Dot(collector.CharacterRenderer.transform.right,camera.right),.99f,"The sprite must face the orbiting camera without mirroring.");
             }
-            body.position=ArenaSurface.OnGround(new Vector3(70,0,-48),1);body.linearVelocity=Vector3.zero;
+            body.position=ArenaSurface.OnGround(new Vector3(0,0,63),1);body.linearVelocity=Vector3.zero;
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W,Key.Space));yield return null;yield return new WaitForFixedUpdate();yield return new WaitForFixedUpdate();
-            Assert.IsTrue(game.Motor.IsDashing);Assert.Less(game.Motor.DashDirection.z,-.9f,"W + dash heads toward the portal.");
+            Assert.IsTrue(game.Motor.IsDashing);Assert.Greater(game.Motor.DashDirection.z,.9f,"W + dash heads north toward the portal.");
         }
         [Test] public void GarageHasEightLargeAccessibleDisplayAreas()
         {
@@ -508,7 +527,7 @@ namespace EchoScrap.Tests
                 Assert.IsNotNull(vfx.GetComponentInChildren<ParticleSystem>());
                 Assert.IsNotNull(vfx.SparkMaterial);
             }
-            yield return Capture("PortalGalaxia",new Vector3(70,-3,-58),new Vector3(70,-4,-65.5f));
+            yield return Capture("PortalGalaxia",new Vector3(0,-3,73),new Vector3(0,-4,80.5f));
         }
         [UnityTest] public IEnumerator ResetFromWarehouseReturnsToOriginalSpawn()
         {

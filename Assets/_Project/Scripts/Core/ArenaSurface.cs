@@ -72,20 +72,16 @@ namespace EchoScrap.Core
             // EXCAVACIÓN DE LA CUEVA Y PORTAL
             // =================================================
 
-            // Conservamos la excavación de nuestra rama.
-            //
-            // Esta zona permite que las escaleras desciendan
-            // hacia el espacio del portal.
-
-            if (x >= 64f && x <= 76f &&
-                z <= -45f && z >= -68f)
+            // El acceso norte mira hacia el centro de la arena. El perfil usa
+            // metros de mundo, igual que la escalera y el portal guardados.
+            if (x >= -6f && x <= 6f && z >= 60f && z <= 83f)
             {
-                if (z > -61f)
+                if (z < 76f)
                 {
                     return Mathf.Lerp(
                         -0.25f,
                         -8.25f,
-                        Mathf.Clamp01((-z - 45f) / 16f)
+                        Mathf.Clamp01((z - 60f) / 16f)
                     );
                 }
 

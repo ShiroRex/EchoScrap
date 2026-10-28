@@ -89,7 +89,8 @@ namespace EchoScrap.Tests
             yield return Approach();var ui=station.GetComponent<FusionStationUI>();
             Assert.AreEqual("MÁQUINA DE FUSIÓN",ui.HeaderTitle);Assert.AreEqual("",ui.HeaderTime);
             Assert.AreSame(Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").semibold,ui.HeaderFont);
-            Assert.AreEqual(48,station.transform.position.x);Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
+            Assert.AreEqual(-18,station.transform.position.x);Assert.AreEqual(55,station.transform.position.z);
+            Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
             Assert.AreEqual(3,station.GetComponent<FusionAura>().GetComponentsInChildren<ParticleSystem>().Length);
             Assert.IsNull(station.GetComponentInChildren<LineRenderer>());
             station.Progress.Begin(new[]{0,0,0},9999,0);game.Session.SetManualPause(true);yield return null;
