@@ -45,6 +45,8 @@ namespace EchoScrap.Combat
         private int phaseIndex = -1;
         private float nextEliteTime;
         private bool nextEliteCopper;
+        private BossArena bossArena;
+        private bool bossMinionsSuppressed;
 
         public event Action OnBossPhaseRequested;
 
@@ -52,6 +54,7 @@ namespace EchoScrap.Combat
         public bool StressPopulation { get => stressPopulation; set => stressPopulation = value; }
         public bool IsBossPhase { get; private set; }
         public bool BossActive { get; private set; }
+        public bool BossMinionsSuppressed => bossMinionsSuppressed;
         public float Elapsed => session != null ? session.GameplayTime : 0f;
         public float NextSpawnTime => nextSpawnTime;
         public int PhaseIndex => phaseIndex;
@@ -129,6 +132,7 @@ namespace EchoScrap.Combat
         private void OnDestroy()
         {
             Unsubscribe();
+            if (bossArena != null) bossArena.MinionsSpawned -= CountArenaMinions;
             if (ownedSettings != null)
                 Destroy(ownedSettings);
         }
@@ -177,6 +181,22 @@ namespace EchoScrap.Combat
             BindPools();
         }
 
+        public void BindBossArena(BossArena arena)
+        {
+            if (bossArena != null) bossArena.MinionsSpawned -= CountArenaMinions;
+            bossArena = arena;
+            if (bossArena != null) bossArena.MinionsSpawned += CountArenaMinions;
+        }
+
+        private void CountArenaMinions(int count) => TotalSpawnedCount += count;
+
+        public void SuppressBossMinions(bool suppressed)
+        {
+            bossMinionsSuppressed = suppressed;
+            nextMinionTime = Elapsed + Mathf.Max(0.05f, Settings.BossMinionInterval);
+            if (suppressed) bossArena?.CancelReinforcements();
+        }
+
         private void BindPools()
         {
             enemyPool?.BindReferences(session, player, hazards);
@@ -201,6 +221,7 @@ namespace EchoScrap.Combat
         public void ResetForSession()
         {
             nextMinionTime = 0f;
+            bossMinionsSuppressed = false;
             reservationCount = 0;
             minionOrderOffset = 0;
             nextEliteTime = Mathf.Max(0f, Settings.EliteFirstAppearance);
@@ -259,7 +280,7 @@ namespace EchoScrap.Combat
 
             if (IsBossPhase)
             {
-                if (BossActive)
+                if (BossActive && !bossMinionsSuppressed)
                 {
                     float interval = Mathf.Max(0.05f, Settings.BossMinionInterval);
                     if (elapsed + 0.00001f >= nextMinionTime)
@@ -322,7 +343,7 @@ namespace EchoScrap.Combat
 
         public int SpawnBossMinionWave()
         {
-            if (!CanRun() || !IsBossPhase || !BossActive)
+            if (!CanRun() || !IsBossPhase || !BossActive || bossMinionsSuppressed)
                 return 0;
 
             EnemyArchetypeId[] order = Settings.BossMinionOrder;
@@ -332,7 +353,9 @@ namespace EchoScrap.Combat
             BossMinionWavesCount++;
             LastGroupSpawnedCount = 0;
             int cap = Mathf.Min(PopulationLimit, Mathf.Max(1, Settings.BossMinionCap));
-            SpawnGroup(Mathf.Min(4, order.Length), default, cap, true);
+            if (bossArena != null && bossArena.IsClosed)
+                LastGroupSpawnedCount = bossArena.QueueMinionWave(Settings, minionOrderOffset, cap);
+            else SpawnGroup(Mathf.Min(4, order.Length), default, cap, true);
             minionOrderOffset = (minionOrderOffset + 1) % order.Length;
             return LastGroupSpawnedCount;
         }

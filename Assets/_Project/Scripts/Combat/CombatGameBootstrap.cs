@@ -40,6 +40,7 @@ namespace EchoScrap.Combat
         public MothExplosionPool MothExplosions { get; private set; }
         public CombatWaveDirector Director { get; private set; }
         public BossEncounter Encounter { get; private set; }
+        public BossArena BossArena { get; private set; }
         public UpgradeDraftController Draft { get; private set; }
         public UpgradeDraftPresentation DraftPresentation { get; private set; }
         public FlashlightWeapon Weapon { get; private set; }
@@ -120,8 +121,12 @@ namespace EchoScrap.Combat
             Director.BindReferences(Session, Enemies, Player, gameplayCamera);
             Director.BindSpawnContext(arenaGround, cameraRig);
             Director.BindHazardPool(Hazards);
+            BossArena = SystemObject<BossArena>("GolgoraArena");
+            BossArena.BindReferences(this);
+            Director.BindBossArena(BossArena);
             Encounter = SystemObject<BossEncounter>("BossEncounter");
             Encounter.BindReferences(Session, Enemies, Hazards, Director, Player);
+            Encounter.BindArena(BossArena);
             cameraRig.Follow = playerObject.transform;
             cameraFeedback = GetOrAdd<CombatCameraFeedback>(cameraRig.gameObject);
             cameraFeedback.BindReferences(Session, playerObject.transform,

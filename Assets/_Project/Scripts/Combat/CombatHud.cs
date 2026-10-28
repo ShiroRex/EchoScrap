@@ -67,6 +67,7 @@ namespace EchoScrap.Combat
         private int previousMaxHealth = -1;
         private int previousCooldown = -1;
         private int previousBossHealth = -1;
+        private bool previousBossPhaseTwo;
         private bool cardsDirty = true;
         private bool experienceDirty = true;
         private float refreshTimer;
@@ -83,6 +84,7 @@ namespace EchoScrap.Combat
         public string DisplayedHealth => healthText != null ? healthText.text : string.Empty;
         public string DisplayedSummary => resultSummary != null ? resultSummary.text : string.Empty;
         public string DisplayedCards => cardsText != null ? cardsText.text : string.Empty;
+        public string DisplayedBossName => bossHealthText != null ? bossHealthText.text : string.Empty;
         public bool ShowStats => statsMode != StatsDisplayMode.None;
         public StatsDisplayMode StatsMode => statsMode;
         public bool IsStatsVisible => statsReadout != null && statsReadout.gameObject.activeSelf;
@@ -261,15 +263,16 @@ namespace EchoScrap.Combat
             var boss = game.Encounter != null ? game.Encounter.Boss : null;
             bool visible = boss != null && boss.IsAlive && game.Encounter.IsEncounterActive;
             bossPanel.SetActive(visible);
-            string phase = visible ? "VERTEDERO  /  MATACOLECCIONISTA" : "VERTEDERO  /  SOBREVIVE";
+            string phase = visible ? boss.IsPhaseTwo ? "GÓLGORA  /  FUNDICIÓN ABIERTA" : "GÓLGORA  /  EL GUARDIÁN DEL VERTEDERO" : "VERTEDERO  /  SOBREVIVE";
             if (phaseText.text != phase) phaseText.text = phase;
             if (!visible) { previousBossHealth = -1; return; }
             bossFill.fillAmount = Mathf.Clamp01(boss.CurrentHealth / Mathf.Max(1f, boss.MaxHealth));
             int hp = Mathf.CeilToInt(boss.CurrentHealth);
-            if (hp != previousBossHealth)
+            if (hp != previousBossHealth || previousBossPhaseTwo != boss.IsPhaseTwo)
             {
                 previousBossHealth = hp;
-                bossHealthText.text = $"MATACOLECCIONISTA   {hp} / {Mathf.CeilToInt(boss.MaxHealth)}";
+                previousBossPhaseTwo = boss.IsPhaseTwo;
+                bossHealthText.text = $"GÓLGORA · {(boss.IsPhaseTwo ? "FUNDICIÓN ABIERTA" : "EL GUARDIÁN")}   {hp} / {Mathf.CeilToInt(boss.MaxHealth)}";
             }
         }
 
@@ -429,7 +432,7 @@ namespace EchoScrap.Combat
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));
 
             bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -161f), new Vector2(720f, 72f)).gameObject;
-            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 16f), new Vector2(720f, 36f), "MATACOLECCIONISTA", 26, TextAnchor.MiddleCenter, Apollo);
+            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 16f), new Vector2(720f, 36f), "GÓLGORA · EL GUARDIÁN", 26, TextAnchor.MiddleCenter, Apollo);
             bossFill = Fill(ImageRect(bossPanel.transform, "BossTrack", new Vector2(0f, -15f), new Vector2(720f, 12f), new Color(0.15f, 0.13f, 0.16f)).transform, "BossFill", new Color(0.91f, 0.42f, 0.22f));
             bossPanel.SetActive(false);
             bossArrow = Rect(canvasRect, "BossOffscreenArrow", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48f, 52f));
