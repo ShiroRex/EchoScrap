@@ -317,7 +317,7 @@ namespace EchoScrap.Combat
                 resultTitle.text = state == SessionState.Victory ? "VICTORIA" : "DERROTA";
                 int second = Mathf.Max(0, Mathf.FloorToInt(game.Session.GameplayTime));
                 long xp = game.Progression.TotalXp + (game.Encounter != null ? game.Encounter.ClosingXpReward : 0);
-                resultSummary.text = $"{(state == SessionState.Victory ? "El MataColeccionista ha caído." : "Tu integridad llegó a cero.")}\n\nTIEMPO   {second / 60:00}:{second % 60:00}\nNIVEL   {game.Progression.Level}\nBAJAS   {kills}\nXP OBTENIDA   {xp}";
+                resultSummary.text = $"{(state == SessionState.Victory ? "Gólgora ha caído." : "Tu integridad llegó a cero.")}\n\nTIEMPO   {second / 60:00}:{second % 60:00}\nNIVEL   {game.Progression.Level}\nBAJAS   {kills}\nXP OBTENIDA   {xp}";
             }
             if (modal.activeSelf && (!wasVisible || state != previousState))
                 EventSystem.current?.SetSelectedGameObject(ended ? resultRestartButton.gameObject : resumeButton.gameObject);
