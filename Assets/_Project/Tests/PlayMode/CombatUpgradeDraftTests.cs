@@ -1054,6 +1054,7 @@ namespace EchoScrap.Tests
                 Assert.That(panel.Find("Before").gameObject.activeSelf, Is.EqualTo(tier > 0), card.Id);
                 Assert.That(panel.Find("ComparisonArrow").gameObject.activeSelf, Is.EqualTo(tier > 0), card.Id);
                 Assert.That(((RectTransform)panel.Find("After")).anchoredPosition.x, Is.EqualTo(tier > 0 ? 86f : 0f), card.Id);
+                Assert.That(((RectTransform)panel.Find("After")).rect.width, Is.EqualTo(tier > 0 ? 144f : 312f), card.Id);
                 if (tier == 0) Assert.That(panel.Find("Before").GetComponent<Text>().text, Is.Empty);
                 Assert.That(root.Find("UpgradeArrow").gameObject.activeSelf,Is.EqualTo(tier>0),card.Id);
                 Assert.That(panel.Find("Level").GetComponent<Text>().text,Is.EqualTo(tier==0?$"NIVEL\n1 / {card.MaxTier}":"NIVEL\n "));
@@ -1087,6 +1088,33 @@ namespace EchoScrap.Tests
                 checkedOffers++;
             }
             Debug.Log($"[Card labels] {checkedOffers} offers checked across all 35 cards, their levels and combined upgrades.");
+        }
+
+        [UnityTest]
+        public IEnumerator FirstCollectorPulseValueUsesFreeWidthAcrossExplicitRenderSizes()
+        {
+            var view = draft.gameObject.AddComponent<UpgradeDraftPresentation>(); view.BindReferences(session, draft);
+            progression.AddExperience(100); SetVisualOffers("GREED_05"); view.RefreshOffers();
+            var camera = new GameObject("Collector value viewport").AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.025f, .035f, .05f);
+            camera.transform.position = new Vector3(0, 15, -8); camera.transform.LookAt(Vector3.zero);
+            var canvas = view.CanvasRoot.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camera; canvas.planeDistance = 1f;
+            try
+            {
+                // The real render target, rather than the editor's current dock size, controls
+                // CanvasScaler and font rasterization during each fit/overflow assertion.
+                foreach (Vector2Int size in new[] { new Vector2Int(1280, 720), new Vector2Int(1532, 769), new Vector2Int(1920, 1080), new Vector2Int(2560, 1080) })
+                {
+                    yield return CapturePixelCards(camera, view, $"CollectorValue_{size.x}x{size.y}.png", size.x, size.y);
+                    var after = view.CanvasRoot.transform.Find("UpgradeCard_1/Panel/After").GetComponent<Text>();
+                    Assert.That(after.text, Is.EqualTo("AL ELEGIR\nTODO EL MAPA"));
+                    Assert.That(after.rectTransform.rect.width, Is.EqualTo(312f));
+                    Assert.That(after.fontSize, Is.GreaterThanOrEqualTo(22), "The fix must preserve the readable minimum font size.");
+                    Assert.That(after.preferredHeight, Is.LessThanOrEqualTo(after.rectTransform.rect.height + .5f), size.ToString());
+                }
+            }
+            finally { Object.Destroy(camera.gameObject); }
         }
 
         [UnityTest]
