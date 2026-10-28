@@ -117,7 +117,13 @@ namespace EchoScrap.Core
                 )
             );
 
-            return height * center;
+            // El encuentro final ocupa el disco central del mapa de 200 m.
+            // Su anillo transiciona suavemente al relieve sin bordes físicos.
+            float bossClearing = size >= 200f
+                ? Mathf.SmoothStep(0f, 1f,
+                    Mathf.InverseLerp(22f, 26f, new Vector2(x, z).magnitude * scale))
+                : 1f;
+            return height * center * bossClearing;
         }
 
         // =====================================================

@@ -352,6 +352,25 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(ArenaSurface.Profile(p.x,p.z,200),hit.point.y,.15f,"Saved mesh and locomotion must agree.");
             }
         }
+        [Test] public void CentralCalderaHasFlatGroundAndNoSolidSceneryWithin24Metres()
+        {
+            for(int i=0;i<32;i++)
+            {
+                float angle=i*Mathf.PI/16f;
+                var point=new Vector3(Mathf.Cos(angle)*22f,0,Mathf.Sin(angle)*22f);
+                Assert.AreEqual(0f,ArenaSurface.Profile(point.x,point.z,200),.001f);
+            }
+            var world=GameObject.Find("Mundo3D_EchoScrap");
+            foreach(var collider in world.GetComponentsInChildren<Collider>())
+            {
+                if(!collider.enabled || collider.isTrigger)continue;
+                var b=collider.bounds;
+                var nearest=new Vector2(Mathf.Clamp(0,b.min.x,b.max.x),Mathf.Clamp(0,b.min.z,b.max.z));
+                Assert.GreaterOrEqual(nearest.magnitude,24f,collider.transform.parent.name+" blocks the boss clearing.");
+            }
+            foreach(var lava in Object.FindObjectsByType<LavaHazard>(FindObjectsSortMode.None))
+                Assert.IsFalse(lava.Contains(Vector3.zero,22f),"Existing lava must stay outside the caldera.");
+        }
         [UnityTest] public IEnumerator PortalStairsAllowDescentAndAscent()
         {
             // Este recorrido prueba escalones; el viaje por trigger tiene su propia prueba.
