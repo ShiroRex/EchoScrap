@@ -168,11 +168,17 @@ namespace EchoScrap.Tests
             Vector3 start=Vector3.zero,end=Vector3.zero;
             Bounds treeBounds=new Bounds();
             string treeName=null;
+            // This fixture compares one imported tree with its fitted boxes.
+            // Neighbouring scenery must not prevent discovery of that tree's
+            // own passage. Dispose restores every original enabled state,
+            // including when an assertion fails or the iterator is stopped.
+            using var isolatedTree=new TreeCollisionIsolation(world);
             // Select a passage from the visible FBX before inspecting the fitted collision.
             // A failed box comparison must fail this test, never select a different route.
             foreach(Transform anchor in world.GetComponentsInChildren<Transform>()
                 .Where(t=>t.name.StartsWith("arbol_seco_")).OrderBy(t=>t.name))
             {
+                isolatedTree.Select(anchor);
                 var renderers=anchor.GetComponentsInChildren<Renderer>();
                 if(renderers.Length==0) continue;
                 Bounds bounds=renderers[0].bounds;
@@ -182,6 +188,7 @@ namespace EchoScrap.Tests
                 var enabled=boxes.Select(c=>c.enabled).ToArray();
                 var actualMesh=new List<MeshCollider>();
                 bool found=false;
+                bool originalBackfaceQueries=Physics.queriesHitBackfaces;
                 try
                 {
                     foreach(var box in boxes) box.enabled=false;
@@ -194,13 +201,20 @@ namespace EchoScrap.Tests
                         actualMesh.Add(collider);
                     }
                     Physics.SyncTransforms();
-                    // Leave one diagonal voxel's clearance in the FBX reference in addition
-                    // to the 0.3 m safety margin required after conservative voxel fitting.
+                    // The FBX can contain single-sided branch triangles. The
+                    // reference must find their physical undersides regardless
+                    // of winding; normal gameplay query settings are restored.
+                    Physics.queriesHitBackfaces=true;
+                    // The conservative fitted boxes can extend one voxel's
+                    // diagonal beyond the FBX. Reserve that discretization
+                    // error in the reference; the actual fitted path and motor
+                    // still have to retain their full 0.3 m clearance below.
                     float voxel=Mathf.Max(0.3f,Mathf.Max(bounds.size.x,Mathf.Max(bounds.size.y,bounds.size.z))/64f);
                     found=FindVisibleOverheadPassage(bounds,actualMesh,world,capsule,0.3f+Mathf.Sqrt(3f)*voxel,contacts,out start,out end);
                 }
                 finally
                 {
+                    Physics.queriesHitBackfaces=originalBackfaceQueries;
                     foreach(var collider in actualMesh) Object.DestroyImmediate(collider);
                     for(int i=0;i<boxes.Length;i++) boxes[i].enabled=enabled[i];
                     Physics.SyncTransforms();
@@ -210,6 +224,7 @@ namespace EchoScrap.Tests
                 break;
             }
             Assert.IsNotNull(treeName,"At least one actual FBX tree must expose a walkable passage beneath a visible branch, inside its overall bounds.");
+            Debug.Log($"[Selected FBX corridor] {treeName} start={start} end={end} bounds={treeBounds}");
             Assert.IsTrue(IsWorldPathClear(start,end,world,capsule,0.3f,contacts),
                 treeName+" fitted boxes must preserve the same FBX passage with 0.3 m clearance; a single enclosing AABB would close it.");
             Debug.Log($"[Real FBX passage] {treeName} start={start} end={end} bounds={treeBounds}");
@@ -219,9 +234,13 @@ namespace EchoScrap.Tests
             body.position=ArenaSurface.OnGround(start,1f); game.Player.transform.position=body.position;
             body.linearVelocity=Vector3.zero; Physics.SyncTransforms();
             Vector3 direction=(end-start).normalized;
-            Key key=Mathf.Abs(direction.x)>0.5f?Key.D:Key.W;
+            var keys=new List<Key>(2);
+            if(direction.x>0.1f) keys.Add(Key.D);
+            else if(direction.x<-.1f) keys.Add(Key.A);
+            if(direction.z>0.1f) keys.Add(Key.W);
+            else if(direction.z<-.1f) keys.Add(Key.S);
             float distance=Vector3.Distance(start,end);
-            InputSystem.QueueStateEvent(keyboard,new KeyboardState(key)); yield return null;
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(keys.ToArray())); yield return null;
             int steps=Mathf.CeilToInt((distance/game.Motor.Settings.MoveSpeed+0.2f)/Time.fixedDeltaTime);
             for(int i=0;i<steps;i++)
             {
@@ -283,7 +302,11 @@ namespace EchoScrap.Tests
             Assert.AreEqual(3,zones.Length);
             foreach(var zone in zones) zone.AutoTick=false;
             var lava=zones[0];
-            Assert.IsTrue(lava.GetComponentInChildren<Renderer>().sharedMaterial.IsKeywordEnabled("_EMISSION"));
+            // StylizedLava writes its molten colour directly; URP Lit's
+            // _EMISSION variant keyword is not part of this custom shader.
+            var material=lava.GetComponentInChildren<Renderer>().sharedMaterial;
+            Assert.AreEqual("EchoScrap/StylizedLava",material.shader.name);
+            Assert.IsTrue(material.shader.isSupported);
             Vector3 center=ArenaSurface.OnGround(lava.transform.position,1f);
             var body=game.Player.GetComponent<Rigidbody>(); body.position=center; game.Player.transform.position=center;
             var enemy=game.Enemies.Spawn(EnemyArchetypeId.Residual,center+Vector3.right*0.7f);
@@ -585,36 +608,66 @@ namespace EchoScrap.Tests
             CapsuleCollider capsule,float margin,Collider[] contacts,out Vector3 start,out Vector3 end)
         {
             float radius=capsule.radius+margin;
-            for(int axis=0;axis<2;axis++)
+            // A passage under one branch need not cross the whole bounding
+            // box of a tree whose other branches reach down to the floor.
+            // Seed corridors from actual overhead FBX surfaces, then verify
+            // at least 3.2 m of movement under and beyond that surface.
+            float halfLength=Mathf.Max(1.6f,radius*2f);
+            int overheadSamples=0,blockedCorridors=0;
+            for(float x=bounds.min.x+radius;x<=bounds.max.x-radius;x+=0.15f)
+            for(float z=bounds.min.z+radius;z<=bounds.max.z-radius;z+=0.15f)
             {
-                float acrossExtent=axis==0?bounds.extents.z:bounds.extents.x;
-                // Stay well inside both horizontal edges, not just outside the trunk AABB.
-                float maxOffset=acrossExtent-radius-0.3f;
-                if(maxOffset<0f) continue;
-                for(int offsetIndex=0;offsetIndex<=Mathf.CeilToInt(maxOffset/0.3f)*2;offsetIndex++)
+                var midpoint=new Vector3(x,0f,z);
+                float head=ArenaSurface.SupportHeight(midpoint,0.45f)+1f+capsule.center.y+capsule.height*0.5f+margin;
+                var ray=new Ray(new Vector3(x,bounds.max.y+1f,z),Vector3.down);
+                bool overhead=false;
+                foreach(var mesh in visibleMeshes)
+                    if(mesh.Raycast(ray,out RaycastHit hit,bounds.size.y+2f) && hit.point.y>head+0.1f)
+                    { overhead=true; break; }
+                if(!overhead)continue;
+                overheadSamples++;
+                for(int directionIndex=0;directionIndex<8;directionIndex++)
                 {
-                    float offset=((offsetIndex+1)/2)*0.3f*(offsetIndex%2==0?1f:-1f);
-                    if(Mathf.Abs(offset)>maxOffset) continue;
-                    start=axis==0?new Vector3(bounds.min.x-radius-0.5f,0f,bounds.center.z+offset)
-                        :new Vector3(bounds.center.x+offset,0f,bounds.min.z-radius-0.5f);
-                    end=axis==0?new Vector3(bounds.max.x+radius+0.5f,0f,start.z)
-                        :new Vector3(start.x,0f,bounds.max.z+radius+0.5f);
-                    if(!IsWorldPathClear(start,end,world,capsule,margin,contacts)) continue;
-                    int steps=Mathf.CeilToInt(Vector3.Distance(start,end)/0.2f);
-                    for(int i=1;i<steps;i++)
-                    {
-                        Vector3 point=Vector3.Lerp(start,end,i/(float)steps);
-                        if(point.x<bounds.min.x+radius || point.x>bounds.max.x-radius
-                            || point.z<bounds.min.z+radius || point.z>bounds.max.z-radius) continue;
-                        float head=ArenaSurface.SupportHeight(point,0.45f)+1f+capsule.center.y+capsule.height*0.5f+margin;
-                        Ray ray=new Ray(new Vector3(point.x,bounds.max.y+1f,point.z),Vector3.down);
-                        foreach(var mesh in visibleMeshes)
-                            if(mesh.Raycast(ray,out RaycastHit hit,bounds.size.y+2f) && hit.point.y>head+0.1f)
-                                return true;
-                    }
+                    float angle=directionIndex*Mathf.PI*.25f;
+                    var axis=new Vector3(Mathf.Cos(angle),0f,Mathf.Sin(angle));
+                    start=midpoint-axis*halfLength;
+                    end=midpoint+axis*halfLength;
+                    if(start.x<bounds.min.x+radius || start.x>bounds.max.x-radius
+                        || start.z<bounds.min.z+radius || start.z>bounds.max.z-radius
+                        || end.x<bounds.min.x+radius || end.x>bounds.max.x-radius
+                        || end.z<bounds.min.z+radius || end.z>bounds.max.z-radius)continue;
+                    if(IsWorldPathClear(start,end,world,capsule,margin,contacts))return true;
+                    blockedCorridors++;
                 }
             }
+            Debug.Log($"[FBX tree reference] meshes={visibleMeshes.Count} bounds={bounds} overheadSamples={overheadSamples} blockedCorridors={blockedCorridors} capsule={capsule.height}/{capsule.radius} margin={margin}");
             start=Vector3.zero; end=Vector3.zero; return false;
+        }
+        private sealed class TreeCollisionIsolation : System.IDisposable
+        {
+            private readonly Collider[] colliders;
+            private readonly bool[] enabled;
+
+            public TreeCollisionIsolation(Transform world)
+            {
+                colliders=world.GetComponentsInChildren<Collider>(true);
+                enabled=colliders.Select(c=>c.enabled).ToArray();
+            }
+
+            public void Select(Transform tree)
+            {
+                for(int i=0;i<colliders.Length;i++)
+                    if(colliders[i]!=null)
+                        colliders[i].enabled=enabled[i] && colliders[i].transform.IsChildOf(tree);
+                Physics.SyncTransforms();
+            }
+
+            public void Dispose()
+            {
+                for(int i=0;i<colliders.Length;i++)
+                    if(colliders[i]!=null) colliders[i].enabled=enabled[i];
+                Physics.SyncTransforms();
+            }
         }
         private static bool IsWorldPathClear(Vector3 start,Vector3 end,Transform world,CapsuleCollider capsule,
             float margin,Collider[] contacts)

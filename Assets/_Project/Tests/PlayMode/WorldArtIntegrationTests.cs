@@ -91,23 +91,22 @@ namespace EchoScrap.Tests
 
             Assert.IsNotNull(portal);
 
-            Vector3 portalPosition =
-                ArenaSurface.ReferenceToWorld(
-                    new Vector3(43f, 0f, -40f)
-                );
+            // The relocated north access is authored in world metres; it no
+            // longer uses the former south-east prop's scaled reference point.
+            Vector3 portalPosition = new Vector3(0f, 0f, 80.45743f);
 
             Assert.AreEqual(
                 portalPosition.x,
                 portal.position.x,
                 0.01f,
-                "The larger map must retain the landmark's relative X position."
+                "The north vault portal must be centred on the map."
             );
 
             Assert.AreEqual(
                 portalPosition.z,
                 portal.position.z,
                 0.01f,
-                "The larger map must retain the landmark's relative Z position."
+                "The portal must remain at the end of the north descending access."
             );
 
             Assert.AreEqual(
