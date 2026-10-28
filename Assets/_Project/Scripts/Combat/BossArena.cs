@@ -46,6 +46,7 @@ namespace EchoScrap.Combat
         private float transferAge;
         private bool transferred, initialized, cameraOwned;
         private int nextVent;
+        private Renderer[] bodyRenderers;
 
         public Vector3 Center => center;
         public float Radius => radius;
@@ -75,6 +76,8 @@ namespace EchoScrap.Combat
             if (!initialized) return;
             RestoreCamera();
             boss = actor;
+            var rig = actor.GetComponentInChildren<Animator>();
+            bodyRenderers = rig != null ? rig.GetComponentsInChildren<Renderer>() : null;
             originalFollow = game.CameraRig.Follow;
             originalOffset = follow != null ? follow.FollowOffset : Vector3.zero;
             originalRotation = game.CameraRig.transform.rotation;
@@ -90,6 +93,7 @@ namespace EchoScrap.Combat
             game.Motor.CancelDashAndRestoreState();
             game.Motor.Stop();
             SetTransferInput(false);
+            game.Player.IsEncounterTransferProtected = true;
         }
 
         public void Step(float deltaTime)
@@ -113,6 +117,7 @@ namespace EchoScrap.Combat
                 {
                     IsTransferring = false;
                     SetFade(0f);
+                    game.Player.IsEncounterTransferProtected = false;
                     SetTransferInput(true);
                 }
             }
@@ -159,7 +164,8 @@ namespace EchoScrap.Combat
 
         private void SetTransferInput(bool enabled)
         {
-            var input = game != null ? game.Motor.GetComponent<PlayerInputReader>() : null;
+            if (game == null || game.Motor == null || game.Player == null || game.Session == null) return;
+            var input = game.Motor.GetComponent<PlayerInputReader>();
             if (input != null) input.SetInputEnabled(enabled && !game.Session.IsPaused && game.Player.IsAlive);
         }
 
@@ -170,11 +176,47 @@ namespace EchoScrap.Combat
             target.y = game.Player.WorldCenter.y + 0.6f;
             float blend = 1f - Mathf.Exp(-Time.deltaTime * 5f);
             cameraAnchor.position = Vector3.Lerp(cameraAnchor.position, target, blend);
-            Vector3 delta = boss.WorldCenter - game.Player.WorldCenter;
-            delta.y = 0f;
-            float zoom = Mathf.Lerp(1f, 1.35f, Mathf.InverseLerp(10f, 26f, delta.magnitude));
-            if (follow != null) follow.FollowOffset = Vector3.Lerp(follow.FollowOffset, originalOffset * zoom, blend);
+            Vector3 right = originalRotation * Vector3.right;
+            Vector3 up = originalRotation * Vector3.up;
+            Vector3 forward = originalRotation * Vector3.forward;
+            float required = originalOffset.magnitude;
+            float aspect = game.GameplayCamera != null ? game.GameplayCamera.aspect : 16f / 9f;
+            Vector3 playerFeet = game.Player.WorldCenter - Vector3.up;
+            Vector3 playerHead = game.Player.WorldCenter + Vector3.up;
+            required = Mathf.Max(required, RequiredCameraDistance(playerFeet, cameraAnchor.position, right, up, forward, originalFov, aspect));
+            required = Mathf.Max(required, RequiredCameraDistance(playerHead, cameraAnchor.position, right, up, forward, originalFov, aspect));
+            Bounds bounds = new Bounds(boss.WorldCenter + Vector3.up * 2f, new Vector3(boss.HitRadius * 2f, 6f, boss.HitRadius * 2f));
+            if (bodyRenderers != null)
+                for (int i = 0; i < bodyRenderers.Length; i++)
+                    if (bodyRenderers[i] != null && bodyRenderers[i].enabled && bodyRenderers[i].gameObject.activeInHierarchy &&
+                        (bodyRenderers[i] is MeshRenderer || bodyRenderers[i] is SkinnedMeshRenderer))
+                        bounds.Encapsulate(bodyRenderers[i].bounds);
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 point = bounds.center + Vector3.Scale(bounds.extents,
+                    new Vector3((corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
+                required = Mathf.Max(required, RequiredCameraDistance(point, cameraAnchor.position, right, up, forward, originalFov, aspect));
+            }
+            float zoom = required / Mathf.Max(1f, originalOffset.magnitude);
+            if (follow != null)
+            {
+                // Expand immediately when necessary to keep the player visible; return gently after closing distance.
+                float current = follow.FollowOffset.magnitude / Mathf.Max(1f, originalOffset.magnitude);
+                float fitted = zoom > current ? zoom : Mathf.Lerp(current, zoom, blend);
+                follow.FollowOffset = originalOffset * fitted;
+            }
             game.CameraRig.transform.rotation = originalRotation;
+        }
+
+        public static float RequiredCameraDistance(Vector3 point, Vector3 focus, Vector3 right, Vector3 up,
+            Vector3 forward, float verticalFov, float aspect)
+        {
+            Vector3 relative = point - focus;
+            float depth = Vector3.Dot(relative, forward);
+            float tangent = Mathf.Tan(Mathf.Clamp(verticalFov, 20f, 100f) * Mathf.Deg2Rad * 0.5f);
+            float vertical = Mathf.Abs(Vector3.Dot(relative, up)) / (tangent * 0.70f) - depth;
+            float horizontal = Mathf.Abs(Vector3.Dot(relative, right)) / (tangent * Mathf.Max(0.5f, aspect) * 0.86f) - depth;
+            return Mathf.Max(1f, Mathf.Max(vertical, horizontal));
         }
 
         public int QueueMinionWave(CombatWaveSettings settings, int orderOffset, int populationCap)
@@ -260,14 +302,16 @@ namespace EchoScrap.Combat
             CancelReinforcements();
             SetPerimeter(false);
             SetFade(0f);
-            if (game != null && game.Session.IsGameplayFlowActive()) SetTransferInput(true);
+            if (game != null && game.Session != null && game.Session.IsGameplayFlowActive()) SetTransferInput(true);
+            if (game != null && game.Player != null) game.Player.IsEncounterTransferProtected = false;
             RestoreCamera();
             boss = null;
+            bodyRenderers = null;
         }
 
         private void RestoreCamera()
         {
-            if (!cameraOwned || game == null) return;
+            if (!cameraOwned || game == null || game.CameraRig == null) return;
             game.CameraRig.Follow = originalFollow;
             if (follow != null) follow.FollowOffset = originalOffset;
             game.CameraRig.transform.rotation = originalRotation;

@@ -87,6 +87,50 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void TransferOwnsTemporaryProtectionWithoutOverwritingOtherInvulnerability()
+        {
+            game.Player.IgnoreIncomingDamage = false;
+            var lava = Object.FindAnyObjectByType<LavaHazard>();
+            Assert.IsNotNull(lava);
+            var body = game.Player.GetComponent<Rigidbody>();
+            Vector3 position = ArenaSurface.OnGround(lava.transform.position, 1f);
+            body.position = game.Player.transform.position = position;
+            float health = game.Player.CurrentHealth;
+            Begin();
+            lava.StepHazard(0.02f);
+            Assert.IsTrue(game.Player.IsEncounterTransferProtected);
+            Assert.AreEqual(health, game.Player.CurrentHealth, "An immobilized transfer must survive the actual lava hazard.");
+            game.Encounter.Step(0.61f);
+            Assert.IsFalse(game.Player.IsEncounterTransferProtected);
+            Assert.IsFalse(game.Player.IgnoreIncomingDamage);
+            game.Player.TakeContactOrHazardDamage(5f, Vector3.zero, 0, DamageSourceType.Lava);
+            Assert.AreEqual(health - 5f, game.Player.CurrentHealth, "Transfer protection must be released after the fade.");
+            game.Player.IgnoreIncomingDamage = true;
+            game.BossArena.EndEncounter();
+            Assert.IsTrue(game.Player.IgnoreIncomingDamage, "Releasing transfer ownership must preserve another invulnerability source.");
+            game.ResetRun(false);
+            Assert.IsFalse(game.Player.IsEncounterTransferProtected);
+        }
+
+        [UnityTest]
+        public IEnumerator FramingKeepsOppositeEdgesVisibleWithoutRotatingCamera()
+        {
+            Activate();
+            Quaternion rotation = game.CameraRig.transform.rotation;
+            Vector3 playerPosition = new Vector3(0f, 1f, -21.4f);
+            Vector3 bossPosition = new Vector3(0f, 1f, 20f);
+            game.Player.GetComponent<Rigidbody>().position = game.Player.transform.position = playerPosition;
+            game.Encounter.Boss.Body.position = game.Encounter.Boss.transform.position = bossPosition;
+            for (int i = 0; i < 45; i++) yield return null;
+            Vector3 playerViewport = game.GameplayCamera.WorldToViewportPoint(playerPosition - Vector3.up);
+            Vector3 bossViewport = game.GameplayCamera.WorldToViewportPoint(bossPosition + Vector3.up * 5f);
+            Assert.That(playerViewport.y, Is.InRange(0.1f, 0.9f));
+            Assert.That(bossViewport.y, Is.InRange(0.1f, 0.9f));
+            Assert.Greater(playerViewport.z, 0f);
+            Assert.Less(Quaternion.Angle(rotation, game.CameraRig.transform.rotation), 0.01f);
+        }
+
+        [Test]
         public void ReinforcementsHaveWarningAndCap_AndCercoClearsPressureWithoutKillingBoss()
         {
             Activate();
@@ -131,6 +175,7 @@ namespace EchoScrap.Tests
                 Assert.IsFalse(game.BossArena.BarriersEnabled);
                 Assert.AreEqual(0, game.BossArena.PendingMinions);
                 Assert.AreEqual(0f, game.BossArena.TransferAlpha);
+                Assert.IsFalse(game.Player.IsEncounterTransferProtected);
                 Assert.AreSame(game.Player.transform, game.CameraRig.Follow);
                 Assert.AreEqual(offset, follow.FollowOffset);
                 Assert.Less(Quaternion.Angle(rotation, game.CameraRig.transform.rotation), 0.01f);
