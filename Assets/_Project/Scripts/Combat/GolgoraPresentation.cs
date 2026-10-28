@@ -1,268 +1,236 @@
+using System.Collections.Generic;
 using EchoScrap.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
-
 namespace EchoScrap.Combat
 {
-    /// <summary>Preparación, golpe y masa del jefe. Los avisos sobreviven a efectos reducidos.</summary>
+    /// <summary>Los mismos orígenes y tiempos del ataque gobiernan avisos, rig, escoria y sonido.</summary>
     [DisallowMultipleComponent]
     public sealed class GolgoraPresentation : MonoBehaviour
     {
+        private readonly Dictionary<Transform, Renderer> groundRenderers = new Dictionary<Transform, Renderer>(16);
         private GolgoraActor actor;
         private GameObject groundRoot;
-        private Transform warningRing;
-        private Transform warningFill;
-        private Transform shockRing;
-        private Transform core;
-        private Transform leftShoulder;
-        private Transform rightShoulder;
-        private Renderer coreRenderer;
-        private Renderer ringRenderer;
-        private Renderer fillRenderer;
-        private Renderer shockRenderer;
-        private Material bodyMaterial;
-        private Material coreMaterial;
-        private Material groundMaterial;
-        private Mesh ringMesh;
-        private Mesh discMesh;
+        private Transform warningRing, warningFill, sweepEdge, sweepFill, shockRing, sweepFlash, chargeRing, trailPoint;
+        private readonly Transform[] barrageRings = new Transform[3];
+        private readonly Transform[] barrageFills = new Transform[3];
+        private readonly Transform[] shards = new Transform[20];
+        private readonly Renderer[] shardRenderers = new Renderer[20];
+        private readonly Vector3[] shardSpeeds = new Vector3[20];
+        private readonly LineRenderer[] sweepSides = new LineRenderer[2];
+        private Material groundMaterial, emberMaterial;
+        private Mesh ringMesh, discMesh, sectorMesh, sectorRingMesh;
         private MaterialPropertyBlock properties;
         private CombatCameraFeedback cameraFeedback;
-        private float shockAge = 1f;
-        private float age;
-        private bool initialized;
-        private float introProgress;
-        private float visualLift;
         private MataColeccionistaView importedView;
-        public bool IsWarningVisible => warningRing != null && warningRing.gameObject.activeSelf;
-        public float WarningRadius => warningRing != null ? warningRing.localScale.x * 0.5f : 0f;
+        private GolgoraAudio audioView;
+        private TrailRenderer weaponTrail;
+        private Vector3 burstOrigin;
+        private float shockAge = 1f, shardAge = 1f, sweepAge = 1f, age, introProgress;
+        private bool initialized;
+        public bool IsWarningVisible => (warningRing != null && warningRing.gameObject.activeSelf) || (sweepEdge != null && sweepEdge.gameObject.activeSelf);
+        public float WarningRadius => actor != null && actor.State == GolgoraState.SweepWindup ? actor.Settings.SweepRadius : warningRing != null ? warningRing.localScale.x * .5f : 0f;
+        public bool IsSweepWarningVisible => sweepEdge != null && sweepEdge.gameObject.activeSelf;
+        public int BarrageWarningsVisible { get; private set; }
+        public GolgoraAudio AudioView => audioView;
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorProperty = Shader.PropertyToID("_Color");
-
         public void Bind(GolgoraActor boss)
         {
-            actor = boss;
-            EnsureInitialized();
-            if (importedView == null) importedView = GetComponent<MataColeccionistaView>() ?? gameObject.AddComponent<MataColeccionistaView>();
-            importedView.Bind(boss);
+            if (actor != null) actor.AttackExecuted -= HandleImpact;
+            actor = boss; EnsureInitialized();
+            importedView = GetComponent<MataColeccionistaView>() ?? gameObject.AddComponent<MataColeccionistaView>();
+            importedView.Footstep -= HandleFootstep; importedView.Bind(boss); importedView.Footstep += HandleFootstep;
+            audioView = GetComponent<GolgoraAudio>() ?? gameObject.AddComponent<GolgoraAudio>(); audioView.Bind(boss);
+            actor.AttackExecuted += HandleImpact;
             cameraFeedback = FindAnyObjectByType<CombatCameraFeedback>();
         }
-
         private void EnsureInitialized()
         {
-            if (initialized || actor == null)
-                return;
-            initialized = true;
-            properties = new MaterialPropertyBlock();
+            if (initialized || actor == null) return;
+            initialized = true; properties = new MaterialPropertyBlock();
             Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
-            bodyMaterial = new Material(shader) { name = "GolgoraArmor" };
-            coreMaterial = new Material(shader) { name = "GolgoraMagma" };
-            groundMaterial = new Material(shader) { name = "GolgoraTelegraph", renderQueue = (int)RenderQueue.Transparent };
-            bodyMaterial.SetColor(BaseColor, new Color(0.24f, 0.16f, 0.18f));
-            coreMaterial.SetColor(BaseColor, new Color(1f, 0.45f, 0.08f));
-            groundMaterial.SetFloat("_Surface", 1f);
-            groundMaterial.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            groundMaterial.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            groundMaterial.SetFloat("_ZWrite", 0f);
-            groundMaterial.SetFloat("_Cull", (float)CullMode.Off);
-            groundMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            groundMaterial = new Material(shader) { name = "GolgoraWarning", renderQueue = (int)RenderQueue.Transparent };
+            groundMaterial.SetFloat("_Surface", 1f); groundMaterial.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            groundMaterial.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha); groundMaterial.SetFloat("_ZWrite", 0f);
+            groundMaterial.SetFloat("_Cull", (float)CullMode.Off); groundMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             groundMaterial.SetOverrideTag("RenderType", "Transparent");
-            Transform parent = actor.VisualComposer.PresentationPivot;
-            leftShoulder = CreatePrimitive("LeftShoulder", parent, PrimitiveType.Cube,
-                new Vector3(-0.56f, 0.25f, 0f), new Vector3(0.45f, 0.56f, 0.60f), bodyMaterial);
-            rightShoulder = CreatePrimitive("RightShoulder", parent, PrimitiveType.Cube,
-                new Vector3(0.56f, 0.25f, 0f), new Vector3(0.45f, 0.56f, 0.60f), bodyMaterial);
-            core = CreatePrimitive("MagmaCore", parent, PrimitiveType.Sphere,
-                new Vector3(0f, 0.64f, 0f), Vector3.one * 0.49f, coreMaterial);
-            coreRenderer = core.GetComponent<Renderer>();
-            groundRoot = new GameObject("GolgoraGroundPresentation");
-            groundRoot.transform.SetParent(actor.transform.parent, false);
-            ringMesh = CreateGroundMesh(true);
-            discMesh = CreateGroundMesh(false);
-            warningRing = CreateGround("AttackBoundary", ringMesh);
-            warningFill = CreateGround("AttackFill", discMesh);
-            shockRing = CreateGround("StompShock", ringMesh);
-            ringRenderer = warningRing.GetComponent<Renderer>();
-            fillRenderer = warningFill.GetComponent<Renderer>();
-            shockRenderer = shockRing.GetComponent<Renderer>();
-            actor.VisualComposer.CacheRenderers();
+            emberMaterial = new Material(shader) { name = "GolgoraHotSlag" };
+            emberMaterial.SetColor(BaseColor, new Color(1.8f, .54f, .08f));
+            groundRoot = new GameObject("GolgoraGroundPresentation"); groundRoot.transform.SetParent(actor.transform.parent, false);
+            ringMesh = CreateGroundMesh(true); discMesh = CreateGroundMesh(false);
+            sectorMesh = CreateSectorMesh(false); sectorRingMesh = CreateSectorMesh(true);
+            warningRing = Ground("HammerBoundary", ringMesh); warningFill = Ground("HammerFill", discMesh);
+            sweepEdge = Ground("SweepBoundary180", sectorRingMesh); sweepFill = Ground("SweepFill180", sectorMesh);
+            shockRing = Ground("ImpactPressure", ringMesh); sweepFlash = Ground("HammerSweepTrail", sectorRingMesh);
+            chargeRing = Ground("FoundryCharge", ringMesh);
+            for (int i = 0; i < 3; i++) { barrageRings[i] = Ground("MagmaLanding_" + i, ringMesh); barrageFills[i] = Ground("MagmaLandingFill_" + i, discMesh); }
+            for (int i = 0; i < sweepSides.Length; i++)
+            {
+                var line = new GameObject("SweepLimit_" + i).AddComponent<LineRenderer>(); line.transform.SetParent(groundRoot.transform, false);
+                line.sharedMaterial = groundMaterial; line.positionCount = 2; line.startWidth = line.endWidth = .1f;
+                line.startColor = line.endColor = new Color(1f, .65f, .15f, .95f); line.useWorldSpace = true;
+                line.shadowCastingMode = ShadowCastingMode.Off; sweepSides[i] = line;
+            }
+            for (int i = 0; i < shards.Length; i++)
+            {
+                var shard = GameObject.CreatePrimitive(PrimitiveType.Cube); shard.name = "SlagFragment_" + i;
+                DestroyImmediate(shard.GetComponent<Collider>()); shard.transform.SetParent(groundRoot.transform, false);
+                shards[i] = shard.transform; shardRenderers[i] = shard.GetComponent<Renderer>();
+                shardRenderers[i].sharedMaterial = emberMaterial; shardRenderers[i].shadowCastingMode = ShadowCastingMode.Off;
+                shard.SetActive(false);
+            }
+            trailPoint = new GameObject("HammerTrailPoint").transform; trailPoint.SetParent(groundRoot.transform, false);
+            weaponTrail = trailPoint.gameObject.AddComponent<TrailRenderer>(); weaponTrail.sharedMaterial = groundMaterial;
+            weaponTrail.time = .18f; weaponTrail.startWidth = .4f; weaponTrail.endWidth = .03f;
+            weaponTrail.startColor = new Color(1f, .65f, .2f, .8f); weaponTrail.endColor = new Color(.8f, .12f, .025f, 0f);
+            weaponTrail.minVertexDistance = .12f; weaponTrail.emitting = false; weaponTrail.shadowCastingMode = ShadowCastingMode.Off;
             ResetPresentation();
         }
-
-        private static Transform CreatePrimitive(string objectName, Transform parent, PrimitiveType type,
-            Vector3 position, Vector3 scale, Material material)
+        private Transform Ground(string name, Mesh mesh)
         {
-            var go = GameObject.CreatePrimitive(type);
-            go.name = objectName;
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = position;
-            go.transform.localScale = scale;
-            DestroyImmediate(go.GetComponent<Collider>());
-            var renderer = go.GetComponent<Renderer>();
-            renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            return go.transform;
+            var go = new GameObject(name); go.transform.SetParent(groundRoot.transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh; var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = groundMaterial; renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
+            groundRenderers.Add(go.transform, renderer); return go.transform;
         }
-
-        private Transform CreateGround(string objectName, Mesh mesh)
-        {
-            var go = new GameObject(objectName);
-            go.transform.SetParent(groundRoot.transform, false);
-            go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var renderer = go.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = groundMaterial;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            return go.transform;
-        }
-
         public void Step(float deltaTime)
         {
-            if (!initialized || actor == null)
-                return;
-            age += deltaTime;
-            importedView?.Step(deltaTime, introProgress);
+            if (!initialized || actor == null) return;
+            age += deltaTime; importedView?.Step(deltaTime, introProgress); audioView?.Step(deltaTime);
             bool decorative = actor.Session == null || actor.Session.Effects.DecorativeIntensity > 0f;
-            Color magma = actor.EnragedVisual ? new Color(1f, 0.16f, 0.07f) : new Color(1f, 0.50f, 0.08f);
-            float pulse = decorative ? 1f + Mathf.Sin(age * (actor.EnragedVisual ? 7f : 3f)) * 0.06f : 1f;
-            if (actor.State == GolgoraState.BarrageWindup)
-                pulse += actor.PhaseProgress * 0.35f;
-            float compression = actor.State == GolgoraState.StompWindup ? actor.PhaseProgress * 0.12f : 0f;
-            leftShoulder.localPosition = new Vector3(-0.56f, visualLift + 0.25f - compression, 0f);
-            rightShoulder.localPosition = new Vector3(0.56f, visualLift + 0.25f - compression, 0f);
-            core.localScale = Vector3.one * (0.49f * pulse);
-            SetColor(coreRenderer, magma);
-
-            bool stomp = actor.State == GolgoraState.StompWindup;
+            bool hammer = actor.State == GolgoraState.StompWindup;
             bool intro = actor.State == GolgoraState.Intro;
-            warningRing.gameObject.SetActive(stomp || intro);
-            warningFill.gameObject.SetActive(stomp || intro);
-            if (stomp || intro)
+            bool sweep = actor.State == GolgoraState.SweepWindup;
+            warningRing.gameObject.SetActive(hammer || intro); warningFill.gameObject.SetActive(hammer || intro);
+            if (hammer || intro)
+                Circle(warningRing, warningFill, hammer ? actor.AttackOrigin : actor.WorldCenter,
+                    hammer ? actor.Settings.HammerRadius : actor.HitRadius + .5f, hammer ? actor.PhaseProgress : introProgress);
+            sweepEdge.gameObject.SetActive(sweep); sweepFill.gameObject.SetActive(sweep);
+            for (int i = 0; i < 2; i++) sweepSides[i].gameObject.SetActive(sweep);
+            if (sweep)
             {
-                Vector3 position = stomp ? actor.LastStompOrigin : actor.WorldCenter;
-                position.y = ArenaSurface.Height(position) + 0.045f;
-                warningRing.up = warningFill.up = ArenaSurface.Normal(position);
-                float diameter = stomp ? GolgoraActor.StompRadius * 2f : (actor.HitRadius + 0.5f) * 2f;
-                warningRing.position = position;
-                warningRing.localScale = Vector3.one * diameter;
-                warningFill.position = position + Vector3.up * 0.002f;
-                float progress = stomp ? actor.PhaseProgress : introProgress;
-                warningFill.localScale = Vector3.one * Mathf.Max(0.01f, diameter * progress);
-                Color warning = Color.Lerp(new Color(1f, 0.72f, 0.12f), new Color(1f, 0.13f, 0.08f), progress);
-                warning.a = 0.95f;
-                SetColor(ringRenderer, warning);
-                warning.a = 0.18f;
-                SetColor(fillRenderer, warning);
+                Place(sweepEdge, actor.AttackOrigin, actor.Settings.SweepRadius * 2f, actor.AttackDirection);
+                Place(sweepFill, actor.AttackOrigin, actor.Settings.SweepRadius * 2f, actor.AttackDirection);
+                SetColor(groundRenderers[sweepEdge], new Color(1f, .65f, .12f, 1f));
+                SetColor(groundRenderers[sweepFill], new Color(1f, .25f, .055f, .09f + actor.PhaseProgress * .14f));
+                for (int i = 0; i < 2; i++)
+                {
+                    Vector3 side = Quaternion.AngleAxis(i == 0 ? -90f : 90f, Vector3.up) * actor.AttackDirection;
+                    Vector3 start = actor.AttackOrigin; start.y = ArenaSurface.Height(start) + .07f;
+                    sweepSides[i].SetPosition(0, start); sweepSides[i].SetPosition(1, start + side * actor.Settings.SweepRadius);
+                }
             }
-
-            shockAge += deltaTime;
-            bool shock = shockAge < 0.35f && decorative;
-            shockRing.gameObject.SetActive(shock);
+            bool barrage = actor.State == GolgoraState.BarrageWindup; BarrageWarningsVisible = barrage ? 3 : 0;
+            for (int i = 0; i < 3; i++)
+            {
+                barrageRings[i].gameObject.SetActive(barrage); barrageFills[i].gameObject.SetActive(barrage);
+                if (barrage) Circle(barrageRings[i], barrageFills[i], actor.GetLastBarrageTarget(i), actor.Settings.BarrageRadius, actor.PhaseProgress);
+            }
+            bool charging = decorative && (actor.State == GolgoraState.PhaseTransition || actor.State == GolgoraState.CercoWindup);
+            chargeRing.gameObject.SetActive(charging);
+            if (charging)
+            {
+                Place(chargeRing, actor.WorldCenter, Mathf.Lerp(6f, 2.5f, actor.PhaseProgress), Vector3.forward);
+                SetColor(groundRenderers[chargeRing], new Color(1f, .38f, .04f, .7f));
+            }
+            shockAge += deltaTime; bool shock = decorative && shockAge < .5f; shockRing.gameObject.SetActive(shock);
             if (shock)
+            { shockRing.localScale = Vector3.one * Mathf.Lerp(1f, 12f, shockAge / .5f); SetColor(groundRenderers[shockRing], new Color(1f, .48f, .11f, (1f - shockAge / .5f) * .8f)); }
+            sweepAge += deltaTime; sweepFlash.gameObject.SetActive(decorative && sweepAge < .28f);
+            if (sweepAge < .28f) SetColor(groundRenderers[sweepFlash], new Color(1f, .55f, .1f, (1f - sweepAge / .28f) * .7f));
+            shardAge += deltaTime;
+            for (int i = 0; i < shards.Length; i++)
             {
-                float t = shockAge / 0.35f;
-                shockRing.localScale = Vector3.one * Mathf.Lerp(2f, 11f, t);
-                SetColor(shockRenderer, new Color(1f, 0.43f, 0.12f, (1f - t) * 0.8f));
+                bool visible = decorative && shardAge < .65f; shards[i].gameObject.SetActive(visible);
+                if (!visible) continue;
+                Vector3 position = burstOrigin + shardSpeeds[i] * shardAge - Vector3.up * (8f * shardAge * shardAge);
+                position.y = Mathf.Max(ArenaSurface.Height(position) + .08f, position.y);
+                shards[i].position = position; shards[i].Rotate(new Vector3(160, 230, 100) * deltaTime, Space.Self);
+                shards[i].localScale = new Vector3(.09f, .24f, .07f) * (1f - shardAge / .65f);
             }
+            bool trail = decorative && (sweep || hammer) && actor.PhaseProgress > .45f;
+            weaponTrail.emitting = trail;
+            if (importedView != null) trailPoint.position = importedView.HammerPosition;
+            if (!decorative) weaponTrail.Clear();
         }
-
+        private void Circle(Transform edge, Transform fill, Vector3 origin, float radius, float progress)
+        {
+            Place(edge, origin, radius * 2f, Vector3.forward); Place(fill, origin, radius * 2f * Mathf.Max(.015f, progress), Vector3.forward);
+            Color color = Color.Lerp(new Color(1f, .75f, .18f), new Color(1f, .2f, .055f), progress);
+            color.a = 1f; SetColor(groundRenderers[edge], color); color.a = .19f; SetColor(groundRenderers[fill], color);
+        }
+        private static void Place(Transform target, Vector3 origin, float diameter, Vector3 forward)
+        {
+            origin.y = ArenaSurface.Height(origin) + .06f; target.position = origin;
+            target.rotation = Quaternion.LookRotation(forward.sqrMagnitude > .001f ? forward : Vector3.forward, ArenaSurface.Normal(origin));
+            target.localScale = Vector3.one * diameter;
+        }
+        private void HandleImpact(GolgoraAttackKind kind, Vector3 origin, Vector3 direction)
+        {
+            audioView?.Impact(kind);
+            if (kind == GolgoraAttackKind.Hammer || kind == GolgoraAttackKind.Cerco) TriggerStomp(origin);
+            else if (kind == GolgoraAttackKind.Sweep)
+            { sweepAge = 0f; Place(sweepFlash, origin, actor.Settings.SweepRadius * 2f, direction); Burst(origin, direction); }
+            else if (kind == GolgoraAttackKind.Barrage) Burst(origin + Vector3.up * 2f, direction);
+        }
         public void TriggerStomp(Vector3 position)
         {
-            if (!initialized)
-                return;
-            shockAge = 0f;
-            position.y = ArenaSurface.Height(position) + 0.055f;
-            shockRing.up = ArenaSurface.Normal(position);
-            shockRing.position = position;
-            float distance = actor.TargetPlayer != null
-                ? Vector3.Distance(actor.TargetPlayer.WorldCenter, position) : 0f;
-            float attenuation = 1f - Mathf.Clamp01((distance - GolgoraActor.StompRadius) / 20f);
-            cameraFeedback?.RequestShake(ShakePriority.High, 0.28f * attenuation, 0.30f, 12f);
+            if (!initialized) return;
+            shockAge = 0f; Place(shockRing, position, 1f, Vector3.forward); Burst(position, Vector3.forward);
+            float distance = actor.TargetPlayer != null ? Vector3.Distance(actor.TargetPlayer.WorldCenter, position) : 0f;
+            float attenuation = 1f - Mathf.Clamp01((distance - actor.Settings.HammerRadius) / 20f);
+            cameraFeedback?.RequestShake(ShakePriority.High, .18f * attenuation, .22f, 12f);
         }
-
+        private void HandleFootstep(Vector3 position) { audioView?.StepSound(); if (shardAge > .65f) Burst(position, Vector3.forward, .22f); }
+        private void Burst(Vector3 origin, Vector3 direction, float strength = 1f)
+        {
+            shardAge = 0f; burstOrigin = origin + Vector3.up * .2f;
+            for (int i = 0; i < shards.Length; i++)
+            {
+                float a = i * 2.399963f; Vector3 outward = new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a));
+                shardSpeeds[i] = (outward * (2f + i % 5) + Vector3.up * (2f + i % 3)) * strength;
+            }
+        }
         public void SetIntroProgress(float progress) => introProgress = Mathf.Clamp01(progress);
-
         public void ResetPresentation()
         {
-            if (!initialized)
-                return;
-            age = 0f;
-            introProgress = 0f;
-            shockAge = 1f;
-            warningRing.gameObject.SetActive(false);
-            warningFill.gameObject.SetActive(false);
-            shockRing.gameObject.SetActive(false);
-            core.localScale = Vector3.one * 0.49f;
-            visualLift = 1f - 1f / Mathf.Max(0.01f, actor.transform.lossyScale.y);
-            Transform bodyMesh = actor.VisualComposer.PresentationPivot.Find("BodyMesh");
-            Transform crest = actor.VisualComposer.PresentationPivot.Find("FacingCrest");
-            if (bodyMesh != null) bodyMesh.localPosition = Vector3.up * visualLift;
-            if (crest != null) crest.localPosition = new Vector3(0f, visualLift + 0.35f, 0.42f);
-            core.localPosition = new Vector3(0f, visualLift + 0.64f, 0f);
-            leftShoulder.localPosition = new Vector3(-0.56f, visualLift + 0.25f, 0f);
-            rightShoulder.localPosition = new Vector3(0.56f, visualLift + 0.25f, 0f);
-            coreRenderer.sharedMaterial = coreMaterial;
-            leftShoulder.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
-            rightShoulder.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
-            actor?.VisualComposer.CacheRenderers();
-            importedView?.ResetPose();
+            if (!initialized) return;
+            age = introProgress = 0f; shockAge = shardAge = sweepAge = 1f; BarrageWarningsVisible = 0;
+            for (int i = 0; i < groundRoot.transform.childCount; i++) groundRoot.transform.GetChild(i).gameObject.SetActive(false);
+            trailPoint.gameObject.SetActive(true); weaponTrail.Clear(); weaponTrail.emitting = false;
+            audioView?.ResetAudio(); importedView?.ResetPose();
         }
-
         private void OnDisable() => ResetPresentation();
-
         private void OnDestroy()
         {
+            if (actor != null) actor.AttackExecuted -= HandleImpact;
+            if (importedView != null) importedView.Footstep -= HandleFootstep;
             if (groundRoot != null) Destroy(groundRoot);
-            Destroy(bodyMaterial);
-            Destroy(coreMaterial);
-            Destroy(groundMaterial);
-            Destroy(ringMesh);
-            Destroy(discMesh);
+            Destroy(groundMaterial); Destroy(emberMaterial); Destroy(ringMesh); Destroy(discMesh); Destroy(sectorMesh); Destroy(sectorRingMesh);
         }
-
         private void SetColor(Renderer renderer, Color color)
+        { properties.SetColor(BaseColor, color); properties.SetColor(ColorProperty, color); renderer.SetPropertyBlock(properties); }
+        public static Mesh CreateGroundMesh(bool ring) => GroundMesh(ring, 360f);
+        private static Mesh CreateSectorMesh(bool ring) => GroundMesh(ring, 180f);
+        private static Mesh GroundMesh(bool ring, float degrees)
         {
-            properties.SetColor(BaseColor, color);
-            properties.SetColor(ColorProperty, color);
-            renderer.SetPropertyBlock(properties);
-        }
-
-        public static Mesh CreateGroundMesh(bool ring)
-        {
-            const int segments = 64;
-            int stride = ring ? 2 : 1;
+            const int segments = 80;
             var vertices = new Vector3[ring ? (segments + 1) * 2 : segments + 2];
             var triangles = new int[segments * (ring ? 6 : 3)];
             for (int i = 0; i <= segments; i++)
             {
-                float angle = i * Mathf.PI * 2f / segments;
-                Vector3 direction = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
-                if (ring)
-                {
-                    vertices[i * stride] = direction * 0.5f;
-                    vertices[i * stride + 1] = direction * 0.484f;
-                }
-                else
-                    vertices[i + 1] = direction * 0.5f;
-                if (i == segments)
-                    continue;
-                if (ring)
-                {
-                    int v = i * 2;
-                    int t = i * 6;
-                    triangles[t] = v; triangles[t + 1] = v + 1; triangles[t + 2] = v + 2;
-                    triangles[t + 3] = v + 1; triangles[t + 4] = v + 3; triangles[t + 5] = v + 2;
-                }
-                else
-                {
-                    triangles[i * 3] = 0;
-                    triangles[i * 3 + 1] = i + 2;
-                    triangles[i * 3 + 2] = i + 1;
-                }
+                float angle = (-degrees * .5f + degrees * i / segments) * Mathf.Deg2Rad;
+                Vector3 direction = new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle));
+                if (ring) { vertices[i * 2] = direction * .5f; vertices[i * 2 + 1] = direction * .474f; }
+                else vertices[i + 1] = direction * .5f;
+                if (i == segments) continue;
+                int t = i * (ring ? 6 : 3);
+                if (ring) { int v = i * 2; triangles[t] = v; triangles[t+1] = v+2; triangles[t+2] = v+1; triangles[t+3] = v+1; triangles[t+4] = v+2; triangles[t+5] = v+3; }
+                else { triangles[t] = 0; triangles[t+1] = i+1; triangles[t+2] = i+2; }
             }
-            var mesh = new Mesh { name = ring ? "GolgoraRing" : "GolgoraDisc", vertices = vertices, triangles = triangles };
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            return mesh;
+            var mesh = new Mesh { name = ring ? "FoundryBoundary" : "FoundryWarningFill", vertices = vertices, triangles = triangles };
+            mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
         }
     }
 }

@@ -9,7 +9,7 @@ namespace EchoScrap.Combat
     public sealed class GolgoraDeathPresentation : MonoBehaviour
     {
         public const float ExplosionRadius = 8f;
-        public const float Duration = 1.6f;
+        public const float Duration = 2.4f;
         private const int FragmentCount = 12;
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorProperty = Shader.PropertyToID("_Color");
@@ -27,6 +27,11 @@ namespace EchoScrap.Combat
         private Vector3 origin;
         private float age;
         private bool initialized;
+        private Transform deathModel;
+        private Animator deathAnimator;
+        private AnimationClip deathClip;
+        private AudioSource deathAudio;
+        public bool DeathModelVisible => deathModel != null && deathModel.gameObject.activeSelf;
 
         public bool AutoTick { get; set; } = true;
         public bool IsPlaying { get; private set; }
@@ -68,6 +73,23 @@ namespace EchoScrap.Combat
             for (int i = 0; i < FragmentCount; i++)
                 fragments[i] = CreatePiece("BossFragment_" + i);
             gem = CreatePiece("LegendaryClosingXp500");
+            var prefab = Resources.Load<GameObject>("MataColeccionista/MataColeccionista");
+            if (prefab != null)
+            {
+                deathModel = Instantiate(prefab, transform, false).transform;
+                deathModel.name = "GolgoraCollapsedRig";
+                deathAnimator = deathModel.GetComponentInChildren<Animator>();
+                if (deathAnimator != null)
+                {
+                    deathAnimator.applyRootMotion = false; deathAnimator.speed = 0f;
+                    deathAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                }
+                deathClip = Resources.Load<AnimationClip>("MataColeccionista/Animations/DeathHeavy");
+                foreach (var renderer in deathModel.GetComponentsInChildren<Renderer>()) renderer.shadowCastingMode = ShadowCastingMode.On;
+            }
+            deathAudio = gameObject.AddComponent<AudioSource>(); deathAudio.playOnAwake = false;
+            deathAudio.spatialBlend = 0f; deathAudio.volume = .8f; deathAudio.ignoreListenerPause = true;
+            deathAudio.clip = Resources.Load<AudioClip>("MataColeccionista/Audio/Death");
             Clear();
         }
 
@@ -88,7 +110,17 @@ namespace EchoScrap.Combat
         {
             EnsureInitialized();
             player = targetPlayer;
-            origin = new Vector3(worldPosition.x, 0.06f, worldPosition.z);
+            origin = new Vector3(worldPosition.x, ArenaSurface.Height(worldPosition) + .06f, worldPosition.z);
+            if (deathModel != null)
+            {
+                deathModel.gameObject.SetActive(true);
+                deathModel.position = worldPosition - Vector3.up * .95f;
+                deathModel.localScale = Vector3.one * 3.5f;
+                Vector3 facing = targetPlayer != null ? targetPlayer.position - worldPosition : Vector3.forward;
+                facing.y = 0f;
+                deathModel.rotation = Quaternion.LookRotation(facing.sqrMagnitude > .001f ? facing : Vector3.forward, Vector3.up);
+            }
+            if (deathAudio != null) deathAudio.Play();
             age = 0f;
             IsPlaying = true;
             GemAbsorbed = false;
@@ -117,6 +149,11 @@ namespace EchoScrap.Combat
         {
             if (!IsPlaying || deltaTime < 0f) return;
             age += deltaTime;
+            if (deathAnimator != null && deathClip != null && deathModel.gameObject.activeSelf)
+            {
+                deathAnimator.Play("HammerSlam", 0, .92f); deathAnimator.Update(0f);
+                deathClip.SampleAnimation(deathAnimator.gameObject, Mathf.Clamp(age, 0f, deathClip.length));
+            }
             float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
             bool decorative = intensity > 0.001f;
             float expansion = Mathf.Clamp01(age / 0.65f);
@@ -147,6 +184,7 @@ namespace EchoScrap.Combat
             if (age >= Duration)
             {
                 IsPlaying = false;
+                if (deathModel != null) deathModel.gameObject.SetActive(false);
                 ring.gameObject.SetActive(false);
                 gem.gameObject.SetActive(false);
             }
@@ -157,6 +195,8 @@ namespace EchoScrap.Combat
             IsPlaying = false;
             GemAbsorbed = false;
             age = 0f;
+            if (deathModel != null) deathModel.gameObject.SetActive(false);
+            if (deathAudio != null) deathAudio.Stop();
             if (ring != null) ring.gameObject.SetActive(false);
             if (gem != null) gem.gameObject.SetActive(false);
             for (int i = 0; i < FragmentCount; i++)
