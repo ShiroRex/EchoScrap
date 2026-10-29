@@ -75,7 +75,10 @@ namespace EchoScrap.Tests
             Assert.That(flow.View.ContinueButton.interactable, Is.False);
             flow.ContinueCollection();
             game.Session.ToggleManualPause();
+            var backdrop = flow.View.GetComponentInChildren<MenuBackdrop>();
+            float backdropTime = backdrop.PresentationTime;
             yield return new WaitForSecondsRealtime(.15f);
+            Assert.That(backdrop.PresentationTime, Is.GreaterThan(backdropTime), "Decorative motion must continue while the menu freezes gameplay.");
             Assert.That(game.Session.GameplayTime, Is.Zero);
             Assert.That(game.Session.IsInWarehouse, Is.True);
             Assert.That(game.Session.IsPaused, Is.True);
@@ -90,6 +93,7 @@ namespace EchoScrap.Tests
             yield return new WaitForSeconds(.15f);
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Vault));
             Assert.That(flow.View.IsVaultVisible, Is.True);
+            Assert.That(flow.View.GetComponentInChildren<MenuBackdrop>(true).gameObject.activeSelf, Is.False);
             Assert.That(travel.IsInWarehouse, Is.True);
             Assert.That(Vector3.Distance(game.Player.transform.position, travel.WarehouseArrival.position), Is.LessThan(2));
             Assert.That(game.Session.GameplayTime, Is.Zero);
@@ -255,6 +259,20 @@ namespace EchoScrap.Tests
             Assert.That(Object.FindObjectsByType<CombatSession>(FindObjectsSortMode.None), Has.Length.EqualTo(1));
             Assert.That(game.Enemies.TotalCreatedCount, Is.EqualTo(created));
             Assert.That(game.Session.GameplayTime, Is.Zero);
+        }
+
+        [UnityTest] public IEnumerator ReducedEffectsFreezeBackgroundAndReturningToMenuReusesIt()
+        {
+            var backdrop = flow.View.GetComponentInChildren<MenuBackdrop>();
+            game.Session.Effects.ReducedEffectsMode = true;
+            float frozen = backdrop.PresentationTime;
+            yield return new WaitForSecondsRealtime(.12f);
+            Assert.That(backdrop.PresentationTime, Is.EqualTo(frozen));
+            EnterVault(); flow.ShowMainMenu();
+            Assert.That(flow.View.GetComponentInChildren<MenuBackdrop>(), Is.SameAs(backdrop));
+            game.Session.Effects.ReducedEffectsMode = false;
+            yield return new WaitForSecondsRealtime(.12f);
+            Assert.That(backdrop.PresentationTime, Is.GreaterThan(frozen));
         }
 
         [UnityTest] public IEnumerator BuildEntryLoadsRealArenaIntoMainMenu()

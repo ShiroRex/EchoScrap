@@ -16,6 +16,7 @@ namespace EchoScrap.Combat
         private Button cancelButton, acceptButton;
         private Text confirmTitle, confirmMessage;
         private bool vaultVisible;
+        private MenuBackdrop backdrop;
         public Canvas Canvas { get; private set; }
         public Button ContinueButton => continueButton;
         public Button NewCollectionButton => newButton;
@@ -39,10 +40,11 @@ namespace EchoScrap.Combat
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080); scaler.matchWidthOrHeight = .5f;
 
-            title = Overlay(root.transform, "MainMenu", new Color(.025f, .035f, .055f, .88f));
+            backdrop = MenuBackdrop.Create(root.transform, game.Session.Effects);
+            title = Overlay(root.transform, "MainMenu", Color.clear);
             var frame = Frame(title.transform, "TitleFrame");
-            Label(frame, "ECHOSCRAP", new Vector2(0, 237), new Vector2(660, 80), 60, new Color(.91f, .76f, .44f));
-            Label(frame, "EL VERTEDERO DE ECOS", new Vector2(0, 176), new Vector2(650, 35), 22, Color.white);
+            backdrop.PlaceMenuPanel(frame);
+            Label(frame, "EL VERTEDERO DE ECOS", new Vector2(65, 205), new Vector2(540, 55), 28, new Color(.91f, .76f, .44f));
             continueButton = ButtonAt(frame, "Continue", "CONTINUAR", new Vector2(0, 93), new Vector2(480, 96), skin?.greenButton, flow.ContinueCollection);
             newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, -5), new Vector2(480, 96), skin?.blueButton, flow.RequestNewCollection);
             settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -103), new Vector2(480, 96), skin?.blueButton, flow.OpenConfiguration);
@@ -76,6 +78,7 @@ namespace EchoScrap.Combat
         public void Refresh()
         {
             bool showTitle = flow.State == GameFlowState.MainMenu && !flow.IsConfiguring;
+            backdrop.gameObject.SetActive(flow.State == GameFlowState.MainMenu);
             title.SetActive(showTitle);
             confirmation.SetActive(flow.IsConfirming);
             continueButton.interactable = flow.HasCollection;
