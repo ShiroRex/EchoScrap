@@ -19,6 +19,8 @@ namespace EchoScrap.Combat
         private System.Random random;
 
         public float PresentationTime { get; private set; }
+        public int PortalFrameIndex { get; private set; }
+        public float PortalFrameRate => art.Vortex.FrameRate;
         public int RecycledCount { get; private set; }
         public int SpriteVariantCount => art.OrbitSprites.Length;
         public Image[] Orbiters => orbiters;
@@ -97,7 +99,9 @@ namespace EchoScrap.Combat
         private void UpdateSurface()
         {
             if (art == null) return;
-            background.uvRect = art.Vortex.UvAt(PresentationTime);
+            PortalFrameIndex = art.Vortex.FrameAt(PresentationTime);
+            background.texture = art.Vortex.TextureAt(PortalFrameIndex);
+            background.uvRect = art.Vortex.UvAt(PortalFrameIndex);
             Vector2 size = rect.rect.size;
             if (size.x <= 0 || size.y <= 0) return;
             var settings = art.OrbitCatalog;
@@ -125,9 +129,9 @@ namespace EchoScrap.Combat
                 }
                 var image = orbiters[i]; var item = image.rectTransform;
                 Vector2 p = mouth + new Vector2(Mathf.Cos(angle) * radius * size.x / 320f, -Mathf.Sin(angle) * radius * size.y / (180f * 1.03f));
-                item.anchoredPosition = new Vector2(Mathf.Round(p.x / pixel) * pixel, Mathf.Round(p.y / pixel) * pixel);
+                item.anchoredPosition = p;
                 float scale = Mathf.Lerp(.18f, 1f, Mathf.Sqrt(Mathf.InverseLerp(inner, outer, radius)));
-                float height = Mathf.Max(pixel, Mathf.Round(settings.spritePixels * scale) * pixel);
+                float height = Mathf.Max(pixel, settings.spritePixels * scale * pixel);
                 item.sizeDelta = Vector2.one * height;
                 item.localRotation = Quaternion.Euler(0, 0, -angle * Mathf.Rad2Deg + i * 31);
                 float alpha = Mathf.SmoothStep(0, 1, progress / .07f) * (1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.84f, 1, progress)));

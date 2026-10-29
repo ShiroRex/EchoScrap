@@ -275,6 +275,23 @@ namespace EchoScrap.Tests
             Assert.That(backdrop.PresentationTime, Is.GreaterThan(frozen));
         }
 
+        [UnityTest] public IEnumerator PortalPlaysAtSixtyFramesAndCrossesAtlasPagesWhileGameplayIsPaused()
+        {
+            yield return null;
+            var backdrop = flow.View.GetComponentInChildren<MenuBackdrop>();
+            var background = backdrop.GetComponent<RawImage>();
+            var firstTexture = background.texture;
+            int firstFrame = backdrop.PortalFrameIndex;
+            float started = backdrop.PresentationTime;
+            Assert.That(backdrop.PortalFrameRate, Is.EqualTo(60));
+            yield return new WaitForSecondsRealtime(1.05f);
+            float advanced = (backdrop.PresentationTime - started) * 60;
+            int frames = (backdrop.PortalFrameIndex - firstFrame + 288) % 288;
+            Assert.That(frames, Is.EqualTo(advanced).Within(1.1f));
+            Assert.That(background.texture, Is.Not.SameAs(firstTexture), "A page transition must update the texture as well as the UVs.");
+            Assert.That(game.Session.GameplayTime, Is.Zero);
+        }
+
         [UnityTest] public IEnumerator GameSpritesOrbitAndRecycleAutomaticallyWithoutChangingCollection()
         {
             yield return null;

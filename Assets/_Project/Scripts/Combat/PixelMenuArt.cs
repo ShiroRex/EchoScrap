@@ -7,23 +7,31 @@ namespace EchoScrap.Combat
     internal sealed class PixelMenuArt : IDisposable
     {
         [Serializable] internal sealed class Area { public int x, y, w, h; }
-        [Serializable] internal sealed class Cel { public Area frame; public int duration; }
+        [Serializable] internal sealed class Cel { public Area frame; public int duration; public int page; }
         [Serializable] private sealed class SliceKey { public Area bounds; }
         [Serializable] private sealed class Slice { public string name; public SliceKey[] keys; }
-        [Serializable] private sealed class Meta { public Slice[] slices; }
+        [Serializable] private sealed class Meta { public Slice[] slices; public string[] pages; public float frameRate; }
         [Serializable] private sealed class Export { public Cel[] frames; public Meta meta; }
         internal sealed class Sequence
         {
-            public Texture2D Texture;
+            public Texture2D[] Textures;
+            public Texture2D Texture => Textures[0];
             public Cel[] Frames;
-            public float Length;
-            public Rect UvAt(float time)
+            public float Length, FrameRate;
+            public int FrameAt(float time)
             {
                 float remaining = Mathf.Repeat(time, Length); int index = 0;
+                if (FrameRate > 0) return Mathf.Min(Frames.Length - 1, Mathf.FloorToInt(remaining * FrameRate + .0001f));
                 while (index < Frames.Length - 1 && remaining >= Frames[index].duration * .001f)
                     remaining -= Frames[index++].duration * .001f;
+                return index;
+            }
+            public Texture2D TextureAt(int index) => Textures[Frames[index].page];
+            public Rect UvAt(int index)
+            {
+                Texture2D texture = TextureAt(index);
                 Area r = Frames[index].frame;
-                return new Rect(r.x / (float)Texture.width, 1f - (r.y + r.h) / (float)Texture.height, r.w / (float)Texture.width, r.h / (float)Texture.height);
+                return new Rect(r.x / (float)texture.width, 1f - (r.y + r.h) / (float)texture.height, r.w / (float)texture.width, r.h / (float)texture.height);
             }
         }
         private readonly List<Sprite> owned = new List<Sprite>();
@@ -65,11 +73,18 @@ namespace EchoScrap.Combat
         }
         private static Sequence Load(string name)
         {
-            var texture = Resources.Load<Texture2D>("UI/PixelPortal/" + name);
             var metadata = Resources.Load<TextAsset>("UI/PixelPortal/" + name);
-            if (texture == null || metadata == null) throw new InvalidOperationException("Missing Aseprite menu export: " + name);
-            var result = new Sequence { Texture = texture, Frames = JsonUtility.FromJson<Export>(metadata.text).frames };
-            foreach (var frame in result.Frames) result.Length += Mathf.Max(1, frame.duration) * .001f;
+            if (metadata == null) throw new InvalidOperationException("Missing Aseprite menu export: " + name);
+            var data = JsonUtility.FromJson<Export>(metadata.text);
+            string[] pages = data.meta.pages ?? new[] { name };
+            var result = new Sequence { Textures = new Texture2D[pages.Length], Frames = data.frames, FrameRate = data.meta.frameRate };
+            for (int i = 0; i < pages.Length; i++)
+            {
+                result.Textures[i] = Resources.Load<Texture2D>("UI/PixelPortal/" + pages[i]);
+                if (result.Textures[i] == null) throw new InvalidOperationException("Missing Aseprite menu page: " + pages[i]);
+            }
+            if (result.FrameRate > 0) result.Length = result.Frames.Length / result.FrameRate;
+            else foreach (var frame in result.Frames) result.Length += Mathf.Max(1, frame.duration) * .001f;
             return result;
         }
         private Sprite Cut(Texture2D texture, Area cel, Area crop, Vector4 border)
