@@ -275,45 +275,52 @@ namespace EchoScrap.Tests
             Assert.That(backdrop.PresentationTime, Is.GreaterThan(frozen));
         }
 
-        [UnityTest] public IEnumerator ScrapReceivesPointerRaycastsAndIsAbsorbedWithoutChangingCollection()
+        [UnityTest] public IEnumerator GameSpritesOrbitAndRecycleAutomaticallyWithoutChangingCollection()
         {
             yield return null;
             var backdrop = flow.View.GetComponentInChildren<MenuBackdrop>();
-            var item = backdrop.Interactables[0];
+            var images = (Image[])backdrop.Orbiters.Clone();
+            var beforeSprites = new Sprite[images.Length];
+            for (int i = 0; i < images.Length; i++) beforeSprites[i] = images[i].sprite;
+            var position = images[0].rectTransform.anchoredPosition;
             var before = (int[])station.Progress.owned.Clone();
-            var point = RectTransformUtility.WorldToScreenPoint(null, item.transform.position);
-            var pointer = new PointerEventData(EventSystem.current) { position = point, button = PointerEventData.InputButton.Left };
-            var hits = new System.Collections.Generic.List<RaycastResult>();
-            EventSystem.current.RaycastAll(pointer, hits);
-            Assert.That(hits.Count, Is.GreaterThan(0));
-            Assert.That(hits[0].gameObject, Is.EqualTo(item.gameObject), "The menu's transparent overlay must not intercept scrap clicks.");
-            ExecuteEvents.Execute(item.gameObject, pointer, ExecuteEvents.pointerClickHandler);
-            Assert.That(item.IsAbsorbing, Is.True);
-            yield return new WaitForSecondsRealtime(2.25f);
-            Assert.That(backdrop.AbsorbedCount, Is.EqualTo(1));
+            Assert.That(backdrop.SpriteVariantCount, Is.GreaterThan(40));
+            bool readable = false;
+            foreach (var image in images) readable |= image.color.a > .9f;
+            Assert.That(readable, Is.True, "Sprites must retain their original colors between entry and exit fades.");
+            yield return new WaitForSecondsRealtime(.3f);
+            Assert.That(images[0].rectTransform.anchoredPosition, Is.Not.EqualTo(position));
+            yield return new WaitForSecondsRealtime(1.2f);
+            Assert.That(backdrop.RecycledCount, Is.GreaterThan(0), "New sprites must appear without any click or drag.");
+            bool replaced = false;
+            for (int i = 0; i < images.Length; i++) replaced |= images[i].sprite != beforeSprites[i];
+            Assert.That(replaced, Is.True);
+            CollectionAssert.AreEqual(images, backdrop.Orbiters, "The visual pool must be reused.");
             Assert.That(game.Session.GameplayTime, Is.Zero);
             CollectionAssert.AreEqual(before, station.Progress.owned);
-            yield return new WaitForSecondsRealtime(2.1f);
-            Assert.That(item.IsAvailable, Is.True);
         }
 
-        [UnityTest] public IEnumerator DragToMouthWorksAndConfigurationBlocksBackgroundInteraction()
+        [UnityTest] public IEnumerator OrbitSpritesNeverCaptureInputAndReducedEffectsFreezeThem()
         {
             yield return null;
             var backdrop = flow.View.GetComponentInChildren<MenuBackdrop>();
-            var item = backdrop.Interactables[2];
-            flow.OpenConfiguration(); item.Absorb();
-            Assert.That(item.IsAbsorbing, Is.False);
-            flow.CloseConfiguration();
-            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
-            ExecuteEvents.Execute(item.gameObject, pointer, ExecuteEvents.beginDragHandler);
-            pointer.position = RectTransformUtility.WorldToScreenPoint(null, backdrop.AbsorptionWorldPoint);
-            ExecuteEvents.Execute(item.gameObject, pointer, ExecuteEvents.dragHandler);
-            ExecuteEvents.Execute(item.gameObject, pointer, ExecuteEvents.endDragHandler);
-            Assert.That(item.IsAbsorbing, Is.True);
+            Assert.That(backdrop.GetComponentsInChildren<Selectable>(), Is.Empty);
+            foreach (var graphic in backdrop.GetComponentsInChildren<Graphic>()) Assert.That(graphic.raycastTarget, Is.False);
             game.Hud.SetReducedEffects(true);
+            var image = backdrop.Orbiters[1];
+            var position = image.rectTransform.anchoredPosition;
+            var rotation = image.rectTransform.localRotation;
+            var sprite = image.sprite;
+            int recycled = backdrop.RecycledCount;
             yield return new WaitForSecondsRealtime(.3f);
-            Assert.That(backdrop.AbsorbedCount, Is.EqualTo(1));
+            Assert.That(image.rectTransform.anchoredPosition, Is.EqualTo(position));
+            Assert.That(image.rectTransform.localRotation, Is.EqualTo(rotation));
+            Assert.That(image.sprite, Is.SameAs(sprite));
+            Assert.That(backdrop.RecycledCount, Is.EqualTo(recycled));
+            flow.OpenConfiguration(); flow.CloseConfiguration();
+            EnterVault(); flow.ShowMainMenu();
+            Assert.That(flow.View.GetComponentInChildren<MenuBackdrop>(), Is.SameAs(backdrop));
+            Assert.That(backdrop.Orbiters[1], Is.SameAs(image));
         }
 
         [UnityTest] public IEnumerator BuildEntryLoadsRealArenaIntoMainMenu()

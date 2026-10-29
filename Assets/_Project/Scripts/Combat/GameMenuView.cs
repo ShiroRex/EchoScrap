@@ -41,7 +41,7 @@ namespace EchoScrap.Combat
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080); scaler.matchWidthOrHeight = .5f;
 
-            backdrop = MenuBackdrop.Create(root.transform, game.Session.Effects, artwork, font);
+            backdrop = MenuBackdrop.Create(root.transform, game.Session.Effects, artwork);
             title = Overlay(root.transform, "MainMenu", Color.clear);
             title.GetComponent<Image>().raycastTarget = false;
             var frame = Frame(title.transform, "TitleFrame");
@@ -89,8 +89,6 @@ namespace EchoScrap.Combat
             Link(newButton, continueButton.interactable ? continueButton : quitButton, settingsButton);
             Link(settingsButton, newButton, quitButton);
             Link(quitButton, settingsButton, continueButton.interactable ? continueButton : newButton);
-            backdrop.ConfigureNavigation(continueButton.interactable ? continueButton : newButton, continueButton, newButton, settingsButton, quitButton);
-            backdrop.SetInteractionEnabled(flow.State == GameFlowState.MainMenu && !flow.IsConfiguring && !flow.IsConfirming);
             RefreshVault();
             if (flow.IsConfirming) Select(cancelButton);
             else if (showTitle) Select(continueButton.interactable ? continueButton : newButton);

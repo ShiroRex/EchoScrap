@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 namespace EchoScrap.Combat
 {
-    /// <summary>Native Aseprite exports supply the pixels, timings and object poses.</summary>
+    /// <summary>Aseprite menu exports and a catalog of the game's existing sprites.</summary>
     internal sealed class PixelMenuArt : IDisposable
     {
         [Serializable] internal sealed class Area { public int x, y, w, h; }
@@ -26,13 +26,13 @@ namespace EchoScrap.Combat
                 return new Rect(r.x / (float)Texture.width, 1f - (r.y + r.h) / (float)Texture.height, r.w / (float)Texture.width, r.h / (float)Texture.height);
             }
         }
-        private readonly List<Sprite> owned = new List<Sprite>(28);
+        private readonly List<Sprite> owned = new List<Sprite>();
         public readonly Sequence Vortex;
         public readonly Texture2D Foreground;
         public readonly Sprite Panel, Blue, Green, Red;
-        public readonly Sprite[][] Objects = new Sprite[6][];
+        public readonly MenuOrbitCatalog OrbitCatalog;
+        public readonly Sprite[] OrbitSprites;
         public readonly Vector2 MouthNormalized;
-        public readonly float MouthWidthNormalized;
         public PixelMenuArt()
         {
             Vortex = Load("Vortex"); Foreground = Resources.Load<Texture2D>("UI/PixelPortal/VortexFront");
@@ -42,7 +42,6 @@ namespace EchoScrap.Combat
                 {
                     Area r = slice.keys[0].bounds;
                     MouthNormalized = new Vector2((r.x + r.w * .5f) / Vortex.Frames[0].frame.w, 1f - (r.y + r.h * .5f) / Vortex.Frames[0].frame.h);
-                    MouthWidthNormalized = r.w / (float)Vortex.Frames[0].frame.w;
                 }
             var controls = Load("Controls");
             Panel = Cut(controls.Texture, controls.Frames[0].frame, null, Vector4.one * 4);
@@ -50,11 +49,18 @@ namespace EchoScrap.Combat
             Blue = Cut(controls.Texture, controls.Frames[1].frame, plate, Vector4.one * 4);
             Green = Cut(controls.Texture, controls.Frames[2].frame, plate, Vector4.one * 4);
             Red = Cut(controls.Texture, controls.Frames[3].frame, plate, Vector4.one * 4);
-            var scrap = Load("Scrap");
-            for (int id = 0; id < Objects.Length; id++)
+            OrbitCatalog = Resources.Load<MenuOrbitCatalog>("UI/PixelPortal/OrbitCatalog");
+            if (OrbitCatalog == null || OrbitCatalog.sprites == null || OrbitCatalog.sprites.Length == 0)
+                throw new InvalidOperationException("Missing menu orbit sprite catalog.");
+            OrbitSprites = new Sprite[OrbitCatalog.sprites.Length];
+            for (int id = 0; id < OrbitSprites.Length; id++)
             {
-                Objects[id] = new Sprite[4];
-                for (int pose = 0; pose < 4; pose++) Objects[id][pose] = Cut(scrap.Texture, scrap.Frames[id * 4 + pose].frame, null, Vector4.zero);
+                var entry = OrbitCatalog.sprites[id];
+                if (entry.texture == null || entry.region.width <= 0 || entry.region.height <= 0)
+                    throw new InvalidOperationException("Invalid menu sprite region: " + entry.name);
+                var sprite = Sprite.Create(entry.texture, entry.region, Vector2.one * .5f, 100, 0, SpriteMeshType.FullRect);
+                sprite.name = entry.name;
+                OrbitSprites[id] = sprite; owned.Add(sprite);
             }
         }
         private static Sequence Load(string name)
