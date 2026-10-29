@@ -9,7 +9,7 @@ namespace EchoScrap.Combat
     {
         private GameFlowController flow;
         private CombatGameBootstrap game;
-        private PauseMenuSkin skin;
+        private PixelMenuArt artwork;
         private Font font;
         private GameObject title, vault, confirmation;
         private Button continueButton, newButton, settingsButton, quitButton, startButton, menuButton;
@@ -30,25 +30,28 @@ namespace EchoScrap.Combat
         {
             flow = controller;
             game = controller.GetComponent<CombatGameBootstrap>();
-            skin = Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin");
-            font = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.semibold
+            artwork = new PixelMenuArt();
+            font = Resources.Load<UpgradeCardSkin>("UI/PixelPortal/Typography")?.semibold
                 ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             var root = new GameObject("GameMenuCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             root.transform.SetParent(transform, false);
             Canvas = root.GetComponent<Canvas>(); Canvas.renderMode = RenderMode.ScreenSpaceOverlay; Canvas.sortingOrder = 100;
+            Canvas.pixelPerfect = true;
             var scaler = root.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080); scaler.matchWidthOrHeight = .5f;
 
-            backdrop = MenuBackdrop.Create(root.transform, game.Session.Effects);
+            backdrop = MenuBackdrop.Create(root.transform, game.Session.Effects, artwork, font);
             title = Overlay(root.transform, "MainMenu", Color.clear);
+            title.GetComponent<Image>().raycastTarget = false;
             var frame = Frame(title.transform, "TitleFrame");
+            frame.sizeDelta = new Vector2(552, 408);
             backdrop.PlaceMenuPanel(frame);
-            Label(frame, "EL VERTEDERO DE ECOS", new Vector2(65, 205), new Vector2(540, 55), 28, new Color(.91f, .76f, .44f));
-            continueButton = ButtonAt(frame, "Continue", "CONTINUAR", new Vector2(0, 93), new Vector2(480, 96), skin?.greenButton, flow.ContinueCollection);
-            newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, -5), new Vector2(480, 96), skin?.blueButton, flow.RequestNewCollection);
-            settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -103), new Vector2(480, 96), skin?.blueButton, flow.OpenConfiguration);
-            quitButton = ButtonAt(frame, "Quit", "SALIR", new Vector2(0, -201), new Vector2(480, 96), skin?.redButton, flow.QuitGame);
+            Rect(title.transform, "LogoReservedArea", new Vector2(0, 420), new Vector2(640, 180));
+            continueButton = ButtonAt(frame, "Continue", "CONTINUAR", new Vector2(0, 123), new Vector2(336, 72), artwork.Green, flow.ContinueCollection);
+            newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, 41), new Vector2(336, 72), artwork.Blue, flow.RequestNewCollection);
+            settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -41), new Vector2(336, 72), artwork.Blue, flow.OpenConfiguration);
+            quitButton = ButtonAt(frame, "Quit", "SALIR", new Vector2(0, -123), new Vector2(336, 72), artwork.Red, flow.QuitGame);
 
             vault = Rect(root.transform, "VaultControls", Vector2.zero, Vector2.zero).gameObject;
             Stretch((RectTransform)vault.transform);
@@ -57,9 +60,9 @@ namespace EchoScrap.Combat
             var backing = heading.gameObject.AddComponent<Image>(); backing.color = new Color(.035f, .045f, .065f, .85f); backing.raycastTarget = false;
             Label(heading, "BÓVEDA DEL COLECCIONISTA", new Vector2(0, 15), new Vector2(760, 42), 30, new Color(.91f, .76f, .44f));
             Label(heading, "Revisa tu colección y cruza el portal para comenzar.", new Vector2(0, -24), new Vector2(760, 30), 21, Color.white);
-            menuButton = ButtonAt(vault.transform, "MainMenu", "MENÚ INICIAL", new Vector2(-190, -65), new Vector2(304, 100), skin?.blueButton, flow.ShowMainMenu);
+            menuButton = ButtonAt(vault.transform, "MainMenu", "MENÚ INICIAL", new Vector2(-190, -65), new Vector2(304, 100), artwork.Blue, flow.ShowMainMenu);
             menuButton.image.rectTransform.anchorMin = menuButton.image.rectTransform.anchorMax = Vector2.one;
-            startButton = ButtonAt(vault.transform, "StartExpedition", "INICIAR EXPEDICIÓN", new Vector2(-290, 100), new Vector2(500, 112), skin?.greenButton, () => flow.BeginExpedition());
+            startButton = ButtonAt(vault.transform, "StartExpedition", "INICIAR EXPEDICIÓN", new Vector2(-290, 100), new Vector2(500, 112), artwork.Green, () => flow.BeginExpedition());
             startButton.image.rectTransform.anchorMin = startButton.image.rectTransform.anchorMax = new Vector2(1, 0);
             var controls = Label(vault.transform, "WASD / STICK · MOVER     ESPACIO / SUR · DASH     ESC / START · PAUSA", new Vector2(0, 36), new Vector2(1400, 32), 20, Color.white);
             controls.rectTransform.anchorMin = controls.rectTransform.anchorMax = new Vector2(.5f, 0);
@@ -69,8 +72,8 @@ namespace EchoScrap.Combat
             var confirmFrame = Frame(confirmation.transform, "ConfirmFrame");
             confirmTitle = Label(confirmFrame, "", new Vector2(0, 155), new Vector2(670, 110), 34, new Color(.91f, .76f, .44f));
             confirmMessage = Label(confirmFrame, "", new Vector2(0, 0), new Vector2(650, 170), 27, Color.white);
-            cancelButton = ButtonAt(confirmFrame, "Cancel", "CANCELAR", new Vector2(-170, -195), new Vector2(304, 112), skin?.greenButton, flow.CancelConfirmation);
-            acceptButton = ButtonAt(confirmFrame, "Confirm", "CONFIRMAR", new Vector2(170, -195), new Vector2(304, 112), skin?.redButton, flow.AcceptConfirmation);
+            cancelButton = ButtonAt(confirmFrame, "Cancel", "CANCELAR", new Vector2(-170, -195), new Vector2(304, 112), artwork.Green, flow.CancelConfirmation);
+            acceptButton = ButtonAt(confirmFrame, "Confirm", "CONFIRMAR", new Vector2(170, -195), new Vector2(304, 112), artwork.Red, flow.AcceptConfirmation);
             Link(cancelButton, acceptButton, acceptButton); Link(acceptButton, cancelButton, cancelButton);
             confirmation.SetActive(false);
         }
@@ -86,6 +89,8 @@ namespace EchoScrap.Combat
             Link(newButton, continueButton.interactable ? continueButton : quitButton, settingsButton);
             Link(settingsButton, newButton, quitButton);
             Link(quitButton, settingsButton, continueButton.interactable ? continueButton : newButton);
+            backdrop.ConfigureNavigation(continueButton.interactable ? continueButton : newButton, continueButton, newButton, settingsButton, quitButton);
+            backdrop.SetInteractionEnabled(flow.State == GameFlowState.MainMenu && !flow.IsConfiguring && !flow.IsConfirming);
             RefreshVault();
             if (flow.IsConfirming) Select(cancelButton);
             else if (showTitle) Select(continueButton.interactable ? continueButton : newButton);
@@ -112,8 +117,8 @@ namespace EchoScrap.Combat
         private RectTransform Frame(Transform parent, string name)
         {
             var rect = Rect(parent, name, Vector2.zero, new Vector2(904, 696));
-            var image = rect.gameObject.AddComponent<Image>(); image.sprite = skin?.frame;
-            image.preserveAspect = true; image.color = skin != null ? Color.white : new Color(.06f, .07f, .10f);
+            var image = rect.gameObject.AddComponent<Image>(); image.sprite = artwork.Panel;
+            image.type = Image.Type.Sliced; image.pixelsPerUnitMultiplier = 1f / 3f;
             return rect;
         }
         private GameObject Overlay(Transform parent, string name, Color color)
@@ -126,12 +131,12 @@ namespace EchoScrap.Combat
         {
             var rect = Rect(parent, name, position, size);
             var image = rect.gameObject.AddComponent<Image>(); image.sprite = sprite;
-            image.type = Image.Type.Sliced; image.pixelsPerUnitMultiplier = .5f;
+            image.type = Image.Type.Sliced; image.pixelsPerUnitMultiplier = 1f / 3f;
             var button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image;
             button.onClick.AddListener(action);
             var colors = button.colors; colors.highlightedColor = colors.selectedColor = new Color(1.35f, 1.35f, 1.35f);
             colors.pressedColor = new Color(.65f, .65f, .65f); colors.disabledColor = new Color(.4f, .4f, .4f, .6f); button.colors = colors;
-            Label(rect, text, Vector2.zero, size - new Vector2(55, 24), 26, Color.white);
+            Label(rect, text, Vector2.zero, size - new Vector2(44, 16), 24, Color.white);
             return button;
         }
         private Text Label(Transform parent, string text, Vector2 position, Vector2 size, int points, Color color)
@@ -149,5 +154,6 @@ namespace EchoScrap.Combat
         }
         private static void Stretch(RectTransform rect)
         { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero; }
+        private void OnDestroy() => artwork?.Dispose();
     }
 }

@@ -275,6 +275,47 @@ namespace EchoScrap.Tests
             Assert.That(backdrop.PresentationTime, Is.GreaterThan(frozen));
         }
 
+        [UnityTest] public IEnumerator ScrapReceivesPointerRaycastsAndIsAbsorbedWithoutChangingCollection()
+        {
+            yield return null;
+            var backdrop = flow.View.GetComponentInChildren<MenuBackdrop>();
+            var item = backdrop.Interactables[0];
+            var before = (int[])station.Progress.owned.Clone();
+            var point = RectTransformUtility.WorldToScreenPoint(null, item.transform.position);
+            var pointer = new PointerEventData(EventSystem.current) { position = point, button = PointerEventData.InputButton.Left };
+            var hits = new System.Collections.Generic.List<RaycastResult>();
+            EventSystem.current.RaycastAll(pointer, hits);
+            Assert.That(hits.Count, Is.GreaterThan(0));
+            Assert.That(hits[0].gameObject, Is.EqualTo(item.gameObject), "The menu's transparent overlay must not intercept scrap clicks.");
+            ExecuteEvents.Execute(item.gameObject, pointer, ExecuteEvents.pointerClickHandler);
+            Assert.That(item.IsAbsorbing, Is.True);
+            yield return new WaitForSecondsRealtime(2.25f);
+            Assert.That(backdrop.AbsorbedCount, Is.EqualTo(1));
+            Assert.That(game.Session.GameplayTime, Is.Zero);
+            CollectionAssert.AreEqual(before, station.Progress.owned);
+            yield return new WaitForSecondsRealtime(2.1f);
+            Assert.That(item.IsAvailable, Is.True);
+        }
+
+        [UnityTest] public IEnumerator DragToMouthWorksAndConfigurationBlocksBackgroundInteraction()
+        {
+            yield return null;
+            var backdrop = flow.View.GetComponentInChildren<MenuBackdrop>();
+            var item = backdrop.Interactables[2];
+            flow.OpenConfiguration(); item.Absorb();
+            Assert.That(item.IsAbsorbing, Is.False);
+            flow.CloseConfiguration();
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            ExecuteEvents.Execute(item.gameObject, pointer, ExecuteEvents.beginDragHandler);
+            pointer.position = RectTransformUtility.WorldToScreenPoint(null, backdrop.AbsorptionWorldPoint);
+            ExecuteEvents.Execute(item.gameObject, pointer, ExecuteEvents.dragHandler);
+            ExecuteEvents.Execute(item.gameObject, pointer, ExecuteEvents.endDragHandler);
+            Assert.That(item.IsAbsorbing, Is.True);
+            game.Hud.SetReducedEffects(true);
+            yield return new WaitForSecondsRealtime(.3f);
+            Assert.That(backdrop.AbsorbedCount, Is.EqualTo(1));
+        }
+
         [UnityTest] public IEnumerator BuildEntryLoadsRealArenaIntoMainMenu()
         {
             Assert.That(SceneUtility.GetScenePathByBuildIndex(0), Does.EndWith("MainMenu.unity"));
