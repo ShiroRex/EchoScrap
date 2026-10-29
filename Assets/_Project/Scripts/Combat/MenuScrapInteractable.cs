@@ -75,9 +75,12 @@ namespace EchoScrap.Combat
             else
             {
                 Vector2 size = owner.Surface.rect.size;
-                Vector2 a = new Vector2(size.x * .34f * side, Mathf.Max(start.y, size.y * .37f)), b = new Vector2(size.x * .16f * side, size.y * .38f);
-                float v = 1 - u;
-                rect.anchoredPosition = Snap(v * v * v * start + 3 * v * v * u * a + 3 * v * u * u * b + u * u * u * owner.Mouth);
+                float aspect = size.y / Mathf.Max(1f, size.x);
+                Vector2 offset = start - owner.Mouth;
+                offset.y /= aspect;
+                float angle = u * Mathf.PI * 1.5f, cosine = Mathf.Cos(angle), sine = Mathf.Sin(angle);
+                Vector2 orbit = new Vector2(offset.x * cosine - offset.y * sine, (offset.x * sine + offset.y * cosine) * aspect);
+                rect.anchoredPosition = Snap(owner.Mouth + orbit * Mathf.Pow(1f - u, .8f));
                 float height = Mathf.Max(pixelSize, Mathf.Round(baseSize * (1 - u * .96f) / pixelSize) * pixelSize);
                 rect.sizeDelta = Vector2.one * height; image.sprite = poses[Mathf.FloorToInt(t * 12) % poses.Length];
                 image.color = new Color(1, 1, 1, 1 - Mathf.SmoothStep(.88f, 1, t));
