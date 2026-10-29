@@ -45,6 +45,7 @@ namespace EchoScrap.Combat
         public UpgradeDraftPresentation DraftPresentation { get; private set; }
         public FlashlightWeapon Weapon { get; private set; }
         public CombatHud Hud { get; private set; }
+        public GameFlowController Flow { get; internal set; }
         public DamageNumberPresenter DamageNumbers { get; private set; }
         public Camera GameplayCamera => gameplayCamera;
         public CinemachineCamera CameraRig => cameraRig;
@@ -55,7 +56,12 @@ namespace EchoScrap.Combat
         public Collider ArenaGround => arenaGround;
 
         private void Awake() => Initialize();
-        private void Start() => ResetRun(false);
+        private void Start()
+        {
+            ResetRun(false);
+            if (MainMenuEntry.ConsumeEntryRequest())
+                GetOrAdd<GameFlowController>(gameObject).Initialize(this);
+        }
 
         public void AssignSceneReferences(PlayerMotor motor, Camera camera, CinemachineCamera rig,
             Material[] retainedMaterials = null, CombatWaveSettings waves = null, Collider floor = null)
