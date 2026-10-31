@@ -298,9 +298,11 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator LavaDamagesBothTeamsAndPausesWithTheGame()
         {
-            var zones=Object.FindObjectsByType<LavaHazard>(FindObjectsSortMode.None);
+            var zones=Object.FindObjectsByType<LavaHazard>(FindObjectsInactive.Include,FindObjectsSortMode.None);
             Assert.AreEqual(3,zones.Length);
             foreach(var zone in zones) zone.AutoTick=false;
+            zones[0].transform.parent.gameObject.SetActive(true);
+            yield return null;
             var lava=zones[0];
             // StylizedLava writes its molten colour directly; URP Lit's
             // _EMISSION variant keyword is not part of this custom shader.

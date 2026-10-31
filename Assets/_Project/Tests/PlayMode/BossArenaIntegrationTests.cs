@@ -86,12 +86,15 @@ namespace EchoScrap.Tests
             StringAssert.Contains("GÓLGORA", game.Hud.DisplayedBossName);
         }
 
-        [Test]
-        public void TransferOwnsTemporaryProtectionWithoutOverwritingOtherInvulnerability()
+        [UnityTest]
+        public IEnumerator TransferOwnsTemporaryProtectionWithoutOverwritingOtherInvulnerability()
         {
             game.Player.IgnoreIncomingDamage = false;
-            var lava = Object.FindAnyObjectByType<LavaHazard>();
+            var lava = Object.FindAnyObjectByType<LavaHazard>(FindObjectsInactive.Include);
             Assert.IsNotNull(lava);
+            lava.AutoTick = false;
+            lava.transform.parent.gameObject.SetActive(true);
+            yield return null;
             var body = game.Player.GetComponent<Rigidbody>();
             Vector3 position = ArenaSurface.OnGround(lava.transform.position, 1f);
             body.position = game.Player.transform.position = position;
