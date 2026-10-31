@@ -38,15 +38,15 @@ namespace EchoScrap.Combat
             label=new GameObject("NombreRareza",typeof(RectTransform),typeof(Canvas)).GetComponent<Canvas>();
             label.transform.SetParent(transform,false);label.renderMode=RenderMode.WorldSpace;
             label.GetComponent<RectTransform>().sizeDelta=new Vector2(400,120);
-            label.transform.localScale=Vector3.one*.012f;
+            label.transform.localScale=Vector3.one*.01f;
             var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
-            nameText=Title("Nombre",35,48,skin.semibold);
-            rarityText=Title("Rareza", -16,32,skin.regular);
+            nameText=Title("Nombre",28,36,skin.semibold);
+            rarityText=Title("Rareza", -18,26,skin.regular);
         }
         private Text Title(string title,float y,int size,Font font)
         {
             var text=new GameObject(title,typeof(RectTransform),typeof(Text)).GetComponent<Text>();
-            text.transform.SetParent(label.transform,false);text.rectTransform.sizeDelta=new Vector2(400,58);
+            text.transform.SetParent(label.transform,false);text.rectTransform.sizeDelta=new Vector2(400,80);
             text.rectTransform.anchoredPosition=new Vector2(0,y);text.font=font;text.fontSize=size;
             text.alignment=TextAnchor.MiddleCenter;text.color=Color.white;text.raycastTarget=false;
             var outline=text.gameObject.AddComponent<Outline>();outline.effectColor=new Color(0,0,0,.9f);outline.effectDistance=new Vector2(1.5f,-1.5f);
@@ -71,7 +71,7 @@ namespace EchoScrap.Combat
                     if(game==null)game=FindAnyObjectByType<CombatGameBootstrap>();
                     label.gameObject.SetActive(showTitle && (game==null || (game.Session.IsInWarehouse && !game.Session.IsPaused)));
                     label.transform.rotation=cameraView.transform.rotation;
-                    label.transform.position=transform.position+Vector3.up*(height+1.9f);
+                    label.transform.position=transform.position+Vector3.up*(height+.35f);
                 }
             }
         }

@@ -88,6 +88,7 @@ namespace EchoScrap.Tests
                 var texts=display.GetComponentsInChildren<UnityEngine.UI.Text>();
                 Assert.AreEqual(FusionCatalog.Names[id],texts[0].text);Assert.AreEqual(FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]],texts[1].text);
                 Assert.AreSame(skin.semibold,texts[0].font);Assert.AreSame(skin.regular,texts[1].font);
+                Canvas.ForceUpdateCanvases();Assert.Greater(texts[0].cachedTextGenerator.characterCountVisible,0);Assert.Greater(texts[1].cachedTextGenerator.characterCountVisible,0);
                 Assert.AreEqual(FusionCatalog.ColorOf(id),texts[1].color);
                 var sprite=display.GetComponentInChildren<SpriteRenderer>();Assert.LessOrEqual(sprite.bounds.size.x,2.85f);Assert.LessOrEqual(sprite.bounds.size.y,station.DisplayHeight+.05f);
                 Assert.AreEqual(display.transform.position.y,sprite.bounds.min.y,.05f);

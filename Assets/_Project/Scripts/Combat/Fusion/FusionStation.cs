@@ -34,7 +34,7 @@ namespace EchoScrap.Combat
             for(int i=0;i<displays.Length;i++){displays[i]=new GameObject("Coleccionable_"+(i+1)).AddComponent<CollectibleDisplay>();displays[i].transform.SetParent(DisplaySlots[i],false);}
             smoke=gameObject.AddComponent<FusionRevealSmoke>();
             ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);RefreshDisplays();UpdateResult();
-            if(game!=null)game.Session.SessionReset+=OnSessionReset;
+            if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);}
         }
         private void Update()
         {
@@ -74,11 +74,26 @@ namespace EchoScrap.Combat
             RefreshDisplays();UpdateResult();Save();CloseMenu();return true;
         }
         private void UpdateResult(){resultView.Configure(Progress.phase==FusionPhase.Opening||Progress.phase==FusionPhase.AwaitingDecision?Progress.result:-1,3.7f,false);}
-        private void RefreshDisplays(){for(int i=0;i<displays.Length;i++)displays[i].Configure(i<Progress.displays.Length?Progress.displays[i]:-1,DisplayHeight,true);}
+        public void RefreshDisplays(){if(displays==null)return;for(int i=0;i<displays.Length;i++){
+            int id=i<3?Progress.equipped[i]:i-3;
+            displays[i].Configure(FusionCatalog.Valid(id)&&Progress.owned[id]>0?id:-1,DisplayHeight,true);
+        }}
+        public bool CollectFromArena(int id)
+        {
+            if(!FusionCatalog.Valid(id)||id==4)return false;
+            Progress.owned[id]++;RefreshDisplays();Save();return true;
+        }
+        public bool EquipCompanion(int slot,int id)
+        {
+            if(game==null||!game.Session.IsInWarehouse||slot<0||slot>=3||id < -1||id>=5)return false;
+            if(id>=0){int used=0;for(int i=0;i<3;i++)if(i!=slot&&Progress.equipped[i]==id)used++;
+                if(Progress.owned[id]<=used)return false;}
+            Progress.equipped[slot]=id;RefreshDisplays();Save();return true;
+        }
         public void ResetCollection()
         {
             CloseMenu();Notice="";Progress=new FusionProgress();Progress.Validate();
-            RefreshDisplays();UpdateResult();Save();
+            RefreshDisplays();UpdateResult();Save();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
         private void OnSessionReset(){if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();}
         private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}

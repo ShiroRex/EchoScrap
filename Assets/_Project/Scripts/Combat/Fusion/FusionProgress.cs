@@ -51,7 +51,8 @@ namespace EchoScrap.Combat
     [Serializable]
     public sealed class FusionProgress
     {
-        public int version=2;
+        public int version=3;
+        public int[] equipped={-1,-1,-1};
         public FusionPhase phase;
         public float remaining, duration, opening;
         public int result=-1;
@@ -96,7 +97,10 @@ namespace EchoScrap.Combat
             for(int i=0;i<displays.Length;i++)if(!FusionCatalog.Valid(displays[i]) || owned[displays[i]]==0)displays[i]=-1;
             if(phase<FusionPhase.Idle || phase>FusionPhase.Ready || (phase!=FusionPhase.Idle&&!FusionCatalog.Valid(result))) {phase=FusionPhase.Idle;result=-1;}
             if(phase==FusionPhase.Opening){phase=FusionPhase.Ready;opening=0;}
-            version=2;
+            if(equipped==null||equipped.Length!=3)equipped=new[]{-1,-1,-1};
+            var used=new int[5];
+            for(int i=0;i<3;i++){int id=equipped[i];if(!FusionCatalog.Valid(id)||++used[id]>owned[id])equipped[i]=-1;}
+            version=3;
             remaining=float.IsNaN(remaining)||float.IsInfinity(remaining)?180:Mathf.Clamp(remaining,0,180);
             duration=Mathf.Clamp(duration,60,180);opening=Mathf.Clamp01(opening);
         }

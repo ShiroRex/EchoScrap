@@ -318,6 +318,7 @@ namespace EchoScrap.Combat
             bool userPause = game.Session.Clock.HasPauseReason(PauseReason.Manual) || game.Session.Clock.HasPauseReason(PauseReason.FocusLost);
             bool showPause = !ended && userPause && !game.Draft.IsOpen
                 && !game.Session.Clock.HasPauseReason(PauseReason.FusionMenu)
+                && !game.Session.Clock.HasPauseReason(PauseReason.CompanionMenu)
                 && (game.Flow == null || !game.Flow.OwnsOverlay || game.Flow.IsConfiguring);
             if (game.Flow != null)
             {
