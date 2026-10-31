@@ -1,10 +1,8 @@
-using System.Collections;
 using EchoScrap.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
-using UnityEngine.SceneManagement;
 
 namespace EchoScrap.Combat
 {
@@ -81,14 +79,8 @@ namespace EchoScrap.Combat
             if (!Application.CanStreamedLevelBeLoaded("CombatArena"))
             { View.SetStatus("No se pudo cargar el Vertedero."); return; }
             SceneTransitionState.PendingEntry = entry;
-            IsLoading = true; View.Refresh(); View.SetStatus("CARGANDO EL VERTEDERO…");
-            StartCoroutine(Load());
-        }
-        private IEnumerator Load()
-        {
-            // Show the loading label before Unity starts importing the world.
-            yield return null;
-            yield return SceneManager.LoadSceneAsync("CombatArena", LoadSceneMode.Single);
+            IsLoading = true; View.Refresh();
+            LoadingScreen.LoadScene("CombatArena");
         }
     }
 }

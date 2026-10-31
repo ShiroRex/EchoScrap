@@ -43,7 +43,7 @@ namespace EchoScrap.Tests
         private IEnumerator World()
         {
             float deadline = Time.realtimeSinceStartup + 30;
-            while ((Game == null || Game.Flow == null) && Time.realtimeSinceStartup < deadline) yield return null;
+            while ((Game == null || Game.Flow == null || LoadingScreen.IsLoading) && Time.realtimeSinceStartup < deadline) yield return null;
             Assert.IsNotNull(Game); Assert.IsNotNull(Game.Flow);
             Game.Director.AutoTick = Game.Encounter.AutoTick = false;
             Game.Motor.GetComponent<PlayerInputReader>().SendMessage("OnApplicationFocus", true);
@@ -51,7 +51,7 @@ namespace EchoScrap.Tests
         private IEnumerator Title()
         {
             float deadline = Time.realtimeSinceStartup + 30;
-            while (Menu == null && Time.realtimeSinceStartup < deadline) yield return null;
+            while ((Menu == null || LoadingScreen.IsLoading) && Time.realtimeSinceStartup < deadline) yield return null;
             Assert.IsNotNull(Menu); yield return null;
         }
         private IEnumerator NewCollection()
@@ -72,7 +72,16 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator NewCollectionLoadsOnlyWorldAndEntersVaultWithoutTitleAssets()
         {
-            yield return NewCollection();
+            Menu.View.NewCollectionButton.onClick.Invoke();
+            var loading = Object.FindAnyObjectByType<LoadingScreen>();
+            Assert.IsNotNull(loading);
+            Assert.AreEqual(Color.black, loading.GetComponentInChildren<UnityEngine.UI.Image>().color);
+            Assert.AreEqual("Cargando...", loading.GetComponentInChildren<UnityEngine.UI.Text>().text);
+            Assert.Greater(loading.GetComponent<Canvas>().sortingOrder, Menu.View.Canvas.sortingOrder);
+            Menu.RequestNewCollection();
+            Assert.AreEqual(1, Object.FindObjectsByType<LoadingScreen>(FindObjectsSortMode.None).Length);
+            yield return World();
+            Assert.IsNull(Object.FindAnyObjectByType<LoadingScreen>());
             Assert.IsNull(Menu);
             Assert.AreEqual("CombatArena", SceneManager.GetActiveScene().name);
             Assert.IsFalse(SceneManager.GetSceneByName("MainMenu").isLoaded);
@@ -84,6 +93,22 @@ namespace EchoScrap.Tests
             Assert.IsEmpty(Object.FindObjectsByType<LavaHazard>(FindObjectsSortMode.None));
             Assert.AreEqual(1, Object.FindObjectsByType<EventSystem>(FindObjectsSortMode.None).Length);
         }
+        [UnityTest] public IEnumerator LoadingCollectorWalksRightEvenWhenTimeIsPaused()
+        {
+            var loading = Object.Instantiate(Resources.Load<LoadingScreen>("UI/LoadingScreen"));
+            try
+            {
+                var image = loading.GetComponentInChildren<UnityEngine.UI.RawImage>();
+                Assert.IsNotNull(image.texture);
+                Rect firstFrame = image.uvRect;
+                Assert.AreEqual(new Rect(0, .625f, .125f, .0625f), firstFrame, "Use the authored Walk_Right clip.");
+                Time.timeScale = 0;
+                yield return new WaitForSecondsRealtime(.2f);
+                Assert.AreNotEqual(firstFrame, image.uvRect);
+                Assert.AreEqual(firstFrame.y, image.uvRect.y);
+            }
+            finally { Time.timeScale = 1; Object.Destroy(loading.gameObject); }
+        }
         [UnityTest] public IEnumerator ReturningToTitleUnloadsWorldAndContinuePreservesCollectionAndFusion()
         {
             yield return NewCollection();
@@ -91,7 +116,10 @@ namespace EchoScrap.Tests
             station.Progress.owned[4] = 6;
             Assert.IsTrue(station.Progress.Begin(new[] { 0, 0, 0, 0 }, 1234, 0));
             station.Advance(12); float remaining = station.Progress.remaining; int result = station.Progress.result;
-            Game.Flow.ShowMainMenu(); yield return Title();
+            Game.Flow.ShowMainMenu();
+            Assert.IsTrue(LoadingScreen.IsLoading);
+            yield return Title();
+            Assert.IsNull(Object.FindAnyObjectByType<LoadingScreen>());
             Assert.IsNull(Game); Assert.IsNull(Object.FindAnyObjectByType<FusionStation>());
             Assert.IsTrue(Menu.HasCollection); Assert.IsTrue(Menu.View.ContinueButton.interactable);
             Menu.ContinueCollection(); yield return World();

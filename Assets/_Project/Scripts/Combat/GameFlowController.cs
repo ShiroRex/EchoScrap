@@ -1,5 +1,4 @@
 using EchoScrap.Core;
-using UnityEngine.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -122,7 +121,7 @@ namespace EchoScrap.Combat
             station?.CloseMenu();
             game.Session.ResumeAllUserPauses();
             Sync();
-            if (separateScenes) SceneManager.LoadSceneAsync("MainMenu", LoadSceneMode.Single);
+            if (separateScenes) LoadingScreen.LoadScene("MainMenu");
         }
 
         public bool BeginExpedition()
