@@ -15,6 +15,7 @@ namespace EchoScrap.Combat
         private WarehouseTravel travel;
         private FusionStation station;
         private GameMenuView view;
+        private ExpeditionIntro entrance;
         private bool persist = true;
         private bool separateScenes;
         public bool IsLoading { get; private set; }
@@ -52,6 +53,8 @@ namespace EchoScrap.Combat
             game.Flow = this;
             view = gameObject.AddComponent<GameMenuView>();
             view.Build(this, !separateScenes);
+            entrance = Instantiate(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro"), transform);
+            entrance.Bind(game);
             ReturnToVault();
             if (separateScenes) SceneTransitionState.Apply(game);
             else ShowMainMenu();
@@ -130,6 +133,7 @@ namespace EchoScrap.Combat
             State = GameFlowState.Expedition;
             game.ResetRun();
             Sync();
+            entrance.Play();
             return true;
         }
 

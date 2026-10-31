@@ -38,6 +38,14 @@ namespace EchoScrap.Combat
         private bool initialized;
         private Vector4 frameRect;
         private Vector3 worldFacing = Vector3.back;
+        private Vector3 entranceOffset;
+        private Vector2 entranceScale = Vector2.one;
+
+        public void SetEntrancePose(Vector3 worldOffset, Vector2 scale)
+        {
+            entranceOffset = worldOffset;
+            entranceScale = scale;
+        }
 
         public CharacterMotion Motion { get; private set; }
         public CharacterFacing Facing { get; private set; } = CharacterFacing.Down;
@@ -100,6 +108,7 @@ namespace EchoScrap.Combat
             Motion = CharacterMotion.Idle;
             Facing = CharacterFacing.Down;
             worldFacing = Vector3.back;
+            SetEntrancePose(Vector3.zero, Vector2.one);
             FrameIndex = 0;
             if (characterRenderer != null && sprites != null && properties != null) ApplyFrame();
             if (shadowRenderer != null) shadowRenderer.enabled = true;
@@ -204,7 +213,7 @@ namespace EchoScrap.Combat
             Vector3 foot = transform.TransformPoint(footOffset) + Vector3.up * 0.025f;
             Vector3 recoil = composer != null && composer.OrientationRoot != null
                 ? composer.OrientationRoot.TransformVector(composer.CurrentPresentationLocalPosition) : Vector3.zero;
-            Vector3 position = foot + recoil;
+            Vector3 position = foot + recoil + entranceOffset;
             float scale = visualScale;
             if (snapToPixelGrid && viewCamera.pixelHeight > 0)
             {
@@ -227,11 +236,11 @@ namespace EchoScrap.Combat
             Quaternion upright = horizontalForward.sqrMagnitude > .0001f
                 ? Quaternion.LookRotation(horizontalForward, Vector3.up) : Quaternion.identity;
             characterRenderer.transform.SetPositionAndRotation(position, upright);
-            characterRenderer.transform.localScale = new Vector3(scale, scale * standingHeight, scale);
+            characterRenderer.transform.localScale = new Vector3(scale * entranceScale.x, scale * standingHeight * entranceScale.y, scale);
             if (shadowRenderer != null)
             {
-                shadowRenderer.transform.position = position;
-                shadowRenderer.transform.localScale = Vector3.one * scale;
+                shadowRenderer.transform.position = foot + recoil + Vector3.ProjectOnPlane(entranceOffset, Vector3.up);
+                shadowRenderer.transform.localScale = Vector3.one * (scale * entranceScale.x);
             }
             if (projectedShadowRenderer != null)
             {
