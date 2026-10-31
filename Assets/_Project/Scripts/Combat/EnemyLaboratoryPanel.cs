@@ -8,8 +8,9 @@ namespace EchoScrap.Combat
     public sealed class EnemyLaboratoryPanel : MonoBehaviour
     {
         private static readonly EnemyArchetypeId[] Types = { EnemyArchetypeId.Residual, EnemyArchetypeId.Interceptor,
-            EnemyArchetypeId.Colossus, EnemyArchetypeId.Mortar, EnemyArchetypeId.ExplosiveMoth, EnemyArchetypeId.GolgoraBoss };
-        private static readonly string[] Names = { "Residual", "Interceptor", "Coloso", "Mortero", "Polilla", "Gólgora" };
+            EnemyArchetypeId.Colossus, EnemyArchetypeId.Mortar, EnemyArchetypeId.ExplosiveMoth,
+            EnemyArchetypeId.GhostKnight, EnemyArchetypeId.CopperSentinel, EnemyArchetypeId.GolgoraBoss };
+        private static readonly string[] Names = { "Residual", "Interceptor", "Coloso", "Mortero", "Polilla", "Caballero élite", "Centinela élite", "Gólgora" };
         private static readonly string[] Speeds = { "0.25×", "0.5×", "1×", "2×" };
         private static readonly float[] Rates = { 0.25f, 0.5f, 1f, 2f };
         private EnemyLaboratory lab;
@@ -121,9 +122,19 @@ namespace EchoScrap.Combat
                 if (actor is GolgoraActor boss)
                     GUILayout.Label("Estado " + boss.State + " · pisotones " + boss.StompsExecuted +
                         " · salvas " + boss.BarragesExecuted, small);
+                if (actor.Elite != null)
+                {
+                    GUILayout.Label("Élite · " + actor.Elite.State + (actor.Elite.IsVulnerable ? " · Vulnerable" : ""), small);
+                    GUILayout.Label("Daño recibido: físico " + (actor.Elite.DamageMultiplier(EchoScrap.Core.DamageType.Physical)*100f).ToString("0") +
+                        "% · sobrenatural " + (actor.Elite.DamageMultiplier(EchoScrap.Core.DamageType.Supernatural)*100f).ToString("0") + "%", small);
+                    GUILayout.BeginHorizontal();
+                    if (Button("Físico 20")) lab.DamageSelected(20f, EchoScrap.Core.DamageType.Physical);
+                    if (Button("Sobrenatural 20")) lab.DamageSelected(20f, EchoScrap.Core.DamageType.Supernatural);
+                    GUILayout.EndHorizontal();
+                }
                 GUILayout.BeginHorizontal();
                 if (Button("Daño 5")) lab.DamageSelected(5f);
-                if (Button("Daño letal")) lab.DamageSelected(actor.MaxHealth * 2f);
+                if (Button("Daño letal")) lab.DamageSelected(actor.MaxHealth * 100f);
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
                 if (Button("Empujar")) lab.PushSelected();

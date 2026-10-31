@@ -3,6 +3,7 @@ using System.IO;
 using EchoScrap.Combat;
 using EchoScrap.Core;
 using NUnit.Framework;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -238,7 +239,7 @@ namespace EchoScrap.Tests
             game.Session.ResolveSimulationStepOutcome();
             game.Hud.RefreshNow();
             Assert.IsTrue(game.Hud.IsResultVisible);
-            StringAssert.Contains("MataColeccionista ha caído", game.Hud.DisplayedSummary);
+            StringAssert.Contains("Gólgora ha caído", game.Hud.DisplayedSummary);
             StringAssert.Contains("XP OBTENIDA", game.Hud.DisplayedSummary);
             game.Hud.RestartGame();
             Assert.AreEqual(SessionState.Running, game.Session.State);
@@ -320,18 +321,40 @@ namespace EchoScrap.Tests
         [UnityTest]
         public IEnumerator BossArrow_RemainsVisibleOutsideFrameWithEffectsReduced()
         {
-            Vector3 position = new Vector3(50f, 1f, 50f);
-            game.Player.transform.position = position;
-            game.Player.GetComponent<Rigidbody>().position = position;
-            game.CameraRig.PreviousStateIsValid = false;
-            game.Session.Clock.AdvanceGameplayTime(180f); game.Director.Step();
-            game.Encounter.Step(1.5f);
+            game.Session.Clock.SetGameplayTimeForTesting(game.WaveSettings.BossStartTime);
+            game.Director.Step();
+            var boss = game.Encounter.Boss; boss.AutoTick = false;
+            game.Encounter.Step(.31f);
+            game.Encounter.Step(.31f);
+            game.Encounter.Step(BossEncounter.IntroDuration);
             game.Session.Effects.ReducedEffectsMode = true;
             yield return null;
             yield return null;
-            game.Hud.RefreshNow();
-            yield return null;
-            Assert.IsTrue(game.Hud.IsBossArrowVisible);
+
+            // The foundry now transfers the player and fits both actors in view. Force an
+            // actual offscreen projection to exercise the HUD fallback independently.
+            Camera camera = game.GameplayCamera;
+            var brain = camera.GetComponent<CinemachineBrain>();
+            Assert.IsNotNull(brain);
+            bool wasEnabled = brain.enabled;
+            Quaternion originalRotation = camera.transform.rotation;
+            try
+            {
+                brain.enabled = false;
+                Vector3 awayFromBoss = camera.transform.position - boss.WorldCenter;
+                camera.transform.rotation = Quaternion.LookRotation(awayFromBoss, Vector3.up);
+                Assert.Less(camera.WorldToViewportPoint(boss.WorldCenter).z, 0f, "The test must really place the boss behind the camera.");
+                game.Hud.RefreshNow();
+                yield return null;
+                yield return null;
+                Assert.IsTrue(game.Hud.IsBossArrowVisible);
+            }
+            finally
+            {
+                camera.transform.rotation = originalRotation;
+                brain.enabled = wasEnabled;
+                game.CameraRig.PreviousStateIsValid = false;
+            }
         }
 
         [UnityTest]

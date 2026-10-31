@@ -67,10 +67,22 @@ namespace EchoScrap.Combat
         private int previousMaxHealth = -1;
         private int previousCooldown = -1;
         private int previousBossHealth = -1;
+        private bool previousBossPhaseTwo;
         private bool cardsDirty = true;
         private bool experienceDirty = true;
         private float refreshTimer;
         private SessionState previousState = (SessionState)(-1);
+        private bool hubMode;
+        private Text pauseTitle, resumeLabel, pauseSecondaryLabel, resultActionLabel;
+
+        public void SetHubMode(bool active)
+        {
+            hubMode = active;
+            foreach (Transform child in canvasRect)
+                if (child.gameObject != modal) child.gameObject.SetActive(!active);
+            if (!active) { bossPanel.SetActive(false); bossArrow.gameObject.SetActive(false); }
+            SyncStatsModeControls();
+        }
 
         public GameObject CanvasRoot => canvas != null ? canvas.gameObject : null;
         public Canvas HudCanvas => canvas;
@@ -83,6 +95,7 @@ namespace EchoScrap.Combat
         public string DisplayedHealth => healthText != null ? healthText.text : string.Empty;
         public string DisplayedSummary => resultSummary != null ? resultSummary.text : string.Empty;
         public string DisplayedCards => cardsText != null ? cardsText.text : string.Empty;
+        public string DisplayedBossName => bossHealthText != null ? bossHealthText.text : string.Empty;
         public bool ShowStats => statsMode != StatsDisplayMode.None;
         public StatsDisplayMode StatsMode => statsMode;
         public bool IsStatsVisible => statsReadout != null && statsReadout.gameObject.activeSelf;
@@ -210,7 +223,7 @@ namespace EchoScrap.Combat
                 dashFill.color = cooldown <= 0 && cooldown != -2 ? Apollo : new Color(0.44f, 0.48f, 0.49f);
             }
             dashFill.fillAmount = game.Motor.IsDashing ? 0f : Mathf.Clamp01(1f - game.Motor.DashCooldownRemaining / Mathf.Max(0.05f, game.Motor.ActiveDashCooldownDuration));
-            controlsHint.gameObject.SetActive(second < 12);
+            controlsHint.gameObject.SetActive(!hubMode && second < 12);
             if (cardsDirty) RefreshCards();
             RefreshBoss();
             RefreshModal();
@@ -221,7 +234,7 @@ namespace EchoScrap.Combat
         {
             if (statsReadout == null || game == null) return;
             var state = game.Session.State;
-            bool visible = ShowStats && !game.Session.IsPaused && !game.Draft.IsOpen &&
+            bool visible = !hubMode && ShowStats && !game.Session.IsPaused && !game.Draft.IsOpen &&
                 (state == SessionState.Running || state == SessionState.BossIntro);
             statsReadout.SetDisplayMode(statsMode);
             statsReadout.gameObject.SetActive(visible);
@@ -259,22 +272,24 @@ namespace EchoScrap.Combat
         private void RefreshBoss()
         {
             var boss = game.Encounter != null ? game.Encounter.Boss : null;
-            bool visible = boss != null && boss.IsAlive && game.Encounter.IsEncounterActive;
+            bool visible = !hubMode && boss != null && boss.IsAlive && game.Encounter.IsEncounterActive;
             bossPanel.SetActive(visible);
-            string phase = visible ? "VERTEDERO  /  MATACOLECCIONISTA" : "VERTEDERO  /  SOBREVIVE";
+            string phase = visible ? boss.IsPhaseTwo ? "GÓLGORA  /  FUNDICIÓN ABIERTA" : "GÓLGORA  /  EL GUARDIÁN DEL VERTEDERO" : "VERTEDERO  /  SOBREVIVE";
             if (phaseText.text != phase) phaseText.text = phase;
             if (!visible) { previousBossHealth = -1; return; }
             bossFill.fillAmount = Mathf.Clamp01(boss.CurrentHealth / Mathf.Max(1f, boss.MaxHealth));
             int hp = Mathf.CeilToInt(boss.CurrentHealth);
-            if (hp != previousBossHealth)
+            if (hp != previousBossHealth || previousBossPhaseTwo != boss.IsPhaseTwo)
             {
                 previousBossHealth = hp;
-                bossHealthText.text = $"MATACOLECCIONISTA   {hp} / {Mathf.CeilToInt(boss.MaxHealth)}";
+                previousBossPhaseTwo = boss.IsPhaseTwo;
+                bossHealthText.text = $"GÓLGORA · {(boss.IsPhaseTwo ? "FUNDICIÓN ABIERTA" : "EL GUARDIÁN")}   {hp} / {Mathf.CeilToInt(boss.MaxHealth)}";
             }
         }
 
         private void UpdateBossArrow()
         {
+            if (hubMode) { bossArrow.gameObject.SetActive(false); return; }
             if (bossArrow == null || game.Encounter == null || game.GameplayCamera == null) return;
             var boss = game.Encounter.Boss;
             if (boss == null || !boss.IsAlive || !game.Encounter.IsEncounterActive || IsResultVisible)
@@ -301,7 +316,18 @@ namespace EchoScrap.Combat
             bool closingVisible = state == SessionState.Victory && closing != null
                 && closing.IsPlaying && closing.PresentationTime < 1.3f;
             bool userPause = game.Session.Clock.HasPauseReason(PauseReason.Manual) || game.Session.Clock.HasPauseReason(PauseReason.FocusLost);
-            bool showPause = !ended && userPause && !game.Draft.IsOpen && !game.Session.Clock.HasPauseReason(PauseReason.FusionMenu);
+            bool showPause = !ended && userPause && !game.Draft.IsOpen
+                && !game.Session.Clock.HasPauseReason(PauseReason.FusionMenu)
+                && (game.Flow == null || !game.Flow.OwnsOverlay || game.Flow.IsConfiguring);
+            if (game.Flow != null)
+            {
+                bool settings = game.Flow.IsConfiguring;
+                pauseTitle.text = settings ? "CONFIGURACIÓN" : "PAUSA";
+                resumeLabel.text = settings ? "VOLVER" : "REANUDAR";
+                pauseSecondaryLabel.text = settings || game.Flow.State != GameFlowState.Expedition ? "MENÚ INICIAL" : "ABANDONAR";
+                pauseRestartButton.interactable = !settings;
+                resultActionLabel.text = "VOLVER A LA BÓVEDA";
+            }
             bool wasVisible = modal.activeSelf;
             modal.SetActive((ended && !closingVisible) || showPause);
             pauseContent.SetActive(showPause);
@@ -314,7 +340,7 @@ namespace EchoScrap.Combat
                 resultTitle.text = state == SessionState.Victory ? "VICTORIA" : "DERROTA";
                 int second = Mathf.Max(0, Mathf.FloorToInt(game.Session.GameplayTime));
                 long xp = game.Progression.TotalXp + (game.Encounter != null ? game.Encounter.ClosingXpReward : 0);
-                resultSummary.text = $"{(state == SessionState.Victory ? "El MataColeccionista ha caído." : "Tu integridad llegó a cero.")}\n\nTIEMPO   {second / 60:00}:{second % 60:00}\nNIVEL   {game.Progression.Level}\nBAJAS   {kills}\nXP OBTENIDA   {xp}";
+                resultSummary.text = $"{(state == SessionState.Victory ? "Gólgora ha caído." : "Tu integridad llegó a cero.")}\n\nTIEMPO   {second / 60:00}:{second % 60:00}\nNIVEL   {game.Progression.Level}\nBAJAS   {kills}\nXP OBTENIDA   {xp}";
             }
             if (modal.activeSelf && (!wasVisible || state != previousState))
                 EventSystem.current?.SetSelectedGameObject(ended ? resultRestartButton.gameObject : resumeButton.gameObject);
@@ -325,10 +351,23 @@ namespace EchoScrap.Combat
 
         public void ResumeGame()
         {
+            if (game != null && game.Flow != null && game.Flow.IsConfiguring)
+            { game.Flow.CloseConfiguration(); return; }
             game?.Session.ResumeAllUserPauses();
             RefreshNow();
         }
         public void RestartGame() => game?.ResetRun();
+        private void PauseSecondaryAction()
+        {
+            if (game.Flow == null) RestartGame();
+            else if (game.Flow.State == GameFlowState.Expedition) game.Flow.RequestAbandon();
+            else game.Flow.ShowMainMenu();
+        }
+        private void ResultAction()
+        {
+            if (game.Flow == null) RestartGame();
+            else game.Flow.ReturnFromResult();
+        }
         public void SetShakePercent(float value) { if (game != null) game.Session.Effects.ShakeIntensity = value / 100f; }
         public void SetDecorativePercent(float value) { if (game != null) game.Session.Effects.DecorativeIntensity = value / 100f; }
         public void SetReducedEffects(bool value) { if (game != null) game.Session.Effects.ReducedEffectsMode = value; }
@@ -354,7 +393,8 @@ namespace EchoScrap.Combat
             Button selected = statsModeButtons[(int)statsMode];
             if (selected == null || resumeButton == null || pauseRestartButton == null) return;
             SetNavigation(reducedToggle, decorativeSlider, selected);
-            SetNavigation(resumeButton, selected, shakeSlider, pauseRestartButton, pauseRestartButton);
+            bool configuring = game != null && game.Flow != null && game.Flow.IsConfiguring;
+            SetNavigation(resumeButton, selected, shakeSlider, configuring ? resumeButton : pauseRestartButton, configuring ? resumeButton : pauseRestartButton);
             SetNavigation(pauseRestartButton, selected, shakeSlider, resumeButton, resumeButton);
         }
 
@@ -429,7 +469,7 @@ namespace EchoScrap.Combat
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));
 
             bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -161f), new Vector2(720f, 72f)).gameObject;
-            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 16f), new Vector2(720f, 36f), "MATACOLECCIONISTA", 26, TextAnchor.MiddleCenter, Apollo);
+            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 16f), new Vector2(720f, 36f), "GÓLGORA · EL GUARDIÁN", 26, TextAnchor.MiddleCenter, Apollo);
             bossFill = Fill(ImageRect(bossPanel.transform, "BossTrack", new Vector2(0f, -15f), new Vector2(720f, 12f), new Color(0.15f, 0.13f, 0.16f)).transform, "BossFill", new Color(0.91f, 0.42f, 0.22f));
             bossPanel.SetActive(false);
             bossArrow = Rect(canvasRect, "BossOffscreenArrow", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48f, 52f));
@@ -462,7 +502,7 @@ namespace EchoScrap.Combat
                 artwork.sprite = pauseSkin.frame;
                 artwork.preserveAspect = true; // Exactly 8x the delivered 113x87 frame, including every ornament.
             }
-            Label(pauseContent.transform, "Title", new Vector2(0f, 201f), new Vector2(640f, 58f), "PAUSA", 42, TextAnchor.MiddleCenter, Apollo);
+            pauseTitle = Label(pauseContent.transform, "Title", new Vector2(0f, 201f), new Vector2(640f, 58f), "PAUSA", 42, TextAnchor.MiddleCenter, Apollo);
             Label(pauseContent.transform, "Subtitle", new Vector2(0f, 151f), new Vector2(640f, 32f), "ESC / START PARA VOLVER", 20, TextAnchor.MiddleCenter, Pale);
             shakeLabel = Label(pauseContent.transform, "ShakeLabel", new Vector2(0f, 92f), new Vector2(640f, 38f), "MOVIMIENTO DE CÁMARA   100%", 23, TextAnchor.MiddleLeft, Pale);
             shakeSlider = CreateSlider(pauseContent.transform, "ShakeSlider", new Vector2(0f, 52f));
@@ -480,7 +520,9 @@ namespace EchoScrap.Combat
             resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(-170f, -225f), "REANUDAR", pauseSkin != null ? pauseSkin.greenButton : null);
             resumeButton.onClick.AddListener(ResumeGame);
             pauseRestartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(170f, -225f), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null);
-            pauseRestartButton.onClick.AddListener(RestartGame);
+            pauseRestartButton.onClick.AddListener(PauseSecondaryAction);
+            resumeLabel = resumeButton.transform.Find("Label").GetComponent<Text>();
+            pauseSecondaryLabel = pauseRestartButton.transform.Find("Label").GetComponent<Text>();
             SetNavigation(shakeSlider, resumeButton, decorativeSlider);
             SetNavigation(decorativeSlider, shakeSlider, reducedToggle);
             SetNavigation(statsModeButtons[(int)StatsDisplayMode.Full], reducedToggle, resumeButton,
@@ -493,8 +535,11 @@ namespace EchoScrap.Combat
             resultContent = Rect(panel.transform, "Result", Vector2.one * 0.5f, Vector2.zero, new Vector2(760f, 720f)).gameObject;
             resultTitle = Label(resultContent.transform, "Title", new Vector2(0f, 254f), new Vector2(640f, 80f), "VICTORIA", 52, TextAnchor.MiddleCenter, Apollo);
             resultSummary = Label(resultContent.transform, "Summary", new Vector2(0f, 37f), new Vector2(640f, 330f), "", 29, TextAnchor.MiddleCenter, Pale);
-            resultRestartButton = CreateButton(resultContent.transform, "Restart", new Vector2(0f, -241f), "REINICIAR", Apollo);
-            resultRestartButton.onClick.AddListener(RestartGame);
+            resultRestartButton = CreatePauseButton(resultContent.transform, "Restart", new Vector2(0f, -241f), "REINICIAR", pauseSkin != null ? pauseSkin.greenButton : null);
+            resultRestartButton.image.rectTransform.sizeDelta = new Vector2(500f, 112f);
+            resultActionLabel = resultRestartButton.transform.Find("Label").GetComponent<Text>();
+            resultRestartButton.transform.Find("Label").GetComponent<RectTransform>().sizeDelta = new Vector2(430f, 72f);
+            resultRestartButton.onClick.AddListener(ResultAction);
             resultContent.SetActive(false);
             modal.SetActive(false);
         }

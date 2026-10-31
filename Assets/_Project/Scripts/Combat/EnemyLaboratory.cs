@@ -98,7 +98,8 @@ namespace EchoScrap.Combat
             Enemies.BindReferences(Session, Player, Hazards);
             Child<DamageNumberPresenter>("Damage Numbers").BindReferences(Session, gameplayCamera);
             foreach (EnemyArchetypeId type in new[] { EnemyArchetypeId.Residual, EnemyArchetypeId.Interceptor,
-                EnemyArchetypeId.Colossus, EnemyArchetypeId.Mortar, EnemyArchetypeId.ExplosiveMoth })
+                EnemyArchetypeId.Colossus, EnemyArchetypeId.Mortar, EnemyArchetypeId.ExplosiveMoth,
+                EnemyArchetypeId.GhostKnight, EnemyArchetypeId.CopperSentinel })
                 Enemies.Prewarm(type, 4);
             cameraRig = FindAnyObjectByType<CinemachineCamera>();
             if (cameraRig != null)
@@ -246,11 +247,11 @@ namespace EchoScrap.Combat
             stepEnd = Session.GameplayTime + 0.1f;
         }
         public void Select(EnemyActor actor) => Selected = Owns(actor) ? actor : null;
-        public void DamageSelected(float amount)
+        public void DamageSelected(float amount, DamageType damageType = DamageType.Physical)
         {
             if (!Owns(Selected)) return;
             Vector3 direction = (Selected.WorldCenter - Player.WorldCenter).normalized;
-            var request = new DamageRequest(Player.TargetId, DamageSourceType.DummyOrHazard, Player.WorldCenter, direction, amount);
+            var request = new DamageRequest(Player.TargetId, DamageSourceType.DummyOrHazard, Player.WorldCenter, direction, amount, damageType: damageType);
             Selected.ReceiveDamage(in request);
         }
         public void PushSelected()

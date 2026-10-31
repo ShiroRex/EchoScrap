@@ -152,8 +152,13 @@ namespace EchoScrap.Tests
         [Test]
         public void VictorySummaryWaitsForBossExplosionAndGem_WhileGameplayRemainsFrozen()
         {
-            game.Session.Clock.AdvanceGameplayTime(180f); game.Director.Step(); game.Encounter.Step(1.5f);
+            game.Session.Clock.SetGameplayTimeForTesting(game.WaveSettings.BossStartTime);
+            game.Director.Step();
             var boss = game.Encounter.Boss; boss.AutoTick = false;
+            game.Encounter.Step(.31f);
+            game.Encounter.Step(.31f);
+            game.Encounter.Step(BossEncounter.IntroDuration);
+            Assert.AreEqual(GolgoraState.Pursuing, boss.State, "Finish the transfer and introduction before applying lethal damage.");
             var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, 2000f);
             boss.ReceiveDamage(in lethal); game.Session.ResolveSimulationStepOutcome();
             game.Encounter.DeathPresentation.AutoTick = false;

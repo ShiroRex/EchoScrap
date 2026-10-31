@@ -1,0 +1,6694 @@
+{
+  "frames": [
+    {
+      "filename": "MenuVortex_Purple 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 1.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 2.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 3.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 4.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 5.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 6.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 7.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 8.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 9.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 10.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 11.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 12.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 13.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 14.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 15.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 16.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 17.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 18.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 19.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 20.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 21.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 22.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 23.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 24.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 25.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 26.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 27.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 28.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 29.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 30.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 31.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 32.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 33.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 34.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 35.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 36.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 37.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 38.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 39.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 40.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 41.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 42.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 43.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 44.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 45.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 46.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 47.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 0
+    },
+    {
+      "filename": "MenuVortex_Purple 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 1.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 2.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 3.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 4.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 5.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 6.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 7.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 8.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 9.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 10.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 11.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 12.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 13.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 14.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 15.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 16.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 17.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 18.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 19.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 20.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 21.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 22.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 23.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 24.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 25.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 26.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 27.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 28.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 29.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 30.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 31.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 32.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 33.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 34.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 35.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 36.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 37.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 38.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 39.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 40.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 41.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 42.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 43.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 44.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 45.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 46.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 47.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 1
+    },
+    {
+      "filename": "MenuVortex_Purple 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 1.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 2.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 3.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 4.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 5.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 6.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 7.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 8.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 9.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 10.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 11.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 12.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 13.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 14.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 15.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 16.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 17.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 18.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 19.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 20.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 21.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 22.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 23.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 24.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 25.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 26.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 27.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 28.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 29.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 30.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 31.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 32.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 33.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 34.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 35.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 36.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 37.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 38.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 39.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 40.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 41.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 42.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 43.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 44.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 45.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 46.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 47.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 2
+    },
+    {
+      "filename": "MenuVortex_Purple 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 1.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 2.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 3.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 4.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 5.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 6.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 7.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 8.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 9.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 10.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 11.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 12.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 13.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 14.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 15.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 16.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 17.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 18.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 19.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 20.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 21.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 22.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 23.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 24.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 25.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 26.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 27.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 28.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 29.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 30.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 31.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 32.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 33.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 34.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 35.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 36.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 37.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 38.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 39.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 40.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 41.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 42.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 43.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 44.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 45.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 46.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 47.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 3
+    },
+    {
+      "filename": "MenuVortex_Purple 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 1.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 2.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 3.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 4.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 5.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 6.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 7.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 8.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 9.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 10.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 11.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 12.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 13.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 14.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 15.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 16.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 17.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 18.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 19.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 20.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 21.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 22.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 23.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 24.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 25.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 26.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 27.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 28.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 29.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 30.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 31.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 32.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 33.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 34.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 35.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 36.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 37.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 38.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 39.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 40.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 41.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 42.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 43.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 44.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 45.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 46.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 47.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 4
+    },
+    {
+      "filename": "MenuVortex_Purple 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 1.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 2.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 3.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 4.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 5.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 6.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 7.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 8.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 9.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 10.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 11.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 180,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 12.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 13.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 14.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 15.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 16.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 17.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 360,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 18.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 19.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 20.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 21.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 22.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 23.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 540,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 24.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 25.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 26.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 27.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 28.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 29.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 720,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 30.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 31.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 32.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 33.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 34.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 35.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 900,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 36.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 37.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 38.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 39.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 40.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 41.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1080,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 42.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 43.aseprite",
+      "frame": {
+        "x": 320,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 44.aseprite",
+      "frame": {
+        "x": 640,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 45.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 46.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 16,
+      "page": 5
+    },
+    {
+      "filename": "MenuVortex_Purple 47.aseprite",
+      "frame": {
+        "x": 1600,
+        "y": 1260,
+        "w": 320,
+        "h": 180
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 180
+      },
+      "duration": 17,
+      "page": 5
+    }
+  ],
+  "meta": {
+    "app": "https://www.aseprite.org/",
+    "version": "1.3.17-dev",
+    "format": "RGBA8888",
+    "size": {
+      "w": 1920,
+      "h": 1440
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "VortexIdle",
+        "from": 0,
+        "to": 287,
+        "direction": "forward"
+      }
+    ],
+    "layers": [
+      {
+        "name": "01 Tunnel shadow",
+        "opacity": 255,
+        "blendMode": "normal"
+      },
+      {
+        "name": "02 Receding folds",
+        "opacity": 255,
+        "blendMode": "normal"
+      },
+      {
+        "name": "03 Light filaments",
+        "opacity": 255,
+        "blendMode": "normal"
+      },
+      {
+        "name": "04 Core and motes",
+        "opacity": 255,
+        "blendMode": "normal"
+      }
+    ],
+    "slices": [
+      {
+        "name": "Mouth",
+        "keys": [
+          {
+            "frame": 0,
+            "bounds": {
+              "x": 146,
+              "y": 76,
+              "w": 28,
+              "h": 28
+            }
+          }
+        ]
+      }
+    ],
+    "pages": [
+      "Vortex_00",
+      "Vortex_01",
+      "Vortex_02",
+      "Vortex_03",
+      "Vortex_04",
+      "Vortex_05"
+    ],
+    "frameRate": 60,
+    "source": "MenuVortex_Purple.aseprite"
+  }
+}

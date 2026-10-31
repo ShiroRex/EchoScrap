@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f23c4526e9d4fc583c1d6aeecedac9a, type: 3}
+  m_Name: CombatSettings
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.GolgoraCombatSettings
+  HammerTriggerRange: 6.5
+  HammerRadius: 3
+  HammerForwardOffset: 3
+  HammerWindup: 1.2
+  HammerRecovery: 1
+  HammerCooldown: 6
+  HammerDamage: 40
+  CollateralDamage: 50
+  CollateralImpulse: 10
+  SweepRadius: 6
+  SweepArc: 180
+  SweepWindup: 1
+  SweepRecovery: 1
+  SweepCooldown: 7
+  SweepDamage: 30
+  BarrageWindup: 0.7
+  BarrageRecovery: 1
+  BarrageCooldown: 8
+  BarrageFlightDuration: 0.8
+  BarrageRadius: 2.5
+  BarrageDamage: 25
+  BarragePrediction: 0.6
+  BarrageFlankDistance: 4
+  PuddleDuration: 4
+  PuddleDamage: 5
+  PuddleTickInterval: 0.5
+  FirstCercoTime: 12
+  CercoReturnSpeed: 4
+  CercoWindup: 1.2
+  CercoRecovery: 1.2
+  CercoCooldown: 18
+  CercoPulseInterval: 1.3
+  RingStartRadius: 3
+  RingSpeed: 6
+  RingThickness: 0.6
+  RingGapDegrees: 60
+  RingGapRotation: 45
+  RingDamage: 30
+  PhaseTwoHealthFraction: 0.5
+  TransitionDuration: 1.8

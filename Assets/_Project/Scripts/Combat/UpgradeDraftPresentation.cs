@@ -332,6 +332,9 @@ namespace EchoScrap.Combat
                 cards[i].Before.gameObject.SetActive(comparing);
                 cards[i].ComparisonArrow.gameObject.SetActive(comparing);
                 cards[i].After.rectTransform.anchoredPosition = new Vector2(comparing ? 86f : 0f, -132f);
+                // A first acquisition has no before/arrow column. Give its value the free width
+                // so labels such as TODO EL MAPA remain two readable lines at every canvas scale.
+                cards[i].After.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, comparing ? 144f : 312f);
                 SetFittedText(cards[i].Before, comparing ? "AHORA\n" + offer.PrimaryBefore : string.Empty, 26, 22);
                 SetFittedText(cards[i].After, "AL ELEGIR\n" + offer.PrimaryAfter, 26, 22);
                 cards[i].After.color = new Color(0.69f, 0.87f, 0.5f);

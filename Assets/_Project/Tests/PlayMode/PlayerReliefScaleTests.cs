@@ -111,16 +111,27 @@ namespace EchoScrap.Tests
         public IEnumerator GameplayCameraFollowsElevationWithoutIncreasingTheCharacterSize()
         {
             var body = game.Motor.GetComponent<Rigidbody>();
+            // This fixture measures the camera at authored terrain heights. Keep its target
+            // still: motor collision recovery and support-height corrections are covered by
+            // the terrain/traversal fixtures and must not move it after the announced warp.
+            game.Motor.enabled = false;
+            body.linearVelocity = Vector3.zero;
+            body.isKinematic = true;
             body.interpolation = RigidbodyInterpolation.None;
             Vector3 referenceOffset = Vector3.zero;
             int sample = 0;
             foreach (Vector3 reference in new[] { Vector3.zero, new Vector3(-24f, 0f, 3f), new Vector3(-37f, 0f, 50f) })
             {
+                Vector3 before = body.position;
                 body.position = ArenaSurface.OnGround(ArenaSurface.ReferenceToWorld(reference), 1f);
                 game.Motor.transform.position = body.position;
-                body.linearVelocity = Vector3.zero;
+                // Use the same warp contract as warehouse travel and the boss transfer. Reading the
+                // camera before LateUpdate compares this physics step with the previous rendered pose.
+                game.CameraRig.OnTargetObjectWarped(game.Motor.transform, body.position - before);
+                game.CameraRig.PreviousStateIsValid = false;
                 Physics.SyncTransforms();
                 for (int i = 0; i < 4; i++) { yield return new WaitForFixedUpdate(); yield return null; }
+                yield return new WaitForEndOfFrame();
                 Vector3 offset = game.GameplayCamera.transform.position - body.position;
                 if (sample++ == 0) referenceOffset = offset;
                 Assert.That(offset.y, Is.EqualTo(referenceOffset.y).Within(0.15f), "The camera must follow the elevated ground immediately.");

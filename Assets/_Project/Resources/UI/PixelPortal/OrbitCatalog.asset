@@ -1,0 +1,484 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82209af62c0a4b97adbb9cb0ed9337ad, type: 3}
+  m_Name: OrbitCatalog
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.MenuOrbitCatalog
+  poolSize: 18
+  orbitSeconds: 8.4
+  outerRadius: 170
+  innerRadius: 3
+  spritePixels: 24
+  sprites:
+  - name: Collectible_Demonio_000
+    texture: {fileID: 2800000, guid: 7eefaad5744655d4c9ad299064f829a9, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 60
+      height: 59
+  - name: Collectible_Demonio_001
+    texture: {fileID: 2800000, guid: d40b3785fd3da454fa8501bac27db504, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 60
+      height: 59
+  - name: Collectible_Demonio_002
+    texture: {fileID: 2800000, guid: fcabd91e5de84864d94955a5d727a191, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 60
+      height: 59
+  - name: Collectible_Demonio_003
+    texture: {fileID: 2800000, guid: af118d7196f5a2c40a0ee689ad16878a, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 60
+      height: 59
+  - name: Collectible_Demonio2_000
+    texture: {fileID: 2800000, guid: 51e39810b361c4b439a6723d4cf48ffe, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 57
+      height: 59
+  - name: Collectible_Demonio2_001
+    texture: {fileID: 2800000, guid: b117e68618be0e044bc08c2410906de7, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 57
+      height: 59
+  - name: Collectible_Demonio2_002
+    texture: {fileID: 2800000, guid: f12177b24d1a9f042950b94b11c0a536, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 57
+      height: 59
+  - name: Collectible_Demonio2_003
+    texture: {fileID: 2800000, guid: 76e7a196f37a0114dbb700135f9bec4c, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 57
+      height: 59
+  - name: Collectible_Lobito_000
+    texture: {fileID: 2800000, guid: 1b2b291835ce05f4aa7078454310aa7b, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 49
+      height: 64
+  - name: Collectible_Mago_000
+    texture: {fileID: 2800000, guid: 487164659ff6c774aa8f20b3befc3451, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 39
+      height: 49
+  - name: Collectible_Shireen_000
+    texture: {fileID: 2800000, guid: 52efc78fb19720541a8f3d59254689cf, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 39
+      height: 62
+  - name: Collectible_Yanikua_000
+    texture: {fileID: 2800000, guid: 62d4ea3c16ab3844fb7851174bedcea1, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 61
+      height: 120
+  - name: Collectible_Yanikua_001
+    texture: {fileID: 2800000, guid: cfcc59757b8b39047bca72836360f790, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 61
+      height: 120
+  - name: Upgrade_Grayscale_Icon_Automation
+    texture: {fileID: 2800000, guid: e6a5474ea839e2543b2be8eb3d1782db, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_Grayscale_Icon_Cadence
+    texture: {fileID: 2800000, guid: 3f10ac0afc07bb24b9189dcd9d0f73cd, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_Grayscale_Icon_Cryo
+    texture: {fileID: 2800000, guid: 1b2ffc957d0be854b9e1c3a184eac511, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_Grayscale_Icon_Dash
+    texture: {fileID: 2800000, guid: c0bdee2007329e94ea90d05b63bbb571, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_Grayscale_Icon_Demolition
+    texture: {fileID: 2800000, guid: 560d61397a008e44b84e50078efe1f84, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_Grayscale_Icon_Lens
+    texture: {fileID: 2800000, guid: e2ec024292460534d9a11f39cc233d39, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_Grayscale_Icon_Magnet
+    texture: {fileID: 2800000, guid: bea365816968ba7469b2cc61e089e3c6, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_Grayscale_Icon_Power
+    texture: {fileID: 2800000, guid: 7d807b56fb68c674b988627c52c47912, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_Grayscale_Icon_Precision
+    texture: {fileID: 2800000, guid: 3f4806e07b29eec46b55c28832544319, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_Grayscale_Icon_Vitality
+    texture: {fileID: 2800000, guid: a942e3387878eff42961d6e5a4217acd, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_UpgradeCards_Icon_Cadence
+    texture: {fileID: 2800000, guid: ccf3140e89d11124a87a75cc85f3ed63, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_UpgradeCards_Icon_Dash
+    texture: {fileID: 2800000, guid: 13e39bfedf969a244b09a728cfe42354, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_UpgradeCards_Icon_Health
+    texture: {fileID: 2800000, guid: def40ef1a63fda341bb51516a45f3f78, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_UpgradeCards_Icon_Lens
+    texture: {fileID: 2800000, guid: 39fac0e4afc1bfa48918ee49752d1a1a, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_UpgradeCards_Icon_Magnet
+    texture: {fileID: 2800000, guid: 280dcae46a01bb648899d8e7c3d79c69, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_UpgradeCards_Icon_Medkit
+    texture: {fileID: 2800000, guid: 344247f3af71e1a4bb6c68df65d17fed, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_UpgradeCards_Icon_Overload
+    texture: {fileID: 2800000, guid: 772520d69d3ae3f4ebb5fc94882272c3, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Upgrade_UpgradeCards_Icon_Solar
+    texture: {fileID: 2800000, guid: 139110c9646bcc0468c1032216d370a9, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Armor
+    texture: {fileID: 2800000, guid: 0cdb8692c10b5c34cb5f8b07f28693c0, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 32
+      height: 32
+  - name: Item_Explosion
+    texture: {fileID: 2800000, guid: c8fef0cc191866e4cb10da339b173631, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Frost
+    texture: {fileID: 2800000, guid: f9709ec41d2c4c8478f89cfbeeaeae32, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Mine
+    texture: {fileID: 2800000, guid: 0986c9165ee760e40b24b5291a2cb4a9, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Saw
+    texture: {fileID: 2800000, guid: b2c7e23bec4a5034a86c9bb548544a32, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Shield
+    texture: {fileID: 2800000, guid: a5707c12704f04e47a3017fbf7e908e1, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Shockwave
+    texture: {fileID: 2800000, guid: 1e342de9a9af5d7478c1b233a30caf04, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Smoke
+    texture: {fileID: 2800000, guid: 3fea9832df0230e49ba6e1bed0dcdb64, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Spark
+    texture: {fileID: 2800000, guid: 2b7a1acda93d22c40a0730762907e8fc, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Turret
+    texture: {fileID: 2800000, guid: d5819b49e32618048a9be8ce5c840f62, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Item_Wind
+    texture: {fileID: 2800000, guid: 86ee9f738097bfb478e2c263f2f368d9, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 64
+      height: 64
+  - name: Pickup_Botiquin
+    texture: {fileID: 2800000, guid: 6262cfd476ac2534b921959faaf867d4, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 32
+      height: 32
+  - name: Item_AcidProjectile
+    texture: {fileID: 2800000, guid: 2291959cea6c7be41a53a9df880230f3, type: 3}
+    region:
+      serializedVersion: 2
+      x: 16
+      y: 0
+      width: 16
+      height: 16
+  - name: Item_AcidImpact
+    texture: {fileID: 2800000, guid: 30d35ec216d49204794e7e5e87202ca2, type: 3}
+    region:
+      serializedVersion: 2
+      x: 96
+      y: 0
+      width: 32
+      height: 32
+  - name: Item_AcidPuddle
+    texture: {fileID: 2800000, guid: 51b531f815a8168409364318c3303eda, type: 3}
+    region:
+      serializedVersion: 2
+      x: 192
+      y: 0
+      width: 64
+      height: 64
+  - name: Coleccionista_Down
+    texture: {fileID: 2800000, guid: 61514ec17a8330647877740d47a235ab, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 960
+      width: 64
+      height: 64
+  - name: Coleccionista_Right
+    texture: {fileID: 2800000, guid: 61514ec17a8330647877740d47a235ab, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 704
+      width: 64
+      height: 64
+  - name: Coleccionista_Up
+    texture: {fileID: 2800000, guid: 61514ec17a8330647877740d47a235ab, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 448
+      width: 64
+      height: 64
+  - name: Coleccionista_Left
+    texture: {fileID: 2800000, guid: 61514ec17a8330647877740d47a235ab, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 192
+      width: 64
+      height: 64
+  - name: PolillaReactor_Down
+    texture: {fileID: 2800000, guid: bd03fd2161f6477b811ec144894dbdb9, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 512
+      width: 64
+      height: 64
+  - name: PolillaReactor_Right
+    texture: {fileID: 2800000, guid: bd03fd2161f6477b811ec144894dbdb9, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 384
+      width: 64
+      height: 64
+  - name: PolillaReactor_Up
+    texture: {fileID: 2800000, guid: bd03fd2161f6477b811ec144894dbdb9, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 256
+      width: 64
+      height: 64
+  - name: PolillaReactor_Left
+    texture: {fileID: 2800000, guid: bd03fd2161f6477b811ec144894dbdb9, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 128
+      width: 64
+      height: 64
+  - name: MorteroCampana_Down
+    texture: {fileID: 2800000, guid: e66f019ca101c1c479fe1709be58a220, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 1216
+      width: 64
+      height: 64
+  - name: MorteroCampana_Right
+    texture: {fileID: 2800000, guid: e66f019ca101c1c479fe1709be58a220, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 896
+      width: 64
+      height: 64
+  - name: MorteroCampana_Up
+    texture: {fileID: 2800000, guid: e66f019ca101c1c479fe1709be58a220, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 576
+      width: 64
+      height: 64
+  - name: MorteroCampana_Left
+    texture: {fileID: 2800000, guid: e66f019ca101c1c479fe1709be58a220, type: 3}
+    region:
+      serializedVersion: 2
+      x: 0
+      y: 256
+      width: 64
+      height: 64
