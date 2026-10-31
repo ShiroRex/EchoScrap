@@ -84,6 +84,11 @@ namespace EchoScrap.Combat
         [Min(1)] public int PopulationCap = 150;
         [Min(0), Tooltip("Morteros simultáneos. Al llegar al límite se generan residuales.")]
         public int MortarPopulationCap = 6;
+        [Header("Élites: apariciones alternas antes del jefe")]
+        [Min(0f)] public float EliteFirstAppearance = 90f;
+        [Min(1f)] public float EliteSpawnInterval = 25f;
+        [Min(0), Tooltip("Límite conjunto de Caballeros y Centinelas. Cero desactiva sus apariciones.")]
+        public int ElitePopulationCap = 2;
         [Min(1)] public int StressPopulationCap = 250;
         [Min(0f)] public float BossStartTime = 180f;
         [Min(0.05f)] public float BossMinionInterval = 4f;

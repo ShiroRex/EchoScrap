@@ -73,6 +73,7 @@ namespace EchoScrap.Combat
         private Vector3 mortarEmitterRestScale;
         private float mortarRecoilRemaining;
         private ColossusCharge colossusCharge;
+        private EliteEnemyController elite;
         private readonly List<Renderer> archetypeRenderers = new List<Renderer>(8);
         private bool materialsConfigured;
         private EnemyArchetypeId presentedArchetypeId;
@@ -115,6 +116,7 @@ namespace EchoScrap.Combat
         public CombatSession Session => session;
         public PlayerHealth TargetPlayer => targetPlayer;
         public ColossusCharge Charge => colossusCharge;
+        public EliteEnemyController Elite => elite;
         public CorrosivePuddlePool PuddlePool => puddlePool;
 
         public void BindPuddlePool(CorrosivePuddlePool pool)
@@ -334,10 +336,15 @@ namespace EchoScrap.Combat
         private void OnDisable()
         {
             obstacleNavigator.Reset();
-            activeEnemies.Remove(this);
-            CombatTargetRegistry.Unregister(this);
+            UnregisterFromCombat();
             if (body != null && !body.isKinematic)
                 body.linearVelocity = Vector3.zero;
+        }
+
+        internal void UnregisterFromCombat()
+        {
+            activeEnemies.Remove(this);
+            CombatTargetRegistry.Unregister(this);
         }
 
         /// <summary>
@@ -421,6 +428,11 @@ namespace EchoScrap.Combat
             {
                 colossusCharge = GetComponent<ColossusCharge>() ?? gameObject.AddComponent<ColossusCharge>();
                 colossusCharge.Bind(this);
+            }
+            if (data.ArchetypeId == EnemyArchetypeId.GhostKnight || data.ArchetypeId == EnemyArchetypeId.CopperSentinel)
+            {
+                elite = GetComponent<EliteEnemyController>() ?? gameObject.AddComponent<EliteEnemyController>();
+                elite.Bind(this);
             }
         }
 
@@ -595,6 +607,7 @@ namespace EchoScrap.Combat
             }
 
             colossusCharge?.ResetForSpawn();
+            elite?.ResetForSpawn();
             if (!gameObject.activeSelf)
                 gameObject.SetActive(true);
 
@@ -678,13 +691,17 @@ namespace EchoScrap.Combat
 
             // 2. Calcular velocidad de locomoción hacia el objetivo + separación local + evitación sencilla
             Vector3 locomotionVelocity;
-            if (colossusCharge != null && colossusCharge.TryOverrideLocomotion(fixedDeltaTime, out Vector3 chargeVelocity))
+            if (elite != null && elite.TryOverrideLocomotion(fixedDeltaTime, out Vector3 eliteVelocity))
+                locomotionVelocity = eliteVelocity;
+            else if (colossusCharge != null && colossusCharge.TryOverrideLocomotion(fixedDeltaTime, out Vector3 chargeVelocity))
                 locomotionVelocity = chargeVelocity * (1f - SlowFraction);
             else
                 locomotionVelocity = isKnockedBack ? Vector3.zero : ComputeArchetypeLocomotion(fixedDeltaTime);
             currentDesiredVelocity = locomotionVelocity;
 
-            if (colossusCharge != null && colossusCharge.State != ColossusChargeState.Pursuit)
+            if (elite != null && elite.State != EliteEnemyState.Pursuit)
+                facingDirection = elite.LockedDirection;
+            else if (colossusCharge != null && colossusCharge.State != ColossusChargeState.Pursuit)
             {
                 facingDirection = colossusCharge.LockedDirection;
             }
@@ -1029,13 +1046,19 @@ namespace EchoScrap.Combat
                 : request.BaseDamage;
 
             bool executed = false;
-            bool playerAttack = request.SourceType == DamageSourceType.FlashlightPulse || request.SourceType == DamageSourceType.SolarPulse || (int)request.SourceType >= 10;
+            bool playerAttack = request.SourceType == DamageSourceType.FlashlightPulse || request.SourceType == DamageSourceType.SolarPulse ||
+                (request.SourceType >= DamageSourceType.UpgradeProjectile && request.SourceType <= DamageSourceType.UpgradeBlade);
             var upgradeStats = session != null ? session.PlayerStats : null;
             if (playerAttack && upgradeStats != null)
             {
                 if (IsFrozen) resolvedDamage *= 1f + upgradeStats.Upgrades.frozenDamageBonus;
                 if (isCritical && upgradeStats.GetUpgradeTier(UpgradeId.CRIT_05) > 0 && currentHealth / MaxHealth < upgradeStats.Upgrades.eyeHealthThreshold)
                     resolvedDamage *= upgradeStats.Upgrades.eyeCritMultiplier;
+            }
+            float resistance = elite != null ? elite.DamageMultiplier(request.DamageType) : 1f;
+            resolvedDamage *= resistance;
+            if (playerAttack && upgradeStats != null)
+            {
                 float threshold = UpgradeTuning.At(upgradeStats.Upgrades.executionThreshold, upgradeStats.GetUpgradeTier(UpgradeId.CRIT_03));
                 if (runtimeArchetype.ArchetypeId != EnemyArchetypeId.GolgoraBoss && threshold > 0f &&
                     resolvedDamage < currentHealth && (currentHealth - resolvedDamage) / MaxHealth + .000001f < threshold)
@@ -1079,7 +1102,7 @@ namespace EchoScrap.Combat
                 causedDeath,
                 false,
                 request.BurstId,
-                request.PulseIndex, request.DamageType, wasExecuted: executed);
+                request.PulseIndex, request.DamageType, wasExecuted: executed, wasResisted: resistance < 1f && !executed);
 
             session?.Events.PublishDamage(in result);
 

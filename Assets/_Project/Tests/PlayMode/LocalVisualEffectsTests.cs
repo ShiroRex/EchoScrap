@@ -42,7 +42,12 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator PortalAndLavaShadersRenderAndLavaClockRespectsPause()
         {
-            var lava=Object.FindAnyObjectByType<LavaHazard>();var renderer=lava.GetComponentInChildren<Renderer>();
+            var lava=Object.FindAnyObjectByType<LavaHazard>(FindObjectsInactive.Include);
+            Assert.IsNotNull(lava);
+            lava.AutoTick=false;
+            lava.transform.parent.gameObject.SetActive(true);
+            yield return null;
+            var renderer=lava.GetComponentInChildren<Renderer>();
             Assert.AreEqual("EchoScrap/StylizedLava",renderer.sharedMaterial.shader.name);Assert.IsTrue(renderer.sharedMaterial.shader.isSupported);
             lava.AutoTick=false;lava.StepHazard(1);float time=lava.AnimationTime;Assert.Greater(time,0);
             game.Session.SetManualPause(true);lava.StepHazard(1);Assert.AreEqual(time,lava.AnimationTime);game.Session.SetManualPause(false);

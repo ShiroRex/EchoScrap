@@ -224,6 +224,18 @@ namespace EchoScrap.Combat
             }
         }
 
+        public override void OnTargetObjectWarped(CinemachineVirtualCameraBase vcam, Transform target, Vector3 positionDelta)
+        {
+            if (target != trackedTarget) return;
+            // Warehouse travel and the foundry already notify Cinemachine explicitly. Consume that
+            // notification so the next frame's automatic detector does not apply the same warp twice.
+            lastTargetPosition = trackedTarget.position;
+            hasLastTargetPosition = true;
+            sustainedDirectionTimer = 0f;
+            sustainedReferenceDir = Vector3.zero;
+            currentLeadOffsetXZ = Vector3.zero;
+        }
+
         private void HandlePulseResolved(PulseResolvedEvent pulse)
         {
             if (pulse.PulseIndex == FlashlightWeapon.PulsesPerBurst)

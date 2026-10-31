@@ -79,6 +79,7 @@ namespace EchoScrap.Combat
         public SessionState State => state;
         public bool IsPaused => Clock.IsPaused;
         public bool IsInWarehouse { get; private set; }
+        public bool AllowManualPause { get; set; } = true;
         public void SetWarehouseVisit(bool active)
         {
             IsInWarehouse = active;
@@ -209,6 +210,7 @@ namespace EchoScrap.Combat
 
         public void ToggleManualPause()
         {
+            if (!AllowManualPause) return;
             SetManualPause(!clock.HasPauseReason(PauseReason.Manual));
         }
 

@@ -8,7 +8,7 @@ namespace EchoScrap.Combat
     [DisallowMultipleComponent]
     public sealed class BossEncounter : MonoBehaviour
     {
-        public const float IntroDuration = 1.5f;
+        public const float IntroDuration = 3f;
         public const int ClosingXp = 500;
         public const float ClearanceMargin = 0.5f;
         [SerializeField] private CombatSession session;
@@ -22,6 +22,7 @@ namespace EchoScrap.Combat
         private Rigidbody playerBody;
         private bool introInProgress;
         private bool closingRewardResolved;
+        private BossArena arena;
 
         public bool AutoTick { get; set; } = true;
         public GolgoraActor Boss { get; private set; }
@@ -30,8 +31,11 @@ namespace EchoScrap.Combat
         public int ClosingXpReward { get; private set; }
         public bool IntroWaitingForClearance { get; private set; }
         public GolgoraDeathPresentation DeathPresentation => deathPresentation;
+        public BossArena Arena => arena;
         public event Action<GolgoraActor> OnBossActivated;
         public event Action<int> ClosingXpAwarded;
+
+        public void BindArena(BossArena encounterArena) => arena = encounterArena;
 
         public void BindReferences(CombatSession combatSession, EnemyPool enemyPool, CorrosivePuddlePool hazardPool,
             CombatWaveDirector waveDirector, PlayerHealth targetPlayer)
@@ -91,11 +95,21 @@ namespace EchoScrap.Combat
             enemies.DespawnAllActive();
             hazards?.ClearAll();
             if (session != null) MothExplosionPool.GetOrCreate(session, player).ClearAll();
+            session?.GetComponent<EliteProjectilePool>()?.ClearAll();
             director?.SetBossActive(false);
+            director?.SuppressBossMinions(false);
             session?.SetBossIntroState(true);
-            Boss = enemies.Spawn(EnemyArchetypeId.GolgoraBoss, Vector3.up) as GolgoraActor;
+            Vector3 spawn = arena != null ? ArenaSurface.OnGround(arena.Center, 1f) : Vector3.up;
+            Boss = enemies.Spawn(EnemyArchetypeId.GolgoraBoss, spawn) as GolgoraActor;
             if (Boss == null) return;
             Boss.BindHazards(hazards);
+            if (arena != null)
+            {
+                Boss.BindArena(arena.Center, arena.Radius);
+                Boss.CercoStarted += SuspendReinforcements;
+                Boss.CercoCompleted += ResumeReinforcements;
+                arena.BeginEncounter(Boss);
+            }
             IsEncounterActive = true;
             introInProgress = true;
             IntroRemaining = IntroDuration;
@@ -111,9 +125,11 @@ namespace EchoScrap.Combat
 
         public void Step(float deltaTime)
         {
-            if (deltaTime <= 0f || !IsEncounterActive || Boss == null || !introInProgress
+            if (deltaTime <= 0f || !IsEncounterActive || Boss == null
                 || (session != null && (session.IsPaused || !session.IsGameplayFlowActive())))
                 return;
+            arena?.Step(deltaTime);
+            if (!introInProgress || (arena != null && arena.IsTransferring)) return;
             IntroRemaining = Mathf.Max(0f, IntroRemaining - deltaTime);
             var presentation = Boss.GetComponent<GolgoraPresentation>();
             presentation?.SetIntroProgress(1f - IntroRemaining / IntroDuration);
@@ -128,6 +144,31 @@ namespace EchoScrap.Combat
             session?.SetBossIntroState(false);
             director?.SetBossActive(true);
             OnBossActivated?.Invoke(Boss);
+        }
+
+        private void SuspendReinforcements()
+        {
+            director?.SuppressBossMinions(true);
+            arena?.CancelReinforcements();
+            // The foundry discharges before its ring sequence. No kill rewards or delayed explosions.
+            var actors = EnemyActor.ActiveEnemies;
+            for (int i = actors.Count - 1; i >= 0; i--)
+            {
+                var actor = actors[i];
+                if (actor != null && actor != Boss && actor.Session == session) enemies.ReturnToPool(actor);
+            }
+            hazards?.ClearAll();
+            if (session != null) MothExplosionPool.GetOrCreate(session, player).ClearAll();
+            session?.GetComponent<EliteProjectilePool>()?.ClearAll();
+        }
+
+        private void ResumeReinforcements() => director?.SuppressBossMinions(false);
+
+        private void DetachBossEvents()
+        {
+            if (Boss == null) return;
+            Boss.CercoStarted -= SuspendReinforcements;
+            Boss.CercoCompleted -= ResumeReinforcements;
         }
 
         private bool EnsurePlayerClearance()
@@ -193,11 +234,14 @@ namespace EchoScrap.Combat
 
         private void EndEncounter()
         {
+            DetachBossEvents();
+            arena?.EndEncounter();
             introInProgress = false;
             IntroRemaining = 0f;
             IsEncounterActive = false;
             IntroWaitingForClearance = false;
             director?.SetBossActive(false);
+            director?.SuppressBossMinions(false);
             enemies?.DespawnAllActive();
             hazards?.ClearAll();
             if (session != null) MothExplosionPool.GetOrCreate(session, player).ClearAll();
@@ -205,6 +249,8 @@ namespace EchoScrap.Combat
 
         public void ResetForSession()
         {
+            DetachBossEvents();
+            arena?.EndEncounter();
             if (Boss != null && Boss.gameObject.activeSelf)
             {
                 if (enemies != null) enemies.ReturnToPool(Boss);
@@ -215,6 +261,7 @@ namespace EchoScrap.Combat
             IntroRemaining = 0f;
             ClosingXpReward = 0;
             director?.SetBossActive(false);
+            director?.SuppressBossMinions(false);
             deathPresentation?.Clear();
         }
     }

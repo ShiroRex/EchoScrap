@@ -1,0 +1,47 @@
+{ "frames": [
+   {
+    "filename": "MenuControls 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 184, "h": 136 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 184, "h": 136 },
+    "sourceSize": { "w": 184, "h": 136 },
+    "duration": 100
+   },
+   {
+    "filename": "MenuControls 1.aseprite",
+    "frame": { "x": 184, "y": 0, "w": 184, "h": 136 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 184, "h": 136 },
+    "sourceSize": { "w": 184, "h": 136 },
+    "duration": 100
+   },
+   {
+    "filename": "MenuControls 2.aseprite",
+    "frame": { "x": 368, "y": 0, "w": 184, "h": 136 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 184, "h": 136 },
+    "sourceSize": { "w": 184, "h": 136 },
+    "duration": 100
+   },
+   {
+    "filename": "MenuControls 3.aseprite",
+    "frame": { "x": 552, "y": 0, "w": 184, "h": 136 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 184, "h": 136 },
+    "sourceSize": { "w": 184, "h": 136 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.17-dev",
+  "image": "Controls.png",
+  "format": "RGBA8888",
+  "size": { "w": 736, "h": 136 },
+  "scale": "1"
+ }
+}

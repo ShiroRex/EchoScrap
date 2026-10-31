@@ -522,6 +522,44 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void ElitesEnterGraduallyAlternateAndRespectTheirSharedCapAndReset()
+        {
+            settings.EliteFirstAppearance=2f;settings.EliteSpawnInterval=2f;settings.ElitePopulationCap=2;
+            settings.Phases=new[]{new CombatWavePhase(0,.5f,.5f,1,new EnemyWaveWeights(100,0,0,0,0),new EnemyWaveWeights(100,0,0,0,0))};
+            director.Settings=settings;director.ResetForSession();
+            AdvanceDirector(.5f);
+            Assert.That(CountElite(EnemyArchetypeId.GhostKnight),Is.Zero);
+            AdvanceDirector(1.5f);
+            Assert.That(CountElite(EnemyArchetypeId.GhostKnight),Is.EqualTo(1));
+            AdvanceDirector(2f);
+            Assert.That(CountElite(EnemyArchetypeId.CopperSentinel),Is.EqualTo(1));
+            AdvanceDirector(2f);
+            Assert.That(CountElite(EnemyArchetypeId.GhostKnight)+CountElite(EnemyArchetypeId.CopperSentinel),Is.EqualTo(2));
+            session.ResetSession(20261022);AdvanceDirector(2f);
+            Assert.That(CountElite(EnemyArchetypeId.GhostKnight),Is.EqualTo(1));
+            Assert.That(CountElite(EnemyArchetypeId.CopperSentinel),Is.Zero);
+        }
+
+        private int CountElite(EnemyArchetypeId id)
+        {
+            int count=0;
+            foreach(var actor in EnemyActor.ActiveEnemies)if(actor.Session==session&&actor.IsAlive&&actor.ArchetypeId==id)count++;
+            return count;
+        }
+
+        [Test]
+        public void BossTransitionClearsCopperProjectilesFromTheSurvivalWaves()
+        {
+            var copper=enemies.Spawn(EnemyArchetypeId.CopperSentinel,new Vector3(0,1,8));
+            var projectiles=session.GetComponent<EliteProjectilePool>();projectiles.AutoTick=false;
+            projectiles.FireFan(copper.TargetId,copper.WorldCenter,Vector3.back,EliteAttackData.Copper);
+            Assert.That(projectiles.ActiveCount,Is.EqualTo(3));
+            AdvanceDirector(settings.BossStartTime);
+            Assert.That(director.IsBossPhase,Is.True);
+            Assert.That(projectiles.ActiveCount,Is.Zero);
+        }
+
+        [Test]
         public void DirectorUsesSessionClock_AndRepeatedEvaluationDoesNotAdvanceTimeOrSpawnAgain()
         {
             session.Clock.SetGameplayTimeForTesting(1.2f);

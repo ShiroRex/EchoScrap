@@ -20,7 +20,12 @@ namespace EchoScrap.Combat
         public bool IsInWarehouse => game != null && game.Session.IsInWarehouse;
         private void Start()
         {
-            game=FindAnyObjectByType<CombatGameBootstrap>();
+            Initialize(FindAnyObjectByType<CombatGameBootstrap>());
+        }
+        public void Initialize(CombatGameBootstrap owner)
+        {
+            if(game!=null) return;
+            game=owner;
             if(game!=null) {
                 cameraDirector=GetComponent<WarehouseCameraDirector>();
                 if(cameraDirector==null) cameraDirector=gameObject.AddComponent<WarehouseCameraDirector>();
@@ -44,6 +49,19 @@ namespace EchoScrap.Combat
             if(game==null || player!=game.Player || !player.IsAlive || Time.time<nextTravel ||
                 fromWarehouse!=IsInWarehouse || game.Session.IsPaused || game.Session.State!=SessionState.Running)
                 return false;
+            if(fromWarehouse && game.Flow!=null && game.Flow.State==GameFlowState.Vault)
+                return game.Flow.BeginExpedition();
+            return Relocate(fromWarehouse);
+        }
+        /// <summary>Used after a clean run reset by the front end; normal gateways retain their guards.</summary>
+        public bool PlaceInWarehouse(bool inside)
+        {
+            if(game==null) return false;
+            return Relocate(!inside);
+        }
+        private bool Relocate(bool fromWarehouse)
+        {
+            var player=game.Player;
             Transform arrival=fromWarehouse ? CombatArrival : WarehouseArrival;
             if(arrival==null) return false;
             game.Motor.CancelDashAndRestoreState(); game.Motor.Stop();

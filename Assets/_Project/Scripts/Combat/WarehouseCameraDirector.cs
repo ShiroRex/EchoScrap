@@ -17,7 +17,8 @@ namespace EchoScrap.Combat
         private Color ambientColor;
         private float ambientIntensity;
         private bool initialized, inside;
-        public float CaveBlend { get; private set; }
+        // El acceso norte ya se ve desde la orientación normal de combate.
+        public float CaveBlend => 0f;
         public void Initialize(CombatGameBootstrap owner, WarehouseTravel connection)
         {
             if(initialized) return;
@@ -36,29 +37,19 @@ namespace EchoScrap.Combat
             inside=value;
             if(inside) {RenderSettings.ambientMode=UnityEngine.Rendering.AmbientMode.Flat;RenderSettings.ambientLight=new Color(.48f,.53f,.6f);RenderSettings.ambientIntensity=1;}
             else RestoreAmbient();
-            var p=game.Player.transform.position;
-            CaveBlend=!inside && p.x>62 && p.x<78 && p.z>-69 ? Mathf.InverseLerp(-31,-38,p.z) : 0;
             confiner.BoundingVolume=travel.InteriorCameraBounds;
             confiner.enabled=inside && travel.InteriorCameraBounds!=null;
             Apply(1f);
         }
         private void LateUpdate()
         {
-            if(!initialized || game.Player==null) return;
-            var p=game.Player.transform.position;
-            float entrance=!inside && p.x>62 && p.x<78 && p.z>-69
-                ? Mathf.InverseLerp(-31,-38,p.z) : 0;
-            CaveBlend=Mathf.MoveTowards(CaveBlend,entrance,Time.unscaledDeltaTime*4f);
+            if(!initialized || !inside || game.Player==null) return;
             Apply(1f-Mathf.Exp(-Time.unscaledDeltaTime*7f));
         }
         private void Apply(float blend)
         {
-            // The cave is approached toward -Z; view it from behind the descending player.
-            var caveRotation=Quaternion.Euler(combatRotation.eulerAngles.x,180,0);
-            var rotation=inside ? Quaternion.Euler(32,0,0) : Quaternion.Slerp(combatRotation,caveRotation,CaveBlend);
-            // Orbit at a steady distance instead of interpolating through the player.
-            var offset=inside ? Quaternion.Euler(32,0,0)*Vector3.back*10f
-                : rotation*Vector3.back*Mathf.Lerp(combatOffset.magnitude,12f,CaveBlend);
+            var rotation=inside ? Quaternion.Euler(32,0,0) : combatRotation;
+            var offset=inside ? Quaternion.Euler(32,0,0)*Vector3.back*10f : combatOffset;
             follow.FollowOffset=offset;
             game.CameraRig.transform.rotation=rotation;
             var lens=game.CameraRig.Lens; lens.FieldOfView=Mathf.Lerp(lens.FieldOfView,inside?65f:combatFov,blend);game.CameraRig.Lens=lens;
@@ -67,7 +58,7 @@ namespace EchoScrap.Combat
         private void OnDestroy() {if(inside)RestoreAmbient();}
         public void ResetView()
         {
-            RestoreAmbient();CaveBlend=0;inside=false;
+            RestoreAmbient();inside=false;
             if(!initialized) return;
             confiner.enabled=false; follow.FollowOffset=combatOffset;game.CameraRig.transform.rotation=combatRotation;
             var lens=game.CameraRig.Lens;lens.FieldOfView=combatFov;game.CameraRig.Lens=lens;

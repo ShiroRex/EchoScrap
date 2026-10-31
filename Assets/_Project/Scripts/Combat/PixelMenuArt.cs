@@ -1,0 +1,99 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+namespace EchoScrap.Combat
+{
+    /// <summary>Aseprite menu exports and a catalog of the game's existing sprites.</summary>
+    internal sealed class PixelMenuArt : IDisposable
+    {
+        [Serializable] internal sealed class Area { public int x, y, w, h; }
+        [Serializable] internal sealed class Cel { public Area frame; public int duration; public int page; }
+        [Serializable] private sealed class SliceKey { public Area bounds; }
+        [Serializable] private sealed class Slice { public string name; public SliceKey[] keys; }
+        [Serializable] private sealed class Meta { public Slice[] slices; public string[] pages; public float frameRate; }
+        [Serializable] private sealed class Export { public Cel[] frames; public Meta meta; }
+        internal sealed class Sequence
+        {
+            public Texture2D[] Textures;
+            public Texture2D Texture => Textures[0];
+            public Cel[] Frames;
+            public float Length, FrameRate;
+            public int FrameAt(float time)
+            {
+                float remaining = Mathf.Repeat(time, Length); int index = 0;
+                if (FrameRate > 0) return Mathf.Min(Frames.Length - 1, Mathf.FloorToInt(remaining * FrameRate + .0001f));
+                while (index < Frames.Length - 1 && remaining >= Frames[index].duration * .001f)
+                    remaining -= Frames[index++].duration * .001f;
+                return index;
+            }
+            public Texture2D TextureAt(int index) => Textures[Frames[index].page];
+            public Rect UvAt(int index)
+            {
+                Texture2D texture = TextureAt(index);
+                Area r = Frames[index].frame;
+                return new Rect(r.x / (float)texture.width, 1f - (r.y + r.h) / (float)texture.height, r.w / (float)texture.width, r.h / (float)texture.height);
+            }
+        }
+        private readonly List<Sprite> owned = new List<Sprite>();
+        public readonly Sequence Vortex;
+        public readonly Texture2D Foreground;
+        public readonly Sprite Panel, Blue, Green, Red;
+        public readonly MenuOrbitCatalog OrbitCatalog;
+        public readonly Sprite[] OrbitSprites;
+        public readonly Vector2 MouthNormalized;
+        public PixelMenuArt()
+        {
+            Vortex = Load("Vortex"); Foreground = Resources.Load<Texture2D>("UI/PixelPortal/VortexFront");
+            var export = JsonUtility.FromJson<Export>(Resources.Load<TextAsset>("UI/PixelPortal/Vortex").text);
+            foreach (var slice in export.meta.slices)
+                if (slice.name == "Mouth")
+                {
+                    Area r = slice.keys[0].bounds;
+                    MouthNormalized = new Vector2((r.x + r.w * .5f) / Vortex.Frames[0].frame.w, 1f - (r.y + r.h * .5f) / Vortex.Frames[0].frame.h);
+                }
+            var controls = Load("Controls");
+            Panel = Cut(controls.Texture, controls.Frames[0].frame, null, Vector4.one * 4);
+            var plate = new Area { x = 36, y = 56, w = 112, h = 24 };
+            Blue = Cut(controls.Texture, controls.Frames[1].frame, plate, Vector4.one * 4);
+            Green = Cut(controls.Texture, controls.Frames[2].frame, plate, Vector4.one * 4);
+            Red = Cut(controls.Texture, controls.Frames[3].frame, plate, Vector4.one * 4);
+            OrbitCatalog = Resources.Load<MenuOrbitCatalog>("UI/PixelPortal/OrbitCatalog");
+            if (OrbitCatalog == null || OrbitCatalog.sprites == null || OrbitCatalog.sprites.Length == 0)
+                throw new InvalidOperationException("Missing menu orbit sprite catalog.");
+            OrbitSprites = new Sprite[OrbitCatalog.sprites.Length];
+            for (int id = 0; id < OrbitSprites.Length; id++)
+            {
+                var entry = OrbitCatalog.sprites[id];
+                if (entry.texture == null || entry.region.width <= 0 || entry.region.height <= 0)
+                    throw new InvalidOperationException("Invalid menu sprite region: " + entry.name);
+                var sprite = Sprite.Create(entry.texture, entry.region, Vector2.one * .5f, 100, 0, SpriteMeshType.FullRect);
+                sprite.name = entry.name;
+                OrbitSprites[id] = sprite; owned.Add(sprite);
+            }
+        }
+        private static Sequence Load(string name)
+        {
+            var metadata = Resources.Load<TextAsset>("UI/PixelPortal/" + name);
+            if (metadata == null) throw new InvalidOperationException("Missing Aseprite menu export: " + name);
+            var data = JsonUtility.FromJson<Export>(metadata.text);
+            string[] pages = data.meta.pages ?? new[] { name };
+            var result = new Sequence { Textures = new Texture2D[pages.Length], Frames = data.frames, FrameRate = data.meta.frameRate };
+            for (int i = 0; i < pages.Length; i++)
+            {
+                result.Textures[i] = Resources.Load<Texture2D>("UI/PixelPortal/" + pages[i]);
+                if (result.Textures[i] == null) throw new InvalidOperationException("Missing Aseprite menu page: " + pages[i]);
+            }
+            if (result.FrameRate > 0) result.Length = result.Frames.Length / result.FrameRate;
+            else foreach (var frame in result.Frames) result.Length += Mathf.Max(1, frame.duration) * .001f;
+            return result;
+        }
+        private Sprite Cut(Texture2D texture, Area cel, Area crop, Vector4 border)
+        {
+            int x = cel.x + (crop != null ? crop.x : 0), y = cel.y + (crop != null ? crop.y : 0);
+            int w = crop != null ? crop.w : cel.w, h = crop != null ? crop.h : cel.h;
+            var sprite = Sprite.Create(texture, new Rect(x, texture.height - y - h, w, h), Vector2.one * .5f, 100, 0, SpriteMeshType.FullRect, border);
+            owned.Add(sprite); return sprite;
+        }
+        public void Dispose() { foreach (var sprite in owned) if (sprite != null) UnityEngine.Object.Destroy(sprite); owned.Clear(); }
+    }
+}

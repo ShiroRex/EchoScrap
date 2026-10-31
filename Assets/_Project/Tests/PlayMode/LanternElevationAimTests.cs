@@ -102,26 +102,47 @@ namespace EchoScrap.Tests
         public IEnumerator PauseKeepsHeightAimAndDespawningTargetReleasesItsVerticalDirection()
         {
             PlacePlayer(LowSlopeReference);
-            EnemyActor enemy = SpawnFrozen(HighSlopeReference);
+            // Keep the target close to the three-metre terrain sample. Its body centre
+            // then has a clearly different elevation from the ground preview even at
+            // the edge of the foundry's newly flattened clearing.
+            EnemyActor enemy = SpawnFrozen(new Vector3(-16f, 0f, 3f));
+            enemy.PreventLethalDamage = true;
             game.Weapon.UpdateAim(1f);
             yield return null;
             yield return null;
-            AssertTargetAlignment(enemy, true);
+            Vector3 direction = Vector3.zero;
+            yield return AssertAfterGameplayCameraRender(() =>
+            {
+                AssertTargetAlignment(enemy, true);
+                direction = presentation.ImportedView.KeyLight.transform.forward;
+                Vector3 point = game.Weapon.OriginPosition + game.Weapon.CurrentAimDirection * Mathf.Min(3f, game.Weapon.ActiveBurstRange);
+                point.y = ArenaSurface.Height(point) + 0.05f;
+                Vector3 preview = (point - presentation.ImportedView.KeyLight.transform.position).normalized;
+                Assert.Less(Vector3.Dot(direction, preview), 0.995f,
+                    "The fixture must distinguish aiming at the enemy's centre from previewing the ground.");
+            });
             game.Session.SetManualPause(true);
-            Vector3 direction = presentation.ImportedView.KeyLight.transform.forward;
-            yield return null;
-            yield return null;
-            Assert.Greater(Vector3.Dot(direction, presentation.ImportedView.KeyLight.transform.forward), 0.9999f,
-                "Pausing must preserve the elevation that was visible when the game stopped.");
-            AssertTargetAlignment(enemy, true);
+            yield return AssertAfterGameplayCameraRender(() =>
+            {
+                Assert.Greater(Vector3.Dot(direction, presentation.ImportedView.KeyLight.transform.forward), 0.9999f,
+                    "Pausing must preserve the elevation that was visible when the game stopped.");
+                AssertTargetAlignment(enemy, true);
+            });
             game.Enemies.ReturnToPool(enemy);
             game.Weapon.UpdateAim(0f);
-            yield return null;
-            yield return null;
-            Assert.IsNull(game.Weapon.CurrentTarget, "A pooled enemy must stop driving the lantern elevation.");
-            Assert.Less(Vector3.Dot(direction, presentation.ImportedView.KeyLight.transform.forward), 0.999f,
-                "The lantern must return to its terrain preview after losing the elevated target.");
-            AssertOriginAndCombatContract();
+            yield return AssertAfterGameplayCameraRender(() =>
+            {
+                Assert.IsNull(game.Weapon.CurrentTarget, "A pooled enemy must stop driving the lantern elevation.");
+                Vector3 point = game.Weapon.OriginPosition + game.Weapon.CurrentAimDirection * Mathf.Min(3f, game.Weapon.ActiveBurstRange);
+                point.y = ArenaSurface.Height(point) + 0.05f;
+                Vector3 expected = (point - presentation.ImportedView.KeyLight.transform.position).normalized;
+                Vector3 actual = presentation.ImportedView.KeyLight.transform.forward;
+                Assert.Greater(Vector3.Dot(expected, actual), 0.9999f,
+                    "The rendered light must follow the terrain sample immediately after its target is pooled.");
+                Assert.Less(Vector3.Dot(direction, actual), 0.999f,
+                    "The lantern must return to its terrain preview after losing the elevated target.");
+                AssertOriginAndCombatContract();
+            });
         }
 
         [UnityTest]

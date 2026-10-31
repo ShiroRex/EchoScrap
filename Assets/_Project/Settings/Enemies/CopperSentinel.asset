@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3432e92fc7fbb48408aba49cbbf6058e, type: 3}
+  m_Name: CopperSentinel
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.EnemyArchetypeSettings
+  data:
+    ArchetypeId: 7
+    DisplayName: Centinela de Cobre
+    MaxHealth: 160
+    BaseMoveSpeed: 1.7
+    SpeedVarianceFraction: 0
+    ContactDamage: 0
+    ContactCooldown: 0.5
+    XpReward: 80
+    IsEliteDropTier: 1
+    KnockbackSusceptibility: 0
+    KnockbackBraking: 24
+    VisualScale: {x: 1.2, y: 1, z: 1.2}
+    ColliderRadius: 0.5
+    ColliderHeight: 2
+    PrimaryColor: {r: .67, g: .38, b: .2, a: 1}
+    SecondaryColor: {r: .95, g: .7, b: .3, a: 1}
+    IsHeavyMass: 1
+    EliteAttack:
+      ResistedDamageMultiplier: 0.25
+      Windup: 1
+      Recovery: 2
+      Cooldown: 3.5
+      Range: 11
+      Damage: 16
+      ArcDegrees: 50
+      ProjectileSpeed: 8
+      ProjectileLifetime: 2

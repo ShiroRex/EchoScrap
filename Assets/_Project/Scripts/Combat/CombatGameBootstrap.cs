@@ -40,10 +40,12 @@ namespace EchoScrap.Combat
         public MothExplosionPool MothExplosions { get; private set; }
         public CombatWaveDirector Director { get; private set; }
         public BossEncounter Encounter { get; private set; }
+        public BossArena BossArena { get; private set; }
         public UpgradeDraftController Draft { get; private set; }
         public UpgradeDraftPresentation DraftPresentation { get; private set; }
         public FlashlightWeapon Weapon { get; private set; }
         public CombatHud Hud { get; private set; }
+        public GameFlowController Flow { get; internal set; }
         public DamageNumberPresenter DamageNumbers { get; private set; }
         public Camera GameplayCamera => gameplayCamera;
         public CinemachineCamera CameraRig => cameraRig;
@@ -54,7 +56,12 @@ namespace EchoScrap.Combat
         public Collider ArenaGround => arenaGround;
 
         private void Awake() => Initialize();
-        private void Start() => ResetRun(false);
+        private void Start()
+        {
+            ResetRun(false);
+            if (MainMenuEntry.ConsumeEntryRequest())
+                GetOrAdd<GameFlowController>(gameObject).Initialize(this);
+        }
 
         public void AssignSceneReferences(PlayerMotor motor, Camera camera, CinemachineCamera rig,
             Material[] retainedMaterials = null, CombatWaveSettings waves = null, Collider floor = null)
@@ -120,8 +127,12 @@ namespace EchoScrap.Combat
             Director.BindReferences(Session, Enemies, Player, gameplayCamera);
             Director.BindSpawnContext(arenaGround, cameraRig);
             Director.BindHazardPool(Hazards);
+            BossArena = SystemObject<BossArena>("GolgoraArena");
+            BossArena.BindReferences(this);
+            Director.BindBossArena(BossArena);
             Encounter = SystemObject<BossEncounter>("BossEncounter");
             Encounter.BindReferences(Session, Enemies, Hazards, Director, Player);
+            Encounter.BindArena(BossArena);
             cameraRig.Follow = playerObject.transform;
             cameraFeedback = GetOrAdd<CombatCameraFeedback>(cameraRig.gameObject);
             cameraFeedback.BindReferences(Session, playerObject.transform,
@@ -141,6 +152,8 @@ namespace EchoScrap.Combat
                 Enemies.Prewarm(EnemyArchetypeId.Colossus, 10);
                 Enemies.Prewarm(EnemyArchetypeId.Mortar, 20);
                 Enemies.Prewarm(EnemyArchetypeId.ExplosiveMoth, 15);
+                Enemies.Prewarm(EnemyArchetypeId.GhostKnight, 2);
+                Enemies.Prewarm(EnemyArchetypeId.CopperSentinel, 2);
             }
             initialized = true;
             return true;

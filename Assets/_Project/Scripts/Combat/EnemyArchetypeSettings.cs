@@ -11,7 +11,33 @@ namespace EchoScrap.Combat
         Colossus = 3,
         Mortar = 4,
         ExplosiveMoth = 5,
+        GhostKnight = 6,
+        CopperSentinel = 7,
         GolgoraBoss = 99
+    }
+
+    [Serializable]
+    public struct EliteAttackData
+    {
+        [Range(.01f, 1f)] public float ResistedDamageMultiplier;
+        [Min(.1f)] public float Windup;
+        [Min(.1f)] public float Recovery;
+        [Min(.1f)] public float Cooldown;
+        [Min(.1f)] public float Range;
+        [Min(0f)] public float Damage;
+        [Range(1f, 180f)] public float ArcDegrees;
+        [Min(.1f)] public float ProjectileSpeed;
+        [Min(.1f)] public float ProjectileLifetime;
+        public static EliteAttackData Ghost => new EliteAttackData
+        {
+            ResistedDamageMultiplier = .25f, Windup = .8f, Recovery = .8f, Cooldown = 3.5f,
+            Range = 3.6f, Damage = 22f, ArcDegrees = 120f, ProjectileSpeed = 8f, ProjectileLifetime = 2f
+        };
+        public static EliteAttackData Copper => new EliteAttackData
+        {
+            ResistedDamageMultiplier = .25f, Windup = 1f, Recovery = 2f, Cooldown = 3.5f,
+            Range = 11f, Damage = 16f, ArcDegrees = 50f, ProjectileSpeed = 8f, ProjectileLifetime = 2f
+        };
     }
 
     [Serializable]
@@ -57,6 +83,8 @@ namespace EchoScrap.Combat
         public bool IsHeavyMass;
         [Header("Ataque del mortero (metros y segundos)")]
         public MortarAttackData MortarAttack;
+        [Header("Élites: resistencia y ataque")]
+        public EliteAttackData EliteAttack;
 
         public static EnemyArchetypeData CreateDefault(EnemyArchetypeId id)
         {
@@ -176,6 +204,22 @@ namespace EchoScrap.Combat
                         PrimaryColor = new Color(0.95f, 0.25f, 0.48f, 1f),
                         SecondaryColor = new Color(1.00f, 0.88f, 0.25f, 1f),
                         IsHeavyMass = false
+                    };
+
+                case EnemyArchetypeId.GhostKnight:
+                case EnemyArchetypeId.CopperSentinel:
+                    bool copper = id == EnemyArchetypeId.CopperSentinel;
+                    return new EnemyArchetypeData
+                    {
+                        ArchetypeId = id, DisplayName = copper ? "Centinela de Cobre" : "Caballero Fantasma",
+                        MaxHealth = copper ? 160f : 110f, BaseMoveSpeed = copper ? 1.7f : 2.8f,
+                        ContactDamage = 0f, ContactCooldown = .5f, XpReward = copper ? 80 : 65,
+                        IsEliteDropTier = true, KnockbackSusceptibility = copper ? 0f : .35f,
+                        KnockbackBraking = 24f, VisualScale = copper ? new Vector3(1.2f, 1f, 1.2f) : Vector3.one,
+                        ColliderRadius = .5f, ColliderHeight = 2f, IsHeavyMass = copper,
+                        PrimaryColor = copper ? new Color(.67f,.38f,.2f) : new Color(.3f,.65f,.8f),
+                        SecondaryColor = copper ? new Color(.95f,.7f,.3f) : new Color(.65f,.95f,1f),
+                        EliteAttack = copper ? EliteAttackData.Copper : EliteAttackData.Ghost
                     };
 
                 case EnemyArchetypeId.GolgoraBoss:

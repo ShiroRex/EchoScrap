@@ -1,268 +1,221 @@
+using System.Collections.Generic;
 using EchoScrap.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace EchoScrap.Combat
 {
-    /// <summary>Preparación, golpe y masa del jefe. Los avisos sobreviven a efectos reducidos.</summary>
+    /// <summary>Attack truth owns the boundary; foundry layers add anticipation and physical weight.</summary>
     [DisallowMultipleComponent]
     public sealed class GolgoraPresentation : MonoBehaviour
     {
+        private readonly Dictionary<Transform, Renderer> groundRenderers = new Dictionary<Transform, Renderer>(12);
         private GolgoraActor actor;
         private GameObject groundRoot;
-        private Transform warningRing;
-        private Transform warningFill;
-        private Transform shockRing;
-        private Transform core;
-        private Transform leftShoulder;
-        private Transform rightShoulder;
-        private Renderer coreRenderer;
-        private Renderer ringRenderer;
-        private Renderer fillRenderer;
-        private Renderer shockRenderer;
-        private Material bodyMaterial;
-        private Material coreMaterial;
-        private Material groundMaterial;
-        private Mesh ringMesh;
-        private Mesh discMesh;
+        private Transform warningRing, warningFill, sweepEdge, sweepFill, trailPoint;
+        private readonly Transform[] barrageRings = new Transform[3];
+        private readonly Transform[] barrageFills = new Transform[3];
+        private readonly LineRenderer[] sweepSides = new LineRenderer[2];
+        private Material groundMaterial, trailMaterial;
+        private Mesh ringMesh, discMesh, sectorMesh, sectorRingMesh;
         private MaterialPropertyBlock properties;
         private CombatCameraFeedback cameraFeedback;
-        private float shockAge = 1f;
-        private float age;
-        private bool initialized;
-        private float introProgress;
-        private float visualLift;
         private MataColeccionistaView importedView;
-        public bool IsWarningVisible => warningRing != null && warningRing.gameObject.activeSelf;
-        public float WarningRadius => warningRing != null ? warningRing.localScale.x * 0.5f : 0f;
+        private GolgoraAudio audioView;
+        private GolgoraImpactVfx impactVfx;
+        private TrailRenderer weaponTrail;
+        private float age, introProgress;
+        private bool initialized;
+        public bool IsWarningVisible => (warningRing != null && warningRing.gameObject.activeSelf) || (sweepEdge != null && sweepEdge.gameObject.activeSelf);
+        public float WarningRadius => actor != null && actor.State == GolgoraState.SweepWindup ? actor.Settings.SweepRadius : warningRing != null ? warningRing.localScale.x * .5f : 0f;
+        public bool IsSweepWarningVisible => sweepEdge != null && sweepEdge.gameObject.activeSelf;
+        public int BarrageWarningsVisible { get; private set; }
+        public GolgoraAudio AudioView => audioView;
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorProperty = Shader.PropertyToID("_Color");
+        private static readonly int Progress = Shader.PropertyToID("_Progress");
+        private static readonly int EffectAge = Shader.PropertyToID("_EffectAge");
+        private static readonly int Kind = Shader.PropertyToID("_Kind");
+        private static readonly int Detail = Shader.PropertyToID("_Detail");
+        private float Intensity => actor == null || actor.Session == null ? 1f : actor.Session.Effects.ReducedEffectsMode ? 0f : actor.Session.Effects.DecorativeIntensity;
 
         public void Bind(GolgoraActor boss)
         {
-            actor = boss;
-            EnsureInitialized();
-            if (importedView == null) importedView = GetComponent<MataColeccionistaView>() ?? gameObject.AddComponent<MataColeccionistaView>();
-            importedView.Bind(boss);
+            if (actor != null) actor.AttackExecuted -= HandleImpact;
+            actor = boss; EnsureInitialized();
+            importedView = GetComponent<MataColeccionistaView>() ?? gameObject.AddComponent<MataColeccionistaView>();
+            importedView.Footstep -= HandleFootstep; importedView.Bind(boss); importedView.Footstep += HandleFootstep;
+            audioView = GetComponent<GolgoraAudio>() ?? gameObject.AddComponent<GolgoraAudio>(); audioView.Bind(boss);
+            actor.AttackExecuted += HandleImpact;
             cameraFeedback = FindAnyObjectByType<CombatCameraFeedback>();
         }
-
         private void EnsureInitialized()
         {
-            if (initialized || actor == null)
-                return;
-            initialized = true;
-            properties = new MaterialPropertyBlock();
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
-            bodyMaterial = new Material(shader) { name = "GolgoraArmor" };
-            coreMaterial = new Material(shader) { name = "GolgoraMagma" };
-            groundMaterial = new Material(shader) { name = "GolgoraTelegraph", renderQueue = (int)RenderQueue.Transparent };
-            bodyMaterial.SetColor(BaseColor, new Color(0.24f, 0.16f, 0.18f));
-            coreMaterial.SetColor(BaseColor, new Color(1f, 0.45f, 0.08f));
-            groundMaterial.SetFloat("_Surface", 1f);
-            groundMaterial.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            groundMaterial.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            groundMaterial.SetFloat("_ZWrite", 0f);
-            groundMaterial.SetFloat("_Cull", (float)CullMode.Off);
-            groundMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            groundMaterial.SetOverrideTag("RenderType", "Transparent");
-            Transform parent = actor.VisualComposer.PresentationPivot;
-            leftShoulder = CreatePrimitive("LeftShoulder", parent, PrimitiveType.Cube,
-                new Vector3(-0.56f, 0.25f, 0f), new Vector3(0.45f, 0.56f, 0.60f), bodyMaterial);
-            rightShoulder = CreatePrimitive("RightShoulder", parent, PrimitiveType.Cube,
-                new Vector3(0.56f, 0.25f, 0f), new Vector3(0.45f, 0.56f, 0.60f), bodyMaterial);
-            core = CreatePrimitive("MagmaCore", parent, PrimitiveType.Sphere,
-                new Vector3(0f, 0.64f, 0f), Vector3.one * 0.49f, coreMaterial);
-            coreRenderer = core.GetComponent<Renderer>();
-            groundRoot = new GameObject("GolgoraGroundPresentation");
-            groundRoot.transform.SetParent(actor.transform.parent, false);
-            ringMesh = CreateGroundMesh(true);
-            discMesh = CreateGroundMesh(false);
-            warningRing = CreateGround("AttackBoundary", ringMesh);
-            warningFill = CreateGround("AttackFill", discMesh);
-            shockRing = CreateGround("StompShock", ringMesh);
-            ringRenderer = warningRing.GetComponent<Renderer>();
-            fillRenderer = warningFill.GetComponent<Renderer>();
-            shockRenderer = shockRing.GetComponent<Renderer>();
-            actor.VisualComposer.CacheRenderers();
+            if (initialized || actor == null) return;
+            initialized = true; properties = new MaterialPropertyBlock();
+            // Direct Resources reference retains the shader in standalone builds.
+            Shader shader = Resources.Load<Shader>("Golgora/ForgeEnergy") ?? Shader.Find("Universal Render Pipeline/Unlit");
+            groundMaterial = new Material(shader) { name = "Golgora engraved attack signals", renderQueue = (int)RenderQueue.Transparent + 9 };
+            trailMaterial = new Material(shader) { name = "Golgora incandescent weapon wake" };
+            trailMaterial.SetFloat(Kind, 9f); trailMaterial.SetColor(BaseColor, Color.white);
+            groundRoot = new GameObject("GolgoraGroundPresentation"); groundRoot.transform.SetParent(actor.transform.parent, false);
+            ringMesh = GroundMesh(true, 360f, .4945f); discMesh = CreateGroundMesh(false);
+            sectorMesh = GroundMesh(false, 180f); sectorRingMesh = GroundMesh(true, 180f, .4945f);
+            warningRing = Ground("HammerBoundary", ringMesh); warningFill = Ground("HammerFill", discMesh);
+            sweepEdge = Ground("SweepBoundary180", sectorRingMesh); sweepFill = Ground("SweepFill180", sectorMesh);
+            for (int i = 0; i < 3; i++)
+            {
+                barrageRings[i] = Ground("MagmaLanding_" + i, ringMesh);
+                barrageFills[i] = Ground("MagmaLandingFill_" + i, discMesh);
+            }
+            for (int i = 0; i < sweepSides.Length; i++)
+            {
+                var line = new GameObject("SweepLimit_" + i).AddComponent<LineRenderer>(); line.transform.SetParent(groundRoot.transform, false);
+                line.sharedMaterial = groundMaterial; line.positionCount = 2; line.startWidth = line.endWidth = .055f;
+                line.startColor = line.endColor = new Color(1f, .65f, .15f, .95f); line.useWorldSpace = true;
+                line.shadowCastingMode = ShadowCastingMode.Off; sweepSides[i] = line;
+            }
+            impactVfx = new GolgoraImpactVfx(groundRoot.transform, shader, discMesh);
+            trailPoint = new GameObject("HammerTrailPoint").transform; trailPoint.SetParent(groundRoot.transform, false);
+            weaponTrail = trailPoint.gameObject.AddComponent<TrailRenderer>(); weaponTrail.sharedMaterial = trailMaterial;
+            weaponTrail.time = .2f; weaponTrail.startWidth = .36f; weaponTrail.endWidth = .015f;
+            weaponTrail.startColor = new Color(1.5f, .54f, .07f, .75f); weaponTrail.endColor = new Color(.5f, .08f, .015f, 0f);
+            weaponTrail.minVertexDistance = .06f; weaponTrail.emitting = false; weaponTrail.shadowCastingMode = ShadowCastingMode.Off;
             ResetPresentation();
         }
-
-        private static Transform CreatePrimitive(string objectName, Transform parent, PrimitiveType type,
-            Vector3 position, Vector3 scale, Material material)
+        private Transform Ground(string name, Mesh mesh)
         {
-            var go = GameObject.CreatePrimitive(type);
-            go.name = objectName;
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = position;
-            go.transform.localScale = scale;
-            DestroyImmediate(go.GetComponent<Collider>());
-            var renderer = go.GetComponent<Renderer>();
-            renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            return go.transform;
+            var go = new GameObject(name); go.transform.SetParent(groundRoot.transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh; var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = groundMaterial; renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
+            groundRenderers.Add(go.transform, renderer); return go.transform;
         }
-
-        private Transform CreateGround(string objectName, Mesh mesh)
-        {
-            var go = new GameObject(objectName);
-            go.transform.SetParent(groundRoot.transform, false);
-            go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var renderer = go.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = groundMaterial;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            return go.transform;
-        }
-
         public void Step(float deltaTime)
         {
-            if (!initialized || actor == null)
-                return;
+            if (!initialized || actor == null) return;
+            deltaTime = actor.Session != null && actor.Session.IsPaused ? 0f : Mathf.Max(0f, deltaTime);
             age += deltaTime;
-            importedView?.Step(deltaTime, introProgress);
-            bool decorative = actor.Session == null || actor.Session.Effects.DecorativeIntensity > 0f;
-            Color magma = actor.EnragedVisual ? new Color(1f, 0.16f, 0.07f) : new Color(1f, 0.50f, 0.08f);
-            float pulse = decorative ? 1f + Mathf.Sin(age * (actor.EnragedVisual ? 7f : 3f)) * 0.06f : 1f;
-            if (actor.State == GolgoraState.BarrageWindup)
-                pulse += actor.PhaseProgress * 0.35f;
-            float compression = actor.State == GolgoraState.StompWindup ? actor.PhaseProgress * 0.12f : 0f;
-            leftShoulder.localPosition = new Vector3(-0.56f, visualLift + 0.25f - compression, 0f);
-            rightShoulder.localPosition = new Vector3(0.56f, visualLift + 0.25f - compression, 0f);
-            core.localScale = Vector3.one * (0.49f * pulse);
-            SetColor(coreRenderer, magma);
-
-            bool stomp = actor.State == GolgoraState.StompWindup;
+            if (deltaTime > 0f) { importedView?.Step(deltaTime, introProgress); audioView?.Step(deltaTime); }
+            float intensity = Intensity;
+            bool hammer = actor.State == GolgoraState.StompWindup;
             bool intro = actor.State == GolgoraState.Intro;
-            warningRing.gameObject.SetActive(stomp || intro);
-            warningFill.gameObject.SetActive(stomp || intro);
-            if (stomp || intro)
+            bool sweep = actor.State == GolgoraState.SweepWindup;
+            warningRing.gameObject.SetActive(hammer || intro); warningFill.gameObject.SetActive(hammer || intro);
+            if (hammer || intro)
+                Circle(warningRing, warningFill, hammer ? actor.AttackOrigin : actor.WorldCenter,
+                    hammer ? actor.Settings.HammerRadius : actor.HitRadius + .5f, hammer ? actor.PhaseProgress : introProgress, intensity);
+            sweepEdge.gameObject.SetActive(sweep); sweepFill.gameObject.SetActive(sweep);
+            for (int i = 0; i < 2; i++) sweepSides[i].gameObject.SetActive(sweep);
+            if (sweep)
             {
-                Vector3 position = stomp ? actor.LastStompOrigin : actor.WorldCenter;
-                position.y = ArenaSurface.Height(position) + 0.045f;
-                warningRing.up = warningFill.up = ArenaSurface.Normal(position);
-                float diameter = stomp ? GolgoraActor.StompRadius * 2f : (actor.HitRadius + 0.5f) * 2f;
-                warningRing.position = position;
-                warningRing.localScale = Vector3.one * diameter;
-                warningFill.position = position + Vector3.up * 0.002f;
-                float progress = stomp ? actor.PhaseProgress : introProgress;
-                warningFill.localScale = Vector3.one * Mathf.Max(0.01f, diameter * progress);
-                Color warning = Color.Lerp(new Color(1f, 0.72f, 0.12f), new Color(1f, 0.13f, 0.08f), progress);
-                warning.a = 0.95f;
-                SetColor(ringRenderer, warning);
-                warning.a = 0.18f;
-                SetColor(fillRenderer, warning);
+                Place(sweepEdge, actor.AttackOrigin, actor.Settings.SweepRadius * 2f, actor.AttackDirection);
+                Place(sweepFill, actor.AttackOrigin, actor.Settings.SweepRadius * 2f, actor.AttackDirection);
+                Color color = WarningColor(actor.PhaseProgress);
+                SetVisual(groundRenderers[sweepEdge], color, 0f, actor.PhaseProgress, intensity);
+                color.a = .4f; SetVisual(groundRenderers[sweepFill], color, 1f, actor.PhaseProgress, intensity);
+                color.a = .95f;
+                for (int i = 0; i < 2; i++)
+                {
+                    Vector3 side = Quaternion.AngleAxis(i == 0 ? -90f : 90f, Vector3.up) * actor.AttackDirection;
+                    Vector3 start = actor.AttackOrigin; start.y = ArenaSurface.Height(start) + .07f;
+                    Vector3 end = actor.AttackOrigin + side * actor.Settings.SweepRadius; end.y = ArenaSurface.Height(end) + .07f;
+                    sweepSides[i].SetPosition(0, start); sweepSides[i].SetPosition(1, end);
+                    SetVisual(sweepSides[i], color, 0f, actor.PhaseProgress, intensity);
+                }
             }
-
-            shockAge += deltaTime;
-            bool shock = shockAge < 0.35f && decorative;
-            shockRing.gameObject.SetActive(shock);
-            if (shock)
+            bool barrage = actor.State == GolgoraState.BarrageWindup; BarrageWarningsVisible = barrage ? 3 : 0;
+            for (int i = 0; i < 3; i++)
             {
-                float t = shockAge / 0.35f;
-                shockRing.localScale = Vector3.one * Mathf.Lerp(2f, 11f, t);
-                SetColor(shockRenderer, new Color(1f, 0.43f, 0.12f, (1f - t) * 0.8f));
+                barrageRings[i].gameObject.SetActive(barrage); barrageFills[i].gameObject.SetActive(barrage);
+                if (barrage) Circle(barrageRings[i], barrageFills[i], actor.GetLastBarrageTarget(i), actor.Settings.BarrageRadius, actor.PhaseProgress, intensity);
             }
+            bool charging = actor.State == GolgoraState.PhaseTransition || actor.State == GolgoraState.CercoWindup;
+            impactVfx.Step(deltaTime, intensity, actor.WorldCenter, charging, actor.PhaseProgress,
+                actor.IsPhaseTwo || actor.State == GolgoraState.PhaseTransition);
+            weaponTrail.emitting = intensity > 0f && (sweep || hammer) && actor.PhaseProgress > .45f;
+            if (importedView != null) trailPoint.position = importedView.HammerPosition;
+            trailMaterial.SetFloat(EffectAge, age);
+            if (intensity <= 0f) weaponTrail.Clear();
         }
-
+        private static Color WarningColor(float progress) => Color.Lerp(new Color(1f, .72f, .16f, .95f), new Color(1.25f, .27f, .035f, 1f), progress);
+        private void Circle(Transform edge, Transform fill, Vector3 origin, float radius, float progress, float intensity)
+        {
+            // Both meshes retain the damage radius; reveal happens inside the fill shader.
+            Place(edge, origin, radius * 2f, Vector3.forward); Place(fill, origin, radius * 2f, Vector3.forward);
+            Color color = WarningColor(progress); SetVisual(groundRenderers[edge], color, 0f, progress, intensity);
+            color.a = .42f; SetVisual(groundRenderers[fill], color, 1f, progress, intensity);
+        }
+        private static void Place(Transform target, Vector3 origin, float diameter, Vector3 forward)
+        {
+            origin.y = ArenaSurface.Height(origin) + .06f; target.position = origin;
+            target.rotation = Quaternion.LookRotation(forward.sqrMagnitude > .001f ? forward : Vector3.forward, ArenaSurface.Normal(origin));
+            target.localScale = Vector3.one * diameter;
+        }
+        private void HandleImpact(GolgoraAttackKind kind, Vector3 origin, Vector3 direction)
+        {
+            audioView?.Impact(kind);
+            if (kind == GolgoraAttackKind.Hammer || kind == GolgoraAttackKind.Cerco) TriggerStomp(origin);
+            else if (kind == GolgoraAttackKind.Sweep) impactVfx.Sweep(origin, direction, actor.Settings.SweepRadius, Intensity);
+            // Barrage landing effects belong to the magma pool, at each actual landing point.
+        }
         public void TriggerStomp(Vector3 position)
         {
-            if (!initialized)
-                return;
-            shockAge = 0f;
-            position.y = ArenaSurface.Height(position) + 0.055f;
-            shockRing.up = ArenaSurface.Normal(position);
-            shockRing.position = position;
-            float distance = actor.TargetPlayer != null
-                ? Vector3.Distance(actor.TargetPlayer.WorldCenter, position) : 0f;
-            float attenuation = 1f - Mathf.Clamp01((distance - GolgoraActor.StompRadius) / 20f);
-            cameraFeedback?.RequestShake(ShakePriority.High, 0.28f * attenuation, 0.30f, 12f);
+            if (!initialized) return;
+            impactVfx.Hammer(position, actor.AttackDirection, actor.Settings.HammerRadius, Intensity);
+            float distance = actor.TargetPlayer != null ? Vector3.Distance(actor.TargetPlayer.WorldCenter, position) : 0f;
+            float attenuation = 1f - Mathf.Clamp01((distance - actor.Settings.HammerRadius) / 20f);
+            cameraFeedback?.RequestShake(ShakePriority.High, .18f * attenuation, .22f, 12f);
         }
-
+        private void HandleFootstep(Vector3 position) { audioView?.StepSound(); impactVfx.Footstep(position, Intensity); }
         public void SetIntroProgress(float progress) => introProgress = Mathf.Clamp01(progress);
-
         public void ResetPresentation()
         {
-            if (!initialized)
-                return;
-            age = 0f;
-            introProgress = 0f;
-            shockAge = 1f;
-            warningRing.gameObject.SetActive(false);
-            warningFill.gameObject.SetActive(false);
-            shockRing.gameObject.SetActive(false);
-            core.localScale = Vector3.one * 0.49f;
-            visualLift = 1f - 1f / Mathf.Max(0.01f, actor.transform.lossyScale.y);
-            Transform bodyMesh = actor.VisualComposer.PresentationPivot.Find("BodyMesh");
-            Transform crest = actor.VisualComposer.PresentationPivot.Find("FacingCrest");
-            if (bodyMesh != null) bodyMesh.localPosition = Vector3.up * visualLift;
-            if (crest != null) crest.localPosition = new Vector3(0f, visualLift + 0.35f, 0.42f);
-            core.localPosition = new Vector3(0f, visualLift + 0.64f, 0f);
-            leftShoulder.localPosition = new Vector3(-0.56f, visualLift + 0.25f, 0f);
-            rightShoulder.localPosition = new Vector3(0.56f, visualLift + 0.25f, 0f);
-            coreRenderer.sharedMaterial = coreMaterial;
-            leftShoulder.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
-            rightShoulder.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
-            actor?.VisualComposer.CacheRenderers();
-            importedView?.ResetPose();
+            if (!initialized) return;
+            age = introProgress = 0f; BarrageWarningsVisible = 0;
+            for (int i = 0; i < groundRoot.transform.childCount; i++) groundRoot.transform.GetChild(i).gameObject.SetActive(false);
+            impactVfx.Clear();
+            trailPoint.gameObject.SetActive(true); weaponTrail.Clear(); weaponTrail.emitting = false;
+            audioView?.ResetAudio(); importedView?.ResetPose();
         }
-
         private void OnDisable() => ResetPresentation();
-
         private void OnDestroy()
         {
+            if (actor != null) actor.AttackExecuted -= HandleImpact;
+            if (importedView != null) importedView.Footstep -= HandleFootstep;
+            impactVfx?.Dispose();
             if (groundRoot != null) Destroy(groundRoot);
-            Destroy(bodyMaterial);
-            Destroy(coreMaterial);
-            Destroy(groundMaterial);
-            Destroy(ringMesh);
-            Destroy(discMesh);
+            Destroy(groundMaterial); Destroy(trailMaterial); Destroy(ringMesh); Destroy(discMesh); Destroy(sectorMesh); Destroy(sectorRingMesh);
         }
-
-        private void SetColor(Renderer renderer, Color color)
+        private void SetVisual(Renderer renderer, Color color, float kind, float progress, float detail)
         {
-            properties.SetColor(BaseColor, color);
-            properties.SetColor(ColorProperty, color);
-            renderer.SetPropertyBlock(properties);
+            properties.Clear(); properties.SetColor(BaseColor, color); properties.SetColor(ColorProperty, color);
+            properties.SetFloat(Kind, kind); properties.SetFloat(Progress, progress); properties.SetFloat(EffectAge, age);
+            properties.SetFloat(Detail, detail); renderer.SetPropertyBlock(properties);
         }
-
-        public static Mesh CreateGroundMesh(bool ring)
+        public static Mesh CreateGroundMesh(bool ring) => GroundMesh(ring, 360f);
+        private static Mesh GroundMesh(bool ring, float degrees, float innerRadius = .474f)
         {
-            const int segments = 64;
-            int stride = ring ? 2 : 1;
+            const int segments = 96;
             var vertices = new Vector3[ring ? (segments + 1) * 2 : segments + 2];
-            var triangles = new int[segments * (ring ? 6 : 3)];
+            var uv = new Vector2[vertices.Length]; var triangles = new int[segments * (ring ? 6 : 3)];
+            if (!ring) uv[0] = Vector2.one * .5f;
             for (int i = 0; i <= segments; i++)
             {
-                float angle = i * Mathf.PI * 2f / segments;
-                Vector3 direction = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                float angle = (-degrees * .5f + degrees * i / segments) * Mathf.Deg2Rad;
+                Vector3 direction = new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle));
                 if (ring)
                 {
-                    vertices[i * stride] = direction * 0.5f;
-                    vertices[i * stride + 1] = direction * 0.484f;
+                    vertices[i * 2] = direction * .5f; vertices[i * 2 + 1] = direction * innerRadius;
+                    uv[i*2] = new Vector2(direction.x,direction.z)*.5f + Vector2.one*.5f;
+                    uv[i*2+1] = new Vector2(direction.x,direction.z)*innerRadius + Vector2.one*.5f;
                 }
-                else
-                    vertices[i + 1] = direction * 0.5f;
-                if (i == segments)
-                    continue;
-                if (ring)
-                {
-                    int v = i * 2;
-                    int t = i * 6;
-                    triangles[t] = v; triangles[t + 1] = v + 1; triangles[t + 2] = v + 2;
-                    triangles[t + 3] = v + 1; triangles[t + 4] = v + 3; triangles[t + 5] = v + 2;
-                }
-                else
-                {
-                    triangles[i * 3] = 0;
-                    triangles[i * 3 + 1] = i + 2;
-                    triangles[i * 3 + 2] = i + 1;
-                }
+                else { vertices[i + 1] = direction * .5f; uv[i+1] = new Vector2(direction.x,direction.z)*.5f + Vector2.one*.5f; }
+                if (i == segments) continue; int t = i * (ring ? 6 : 3);
+                if (ring) { int v = i * 2; triangles[t]=v;triangles[t+1]=v+2;triangles[t+2]=v+1;triangles[t+3]=v+1;triangles[t+4]=v+2;triangles[t+5]=v+3; }
+                else { triangles[t]=0;triangles[t+1]=i+1;triangles[t+2]=i+2; }
             }
-            var mesh = new Mesh { name = ring ? "GolgoraRing" : "GolgoraDisc", vertices = vertices, triangles = triangles };
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            return mesh;
+            var mesh = new Mesh { name = ring ? "EngravedFoundryBoundary" : "FissuredFoundryWarningFill", vertices=vertices,uv=uv,triangles=triangles };
+            mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
         }
     }
 }
