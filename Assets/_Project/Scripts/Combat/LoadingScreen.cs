@@ -11,11 +11,14 @@ namespace EchoScrap.Combat
         [SerializeField] private Texture2D collectorAtlas;
         [SerializeField] private CharacterSpriteSet collectorSprites;
         [SerializeField] private Font font;
+        [SerializeField] private Material silhouetteMaterial;
         private static LoadingScreen instance;
         private CharacterSpriteSet.Clip walk;
         private RawImage collector;
         private float animationTime;
         private int frameIndex = -1;
+        private ThreadPriority previousLoadingPriority;
+        private bool restoreLoadingPriority;
 
         public static bool IsLoading => instance != null;
 
@@ -27,6 +30,10 @@ namespace EchoScrap.Combat
             if (IsLoading) return;
             instance = Instantiate(Resources.Load<LoadingScreen>("UI/LoadingScreen"));
             DontDestroyOnLoad(instance.gameObject);
+            instance.previousLoadingPriority = Application.backgroundLoadingPriority;
+            instance.restoreLoadingPriority = true;
+            Application.backgroundLoadingPriority = ThreadPriority.Low;
+            instance.HideSourcePresentation();
             instance.StartCoroutine(instance.Load(sceneName));
         }
 
@@ -48,17 +55,20 @@ namespace EchoScrap.Combat
             background.rectTransform.anchorMax = Vector2.one;
             background.rectTransform.offsetMin = background.rectTransform.offsetMax = Vector2.zero;
 
-            collector = Rect("Collector", new Vector2(0, 36), new Vector2(192, 192)).gameObject.AddComponent<RawImage>();
+            collector = Rect("Collector", new Vector2(-280, 88), new Vector2(128, 128)).gameObject.AddComponent<RawImage>();
+            collector.rectTransform.anchorMin = collector.rectTransform.anchorMax = new Vector2(1, 0);
             collector.texture = collectorAtlas;
+            collector.material = silhouetteMaterial;
             collector.raycastTarget = false;
             walk = collectorSprites.GetClip(CharacterMotion.Walk, CharacterFacing.Right);
             UpdateFrame();
 
-            var label = Rect("LoadingLabel", new Vector2(0, -92), new Vector2(400, 48)).gameObject.AddComponent<Text>();
+            var label = Rect("LoadingLabel", new Vector2(-132, 80), new Vector2(184, 48)).gameObject.AddComponent<Text>();
+            label.rectTransform.anchorMin = label.rectTransform.anchorMax = new Vector2(1, 0);
             label.font = font;
             label.text = "Cargando...";
             label.fontSize = 28;
-            label.alignment = TextAnchor.MiddleCenter;
+            label.alignment = TextAnchor.MiddleLeft;
             label.color = Color.white;
             label.raycastTarget = false;
         }
@@ -83,9 +93,33 @@ namespace EchoScrap.Combat
             // Render the overlay before starting the scene load.
             yield return null;
             yield return SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
-            // Allow Start coroutines (including the vault entry) to finish behind the overlay.
+            var game = FindAnyObjectByType<CombatGameBootstrap>();
+            while (game != null && !game.IsSceneEntryReady) yield return null;
+            // Allow the destination's UI to finish its first layout behind the overlay.
             yield return null;
             Destroy(gameObject);
+        }
+
+        private void HideSourcePresentation()
+        {
+            var source = SceneManager.GetActiveScene();
+            foreach (var canvas in FindObjectsByType<Canvas>())
+                if (canvas.isRootCanvas && canvas.gameObject.scene == source)
+                    canvas.gameObject.SetActive(false);
+            foreach (var camera in FindObjectsByType<Camera>())
+                if (camera.gameObject.scene == source) camera.enabled = false;
+
+            var backgroundCamera = new GameObject("LoadingCamera", typeof(Camera));
+            backgroundCamera.transform.SetParent(transform, false);
+            var view = backgroundCamera.GetComponent<Camera>();
+            view.clearFlags = CameraClearFlags.SolidColor;
+            view.backgroundColor = Color.black;
+            view.cullingMask = 0;
+        }
+
+        private void OnDestroy()
+        {
+            if (restoreLoadingPriority) Application.backgroundLoadingPriority = previousLoadingPriority;
         }
 
         private RectTransform Rect(string objectName, Vector2 position, Vector2 size)
