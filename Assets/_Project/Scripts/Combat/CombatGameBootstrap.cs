@@ -163,6 +163,7 @@ namespace EchoScrap.Combat
 
             Weapon = GetOrAdd<FlashlightWeapon>(playerObject);
             Weapon.BindSession(Session);
+            GetOrAdd<FlashlightAudio>(playerObject).Bind(Weapon);
             flashlightPresentation = GetOrAdd<FlashlightPresentation>(playerObject);
             flashlightPresentation.BindSession(Session);
             dashPresentation = GetOrAdd<PlayerDashPresentation>(playerObject);

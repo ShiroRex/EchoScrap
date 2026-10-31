@@ -79,6 +79,7 @@ namespace EchoScrap.Combat
             dashView = GetOrAdd<PlayerDashPresentation>(player);
             weapon = GetOrAdd<FlashlightWeapon>(player);
             weapon.BindSession(session);
+            GetOrAdd<FlashlightAudio>(player).Bind(weapon);
             flashlightView = GetOrAdd<FlashlightPresentation>(player);
             flashlightView.BindSession(session);
             hurtView = GetOrAdd<PlayerHurtPresentation>(player);

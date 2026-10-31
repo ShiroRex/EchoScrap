@@ -1,0 +1,19 @@
+EchoScrap flashlight SFX - prototype mix
+
+Source recordings (CC0 1.0 Universal):
+
+microwave on loop.wav - pinto0lucas
+https://freesound.org/people/pinto0lucas/sounds/422817/
+https://cdn.freesound.org/previews/422/422817_5017595-hq.mp3
+
+Geiger counter clicks (MED) - cookies+policy
+https://freesound.org/people/cookies%2Bpolicy/sounds/555923/
+https://cdn.freesound.org/previews/555/555923_10713160-hq.mp3
+
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Sources accessed 2026-10-31. Both source pages identify the recordings as CC0.
+The publicly available high-quality MP3 previews were used for this audition mix.
+
+Edits: mono conversion, seamless hum loop, selected Geiger clicks, layering,
+envelopes, pitch shaping and original synthesized transients/tones.
+All delivered WAVs are 44.1 kHz / 16-bit mono with headroom.
