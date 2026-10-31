@@ -10,6 +10,7 @@ namespace EchoScrap.Combat
         public Transform InteractionPoint, ResultPoint, Door, HeaderPoint;
         public Transform[] DisplaySlots;
         public float InteractionDistance=4.5f;
+        public float DisplayHeight=5.5f;
         public bool PersistProgress=true;
         public const string SaveKey="EchoScrap.FusionPrototype.v1";
         public FusionProgress Progress {get;private set;}
@@ -73,7 +74,7 @@ namespace EchoScrap.Combat
             RefreshDisplays();UpdateResult();Save();CloseMenu();return true;
         }
         private void UpdateResult(){resultView.Configure(Progress.phase==FusionPhase.Opening||Progress.phase==FusionPhase.AwaitingDecision?Progress.result:-1,3.7f,false);}
-        private void RefreshDisplays(){for(int i=0;i<displays.Length;i++)displays[i].Configure(i<Progress.displays.Length?Progress.displays[i]:-1,5.5f,true);}
+        private void RefreshDisplays(){for(int i=0;i<displays.Length;i++)displays[i].Configure(i<Progress.displays.Length?Progress.displays[i]:-1,DisplayHeight,true);}
         private void OnSessionReset(){if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();}
         private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}
         private void OnApplicationPause(bool paused){if(paused)Save();}

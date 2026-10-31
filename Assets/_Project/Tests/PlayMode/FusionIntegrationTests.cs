@@ -74,7 +74,7 @@ namespace EchoScrap.Tests
         {
             var shown=station.DisplaySlots.SelectMany(t=>t.GetComponentsInChildren<CollectibleDisplay>()).Where(d=>d.CollectibleId>=0).ToArray();
             CollectionAssert.AreEquivalent(new[]{0,1,2,3},shown.Select(v=>v.CollectibleId));Assert.AreEqual(5,FusionCatalog.Names.Length);
-            foreach(var display in shown){Assert.IsNotNull(display.GetComponentInChildren<SpriteRenderer>().sprite);Assert.Greater(display.GetComponentInChildren<SpriteRenderer>().bounds.size.y,5);}
+            foreach(var display in shown){Assert.IsNotNull(display.GetComponentInChildren<SpriteRenderer>().sprite);Assert.AreEqual(station.DisplayHeight,display.GetComponentInChildren<SpriteRenderer>().bounds.size.y,.05f);}
             var portal=Object.FindAnyObjectByType<WarehouseTravel>();Assert.IsTrue(portal.TryTravel(false,game.Player));yield return null;yield return null;
             yield return Capture("ColeccionablesBoveda",false,true);
         }
@@ -89,7 +89,7 @@ namespace EchoScrap.Tests
             yield return Approach();var ui=station.GetComponent<FusionStationUI>();
             Assert.AreEqual("MÁQUINA DE FUSIÓN",ui.HeaderTitle);Assert.AreEqual("",ui.HeaderTime);
             Assert.AreSame(Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").semibold,ui.HeaderFont);
-            Assert.AreEqual(48,station.transform.position.x);Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
+            Assert.IsNotNull(station.transform.GetComponentInParent<VaultFloorSurface>());Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
             Assert.AreEqual(3,station.GetComponent<FusionAura>().GetComponentsInChildren<ParticleSystem>().Length);
             Assert.IsNull(station.GetComponentInChildren<LineRenderer>());
             station.Progress.Begin(new[]{0,0,0,0},9999,0);game.Session.SetManualPause(true);yield return null;
@@ -137,6 +137,37 @@ namespace EchoScrap.Tests
             Assert.LessOrEqual(panel.Find("Ingredientes/Boton_FUSIONAR").GetComponent<RectTransform>().sizeDelta.x,210);
             StringAssert.Contains("20%",text);StringAssert.Contains("48%",text);StringAssert.Contains("32%",text);
             yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
+        }
+        [UnityTest] public IEnumerator VaultLayoutSupportsTravelStairsAndFusion()
+        {
+            var travel=Object.FindAnyObjectByType<WarehouseTravel>();
+            Assert.IsTrue(travel.TryTravel(false,game.Player));yield return new WaitForFixedUpdate();
+            Assert.IsTrue(game.Session.IsInWarehouse);Assert.Greater(station.transform.position.x,150);
+            Assert.AreEqual(8,station.DisplaySlots.Length);
+            Assert.AreEqual(5,ArenaSurface.Height(new Vector3(167,0,24)),.05f);
+            Assert.That(ArenaSurface.Height(new Vector3(160,0,8)),Is.InRange(2.8f,3.8f));
+            Assert.AreEqual(0,ArenaSurface.Height(new Vector3(180,0,-12)),.05f);
+            Assert.IsTrue(Physics.Raycast(new Vector3(180,1,-10),Vector3.right,26,1,QueryTriggerInteraction.Ignore));
+            var body=game.Player.GetComponent<Rigidbody>();var bottom=new Vector3(160,1,1.5f);body.position=bottom;game.Player.transform.position=bottom;Physics.SyncTransforms();
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W));
+            for(int i=0;i<240 && body.position.z<17;i++)yield return new WaitForFixedUpdate();
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;
+            yield return VaultCapture();
+            Assert.Greater(body.position.z,15,"Stair position: "+body.position+" velocity="+body.linearVelocity+" nearby="+string.Join(";",Physics.OverlapSphere(body.position,2,1,QueryTriggerInteraction.Ignore).Select(c=>c.name+" "+c.bounds)));Assert.Greater(body.position.y,5.8f);
+            yield return VaultCapture();
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.S));for(int i=0;i<240 && body.position.z>1.5f;i++)yield return new WaitForFixedUpdate();InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;Assert.Less(body.position.z,3);Assert.Less(body.position.y,2);
+            yield return Approach();Assert.IsTrue(station.TryOpenMenu());
+            Assert.IsTrue(station.StartFusion(new[]{0,0,0,0}));station.Advance(60);
+            Assert.AreEqual(FusionPhase.Ready,station.Progress.phase);Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);Assert.IsTrue(station.Resolve(false));
+            yield return new WaitForSeconds(1.1f);Assert.IsTrue(travel.TryTravel(true,game.Player));Assert.IsFalse(game.Session.IsInWarehouse);
+        }
+        private IEnumerator VaultCapture()
+        {
+            var camera=new GameObject("VaultAuditCamera").AddComponent<Camera>();camera.fieldOfView=52;
+            camera.transform.position=new Vector3(219,48,-49);camera.transform.LookAt(new Vector3(180,2,3));
+            var rt=new RenderTexture(1600,1200,24);camera.targetTexture=rt;yield return null;camera.Render();
+            var old=RenderTexture.active;RenderTexture.active=rt;var texture=new Texture2D(1600,1200,TextureFormat.RGB24,false);texture.ReadPixels(new Rect(0,0,1600,1200),0,0);texture.Apply();Directory.CreateDirectory("Logs/Fusion");File.WriteAllBytes("Logs/Fusion/BovedaModular.png",texture.EncodeToPNG());RenderTexture.active=old;
+            Object.Destroy(texture);Object.Destroy(rt);Object.Destroy(camera.gameObject);
         }
         private IEnumerator Capture(string name,bool showUi,bool garage=false)
         {

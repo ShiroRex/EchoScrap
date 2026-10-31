@@ -170,6 +170,8 @@ namespace EchoScrap.Core
 
         public static float Height(Vector3 position)
         {
+            if (VaultFloorSurface.Active != null && VaultFloorSurface.Active.TryHeight(position, out float vaultHeight))
+                return vaultHeight;
             if (Active == null)
                 return 0f;
 
