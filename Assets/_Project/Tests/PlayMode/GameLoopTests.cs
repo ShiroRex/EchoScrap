@@ -134,7 +134,8 @@ namespace EchoScrap.Tests
             EnterVault();
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
             var keyboard = InputSystem.AddDevice<Keyboard>(); testDevice = keyboard;
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W));
+            // The vault portal is now at the front of the room, behind the arrival point.
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S));
             float deadline = Time.realtimeSinceStartup + 5;
             while (flow.State == GameFlowState.Vault && Time.realtimeSinceStartup < deadline) yield return null;
             InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
