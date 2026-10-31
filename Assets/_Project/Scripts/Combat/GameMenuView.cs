@@ -7,7 +7,7 @@ namespace EchoScrap.Combat
     /// <summary>Title and vault controls using the same pixel frame, buttons and typefaces as the pause menu.</summary>
     public sealed class GameMenuView : MonoBehaviour
     {
-        private GameFlowController flow;
+        private IGameMenuActions flow;
         private CombatGameBootstrap game;
         private PixelMenuArt artwork;
         private Font font;
@@ -17,6 +17,7 @@ namespace EchoScrap.Combat
         private Text confirmTitle, confirmMessage;
         private bool vaultVisible;
         private MenuBackdrop backdrop;
+        private Text status;
         public Canvas Canvas { get; private set; }
         public Button ContinueButton => continueButton;
         public Button NewCollectionButton => newButton;
@@ -26,11 +27,11 @@ namespace EchoScrap.Combat
         public bool IsVaultVisible => vault != null && vault.activeSelf;
         public bool IsConfirmationVisible => confirmation != null && confirmation.activeSelf;
 
-        public void Build(GameFlowController controller)
+        public void Build(IGameMenuActions controller, bool includeTitle = true)
         {
             flow = controller;
-            game = controller.GetComponent<CombatGameBootstrap>();
-            artwork = new PixelMenuArt();
+            game = (controller as GameFlowController)?.Game;
+            artwork = new PixelMenuArt(includeTitle);
             font = Resources.Load<UpgradeCardSkin>("UI/PixelPortal/Typography")?.semibold
                 ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             var root = new GameObject("GameMenuCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -41,32 +42,39 @@ namespace EchoScrap.Combat
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080); scaler.matchWidthOrHeight = .5f;
 
-            backdrop = MenuBackdrop.Create(root.transform, game.Session.Effects, artwork);
-            title = Overlay(root.transform, "MainMenu", Color.clear);
-            title.GetComponent<Image>().raycastTarget = false;
-            var frame = Frame(title.transform, "TitleFrame");
-            frame.sizeDelta = new Vector2(552, 408);
-            backdrop.PlaceMenuPanel(frame);
-            Rect(title.transform, "LogoReservedArea", new Vector2(0, 420), new Vector2(640, 180));
-            continueButton = ButtonAt(frame, "Continue", "CONTINUAR", new Vector2(0, 123), new Vector2(336, 72), artwork.Green, flow.ContinueCollection);
-            newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, 41), new Vector2(336, 72), artwork.Blue, flow.RequestNewCollection);
-            settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -41), new Vector2(336, 72), artwork.Blue, flow.OpenConfiguration);
-            quitButton = ButtonAt(frame, "Quit", "SALIR", new Vector2(0, -123), new Vector2(336, 72), artwork.Red, flow.QuitGame);
+            if (includeTitle)
+            {
+                backdrop = MenuBackdrop.Create(root.transform, flow.Effects, artwork);
+                title = Overlay(root.transform, "MainMenu", Color.clear);
+                title.GetComponent<Image>().raycastTarget = false;
+                var frame = Frame(title.transform, "TitleFrame");
+                frame.sizeDelta = new Vector2(552, 408);
+                backdrop.PlaceMenuPanel(frame);
+                Rect(title.transform, "LogoReservedArea", new Vector2(0, 420), new Vector2(640, 180));
+                continueButton = ButtonAt(frame, "Continue", "CONTINUAR", new Vector2(0, 123), new Vector2(336, 72), artwork.Green, flow.ContinueCollection);
+                newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, 41), new Vector2(336, 72), artwork.Blue, flow.RequestNewCollection);
+                settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -41), new Vector2(336, 72), artwork.Blue, flow.OpenConfiguration);
+                quitButton = ButtonAt(frame, "Quit", "SALIR", new Vector2(0, -123), new Vector2(336, 72), artwork.Red, flow.QuitGame);
 
-            vault = Rect(root.transform, "VaultControls", Vector2.zero, Vector2.zero).gameObject;
-            Stretch((RectTransform)vault.transform);
-            var heading = Rect(vault.transform, "Heading", new Vector2(0, -75), new Vector2(800, 100));
-            heading.anchorMin = heading.anchorMax = new Vector2(.5f, 1);
-            var backing = heading.gameObject.AddComponent<Image>(); backing.color = new Color(.035f, .045f, .065f, .85f); backing.raycastTarget = false;
-            Label(heading, "BÓVEDA DEL COLECCIONISTA", new Vector2(0, 15), new Vector2(760, 42), 30, new Color(.91f, .76f, .44f));
-            Label(heading, "Revisa tu colección y cruza el portal para comenzar.", new Vector2(0, -24), new Vector2(760, 30), 21, Color.white);
-            menuButton = ButtonAt(vault.transform, "MainMenu", "MENÚ INICIAL", new Vector2(-190, -65), new Vector2(304, 100), artwork.Blue, flow.ShowMainMenu);
-            menuButton.image.rectTransform.anchorMin = menuButton.image.rectTransform.anchorMax = Vector2.one;
-            startButton = ButtonAt(vault.transform, "StartExpedition", "INICIAR EXPEDICIÓN", new Vector2(-290, 100), new Vector2(500, 112), artwork.Green, () => flow.BeginExpedition());
-            startButton.image.rectTransform.anchorMin = startButton.image.rectTransform.anchorMax = new Vector2(1, 0);
-            var controls = Label(vault.transform, "WASD / STICK · MOVER     ESPACIO / SUR · DASH     ESC / START · PAUSA", new Vector2(0, 36), new Vector2(1400, 32), 20, Color.white);
-            controls.rectTransform.anchorMin = controls.rectTransform.anchorMax = new Vector2(.5f, 0);
-            Link(menuButton, startButton, startButton); Link(startButton, menuButton, menuButton);
+            }
+            if (game != null)
+            {
+                vault = Rect(root.transform, "VaultControls", Vector2.zero, Vector2.zero).gameObject;
+                Stretch((RectTransform)vault.transform);
+                var heading = Rect(vault.transform, "Heading", new Vector2(0, -75), new Vector2(800, 100));
+                heading.anchorMin = heading.anchorMax = new Vector2(.5f, 1);
+                var backing = heading.gameObject.AddComponent<Image>(); backing.color = new Color(.035f, .045f, .065f, .85f); backing.raycastTarget = false;
+                Label(heading, "BÓVEDA DEL COLECCIONISTA", new Vector2(0, 15), new Vector2(760, 42), 30, new Color(.91f, .76f, .44f));
+                Label(heading, "Revisa tu colección y cruza el portal para comenzar.", new Vector2(0, -24), new Vector2(760, 30), 21, Color.white);
+                menuButton = ButtonAt(vault.transform, "MainMenu", "MENÚ INICIAL", new Vector2(-190, -65), new Vector2(304, 100), artwork.Blue, flow.ShowMainMenu);
+                menuButton.image.rectTransform.anchorMin = menuButton.image.rectTransform.anchorMax = Vector2.one;
+                startButton = ButtonAt(vault.transform, "StartExpedition", "INICIAR EXPEDICIÓN", new Vector2(-290, 100), new Vector2(500, 112), artwork.Green, () => flow.BeginExpedition());
+                startButton.image.rectTransform.anchorMin = startButton.image.rectTransform.anchorMax = new Vector2(1, 0);
+                var controls = Label(vault.transform, "WASD / STICK · MOVER     ESPACIO / SUR · DASH     ESC / START · PAUSA", new Vector2(0, 36), new Vector2(1400, 32), 20, Color.white);
+                controls.rectTransform.anchorMin = controls.rectTransform.anchorMax = new Vector2(.5f, 0);
+                Link(menuButton, startButton, startButton); Link(startButton, menuButton, menuButton);
+
+            }
 
             confirmation = Overlay(root.transform, "Confirmation", new Color(.025f, .035f, .055f, .94f));
             var confirmFrame = Frame(confirmation.transform, "ConfirmFrame");
@@ -76,29 +84,35 @@ namespace EchoScrap.Combat
             acceptButton = ButtonAt(confirmFrame, "Confirm", "CONFIRMAR", new Vector2(170, -195), new Vector2(304, 112), artwork.Red, flow.AcceptConfirmation);
             Link(cancelButton, acceptButton, acceptButton); Link(acceptButton, cancelButton, cancelButton);
             confirmation.SetActive(false);
+            status = Label(root.transform, "", new Vector2(0, -440), new Vector2(900, 56), 24, Color.white);
         }
 
         public void Refresh()
         {
-            bool showTitle = flow.State == GameFlowState.MainMenu && !flow.IsConfiguring;
-            backdrop.gameObject.SetActive(flow.State == GameFlowState.MainMenu);
-            title.SetActive(showTitle);
+            bool showTitle = title != null && flow.State == GameFlowState.MainMenu && !flow.IsConfiguring;
+            if (backdrop != null) backdrop.gameObject.SetActive(flow.State == GameFlowState.MainMenu);
+            if (title != null) title.SetActive(showTitle);
             confirmation.SetActive(flow.IsConfirming);
-            continueButton.interactable = flow.HasCollection;
-            Link(continueButton, quitButton, newButton);
-            Link(newButton, continueButton.interactable ? continueButton : quitButton, settingsButton);
-            Link(settingsButton, newButton, quitButton);
-            Link(quitButton, settingsButton, continueButton.interactable ? continueButton : newButton);
+            if (continueButton != null)
+            {
+                continueButton.interactable = flow.HasCollection && !flow.IsLoading;
+                newButton.interactable = settingsButton.interactable = quitButton.interactable = !flow.IsLoading;
+                Link(continueButton, quitButton, newButton);
+                Link(newButton, continueButton.interactable ? continueButton : quitButton, settingsButton);
+                Link(settingsButton, newButton, quitButton);
+                Link(quitButton, settingsButton, continueButton.interactable ? continueButton : newButton);
+            }
             RefreshVault();
             if (flow.IsConfirming) Select(cancelButton);
-            else if (showTitle) Select(continueButton.interactable ? continueButton : newButton);
+            else if (showTitle && !flow.IsLoading) Select(continueButton.interactable ? continueButton : newButton);
             else if (vaultVisible) EventSystem.current?.SetSelectedGameObject(null);
         }
 
         private void LateUpdate() => RefreshVault();
         private void RefreshVault()
         {
-            bool visible = flow.State == GameFlowState.Vault && !game.Session.IsPaused && !flow.IsConfirming;
+            if (vault == null) return;
+            bool visible = game != null && flow.State == GameFlowState.Vault && !game.Session.IsPaused && !flow.IsConfirming;
             if (vaultVisible == visible && vault.activeSelf == visible) return;
             vaultVisible = visible; vault.SetActive(visible);
         }
@@ -108,6 +122,8 @@ namespace EchoScrap.Combat
             confirmTitle.text = heading; confirmMessage.text = message;
             confirmation.SetActive(true); Select(cancelButton);
         }
+
+        public void SetStatus(string message) => status.text = message;
 
         private static void Select(Button button) => EventSystem.current?.SetSelectedGameObject(button.gameObject);
         private static void Link(Selectable control, Selectable up, Selectable down)
@@ -152,6 +168,6 @@ namespace EchoScrap.Combat
         }
         private static void Stretch(RectTransform rect)
         { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero; }
-        private void OnDestroy() => artwork?.Dispose();
+        private void OnDestroy() { artwork?.Dispose(); if (Canvas != null) Destroy(Canvas.gameObject); }
     }
 }

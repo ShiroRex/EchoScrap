@@ -1,3 +1,4 @@
+using System.Collections;
 using EchoScrap.Core;
 using EchoScrap.Player;
 using Unity.Cinemachine;
@@ -56,11 +57,18 @@ namespace EchoScrap.Combat
         public Collider ArenaGround => arenaGround;
 
         private void Awake() => Initialize();
-        private void Start()
+        private IEnumerator Start()
         {
             ResetRun(false);
-            if (MainMenuEntry.ConsumeEntryRequest())
-                GetOrAdd<GameFlowController>(gameObject).Initialize(this);
+            var entry = SceneTransitionState.PendingEntry;
+            SceneTransitionState.PendingEntry = SceneTransitionState.Entry.None;
+            if (entry == SceneTransitionState.Entry.None) yield break;
+            Session.Clock.SetPause(PauseReason.FrontEnd, true);
+            // FusionStation initializes its inventory in Start before the front end can reset or restore it.
+            yield return null;
+            var flow = GetOrAdd<GameFlowController>(gameObject);
+            flow.Initialize(this, SceneTransitionState.SaveProgress, true);
+            flow.CompleteSceneEntry(entry == SceneTransitionState.Entry.NewCollection);
         }
 
         public void AssignSceneReferences(PlayerMotor motor, Camera camera, CinemachineCamera rig,

@@ -23,6 +23,7 @@ namespace EchoScrap.Combat
         private void Start()
         {
             game=FindAnyObjectByType<CombatGameBootstrap>();
+            PersistProgress = PersistProgress && SceneTransitionState.SaveProgress;
             Progress=new FusionProgress();
             if(PersistProgress&&PlayerPrefs.HasKey(SaveKey))try{Progress=JsonUtility.FromJson<FusionProgress>(PlayerPrefs.GetString(SaveKey))??new FusionProgress();}catch(Exception){Progress=new FusionProgress();}
             Progress.Validate();
@@ -74,6 +75,13 @@ namespace EchoScrap.Combat
         }
         private void UpdateResult(){resultView.Configure(Progress.phase==FusionPhase.Opening||Progress.phase==FusionPhase.AwaitingDecision?Progress.result:-1,3.7f,false);}
         private void RefreshDisplays(){for(int i=0;i<displays.Length;i++)displays[i].Configure(i<Progress.displays.Length?Progress.displays[i]:-1,5.5f,true);}
+        public void RestoreCollection(string snapshot)
+        {
+            var restored = JsonUtility.FromJson<FusionProgress>(snapshot);
+            if (restored == null) return;
+            restored.Validate(); Progress = restored;
+            RefreshDisplays(); UpdateResult();
+        }
         public void ResetCollection()
         {
             CloseMenu();Notice="";Progress=new FusionProgress();Progress.Validate();

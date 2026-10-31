@@ -1,4 +1,5 @@
 using EchoScrap.Core;
+using UnityEngine.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -8,7 +9,7 @@ namespace EchoScrap.Combat
 
     /// <summary>Connects the title, existing physical vault, expeditions and results without reloading actors.</summary>
     [DisallowMultipleComponent]
-    public sealed class GameFlowController : MonoBehaviour
+    public sealed class GameFlowController : MonoBehaviour, IGameMenuActions
     {
         public const string ProfileKey = "EchoScrap.CollectionStarted.v1";
         private CombatGameBootstrap game;
@@ -16,6 +17,10 @@ namespace EchoScrap.Combat
         private FusionStation station;
         private GameMenuView view;
         private bool persist = true;
+        private bool separateScenes;
+        public bool IsLoading { get; private set; }
+        public CombatGameBootstrap Game => game;
+        public EffectPreferences Effects => game.Session.Effects;
         private bool transientProfile;
         private bool collectionPersistence;
         private bool newCollectionConfirmation;
@@ -27,10 +32,10 @@ namespace EchoScrap.Combat
             ? PlayerPrefs.HasKey(ProfileKey) || PlayerPrefs.HasKey(FusionStation.SaveKey) : transientProfile;
         public GameMenuView View => view;
 
-        public void Initialize(CombatGameBootstrap owner, bool saveProgress = true)
+        public void Initialize(CombatGameBootstrap owner, bool saveProgress = true, bool useSeparateScenes = false)
         {
             if (game != null) return;
-            game = owner; persist = saveProgress;
+            game = owner; persist = saveProgress; separateScenes = useSeparateScenes;
             travel = FindAnyObjectByType<WarehouseTravel>();
             station = FindAnyObjectByType<FusionStation>();
             if (travel == null || travel.WarehouseArrival == null || travel.CombatArrival == null)
@@ -47,9 +52,21 @@ namespace EchoScrap.Combat
             }
             game.Flow = this;
             view = gameObject.AddComponent<GameMenuView>();
-            view.Build(this);
+            view.Build(this, !separateScenes);
             ReturnToVault();
-            ShowMainMenu();
+            if (separateScenes) SceneTransitionState.Apply(game);
+            else ShowMainMenu();
+        }
+
+        public void CompleteSceneEntry(bool newCollection)
+        {
+            if (newCollection) CreateCollection();
+            else
+            {
+                transientProfile = SceneTransitionState.HasTransientCollection;
+                if (!persist && !string.IsNullOrEmpty(SceneTransitionState.FusionSnapshot)) station?.RestoreCollection(SceneTransitionState.FusionSnapshot);
+                State = GameFlowState.Vault; Sync();
+            }
         }
 
         private void Update()
@@ -91,13 +108,21 @@ namespace EchoScrap.Combat
 
         public void ShowMainMenu()
         {
-            if (game == null || State == GameFlowState.Expedition || IsConfirming) return;
+            if (game == null || State == GameFlowState.Expedition || IsConfirming || IsLoading) return;
+            if (separateScenes)
+            {
+                if (!Application.CanStreamedLevelBeLoaded("MainMenu")) { Debug.LogError("No se pudo cargar el menú inicial."); return; }
+                SceneTransitionState.SaveProgress = persist;
+                SceneTransitionState.Capture(game, station, HasCollection);
+                IsLoading = true;
+            }
             State = GameFlowState.MainMenu;
             game.Motor.Stop();
             game.Session.Clock.SetPause(PauseReason.FrontEnd, true);
             station?.CloseMenu();
             game.Session.ResumeAllUserPauses();
             Sync();
+            if (separateScenes) SceneManager.LoadSceneAsync("MainMenu", LoadSceneMode.Single);
         }
 
         public bool BeginExpedition()
@@ -191,7 +216,7 @@ namespace EchoScrap.Combat
         private void OnDestroy()
         {
             if (game == null) return;
-            game.Session.AllowManualPause = true;
+            if (game.Session != null) game.Session.AllowManualPause = true;
             game.Flow = null;
         }
     }

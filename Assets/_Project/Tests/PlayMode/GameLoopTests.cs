@@ -340,24 +340,17 @@ namespace EchoScrap.Tests
             Assert.That(backdrop.Orbiters[1], Is.SameAs(image));
         }
 
-        [UnityTest] public IEnumerator BuildEntryLoadsRealArenaIntoMainMenu()
+        [UnityTest] public IEnumerator BuildEntryShowsTitleWithoutLoadingArena()
         {
             Assert.That(SceneUtility.GetScenePathByBuildIndex(0), Does.EndWith("MainMenu.unity"));
             yield return SceneManager.LoadSceneAsync("MainMenu");
             game = null;
-            float timeout = Time.realtimeSinceStartup + 30;
-            while (Time.realtimeSinceStartup < timeout)
-            {
-                game = Object.FindAnyObjectByType<CombatGameBootstrap>();
-                if (game != null && game.Flow != null) break;
-                yield return null;
-            }
-            Assert.That(game, Is.Not.Null);
-            Assert.That(game.Flow, Is.Not.Null);
-            flow = game.Flow; Bind();
-            Assert.That(flow.View.IsTitleVisible, Is.True);
-            Assert.That(game.Session.IsInWarehouse, Is.True);
-            Assert.That(game.Session.GameplayTime, Is.Zero);
+            yield return null;
+            var title = Object.FindAnyObjectByType<MainMenuController>();
+            Assert.That(title, Is.Not.Null);
+            Assert.That(title.View.IsTitleVisible, Is.True);
+            Assert.That(Object.FindAnyObjectByType<CombatGameBootstrap>(), Is.Null);
+            Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("MainMenu"));
         }
     }
 }

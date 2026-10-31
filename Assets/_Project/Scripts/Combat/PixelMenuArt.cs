@@ -41,8 +41,15 @@ namespace EchoScrap.Combat
         public readonly MenuOrbitCatalog OrbitCatalog;
         public readonly Sprite[] OrbitSprites;
         public readonly Vector2 MouthNormalized;
-        public PixelMenuArt()
+        public PixelMenuArt(bool includeBackdrop = true)
         {
+            var controls = Load("Controls");
+            Panel = Cut(controls.Texture, controls.Frames[0].frame, null, Vector4.one * 4);
+            var plate = new Area { x = 36, y = 56, w = 112, h = 24 };
+            Blue = Cut(controls.Texture, controls.Frames[1].frame, plate, Vector4.one * 4);
+            Green = Cut(controls.Texture, controls.Frames[2].frame, plate, Vector4.one * 4);
+            Red = Cut(controls.Texture, controls.Frames[3].frame, plate, Vector4.one * 4);
+            if (!includeBackdrop) return;
             Vortex = Load("Vortex"); Foreground = Resources.Load<Texture2D>("UI/PixelPortal/VortexFront");
             var export = JsonUtility.FromJson<Export>(Resources.Load<TextAsset>("UI/PixelPortal/Vortex").text);
             foreach (var slice in export.meta.slices)
@@ -51,12 +58,6 @@ namespace EchoScrap.Combat
                     Area r = slice.keys[0].bounds;
                     MouthNormalized = new Vector2((r.x + r.w * .5f) / Vortex.Frames[0].frame.w, 1f - (r.y + r.h * .5f) / Vortex.Frames[0].frame.h);
                 }
-            var controls = Load("Controls");
-            Panel = Cut(controls.Texture, controls.Frames[0].frame, null, Vector4.one * 4);
-            var plate = new Area { x = 36, y = 56, w = 112, h = 24 };
-            Blue = Cut(controls.Texture, controls.Frames[1].frame, plate, Vector4.one * 4);
-            Green = Cut(controls.Texture, controls.Frames[2].frame, plate, Vector4.one * 4);
-            Red = Cut(controls.Texture, controls.Frames[3].frame, plate, Vector4.one * 4);
             OrbitCatalog = Resources.Load<MenuOrbitCatalog>("UI/PixelPortal/OrbitCatalog");
             if (OrbitCatalog == null || OrbitCatalog.sprites == null || OrbitCatalog.sprites.Length == 0)
                 throw new InvalidOperationException("Missing menu orbit sprite catalog.");
