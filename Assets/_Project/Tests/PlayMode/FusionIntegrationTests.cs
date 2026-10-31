@@ -74,9 +74,27 @@ namespace EchoScrap.Tests
         {
             var shown=station.DisplaySlots.SelectMany(t=>t.GetComponentsInChildren<CollectibleDisplay>()).Where(d=>d.CollectibleId>=0).ToArray();
             CollectionAssert.AreEquivalent(new[]{0,1,2,3},shown.Select(v=>v.CollectibleId));Assert.AreEqual(5,FusionCatalog.Names.Length);
-            foreach(var display in shown){Assert.IsNotNull(display.GetComponentInChildren<SpriteRenderer>().sprite);Assert.AreEqual(station.DisplayHeight,display.GetComponentInChildren<SpriteRenderer>().bounds.size.y,.05f);}
+            foreach(var display in shown){Assert.IsNotNull(display.GetComponentInChildren<SpriteRenderer>().sprite);Assert.LessOrEqual(display.GetComponentInChildren<SpriteRenderer>().bounds.size.y,station.DisplayHeight+.05f);Assert.LessOrEqual(display.GetComponentInChildren<SpriteRenderer>().bounds.size.x,2.85f);}
             var portal=Object.FindAnyObjectByType<WarehouseTravel>();Assert.IsTrue(portal.TryTravel(false,game.Player));yield return null;yield return null;
             yield return Capture("ColeccionablesBoveda",false,true);
+        }
+        [UnityTest] public IEnumerator CapsuleNamesUseCardFontsAndAllRaritiesFit()
+        {
+            var travel=Object.FindAnyObjectByType<WarehouseTravel>();Assert.IsTrue(travel.TryTravel(false,game.Player));
+            var display=station.DisplaySlots[0].GetComponentInChildren<CollectibleDisplay>();
+            var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            for(int id=0;id<5;id++){
+                display.Configure(id,station.DisplayHeight,true);yield return null;
+                var texts=display.GetComponentsInChildren<UnityEngine.UI.Text>();
+                Assert.AreEqual(FusionCatalog.Names[id],texts[0].text);Assert.AreEqual(FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]],texts[1].text);
+                Assert.AreSame(skin.semibold,texts[0].font);Assert.AreSame(skin.regular,texts[1].font);
+                Assert.AreEqual(FusionCatalog.ColorOf(id),texts[1].color);
+                var sprite=display.GetComponentInChildren<SpriteRenderer>();Assert.LessOrEqual(sprite.bounds.size.x,2.85f);Assert.LessOrEqual(sprite.bounds.size.y,station.DisplayHeight+.05f);
+                Assert.AreEqual(display.transform.position.y,sprite.bounds.min.y,.05f);
+            }
+            game.Session.SetManualPause(true);yield return null;Assert.IsFalse(display.GetComponentInChildren<Canvas>(true).gameObject.activeSelf);
+            game.Session.SetManualPause(false);display.Configure(0,station.DisplayHeight,true);yield return null;
+            yield return Capture("RotulosCapsulas",false,true);
         }
         [UnityTest] public IEnumerator PausingFreezesFusionAndClosingMenuKeepsOtherPauseReasons()
         {
