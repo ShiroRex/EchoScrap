@@ -438,8 +438,10 @@ namespace EchoScrap.Combat
             healthFill = Fill(bar.transform, "ImmediateHealth", new Color(0.66f, 0.84f, 0.69f));
             timerText = AnchorLabel(canvasRect, "Clock", new Vector2(0.5f, 1f), new Vector2(0f, -49f), new Vector2(400f, 56f), "00:00", 42, TextAnchor.MiddleCenter, Pale);
             phaseText = AnchorLabel(canvasRect, "Phase", new Vector2(0.5f, 1f), new Vector2(0f, -91f), new Vector2(600f, 34f), "VERTEDERO  /  SOBREVIVE", 22, TextAnchor.MiddleCenter, Apollo);
-            killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), new Vector2(-220f, -53f), new Vector2(350f, 40f), "BAJAS  0", 27, TextAnchor.MiddleRight, Pale);
-            AnchorLabel(canvasRect, "PauseHint", new Vector2(1f, 1f), new Vector2(-220f, -92f), new Vector2(350f, 30f), "ESC / START   PAUSA", 20, TextAnchor.MiddleRight, new Color(0.62f, 0.67f, 0.67f));
+            killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), new Vector2(-154f, -310f), new Vector2(244f, 40f), "BAJAS  0", 27, TextAnchor.MiddleCenter, Pale);
+            AnchorLabel(canvasRect, "PauseHint", new Vector2(1f, 1f), new Vector2(-154f, -345f), new Vector2(280f, 30f), "ESC / START   PAUSA", 18, TextAnchor.MiddleCenter, new Color(0.62f, 0.67f, 0.67f));
+
+            gameObject.AddComponent<CombatMinimap>().Build(game, canvasRect, font);
 
             RectTransform experience = Rect(canvasRect, "Experience", new Vector2(0.5f, 0f), new Vector2(0f, 60f), new Vector2(620f, 70f));
             levelText = Label(experience, "Level", new Vector2(-160f, 14f), new Vector2(300f, 34f), "NIVEL 1", 25, TextAnchor.MiddleLeft, Pale);
