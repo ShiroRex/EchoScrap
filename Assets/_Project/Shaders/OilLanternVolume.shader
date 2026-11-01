@@ -18,6 +18,7 @@ Shader "EchoScrap/Oil Lantern Volume"
             CBUFFER_START(UnityPerMaterial)
                 half4 _BeamColor;
             CBUFFER_END
+            float _EchoArenaAtmosphereActive;
             struct Attributes { float4 positionOS:POSITION; float2 uv:TEXCOORD0; float3 normalOS:NORMAL; };
             struct Varyings { float4 positionCS:SV_POSITION; float2 uv:TEXCOORD0; float3 positionWS:TEXCOORD1; float3 normalWS:TEXCOORD2; };
             Varyings Vert(Attributes v)
@@ -31,6 +32,9 @@ Shader "EchoScrap/Oil Lantern Volume"
             }
             half4 Frag(Varyings i):SV_Target
             {
+                // The exterior raymarch supplies the illuminated air. Keep this cheap
+                // fallback for the warehouse and renderers without the atmosphere pass.
+                clip(.5-_EchoArenaAtmosphereActive);
                 clip(i.positionWS.y-0.035);
                 float3 view=GetWorldSpaceNormalizeViewDir(i.positionWS);
                 float side=pow(saturate(1-abs(dot(normalize(i.normalWS),view))),1.6);

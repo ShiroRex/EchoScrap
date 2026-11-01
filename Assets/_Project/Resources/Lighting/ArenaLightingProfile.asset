@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a63bd4857f404a0d86b4fc08a8a56699, type: 3}
+  m_Name: ArenaLightingProfile
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.ArenaLightingProfile
+  RigPrefab: {fileID: 377536115743310552, guid: 9826f99c99387574b8ef05f66b69ae1c, type: 3}
+  PostProcessing: {fileID: 11400000, guid: cf9661d134837f74c9cc0b202c3961c5, type: 2}
+  RendererIndex: 1
+  AtmosphereLayer: 9
+  KeyColor: {r: 0.53, g: 0.67, b: 1, a: 1}
+  KeyIntensity: 0.34
+  KeyRotation: {x: 48, y: -32, z: 0}
+  AmbientSky: {r: 0.075, g: 0.105, b: 0.17, a: 1}
+  AmbientEquator: {r: 0.035, g: 0.052, b: 0.09, a: 1}
+  AmbientGround: {r: 0.018, g: 0.024, b: 0.043, a: 1}
+  SkyColor: {r: 0.018, g: 0.029, b: 0.047, a: 1}
+  AmbientIntensity: 1
+  BloomIntensity: 0.18
+  AirColor: {r: 0.23, g: 0.32, b: 0.5, a: 1}
+  AirDensity: 0.0045
+  HeightFalloff: 0.12
+  MaximumDistance: 90
+  HeightBase: 0
+  LowMistDensity: 0.07
+  NoiseScale: 0.085
+  FarMistDensity: 0.009
+  FarMistBase: 2
+  FarMistTop: 14
+  WindVelocity: {x: 0.11, y: 0.045}
+  MinimumProtectedRadius: 12
+  ProtectedRadiusMargin: 2
+  PeripheralBlurPixels: 3
+  FocusFeather: 5
+  FocusDepthGuard: 0.35

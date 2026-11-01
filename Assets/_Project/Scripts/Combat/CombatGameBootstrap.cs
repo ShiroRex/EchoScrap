@@ -49,6 +49,7 @@ namespace EchoScrap.Combat
         public FlashlightWeapon Weapon { get; private set; }
         public CombatHud Hud { get; private set; }
         public GameFlowController Flow { get; internal set; }
+        public ArenaLightingController Lighting { get; private set; }
         public DamageNumberPresenter DamageNumbers { get; private set; }
         public Camera GameplayCamera => gameplayCamera;
         public CinemachineCamera CameraRig => cameraRig;
@@ -219,6 +220,15 @@ namespace EchoScrap.Combat
                 Enemies.Prewarm(EnemyArchetypeId.GhostKnight, 2);
                 yield return null;
                 Enemies.Prewarm(EnemyArchetypeId.CopperSentinel, 2);
+            }
+            if (gameObject.scene.name == "CombatArena" || gameObject.scene.name == "CombatArena_3Min" || gameObject.scene.name == "CombatArena_8Min")
+            {
+                var lightingProfile = Resources.Load<ArenaLightingProfile>("Lighting/ArenaLightingProfile");
+                if (lightingProfile != null)
+                {
+                    Lighting = GetOrAdd<ArenaLightingController>(gameObject);
+                    Lighting.Initialize(this, lightingProfile);
+                }
             }
             initialized = true;
         }

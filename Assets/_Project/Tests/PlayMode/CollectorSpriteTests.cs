@@ -338,7 +338,7 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator NormalsAndBothGroundShadowsChangeTheRenderedImage()
+        public IEnumerator NormalsAndGroundShadowsChangeTheRenderedImage()
         {
             game.Session.Clock.SetPause(PauseReason.Manual, true);
             var camera = new GameObject("Collector lighting validation camera").AddComponent<Camera>();
@@ -354,6 +354,8 @@ namespace EchoScrap.Tests
             material.SetFloat("_NormalStrength", 0f);
             yield return Capture(camera, "FlatNormals.png", pixels => flat = pixels);
             material.SetFloat("_NormalStrength", 1f);
+            // Restore the authored casting mode too; exterior lighting uses the real shadow map.
+            view.enabled = false;
             view.ProjectedShadowRenderer.gameObject.SetActive(false);
             Transform contact = game.Motor.transform.Find("Coleccionista Contact Shadow");
             contact.gameObject.SetActive(false);
@@ -364,6 +366,7 @@ namespace EchoScrap.Tests
             Assert.That(shadowPixels, Is.GreaterThan(100), "The floor shadows must be visible, not just configured.");
             Debug.Log($"[Collector presentation] Normal response: {reliefPixels} pixels; ground shadows: {shadowPixels} pixels.");
             view.CharacterRenderer.sharedMaterial = original;
+            view.enabled = true;
             Object.Destroy(material); Object.Destroy(camera.gameObject);
             game.Session.Clock.SetPause(PauseReason.Manual, false);
         }
