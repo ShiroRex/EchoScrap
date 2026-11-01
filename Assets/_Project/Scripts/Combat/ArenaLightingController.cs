@@ -10,7 +10,7 @@ namespace EchoScrap.Combat
     /// <summary>Scopes the exterior look to its camera; restores the warehouse and menu presentation.</summary>
     [DefaultExecutionOrder(500)]
     [DisallowMultipleComponent]
-    public sealed class ArenaLightingController : MonoBehaviour
+    public sealed class ArenaLightingController : MonoBehaviour, IArenaLightingView
     {
         public static ArenaLightingController Active { get; private set; }
         public static bool IsExteriorActive => Active != null && Active.LightingEnabled && !Active.inside;
@@ -26,7 +26,7 @@ namespace EchoScrap.Combat
         public bool FocusEnabled => IsExteriorActive && DecorativeIntensity > .001f && focusEnabled && Profile.PeripheralBlurPixels > .001f;
         public ArenaLightingRig Rig => rig;
         public Light LanternLight => lantern;
-        public Light ShaftLightAt(int index) => index >= 0 && index < 4 ? shaftLights[index] : null;
+        public Light ShaftLightAt(int index) => shaderState.LightAt(index);
 
         private CombatGameBootstrap game;
         private UniversalAdditionalCameraData cameraData;
@@ -46,6 +46,8 @@ namespace EchoScrap.Combat
         private float keyIntensity;
         private Quaternion keyRotation;
         private ArenaLightingRig rig;
+        private bool sceneRigActive;
+        private bool[] dustInitiallyActive;
         private Volume volume;
         private Bloom bloom;
         private AmbientMode ambientMode;
@@ -56,14 +58,7 @@ namespace EchoScrap.Combat
         private Color fogColor;
         private float fogDensity, fogStart, fogEnd;
         private bool inside, initialized, decorationEnabled = true, dustActive = true, atmosphereEnabled = true, focusEnabled = true;
-        private readonly Vector4[] mistCenters = new Vector4[4];
-        private readonly Vector4[] mistExtents = new Vector4[4];
-        private readonly float[] mistDistances = new float[4];
-        private readonly Light[] shaftLights = new Light[4];
-        private readonly float[] shaftDistances = new float[4];
-        private readonly Vector4[] shaftPositions = new Vector4[4];
-        private readonly Vector4[] shaftDirections = new Vector4[4];
-        private readonly Vector4[] shaftColors = new Vector4[4];
+        private readonly ArenaLightingShaderState shaderState = new ArenaLightingShaderState();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -107,10 +102,17 @@ namespace EchoScrap.Combat
             var collector = game.Motor.GetComponent<CollectorSpriteView>();
             if (collector != null && collector.CharacterRenderer != null)
                 collector.CharacterRenderer.renderingLayerMask |= ArenaLightingRig.CollectorVisibilityRenderingLayer;
-            if (profile.RigPrefab != null)
+            rig = ArenaLightingRig.FindSceneLayout(game.gameObject.scene);
+            if(rig!=null) sceneRigActive=rig.gameObject.activeSelf;
+            else if (profile.RigPrefab != null)
             {
                 rig = Instantiate(profile.RigPrefab, transform).GetComponent<ArenaLightingRig>();
+            }
+            if(rig!=null)
+            {
                 rig.BindToScene(game.gameObject.scene);
+                dustInitiallyActive=new bool[rig.Dust!=null?rig.Dust.Length:0];
+                for(int i=0;i<dustInitiallyActive.Length;i++)dustInitiallyActive[i]=rig.Dust[i]!=null && rig.Dust[i].gameObject.activeSelf;
             }
             var volumeRoot = new GameObject("Arena exterior grading", typeof(Volume));
             volumeRoot.transform.SetParent(transform, false);
@@ -159,7 +161,7 @@ namespace EchoScrap.Combat
             cameraData.volumeLayerMask = exterior ? originalVolumeMask.value | (1 << Profile.AtmosphereLayer) : originalVolumeMask.value;
             game.GameplayCamera.cullingMask = exterior ? originalCullingMask | (1 << Profile.AtmosphereLayer) : originalCullingMask & ~(1 << Profile.AtmosphereLayer);
             if (volume != null) volume.weight = exterior ? 1f : 0f;
-            if (rig != null) rig.gameObject.SetActive(exterior);
+            if (rig != null) rig.gameObject.SetActive(exterior && (!rig.SceneAuthored || sceneRigActive));
             if (exterior)
             {
                 RenderSettings.ambientMode = AmbientMode.Trilight;
@@ -181,96 +183,14 @@ namespace EchoScrap.Combat
             if (bloom != null) bloom.intensity.value = Profile.BloomIntensity * DecorativeIntensity;
             bool showDust = IsExteriorActive && DecorativeIntensity > .01f;
             if (rig != null && rig.Dust != null && dustActive != showDust)
-                foreach (var particles in rig.Dust)
-                    if (particles != null) particles.gameObject.SetActive(showDust);
+                for(int i=0;i<rig.Dust.Length;i++)
+                    if(rig.Dust[i]!=null)rig.Dust[i].gameObject.SetActive(showDust && (dustInitiallyActive==null || i>=dustInitiallyActive.Length || dustInitiallyActive[i]));
             dustActive = showDust;
         }
 
         private void OnEnable() { if (initialized) { Active = this; ApplyEnvironment(); } }
         private void LateUpdate() { if (initialized) PushGlobals(); }
-        private void PushGlobals()
-        {
-            Shader.SetGlobalFloat("_EchoArenaAtmosphereActive", AtmosphereEnabled ? 1f : 0f);
-            Shader.SetGlobalColor("_EchoArenaAtmosphereColor", Profile.AirColor);
-            Shader.SetGlobalVector("_EchoArenaScattering", new Vector4(Profile.AmbientScattering, Profile.ShaftDensity, Profile.ShaftScattering, 0f));
-            Shader.SetGlobalVector("_EchoArenaAtmosphereParams", new Vector4(Profile.AirDensity, Profile.HeightFalloff, Profile.MaximumDistance, Profile.HeightBase));
-            Shader.SetGlobalVector("_EchoArenaMistParams", new Vector4(Profile.LowMistDensity, 0f, 1.5f, Profile.NoiseScale));
-            Shader.SetGlobalVector("_EchoArenaFarMistParams", new Vector4(Profile.FarMistDensity, Profile.FarMistBase, Profile.FarMistTop, .035f));
-            Shader.SetGlobalVector("_EchoArenaWind", new Vector4(Profile.WindVelocity.x, Profile.WindVelocity.y, Time.time, 0f));
-            Shader.SetGlobalVector("_EchoArenaFocusParams", new Vector4(Profile.PeripheralBlurPixels, Profile.FocusFeather, Profile.FocusDepthGuard, FocusEnabled ? 1f : 0f));
-            Shader.SetGlobalFloat("_EchoArenaFocusSharpDepth", Profile.FocusSharpDepth);
-            if (lantern != null && lantern.enabled && IsExteriorActive)
-            {
-                Vector3 p = lantern.transform.position, d = lantern.transform.forward;
-                Shader.SetGlobalVector("_EchoArenaLanternPosition", new Vector4(p.x, p.y, p.z, lantern.range));
-                Shader.SetGlobalVector("_EchoArenaLanternDirection", new Vector4(d.x, d.y, d.z, Mathf.Cos(lantern.spotAngle * .5f * Mathf.Deg2Rad)));
-                Color c = lantern.color.linear;
-                Shader.SetGlobalVector("_EchoArenaLanternColor", new Vector4(c.r, c.g, c.b, lantern.intensity));
-            }
-            else Shader.SetGlobalVector("_EchoArenaLanternColor", Vector4.zero);
-            UpdateMistBanks();
-            UpdateShaftLights();
-        }
-
-        private void UpdateShaftLights()
-        {
-            for (int i = 0; i < 4; i++) { shaftDistances[i] = float.MaxValue; shaftLights[i] = null; }
-            if (rig != null && rig.ShaftLights != null)
-                foreach (var light in rig.ShaftLights)
-                {
-                    if (light == null || !light.isActiveAndEnabled) continue;
-                    float distance = (light.transform.position - PlayerPosition).sqrMagnitude;
-                    for (int slot = 0; slot < 4; slot++)
-                    {
-                        if (distance >= shaftDistances[slot]) continue;
-                        for (int j = 3; j > slot; j--) { shaftDistances[j] = shaftDistances[j - 1]; shaftLights[j] = shaftLights[j - 1]; }
-                        shaftDistances[slot] = distance; shaftLights[slot] = light; break;
-                    }
-                }
-            int count = 0;
-            for (int i = 0; i < 4; i++)
-            {
-                var light = shaftLights[i];
-                shaftPositions[i] = shaftDirections[i] = shaftColors[i] = Vector4.zero;
-                if (light == null) continue;
-                Vector3 p = light.transform.position, d = light.transform.forward;
-                Color c = light.color.linear;
-                float fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(38f, 55f, Mathf.Sqrt(shaftDistances[i])));
-                shaftPositions[i] = new Vector4(p.x, p.y, p.z, light.range);
-                shaftDirections[i] = new Vector4(d.x, d.y, d.z, Mathf.Cos(light.spotAngle * .5f * Mathf.Deg2Rad));
-                shaftColors[i] = new Vector4(c.r, c.g, c.b, light.intensity * fade);
-                count++;
-            }
-            Shader.SetGlobalInt("_EchoArenaShaftCount", count);
-            Shader.SetGlobalVectorArray("_EchoArenaShaftPositions", shaftPositions);
-            Shader.SetGlobalVectorArray("_EchoArenaShaftDirections", shaftDirections);
-            Shader.SetGlobalVectorArray("_EchoArenaShaftColors", shaftColors);
-        }
-
-        private void UpdateMistBanks()
-        {
-            for (int i = 0; i < 4; i++) { mistDistances[i] = float.MaxValue; mistCenters[i] = Vector4.zero; mistExtents[i] = Vector4.zero; }
-            int count = 0;
-            if (rig != null && rig.MistBanks != null)
-                foreach (var bank in rig.MistBanks)
-                {
-                    if (bank == null) continue;
-                    float distance = (bank.position - PlayerPosition).sqrMagnitude;
-                    for (int slot = 0; slot < 4; slot++)
-                    {
-                        if (distance >= mistDistances[slot]) continue;
-                        for (int j = 3; j > slot; j--) { mistDistances[j] = mistDistances[j - 1]; mistCenters[j] = mistCenters[j - 1]; mistExtents[j] = mistExtents[j - 1]; }
-                        Vector3 p = bank.position, size = bank.lossyScale;
-                        mistDistances[slot] = distance;
-                        mistCenters[slot] = new Vector4(p.x, p.y, p.z, 1f);
-                        mistExtents[slot] = new Vector4(size.x, size.y, size.z, 1f);
-                        count = Mathf.Min(4, count + 1); break;
-                    }
-                }
-            Shader.SetGlobalInt("_EchoArenaMistCount", count);
-            Shader.SetGlobalVectorArray("_EchoArenaMistCenters", mistCenters);
-            Shader.SetGlobalVectorArray("_EchoArenaMistExtents", mistExtents);
-        }
+        private void PushGlobals() => shaderState.Apply(this, Time.time);
 
         private void RestoreEnvironment()
         {
@@ -286,7 +206,13 @@ namespace EchoScrap.Combat
             if (!initialized) return;
             if (!inside) ApplyExteriorCamera();
             if (UnityEngine.SceneManagement.SceneManager.GetActiveScene() == game.gameObject.scene) RestoreEnvironment();
-            if (rig != null) rig.gameObject.SetActive(false);
+            if (rig != null)
+            {
+                if(rig.SceneAuthored && dustInitiallyActive!=null)
+                    for(int i=0;i<Mathf.Min(rig.Dust.Length,dustInitiallyActive.Length);i++)
+                        if(rig.Dust[i]!=null)rig.Dust[i].gameObject.SetActive(dustInitiallyActive[i]);
+                rig.gameObject.SetActive(rig.SceneAuthored && sceneRigActive);
+            }
             if (volume != null) volume.weight = 0f;
             if (cameraData != null) { cameraData.SetRenderer(originalRendererIndex); cameraData.renderPostProcessing = originalPost; cameraData.volumeLayerMask = originalVolumeMask; }
             if (game != null && game.GameplayCamera != null)

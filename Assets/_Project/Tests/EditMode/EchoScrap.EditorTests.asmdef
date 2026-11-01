@@ -5,6 +5,9 @@
     "EchoScrap.Core",
     "EchoScrap.Player",
     "EchoScrap.Combat",
+    "EchoScrap.Editor",
+    "Unity.RenderPipelines.Core.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime",
     "Unity.InputSystem"
   ],
   "includePlatforms": ["Editor"],

@@ -37,11 +37,8 @@ namespace EchoScrap.Combat
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
-            var owner = ArenaLightingController.Active;
-            if (!ArenaLightingController.IsExteriorActive || owner == null
-                || renderingData.cameraData.camera != owner.GameplayCamera
-                || renderingData.cameraData.cameraType != CameraType.Game) return;
-            renderer.EnqueuePass(visibilityPass);
+            if (!ArenaLightingView.TryGetForCamera(renderingData.cameraData.camera, out var owner)) return;
+            if (owner is ArenaLightingController) renderer.EnqueuePass(visibilityPass);
             if (owner.DecorativeIntensity <= .001f) return;
             if (owner.AtmosphereEnabled && atmosphereMaterial != null) renderer.EnqueuePass(atmospherePass);
             if (owner.FocusEnabled && focusMaterial != null && maskMaterial != null) renderer.EnqueuePass(focusPass);
@@ -76,11 +73,9 @@ namespace EchoScrap.Combat
                 public float intensity;
             }
 
-            protected static bool TryGetOwner(UniversalCameraData camera, out ArenaLightingController owner)
+            protected static bool TryGetOwner(UniversalCameraData camera, out IArenaLightingView owner)
             {
-                owner = ArenaLightingController.Active;
-                return ArenaLightingController.IsExteriorActive && owner != null && owner.GameplayCamera == camera.camera
-                    && camera.cameraType == CameraType.Game && owner.DecorativeIntensity > .001f;
+                return ArenaLightingView.TryGetForCamera(camera.camera,out owner) && owner.DecorativeIntensity > .001f;
             }
 
             protected static TextureHandle ColorTarget(RenderGraph graph, TextureHandle source, string name)
@@ -110,7 +105,7 @@ namespace EchoScrap.Combat
                 Blitter.BlitTexture(context.cmd, data.source, ScaleBias, data.material, data.pass);
             }
 
-            protected static void Populate(FullscreenData data, ArenaLightingController owner, TextureHandle source, Material material, int pass)
+            protected static void Populate(FullscreenData data, IArenaLightingView owner, TextureHandle source, Material material, int pass)
             {
                 data.source = source;
                 data.material = material;

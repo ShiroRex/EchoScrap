@@ -6,6 +6,9 @@ namespace EchoScrap.Combat
     /// <summary>Authored lamps and terrain-height mist banks shared by all arena variants.</summary>
     public sealed class ArenaLightingRig : MonoBehaviour
     {
+        [Tooltip("A saved scene layout replaces the profile's default rig at runtime.")]
+        public bool SceneAuthored;
+        public bool ManageItems;
         public const uint DecorativeRenderingLayer = 1u << 9;
         public const uint CollectorVisibilityRenderingLayer = 1u << 10;
         public Transform[] MistBanks;
@@ -22,6 +25,34 @@ namespace EchoScrap.Combat
             [System.NonSerialized] public Transform BoundSupport;
         }
         public FixtureMount[] ShaftMounts = System.Array.Empty<FixtureMount>();
+
+        public void RefreshItems()
+        {
+            if(!ManageItems)return;
+            var lights=new System.Collections.Generic.List<Light>();
+            var dust=new System.Collections.Generic.List<ParticleSystem>();
+            var mist=new System.Collections.Generic.List<Transform>();
+            foreach(var item in GetComponentsInChildren<ArenaLightingItem>(true))
+            {
+                if(item.Source!=null && item.GodRays && item.Source.type==LightType.Spot && item.enabled && !lights.Contains(item.Source))lights.Add(item.Source);
+                if(item.Dust!=null)
+                {
+                    if(!dust.Contains(item.Dust))dust.Add(item.Dust);
+                    var renderer=item.Dust.GetComponent<ParticleSystemRenderer>();
+                    if(renderer!=null)renderer.renderingLayerMask=DecorativeRenderingLayer;
+                }
+                if(item.MistBank!=null && !mist.Contains(item.MistBank))mist.Add(item.MistBank);
+            }
+            ShaftLights=lights.ToArray();Dust=dust.ToArray();MistBanks=mist.ToArray();
+        }
+
+        public static ArenaLightingRig FindSceneLayout(Scene scene)
+        {
+            foreach(var root in scene.GetRootGameObjects())
+            foreach(var candidate in root.GetComponentsInChildren<ArenaLightingRig>(true))
+                if(candidate.SceneAuthored)return candidate;
+            return null;
+        }
 
         // Resolve authored supports once, after the foundry geometry has been built.
         // Fixtures follow each arena variant's layout without acquiring physics bodies.
@@ -51,6 +82,7 @@ namespace EchoScrap.Combat
         }
         private void Awake()
         {
+            if(ManageItems)RefreshItems();
             // Dust is scenery. Threat masking must not preserve its rectangular quads.
             if(Dust!=null) foreach(var motes in Dust)
                 if(motes!=null) motes.GetComponent<ParticleSystemRenderer>().renderingLayerMask=DecorativeRenderingLayer;
