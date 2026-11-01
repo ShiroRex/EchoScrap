@@ -88,6 +88,8 @@ namespace EchoScrap.Tests
                 Assert.IsTrue(ArenaLightingController.IsExteriorActive,arena);
                 Assert.AreEqual(1,Object.FindObjectsByType<ArenaLightingRig>(FindObjectsSortMode.None).Length,arena);
                 AssertExteriorLens();
+                foreach(var mount in game.Lighting.Rig.ShaftMounts)
+                    Assert.IsNotNull(mount.BoundSupport,arena+": "+mount.SupportPath);
             }
         }
 #endif
@@ -128,7 +130,8 @@ namespace EchoScrap.Tests
             foreach(var source in rig.ShaftLights)
             {
                 Assert.AreEqual(LightType.Spot,source.type);
-                Assert.That(source.transform.forward.y,Is.LessThan(-.5f));
+                // Authored supports have different heights and terrain slopes.
+                Assert.That(source.transform.forward.y,Is.LessThan(-.15f),"The mounted projector must aim down toward the ground.");
                 Assert.That(source.transform.localPosition.z,Is.GreaterThan(0),"The light must sit ahead of the projector lens.");
                 Assert.That(source.range,Is.GreaterThan(10));
             }
@@ -140,6 +143,34 @@ namespace EchoScrap.Tests
                 float combinedAlpha=motes.main.startColor.color.a*material.GetColor("_BaseColor").a;
                 Assert.That(combinedAlpha,Is.GreaterThan(.2f),"Double attenuation previously made the dust invisible.");
                 Assert.IsTrue(motes.main.prewarm,"Motes should be present at arrival, not only after waiting several seconds.");
+            }
+        }
+        [Test]public void ReflectorsAreMountedOnExistingLandmarksAndKeepTheirBeamSettings()
+        {
+            var rig=game.Lighting.Rig;
+            Assert.AreEqual(rig.ShaftLights.Length,rig.ShaftMounts.Length);
+            foreach(var mount in rig.ShaftMounts)
+            {
+                Assert.IsNotNull(mount.BoundSupport,mount.SupportPath);
+                Assert.IsTrue(mount.Fixture.gameObject.activeInHierarchy,mount.SupportPath);
+                Assert.IsTrue(mount.Source.transform.IsChildOf(mount.Fixture));
+                Assert.Less(Vector3.Distance(mount.Fixture.position,mount.BoundSupport.TransformPoint(mount.LocalPosition)),.01f);
+                Assert.AreEqual(65f,mount.Source.intensity,.01f);
+                Assert.AreEqual(20f,mount.Source.range,.01f);
+                Assert.AreEqual(36f,mount.Source.spotAngle,.01f);
+                Assert.AreEqual(25f,mount.Source.innerSpotAngle,.01f);
+                Assert.AreEqual(new Color(.82f,.84f,1f),mount.Source.color);
+                bool luminous=false;
+                foreach(var renderer in mount.Fixture.GetComponentsInChildren<MeshRenderer>())
+                foreach(var material in renderer.sharedMaterials)
+                    luminous |= (material.HasProperty("_BaseColor")&&material.GetColor("_BaseColor").maxColorComponent>1f)
+                        || (material.IsKeywordEnabled("_EMISSION")&&material.HasProperty("_EmissionColor")&&material.GetColor("_EmissionColor").maxColorComponent>1f);
+                Assert.IsTrue(luminous,"The projector needs a visible self-lit lens, not only an invisible light source.");
+            }
+            for(int i=0;i<2;i++)
+            {
+                Vector3 p=rig.ShaftMounts[i].Fixture.position-game.BossArena.Center;p.y=0;
+                Assert.GreaterOrEqual(p.magnitude,game.BossArena.Radius,"The foundry supports belong on its rim, outside the fighting floor.");
             }
         }
     }

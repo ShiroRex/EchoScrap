@@ -45,7 +45,7 @@ Shader "Hidden/EchoScrap/ArenaAtmosphereFocus"
                 float separation = eyeDepth - playerDepth;
                 float defocus = smoothstep(_EchoArenaFocusSharpDepth,
                     _EchoArenaFocusSharpDepth + max(1, _EchoArenaFocusParams.y),
-                    abs(separation) * (separation < 0 ? 1.6 : 1));
+                    abs(separation) * (separation < 0 ? 1.25 : 1));
                 float baseRadius = min(20, max(0, _EchoArenaFocusParams.x)) * GetScaledScreenParams().y / 1080.0
                     * defocus * _EchoArenaDecorativeIntensity;
                 if (baseRadius < .15 || _EchoArenaFocusParams.w < .5) return original;

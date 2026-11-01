@@ -44,9 +44,9 @@ namespace EchoScrap.Combat
         [Header("Readability")]
         [Min(0f)] public float MinimumProtectedRadius = 12f;
         [Min(0f)] public float ProtectedRadiusMargin = 2f;
-        [Range(0f, 20f)] public float PeripheralBlurPixels = 16f;
-        [Min(.1f)] public float FocusSharpDepth = 3f;
-        [Min(.1f)] public float FocusFeather = 9f;
+        [Range(0f, 20f)] public float PeripheralBlurPixels = 6f;
+        [Min(.1f)] public float FocusSharpDepth = 5f;
+        [Min(.1f)] public float FocusFeather = 12f;
         [Min(.01f)] public float FocusDepthGuard = .08f;
     }
 }

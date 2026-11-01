@@ -108,7 +108,10 @@ namespace EchoScrap.Combat
             if (collector != null && collector.CharacterRenderer != null)
                 collector.CharacterRenderer.renderingLayerMask |= ArenaLightingRig.CollectorVisibilityRenderingLayer;
             if (profile.RigPrefab != null)
+            {
                 rig = Instantiate(profile.RigPrefab, transform).GetComponent<ArenaLightingRig>();
+                rig.BindToScene(game.gameObject.scene);
+            }
             var volumeRoot = new GameObject("Arena exterior grading", typeof(Volume));
             volumeRoot.transform.SetParent(transform, false);
             volumeRoot.layer = profile.AtmosphereLayer;

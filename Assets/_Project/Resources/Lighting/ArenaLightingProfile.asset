@@ -44,7 +44,7 @@ MonoBehaviour:
   ShaftScattering: 0.08
   MinimumProtectedRadius: 12
   ProtectedRadiusMargin: 2
-  PeripheralBlurPixels: 16
-  FocusSharpDepth: 3
-  FocusFeather: 9
+  PeripheralBlurPixels: 6
+  FocusSharpDepth: 5
+  FocusFeather: 12
   FocusDepthGuard: 0.08
