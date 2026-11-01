@@ -15,5 +15,5 @@ MonoBehaviour:
   DemoRound: {fileID: 11400000, guid: facd2da7591347ea9284c7fe1131b08d, type: 2}
   CompleteRound: {fileID: 11400000, guid: 2467d3fc01ab4b9e9ad2ac0ec5cf0787, type: 2}
   SelectionRoar: {fileID: 8300000, guid: 518f032d26cd4064861cfe9859607382, type: 3}
-  RoarVolume: 0.75
+  RoarVolume: 0.95
   TransitionDuration: 0.85
