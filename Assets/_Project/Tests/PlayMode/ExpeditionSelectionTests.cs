@@ -64,7 +64,7 @@ namespace EchoScrap.Tests
 
         private IEnumerator Arrival()
         {
-            float deadline = Time.realtimeSinceStartup + 5;
+            float deadline = Time.realtimeSinceStartup + 8;
             while (flow.IsLoading && Time.realtimeSinceStartup < deadline) yield return null;
             Assert.IsFalse(flow.IsLoading);
             Assert.AreEqual(GameFlowState.Expedition, flow.State);
@@ -119,7 +119,7 @@ namespace EchoScrap.Tests
             Assert.IsTrue(flow.IsSelectingExpedition);
         }
 
-        [UnityTest] public IEnumerator DemoHasVisibleShortLoadingThenPortalAudioAndThreeMinuteObjective()
+        [UnityTest] public IEnumerator ModePressFadesThroughRoarBeforeShortLoadingAndPortalArrival()
         {
             Assert.IsTrue(flow.BeginExpedition());
             float started = Time.realtimeSinceStartup;
@@ -127,8 +127,33 @@ namespace EchoScrap.Tests
             // Duplicate clicks cannot change the chosen mode or start another transition.
             flow.SelectExpedition(true);
             yield return null;
+            Assert.IsTrue(flow.IsFadingExpeditionSelection);
+            Assert.IsTrue(flow.View.IsExpeditionSelectionVisible);
+            Assert.IsNull(Object.FindAnyObjectByType<LoadingScreen>());
+            Assert.Less(flow.View.DemoRoundButton.transform.localScale.x, 1f, "The confirmed button must visibly compress before the menu fades.");
+            var overlay = flow.View.Canvas.transform.Find("ExpeditionSelection");
+            var frameGroup = overlay.Find("SelectionFrame").GetComponent<CanvasGroup>();
+            Assert.AreEqual(1f, frameGroup.alpha);
+            Assert.IsFalse(overlay.GetComponent<CanvasGroup>().interactable);
+            var roar = System.Array.Find(flow.GetComponents<AudioSource>(), source => source.clip == Resources.Load<ExpeditionEntrySettings>("UI/ExpeditionEntrySettings").SelectionRoar);
+            Assert.AreEqual(.85f, roar.volume, .001f);
+            yield return new WaitForSecondsRealtime(roar.clip.length * .45f);
+            Assert.IsTrue(roar.isPlaying);
+            Assert.IsTrue(flow.View.IsExpeditionSelectionVisible);
+            Assert.That(frameGroup.alpha, Is.InRange(.3f, .8f), "The menu must fade gradually while the roar plays.");
+            Assert.IsFalse(LoadingScreen.IsLoading);
+            Assert.IsTrue(game.Session.IsInWarehouse);
+            Assert.IsFalse(Intro.IsPlaying);
+            Assert.AreEqual(0, game.Session.GameplayTime);
+            float deadline = Time.realtimeSinceStartup + 6;
+            while (!LoadingScreen.IsLoading && Time.realtimeSinceStartup < deadline) yield return null;
             var loading = Object.FindAnyObjectByType<LoadingScreen>();
             Assert.IsNotNull(loading);
+            Assert.IsFalse(roar.isPlaying, "Loading starts only after the selection sound finishes.");
+            Assert.AreEqual(0f, frameGroup.alpha);
+            Assert.AreEqual(Color.black, overlay.GetComponent<Image>().color);
+            Assert.That(Time.realtimeSinceStartup - started, Is.InRange(roar.clip.length, roar.clip.length + .3f));
+            float loadingStarted = Time.realtimeSinceStartup;
             Assert.AreEqual(Color.black, loading.GetComponentInChildren<Image>().color);
             Assert.IsTrue(game.Session.IsInWarehouse);
             Assert.IsFalse(Intro.IsPlaying);
@@ -137,7 +162,7 @@ namespace EchoScrap.Tests
             Assert.AreNotEqual(frame, loading.GetComponentInChildren<RawImage>().uvRect);
             Assert.AreEqual(0, game.Session.GameplayTime);
             yield return Arrival();
-            Assert.That(Time.realtimeSinceStartup - started, Is.InRange(.8f, 1.2f));
+            Assert.That(Time.realtimeSinceStartup - loadingStarted, Is.InRange(.8f, 1.2f));
             Assert.AreEqual(180, game.WaveSettings.BossStartTime);
             Assert.AreSame(game.WaveSettings, game.Director.Settings);
             Assert.IsFalse(game.Session.IsInWarehouse);
@@ -172,6 +197,8 @@ namespace EchoScrap.Tests
             Assert.IsTrue(game.Session.IsInWarehouse);
             Assert.AreEqual(7, station.Progress.owned[4]);
             flow.BeginExpedition(); flow.View.DemoRoundButton.onClick.Invoke();
+            Assert.That(flow.View.DemoRoundButton.transform.localScale.x, Is.LessThan(1f));
+            Assert.AreEqual(1f, flow.View.Canvas.transform.Find("ExpeditionSelection/SelectionFrame").GetComponent<CanvasGroup>().alpha, "A repeated expedition restores the menu before fading again.");
             yield return Arrival();
             Assert.AreEqual(180, game.Director.Settings.BossStartTime);
         }

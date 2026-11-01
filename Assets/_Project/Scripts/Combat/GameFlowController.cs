@@ -23,6 +23,7 @@ namespace EchoScrap.Combat
         private bool separateScenes;
         public bool IsLoading { get; private set; }
         public bool IsSelectingExpedition { get; private set; }
+        public bool IsFadingExpeditionSelection { get; private set; }
         public CombatGameBootstrap Game => game;
         public EffectPreferences Effects => game.Session.Effects;
         private bool transientProfile;
@@ -155,13 +156,30 @@ namespace EchoScrap.Combat
             if (!IsSelectingExpedition || IsLoading) return;
             IsSelectingExpedition = false;
             IsLoading = true;
+            IsFadingExpeditionSelection = true;
             selectionAudio.Play();
             Sync();
+            view.PressExpeditionSelection(completeRound);
             StartCoroutine(EnterArena(completeRound ? entrySettings.CompleteRound : entrySettings.DemoRound));
         }
 
         private IEnumerator EnterArena(CombatWaveSettings waves)
         {
+            float duration = selectionAudio.clip.length / Mathf.Max(.01f, Mathf.Abs(selectionAudio.pitch));
+            float started = Time.unscaledTime;
+            float elapsed;
+            do
+            {
+                elapsed = Time.unscaledTime - started;
+                view.AnimateExpeditionSelectionExit(
+                    Mathf.InverseLerp(entrySettings.ButtonPressDuration, duration, elapsed),
+                    Mathf.Clamp01(elapsed / entrySettings.ButtonPressDuration));
+                yield return null;
+            }
+            while (elapsed < duration || selectionAudio.isPlaying);
+            view.AnimateExpeditionSelectionExit(1f, 1f);
+            IsFadingExpeditionSelection = false;
+            Sync();
             yield return LoadingScreen.Transition(entrySettings.TransitionDuration, () =>
             {
                 game.SelectWaveSettings(waves);

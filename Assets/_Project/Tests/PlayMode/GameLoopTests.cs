@@ -70,7 +70,7 @@ namespace EchoScrap.Tests
         {
             Assert.That(flow.IsSelectingExpedition, Is.True);
             flow.View.DemoRoundButton.onClick.Invoke();
-            float deadline = Time.realtimeSinceStartup + 6;
+            float deadline = Time.realtimeSinceStartup + 12;
             while ((flow.IsLoading || Object.FindAnyObjectByType<ExpeditionIntro>().IsPlaying) && Time.realtimeSinceStartup < deadline) yield return null;
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Expedition));
             Assert.That(game.Session.IsPaused, Is.False);
