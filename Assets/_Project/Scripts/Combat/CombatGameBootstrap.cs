@@ -170,6 +170,7 @@ namespace EchoScrap.Combat
             dashPresentation = GetOrAdd<PlayerDashPresentation>(playerObject);
             Pickups = SystemObject<CombatPickupPool>("Pickups");
             Pickups.BindReferences(Session, Player, Stats, Progression);
+            GetOrAdd<ExperiencePickupAudio>(Pickups.gameObject).Bind(Pickups, Session);
             yield return null;
             Upgrades = SystemObject<UpgradeCombatRuntime>("UpgradeMechanics");
             Upgrades.Bind(Session, Stats, Player, Weapon, Pickups, Progression);

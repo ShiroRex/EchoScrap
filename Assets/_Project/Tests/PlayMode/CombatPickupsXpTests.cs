@@ -16,6 +16,7 @@ namespace EchoScrap.Tests
         private PlayerHealth health;
         private CombatProgression progression;
         private CombatPickupPool pickups;
+        private ExperiencePickupAudio pickupAudio;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -41,6 +42,9 @@ namespace EchoScrap.Tests
             pickups = new GameObject("Pickups").AddComponent<CombatPickupPool>();
             pickups.AutoTick = false;
             pickups.BindReferences(session, health, stats, progression);
+            pickupAudio = pickups.gameObject.AddComponent<ExperiencePickupAudio>();
+            pickupAudio.Bind(pickups, session);
+            new GameObject("XP audio listener").AddComponent<AudioListener>();
             session.ResetSession(90101);
             yield return null;
         }
@@ -56,6 +60,62 @@ namespace EchoScrap.Tests
                     SceneManager.SetActiveScene(SceneManager.CreateScene("PickupsCleanup"));
                 yield return SceneManager.UnloadSceneAsync(testScene);
             }
+        }
+
+        [Test]
+        public void ExperienceUsesSuppliedClipAndIndependentPitchesWithoutChangingCombatRandomness()
+        {
+            var clip = Resources.Load<AudioClip>("Audio/XP_sound");
+            Assert.That(clip, Is.Not.Null);Assert.That(clip.length, Is.GreaterThan(.1f));
+            var samples = new float[clip.samples * clip.channels];
+            Assert.That(clip.GetData(samples, 0));
+            float peak = 0;foreach (float sample in samples) peak = Mathf.Max(peak, Mathf.Abs(sample));
+            Assert.That(peak, Is.GreaterThan(.05f), "The supplied MP3 must import as audible audio.");
+            int combatRolls = session.Rng.Combat.SampleCount;
+            var globalRandom = Random.state;
+            float previousPitch = 0;
+            for (int i = 0; i < 6; i++)
+            {
+                pickups.SpawnExperience(new Vector3(i * 3 + 20, 0, 20), 1);
+                pickups.CollectAll();
+                var voice = pickups.transform.Find("ExperiencePickupVoice" + i).GetComponent<AudioSource>();
+                Assert.That(voice.clip, Is.SameAs(clip));Assert.That(voice.pitch, Is.InRange(.9f, 1.15f));
+                Assert.That(Mathf.Abs(voice.pitch - previousPitch), Is.GreaterThanOrEqualTo(.037f));
+                previousPitch = voice.pitch;
+            }
+            Assert.That(pickupAudio.SoundsPlayed, Is.EqualTo(6));
+            Assert.That(session.Rng.Combat.SampleCount, Is.EqualTo(combatRolls));Assert.That(Random.state, Is.EqualTo(globalRandom));
+            for (int i = 0; i < 30; i++) { pickups.SpawnExperience(new Vector3(20, 0, 20), 1);pickups.CollectAll(); }
+            Assert.That(pickups.GetComponentsInChildren<AudioSource>().Length, Is.EqualTo(8), "Repeated collection reuses a bounded set of voices.");
+        }
+
+        [Test]
+        public void ExperienceAudioIgnoresMedkitsAndStopsOnPauseResetAndDisable()
+        {
+            pickups.SpawnMedkit(new Vector3(20, 0, 20));pickups.CollectAll();
+            progression.AddExperience(1);Assert.That(pickupAudio.SoundsPlayed, Is.Zero);
+            pickups.SpawnExperience(new Vector3(20, 0, 20), 1);pickups.CollectAll();
+            Assert.That(pickupAudio.SoundsPlayed, Is.EqualTo(1));
+            session.SetManualPause(true);
+            foreach (var voice in pickups.GetComponentsInChildren<AudioSource>()) Assert.That(voice.isPlaying, Is.False);
+            session.SetManualPause(false);
+            session.ResetSession(90101);
+            foreach (var voice in pickups.GetComponentsInChildren<AudioSource>()) Assert.That(voice.isPlaying, Is.False);
+            pickupAudio.enabled = false;
+            pickups.SpawnExperience(new Vector3(20, 0, 20), 1);pickups.CollectAll();
+            Assert.That(pickupAudio.SoundsPlayed, Is.EqualTo(1));
+            pickupAudio.enabled = true;pickupAudio.Bind(pickups, session);
+            pickups.SpawnExperience(new Vector3(20, 0, 20), 1);pickups.CollectAll();
+            Assert.That(pickupAudio.SoundsPlayed, Is.EqualTo(2), "Rebinding must not duplicate the pickup subscription.");
+        }
+
+        [Test]
+        public void OrbThatOpensTheLevelUpDraftStillPlaysItsSound()
+        {
+            progression.OnLevelGained += _ => session.SetTacticalDraftPause(true);
+            pickups.SpawnExperience(new Vector3(20, 0, 20), progression.RequiredXp);pickups.CollectAll();
+            Assert.That(session.State, Is.EqualTo(SessionState.TacticalDraft));
+            Assert.That(pickupAudio.SoundsPlayed, Is.EqualTo(1));
         }
 
         [Test]
