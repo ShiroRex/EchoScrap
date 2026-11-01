@@ -26,9 +26,11 @@ Shader "EchoScrap/WastelandGround"
             }
             void GroundPattern(Varyings i, out half3 dirt, out float height, out half smoothness)
             {
-                float2 p=i.positionWS.xz;
+                // World-anchored texels keep the floor's detail at the sprite-art scale.
+                // Lighting and contact normals remain continuous below.
+                float2 p=(floor(i.positionWS.xz*24)+0.5)/24;
                 float broad=noise(p*0.19)*0.65+noise(p*0.73)*0.35;
-                float grit=noise(p*43);
+                float grit=noise(p*16);
                 float2 grid=p*1.7,cell=floor(grid),f=frac(grid);
                 float first=10,second=10;
                 [unroll] for(int y=-1;y<=1;y++) [unroll] for(int x=-1;x<=1;x++)
@@ -42,7 +44,9 @@ Shader "EchoScrap/WastelandGround"
                 dirt=lerp(half3(0.30,0.20,0.11),half3(0.56,0.41,0.24),broad);
                 dirt*=lerp(0.90,1.09,grit); dirt*=1-crack*0.20;
                 dirt=lerp(dirt,half3(0.37,0.34,0.28),saturate(pebble+rock*0.65));
-                height=broad*0.025+grit*0.001-crack*0.004+pebble*0.009;
+                dirt=floor(dirt*40+0.5)/40;
+                float2 continuous=i.positionWS.xz;
+                height=noise(continuous*.19)*.025+noise(continuous*16)*.001-crack*.002+pebble*.004;
                 smoothness=saturate(_Smoothness+(broad-0.5)*_RoughnessVariation-crack*0.02+saturate(pebble)*0.02);
             }
             half3 GroundNormal(Varyings i, float height)

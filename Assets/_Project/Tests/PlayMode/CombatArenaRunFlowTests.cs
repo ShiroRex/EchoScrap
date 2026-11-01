@@ -104,7 +104,7 @@ namespace EchoScrap.Tests
             Assert.IsNotNull(game.Hud.CanvasRoot);
             Assert.That(game.Enemies.TotalCreatedCount, Is.GreaterThanOrEqualTo(150));
             Assert.AreEqual(0, game.Director.ActiveEnemyCount);
-            Assert.AreEqual(60f, game.GameplayCamera.fieldOfView, 0.01f);
+            Assert.AreEqual(game.Lighting.Profile.CameraFieldOfView, game.GameplayCamera.fieldOfView, 0.01f);
             Transform arena = GameObject.Find("Arena_120m").transform;
             Assert.AreEqual(new Vector3(200f, 1f, 200f), arena.Find("Floor").localScale);
             // Se conservan las comprobaciones de los muros de nuestra rama.

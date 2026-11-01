@@ -1,5 +1,6 @@
 using EchoScrap.Core;
 using EchoScrap.Combat.Prototype;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -34,6 +35,10 @@ namespace EchoScrap.Combat
         private LayerMask originalVolumeMask;
         private int originalCullingMask;
         private bool originalPost;
+        private CinemachineFollow cameraFollow;
+        private Vector3 originalFollowOffset;
+        private Quaternion originalCameraRotation;
+        private float originalFieldOfView;
         private CameraClearFlags originalClearFlags;
         private Color originalBackground;
         private Light key, lantern;
@@ -71,6 +76,10 @@ namespace EchoScrap.Combat
         {
             if (initialized || owner == null || profile == null) return;
             game = owner; Profile = profile;
+            cameraFollow = game.CameraRig.GetComponent<CinemachineFollow>();
+            originalFollowOffset = cameraFollow.FollowOffset;
+            originalCameraRotation = game.CameraRig.transform.rotation;
+            originalFieldOfView = game.CameraRig.Lens.FieldOfView;
             cameraData = game.GameplayCamera.GetUniversalAdditionalCameraData();
             originalRenderer = cameraData.scriptableRenderer;
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
@@ -95,6 +104,9 @@ namespace EchoScrap.Combat
             if (key != null) { keyColor = key.color; keyIntensity = key.intensity; keyRotation = key.transform.rotation; }
             var view = game.Motor.GetComponentInChildren<PlayerFlashlightView>(true);
             lantern = view != null ? view.KeyLight : null;
+            var collector = game.Motor.GetComponent<CollectorSpriteView>();
+            if (collector != null && collector.CharacterRenderer != null)
+                collector.CharacterRenderer.renderingLayerMask |= ArenaLightingRig.CollectorVisibilityRenderingLayer;
             if (profile.RigPrefab != null)
                 rig = Instantiate(profile.RigPrefab, transform).GetComponent<ArenaLightingRig>();
             var volumeRoot = new GameObject("Arena exterior grading", typeof(Volume));
@@ -118,9 +130,25 @@ namespace EchoScrap.Combat
         public void SetFocusEnabled(bool value) => focusEnabled = value;
         public void SetWarehouse(bool value) { inside = value; if (initialized) ApplyEnvironment(); }
 
+        // WarehouseCameraDirector calls this on return/reset as well as initial setup.
+        // The warehouse keeps its own lens; reduced effects keep the exterior composition.
+        public void ApplyExteriorCamera()
+        {
+            if (!initialized || inside || game == null || game.CameraRig == null || cameraFollow == null) return;
+            bool miniature = isActiveAndEnabled && LightingEnabled;
+            var rotation = miniature ? Quaternion.Euler(Profile.CameraPitch, 0f, 0f) : originalCameraRotation;
+            cameraFollow.FollowOffset = miniature ? rotation * Vector3.back * Profile.CameraDistance : originalFollowOffset;
+            game.CameraRig.transform.rotation = rotation;
+            var lens = game.CameraRig.Lens;
+            lens.FieldOfView = miniature ? Profile.CameraFieldOfView : originalFieldOfView;
+            game.CameraRig.Lens = lens;
+            game.CameraRig.PreviousStateIsValid = false;
+        }
+
         private void ApplyEnvironment()
         {
-            bool exterior = LightingEnabled && !inside;
+            bool exterior = isActiveAndEnabled && LightingEnabled && !inside;
+            if (!inside) ApplyExteriorCamera();
             cameraData.SetRenderer(exterior ? Profile.RendererIndex : originalRendererIndex);
             cameraData.renderPostProcessing = exterior || originalPost;
             game.GameplayCamera.clearFlags = exterior ? CameraClearFlags.SolidColor : originalClearFlags;
@@ -167,6 +195,7 @@ namespace EchoScrap.Combat
             Shader.SetGlobalVector("_EchoArenaFarMistParams", new Vector4(Profile.FarMistDensity, Profile.FarMistBase, Profile.FarMistTop, .035f));
             Shader.SetGlobalVector("_EchoArenaWind", new Vector4(Profile.WindVelocity.x, Profile.WindVelocity.y, Time.time, 0f));
             Shader.SetGlobalVector("_EchoArenaFocusParams", new Vector4(Profile.PeripheralBlurPixels, Profile.FocusFeather, Profile.FocusDepthGuard, FocusEnabled ? 1f : 0f));
+            Shader.SetGlobalFloat("_EchoArenaFocusSharpDepth", Profile.FocusSharpDepth);
             if (lantern != null && lantern.enabled && IsExteriorActive)
             {
                 Vector3 p = lantern.transform.position, d = lantern.transform.forward;
@@ -252,6 +281,7 @@ namespace EchoScrap.Combat
         private void OnDisable()
         {
             if (!initialized) return;
+            if (!inside) ApplyExteriorCamera();
             if (UnityEngine.SceneManagement.SceneManager.GetActiveScene() == game.gameObject.scene) RestoreEnvironment();
             if (rig != null) rig.gameObject.SetActive(false);
             if (volume != null) volume.weight = 0f;

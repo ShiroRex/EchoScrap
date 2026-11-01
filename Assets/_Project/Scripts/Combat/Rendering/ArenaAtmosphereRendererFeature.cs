@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace EchoScrap.Combat
 {
-    /// <summary>Exterior-only, spatially reconstructed atmosphere and restrained peripheral focus.</summary>
+    /// <summary>Exterior-only atmosphere and a masked miniature lens with a sharp gameplay plane.</summary>
     public sealed class ArenaAtmosphereRendererFeature : ScriptableRendererFeature
     {
         [SerializeField] private Shader atmosphereShader;
@@ -18,6 +18,7 @@ namespace EchoScrap.Combat
         private Material atmosphereMaterial, focusMaterial, maskMaterial;
         private AtmospherePass atmospherePass;
         private FocusPass focusPass;
+        private CollectorVisibilityPass visibilityPass;
 
         public override void Create()
         {
@@ -31,14 +32,17 @@ namespace EchoScrap.Combat
             atmospherePass = new AtmospherePass(atmosphereMaterial, Mathf.Clamp(raymarchSteps, 16, 48));
             int layers = protectedMeshLayers.value != 0 ? protectedMeshLayers.value : ~0;
             focusPass = new FocusPass(focusMaterial, maskMaterial, layers);
+            visibilityPass = new CollectorVisibilityPass();
         }
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
             var owner = ArenaLightingController.Active;
-            if (!ArenaLightingController.IsExteriorActive || owner == null || owner.DecorativeIntensity <= .001f
+            if (!ArenaLightingController.IsExteriorActive || owner == null
                 || renderingData.cameraData.camera != owner.GameplayCamera
                 || renderingData.cameraData.cameraType != CameraType.Game) return;
+            renderer.EnqueuePass(visibilityPass);
+            if (owner.DecorativeIntensity <= .001f) return;
             if (owner.AtmosphereEnabled && atmosphereMaterial != null) renderer.EnqueuePass(atmospherePass);
             if (owner.FocusEnabled && focusMaterial != null && maskMaterial != null) renderer.EnqueuePass(focusPass);
         }
@@ -57,6 +61,7 @@ namespace EchoScrap.Combat
             protected static readonly int AirTexture = Shader.PropertyToID("_EchoArenaAirTexture");
             protected static readonly int AirTexelSize = Shader.PropertyToID("_EchoArenaAirTexelSize");
             protected static readonly int FocusMask = Shader.PropertyToID("_EchoArenaFocusMask");
+            protected static readonly int SharpTexture = Shader.PropertyToID("_EchoArenaSharpTexture");
             protected static readonly int Steps = Shader.PropertyToID("_EchoArenaRaymarchSteps");
             protected static readonly int LanternLightIndex = Shader.PropertyToID("_EchoArenaLanternLightIndex");
             protected static readonly int ShaftLightIndices = Shader.PropertyToID("_EchoArenaShaftLightIndices");
@@ -64,7 +69,7 @@ namespace EchoScrap.Combat
 
             protected sealed class FullscreenData
             {
-                public TextureHandle source, air, mask;
+                public TextureHandle source, air, mask, sharp;
                 public Material material;
                 public int pass, steps, lanternIndex;
                 public Vector4 tactical, airTexelSize, shaftIndices;
@@ -101,6 +106,7 @@ namespace EchoScrap.Combat
                     context.cmd.SetGlobalVector(AirTexelSize, data.airTexelSize);
                 }
                 if (data.mask.IsValid()) context.cmd.SetGlobalTexture(FocusMask, data.mask);
+                if (data.sharp.IsValid()) context.cmd.SetGlobalTexture(SharpTexture, data.sharp);
                 Blitter.BlitTexture(context.cmd, data.source, ScaleBias, data.material, data.pass);
             }
 
@@ -196,6 +202,37 @@ namespace EchoScrap.Combat
             }
         }
 
+        private sealed class CollectorVisibilityPass : ScriptableRenderPass
+        {
+            private readonly List<ShaderTagId> tags = new List<ShaderTagId> { new ShaderTagId("ArenaOccludedCollector") };
+            private sealed class PassData { public RendererListHandle collector; }
+            public CollectorVisibilityPass()
+            {
+                renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
+                requiresIntermediateTexture = true;
+            }
+            public override void RecordRenderGraph(RenderGraph graph, ContextContainer frameData)
+            {
+                var camera=frameData.Get<UniversalCameraData>();
+                var owner=ArenaLightingController.Active;
+                if(!ArenaLightingController.IsExteriorActive || owner==null || owner.GameplayCamera!=camera.camera) return;
+                var resources=frameData.Get<UniversalResourceData>();
+                if(resources.isActiveTargetBackBuffer) return;
+                var rendering=frameData.Get<UniversalRenderingData>();
+                var drawing=RenderingUtils.CreateDrawingSettings(tags,rendering,camera,frameData.Get<UniversalLightData>(),SortingCriteria.CommonOpaque);
+                var collector=graph.CreateRendererList(new RendererListParams(rendering.cullResults,drawing,
+                    new FilteringSettings(RenderQueueRange.all,~0,ArenaLightingRig.CollectorVisibilityRenderingLayer)));
+                using(var builder=graph.AddRasterRenderPass<PassData>("Arena occluded collector visibility",out var data))
+                {
+                    data.collector=collector;
+                    builder.UseRendererList(collector);
+                    builder.SetRenderAttachment(resources.activeColorTexture,0,AccessFlags.ReadWrite);
+                    builder.SetRenderAttachmentDepth(resources.activeDepthTexture,AccessFlags.ReadWrite);
+                    builder.SetRenderFunc(static (PassData data,RasterGraphContext context)=>context.cmd.DrawRendererList(data.collector));
+                }
+            }
+        }
+
         private sealed class FocusPass : ExteriorPass
         {
             private readonly Material material, meshMaskMaterial;
@@ -205,7 +242,7 @@ namespace EchoScrap.Combat
             {
                 new ShaderTagId("UniversalForwardOnly"), new ShaderTagId("UniversalForward"), new ShaderTagId("SRPDefaultUnlit")
             };
-            private sealed class MaskData { public RendererListHandle actors, meshes, signals; }
+            private sealed class MaskData { public RendererListHandle actors, meshes, signals, collector; }
 
             public FocusPass(Material material, Material meshMaskMaterial, int meshLayers)
             {
@@ -249,15 +286,20 @@ namespace EchoScrap.Combat
                 // Protect their geometry conservatively, including dim/fading signals that
                 // cannot be identified reliably from their color. Overlay HUD renders later.
                 var signalList = graph.CreateRendererList(new RendererListParams(rendering.cullResults, drawMeshes,
-                    new FilteringSettings(RenderQueueRange.transparent)));
+                    new FilteringSettings(RenderQueueRange.transparent, ~0, ~ArenaLightingRig.DecorativeRenderingLayer)));
+                var collectorDrawing=RenderingUtils.CreateDrawingSettings(new ShaderTagId("ArenaCollectorFocusMask"),rendering,camera,lights,SortingCriteria.CommonOpaque);
+                var collectorList=graph.CreateRendererList(new RendererListParams(rendering.cullResults,collectorDrawing,
+                    new FilteringSettings(RenderQueueRange.all,~0,ArenaLightingRig.CollectorVisibilityRenderingLayer)));
                 using (var builder = graph.AddRasterRenderPass<MaskData>("Arena actor and threat focus protection", out var data))
                 {
                     data.actors = actorList;
                     data.meshes = meshList;
                     data.signals = signalList;
+                    data.collector = collectorList;
                     builder.UseRendererList(actorList);
                     builder.UseRendererList(meshList);
                     builder.UseRendererList(signalList);
+                    builder.UseRendererList(collectorList);
                     builder.SetRenderAttachment(mask, 0, AccessFlags.Write);
                     builder.SetRenderAttachmentDepth(resources.activeDepthTexture, AccessFlags.Read);
                     builder.SetRenderFunc(static (MaskData data, RasterGraphContext context) =>
@@ -265,14 +307,33 @@ namespace EchoScrap.Combat
                         context.cmd.DrawRendererList(data.meshes);
                         context.cmd.DrawRendererList(data.signals);
                         context.cmd.DrawRendererList(data.actors);
+                        context.cmd.DrawRendererList(data.collector);
                     });
                 }
-                TextureHandle destination = ColorTarget(graph, source, "Arena restrained peripheral focus");
+                var prefilterDescriptor=graph.GetTextureDesc(source);
+                prefilterDescriptor.name="Arena bokeh prefilter";
+                prefilterDescriptor.width=Mathf.Max(1,(prefilterDescriptor.width+3)/4);
+                prefilterDescriptor.height=Mathf.Max(1,(prefilterDescriptor.height+3)/4);
+                prefilterDescriptor.msaaSamples=MSAASamples.None;
+                prefilterDescriptor.depthBufferBits=DepthBits.None;
+                prefilterDescriptor.filterMode=FilterMode.Bilinear;
+                TextureHandle prefiltered=graph.CreateTexture(prefilterDescriptor);
+                using(var builder=graph.AddRasterRenderPass<FullscreenData>("Arena bokeh highlight prefilter",out var data))
+                {
+                    Populate(data,owner,source,material,1);
+                    builder.UseTexture(source,AccessFlags.Read);
+                    builder.SetRenderAttachment(prefiltered,0,AccessFlags.Write);
+                    builder.AllowGlobalStateModification(true);
+                    builder.SetRenderFunc(static (FullscreenData data,RasterGraphContext context)=>DrawFullscreen(data,context));
+                }
+                TextureHandle destination = ColorTarget(graph, source, "Arena miniature focus");
                 using (var builder = graph.AddRasterRenderPass<FullscreenData>("Arena protected peripheral focus", out var data))
                 {
-                    Populate(data, owner, source, material, 0);
+                    Populate(data, owner, prefiltered, material, 0);
                     data.mask = mask;
+                    data.sharp = source;
                     builder.UseTexture(source, AccessFlags.Read);
+                    builder.UseTexture(prefiltered, AccessFlags.Read);
                     builder.UseTexture(mask, AccessFlags.Read);
                     builder.UseTexture(resources.cameraDepthTexture, AccessFlags.Read);
                     builder.SetRenderAttachment(destination, 0, AccessFlags.Write);

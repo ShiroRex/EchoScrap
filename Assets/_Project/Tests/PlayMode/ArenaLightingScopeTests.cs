@@ -28,14 +28,24 @@ namespace EchoScrap.Tests
             if(game!=null){var scene=game.gameObject.scene;SceneManager.SetActiveScene(SceneManager.CreateScene("Lighting scope cleanup"));yield return SceneManager.UnloadSceneAsync(scene);}
             SceneTransitionState.Reset();CombatTargetRegistry.Clear();Time.timeScale=1;
         }
-        [Test]public void ExteriorUsesSharedAuthoredRigAndDedicatedRendererWithoutChangingCamera()
+        private void AssertExteriorLens()
+        {
+            var profile=game.Lighting.Profile;
+            Assert.AreEqual(profile.CameraFieldOfView,game.CameraRig.Lens.FieldOfView,.01f);
+            Assert.AreEqual(profile.CameraPitch,game.CameraRig.transform.eulerAngles.x,.01f);
+            var offset=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineFollow>().FollowOffset;
+            Assert.AreEqual(profile.CameraDistance,offset.magnitude,.01f);
+            Assert.Less(Vector3.Angle(offset,game.CameraRig.transform.rotation*Vector3.back),.01f);
+        }
+        [Test]public void ExteriorUsesSharedAuthoredRigDedicatedRendererAndMiniatureLens()
         {
             Assert.IsNotNull(game.Lighting);Assert.IsTrue(ArenaLightingController.IsExteriorActive);
             Assert.IsNotNull(game.Lighting.Profile.PostProcessing);
             Assert.IsTrue(game.GameplayCamera.GetUniversalAdditionalCameraData().renderPostProcessing);
             Assert.IsTrue((game.GameplayCamera.GetUniversalAdditionalCameraData().volumeLayerMask.value&(1<<9))!=0);
-            Assert.AreEqual(60f,game.CameraRig.Lens.FieldOfView,.01f);
-            Assert.AreEqual(50f,game.CameraRig.transform.eulerAngles.x,.01f);
+            AssertExteriorLens();
+            var collector=game.Motor.GetComponent<CollectorSpriteView>();
+            Assert.AreNotEqual(0,collector.CharacterRenderer.renderingLayerMask&ArenaLightingRig.CollectorVisibilityRenderingLayer);
             Assert.AreEqual(0,game.Lighting.Rig.GetComponentsInChildren<Collider>(true).Length);
             Assert.GreaterOrEqual(game.Lighting.Rig.GetComponentsInChildren<Light>(true).Length,4);
             Assert.AreEqual(AmbientMode.Trilight,RenderSettings.ambientMode);
@@ -53,11 +63,14 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(1,camera.volumeLayerMask.value);Assert.IsFalse(game.Lighting.Rig.gameObject.activeSelf);
                 Assert.AreEqual(CameraClearFlags.Skybox,game.GameplayCamera.clearFlags);
                 Assert.AreEqual(AmbientMode.Flat,RenderSettings.ambientMode);Assert.AreEqual(new Color(.48f,.53f,.6f),RenderSettings.ambientLight);
+                Assert.AreEqual(65f,game.CameraRig.Lens.FieldOfView,.01f);
+                Assert.AreEqual(32f,game.CameraRig.transform.eulerAngles.x,.01f);
                 Assert.IsTrue(travel.PlaceInWarehouse(false));yield return null;
                 Assert.IsTrue(ArenaLightingController.IsExteriorActive);Assert.IsTrue(camera.renderPostProcessing);
                 Assert.AreSame(exterior,camera.scriptableRenderer);Assert.IsTrue(game.Lighting.Rig.gameObject.activeSelf);
                 Assert.AreEqual(game.Lighting.Profile.AmbientSky,RenderSettings.ambientSkyColor);
                 Assert.AreEqual(CameraClearFlags.SolidColor,game.GameplayCamera.clearFlags);
+                AssertExteriorLens();
             }
         }
 #if UNITY_EDITOR
@@ -74,8 +87,7 @@ namespace EchoScrap.Tests
                 Assert.IsNotNull(game.Lighting,arena);Assert.AreSame(sharedProfile,game.Lighting.Profile,arena);
                 Assert.IsTrue(ArenaLightingController.IsExteriorActive,arena);
                 Assert.AreEqual(1,Object.FindObjectsByType<ArenaLightingRig>(FindObjectsSortMode.None).Length,arena);
-                Assert.AreEqual(60f,game.CameraRig.Lens.FieldOfView,.01f);
-                Assert.AreEqual(50f,game.CameraRig.transform.eulerAngles.x,.01f);
+                AssertExteriorLens();
             }
         }
 #endif
@@ -84,6 +96,7 @@ namespace EchoScrap.Tests
             var lighting=game.Lighting;Assert.IsTrue(lighting.AtmosphereEnabled);Assert.IsTrue(lighting.FocusEnabled);
             game.Session.Effects.ReducedEffectsMode=true;
             Assert.IsFalse(lighting.AtmosphereEnabled);Assert.IsFalse(lighting.FocusEnabled);
+            AssertExteriorLens();
             Assert.IsTrue(lighting.Rig.gameObject.activeSelf);
             foreach(var light in lighting.Rig.GetComponentsInChildren<Light>())Assert.IsTrue(light.enabled);
             foreach(var motes in lighting.Rig.Dust)Assert.IsFalse(motes.gameObject.activeInHierarchy);
@@ -94,6 +107,19 @@ namespace EchoScrap.Tests
             Assert.IsFalse(ArenaLightingController.IsExteriorActive);Assert.IsFalse(lighting.Rig.gameObject.activeSelf);
             Assert.IsFalse(game.GameplayCamera.GetUniversalAdditionalCameraData().renderPostProcessing);
             lighting.SetLightingEnabled(true);Assert.IsTrue(lighting.AtmosphereEnabled);
+        }
+        [UnityTest]public IEnumerator LensRestoresOnDisableAndSurvivesRunReset()
+        {
+            var lighting=game.Lighting;
+            lighting.enabled=false;yield return null;
+            Assert.AreEqual(60f,game.CameraRig.Lens.FieldOfView,.01f);
+            Assert.AreEqual(50f,game.CameraRig.transform.eulerAngles.x,.01f);
+            lighting.enabled=true;yield return null;AssertExteriorLens();
+            var travel=Object.FindAnyObjectByType<WarehouseTravel>();
+            Assert.IsTrue(travel.PlaceInWarehouse(true));yield return null;
+            game.ResetRun();yield return null;
+            AssertExteriorLens();
+            Assert.IsTrue(lighting.FocusEnabled);
         }
         [Test]public void VisibleShaftsHaveRealElevatedSourcesAndMotesDoNotMultiplyTwoNearZeroAlphas()
         {

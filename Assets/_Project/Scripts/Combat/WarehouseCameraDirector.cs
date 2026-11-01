@@ -49,6 +49,7 @@ namespace EchoScrap.Combat
         }
         private void Apply(float blend)
         {
+            if (!inside && game.Lighting != null) { game.Lighting.ApplyExteriorCamera(); return; }
             var rotation=inside ? Quaternion.Euler(32,0,0) : combatRotation;
             var offset=inside ? Quaternion.Euler(32,0,0)*Vector3.back*10f : combatOffset;
             follow.FollowOffset=offset;
@@ -61,8 +62,7 @@ namespace EchoScrap.Combat
         {
             if(game!=null && game.Lighting!=null)game.Lighting.SetWarehouse(false);else RestoreAmbient();inside=false;
             if(!initialized) return;
-            confiner.enabled=false; follow.FollowOffset=combatOffset;game.CameraRig.transform.rotation=combatRotation;
-            var lens=game.CameraRig.Lens;lens.FieldOfView=combatFov;game.CameraRig.Lens=lens;
+            confiner.enabled=false; Apply(1f);
         }
     }
 }

@@ -16,6 +16,9 @@ MonoBehaviour:
   PostProcessing: {fileID: 11400000, guid: cf9661d134837f74c9cc0b202c3961c5, type: 2}
   RendererIndex: 1
   AtmosphereLayer: 9
+  CameraPitch: 35.5
+  CameraFieldOfView: 34
+  CameraDistance: 30
   KeyColor: {r: 0.72, g: 0.46, b: 1, a: 1}
   KeyIntensity: 0.26
   KeyRotation: {x: 48, y: -32, z: 0}
@@ -41,6 +44,7 @@ MonoBehaviour:
   ShaftScattering: 0.08
   MinimumProtectedRadius: 12
   ProtectedRadiusMargin: 2
-  PeripheralBlurPixels: 3
-  FocusFeather: 5
-  FocusDepthGuard: 0.35
+  PeripheralBlurPixels: 16
+  FocusSharpDepth: 3
+  FocusFeather: 9
+  FocusDepthGuard: 0.08

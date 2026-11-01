@@ -79,15 +79,16 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator BalancedArenaUsesFiftyDegreeCameraAndCapsuleHeightCollector()
+        public IEnumerator MiniatureArenaKeepsCapsuleHeightCollectorAtItsGroundPivot()
         {
             var rig = Object.FindAnyObjectByType<Unity.Cinemachine.CinemachineCamera>();
-            Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, rig.transform.eulerAngles.x)), Is.LessThan(0.01f));
+            float pitch=game.Lighting.Profile.CameraPitch;
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(pitch, rig.transform.eulerAngles.x)), Is.LessThan(0.01f));
             var field = typeof(CollectorSpriteView).GetField("visualScale", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             Assert.That((float)field.GetValue(view), Is.EqualTo(0.65f).Within(0.001f));
-            Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, game.GameplayCamera.transform.eulerAngles.x)), Is.LessThan(0.01f));
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(pitch, game.GameplayCamera.transform.eulerAngles.x)), Is.LessThan(0.01f));
             for (int i = 0; i < 3; i++) game.Enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(-4 + i * 4, 1, 8));
-            yield return Capture(game.GameplayCamera, "Balance50Degrees.png");
+            yield return Capture(game.GameplayCamera, "MiniatureArena.png");
             Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.65f).Within(0.001f));
         }
 

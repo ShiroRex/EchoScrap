@@ -11,6 +11,10 @@ namespace EchoScrap.Combat
         public VolumeProfile PostProcessing;
         [Min(0)] public int RendererIndex = 1;
         [Range(0, 31)] public int AtmosphereLayer = 9;
+        [Header("Miniature lens (exterior only)")]
+        [Range(20f, 60f)] public float CameraPitch = 35.5f;
+        [Range(20f, 70f)] public float CameraFieldOfView = 34f;
+        [Min(10f)] public float CameraDistance = 30f;
         [Header("Violet exterior, warm practical lights")]
         public Color KeyColor = new Color(.72f, .46f, 1f);
         [Min(0f)] public float KeyIntensity = .26f;
@@ -40,8 +44,9 @@ namespace EchoScrap.Combat
         [Header("Readability")]
         [Min(0f)] public float MinimumProtectedRadius = 12f;
         [Min(0f)] public float ProtectedRadiusMargin = 2f;
-        [Range(0f, 3f)] public float PeripheralBlurPixels = 3f;
-        [Min(.1f)] public float FocusFeather = 5f;
-        [Min(.01f)] public float FocusDepthGuard = .35f;
+        [Range(0f, 20f)] public float PeripheralBlurPixels = 16f;
+        [Min(.1f)] public float FocusSharpDepth = 3f;
+        [Min(.1f)] public float FocusFeather = 9f;
+        [Min(.01f)] public float FocusDepthGuard = .08f;
     }
 }

@@ -124,6 +124,12 @@ Shader "EchoScrap/Character Pixel Lit"
                 SpriteSample(SpriteAtlasUv(input.uv));
                 return half4(1,1,1,1);
             }
+            half4 OccludedCollectorFrag(DepthVaryings input):SV_Target
+            {
+                half4 sprite=SpriteSample(SpriteAtlasUv(input.uv));
+                half detail=dot(sprite.rgb,half3(.299h,.587h,.114h));
+                return half4(half3(.95h,.58h,.22h)*lerp(.55h,1.0h,detail),.8h);
+            }
             float3 _LightDirection;
             float3 _LightPosition;
             DepthVaryings ShadowVert(Attributes input)
@@ -204,6 +210,30 @@ Shader "EchoScrap/Character Pixel Lit"
             Name "ArenaFocusMask"
             Tags { "LightMode"="ArenaFocusMask" }
             Cull Off ZWrite Off ZTest LEqual
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex DepthVert
+            #pragma fragment FocusMaskFrag
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "ArenaOccludedCollector"
+            Tags { "LightMode"="ArenaOccludedCollector" }
+            Cull Off ZWrite Off ZTest Greater
+            Blend SrcAlpha OneMinusSrcAlpha
+            Stencil { Ref 1 WriteMask 1 Comp Always Pass Replace }
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex DepthVert
+            #pragma fragment OccludedCollectorFrag
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "ArenaCollectorFocusMask"
+            Tags { "LightMode"="ArenaCollectorFocusMask" }
+            Cull Off ZWrite Off ZTest Always
             HLSLPROGRAM
             #pragma target 3.5
             #pragma vertex DepthVert

@@ -134,7 +134,7 @@ namespace EchoScrap.Tests
             target.Create();
             try
             {
-                foreach (string pass in new[] { "ForwardLit", "ShadowCaster", "DepthOnly", "DepthNormalsOnly", "ArenaFocusMask" })
+                foreach (string pass in new[] { "ForwardLit", "ShadowCaster", "DepthOnly", "DepthNormalsOnly", "ArenaFocusMask", "ArenaOccludedCollector", "ArenaCollectorFocusMask" })
                     Assert.That(material.FindPass(pass), Is.GreaterThanOrEqualTo(0), pass);
                 Color[] mask = DrawPass(camera, target, mesh, material, "ArenaFocusMask");
                 Color[] full = DrawPass(camera, target, mesh, opaque, "ArenaFocusMask");
@@ -142,9 +142,15 @@ namespace EchoScrap.Tests
                 Assert.That(VisiblePixels(full) - VisiblePixels(mask), Is.GreaterThan(50), "The transparent hole must remain a hole.");
                 Color[] normals = DrawPass(camera, target, mesh, material, "DepthNormalsOnly");
                 Assert.AreEqual(VisiblePixels(mask), VisiblePixels(normals), "Normals cannot fill a transparent texel or the unused atlas half.");
+                Assert.AreEqual(VisiblePixels(mask),VisiblePixels(DrawPass(camera,target,mesh,material,"ArenaCollectorFocusMask")));
+                Assert.AreEqual(VisiblePixels(mask),VisiblePixels(DrawPass(camera,target,mesh,material,"ArenaOccludedCollector",opaque,-.2f)),
+                    "A foreground obstacle reveals only the alpha-correct hidden silhouette.");
+                Assert.AreEqual(0,VisiblePixels(DrawPass(camera,target,mesh,material,"ArenaOccludedCollector",opaque,.2f)),
+                    "An obstacle behind the sprite must not produce a silhouette overlay.");
                 material.SetVector("_FrameRect", new Vector4(.5f, 0, .5f, 1));
                 Assert.AreEqual(0, VisiblePixels(DrawPass(camera, target, mesh, material, "ArenaFocusMask")), "Switching to a transparent frame must clear all protection.");
                 Assert.AreEqual(0, VisiblePixels(DrawPass(camera, target, mesh, material, "DepthNormalsOnly")));
+                Assert.AreEqual(0,VisiblePixels(DrawPass(camera,target,mesh,material,"ArenaOccludedCollector",opaque,-.2f)));
             }
             finally
             {
@@ -198,15 +204,21 @@ namespace EchoScrap.Tests
             return count;
         }
 
-        private static Color[] DrawPass(Camera camera, RenderTexture target, Mesh mesh, Material material, string pass)
+        private static Color[] DrawPass(Camera camera, RenderTexture target, Mesh mesh, Material material, string pass, Material occluder=null, float occluderZ=0)
         {
             var commands = new CommandBuffer { name = "Animated atlas geometry pass comparison" };
             Vector4 previousBias = Shader.GetGlobalVector("_ShadowBias"), previousLight = Shader.GetGlobalVector("_LightDirection");
             commands.SetRenderTarget(target);
             commands.ClearRenderTarget(true, true, Color.black);
-            commands.SetViewProjectionMatrices(camera.worldToCameraMatrix, GL.GetGPUProjectionMatrix(camera.projectionMatrix, true));
+            Matrix4x4 projection=GL.GetGPUProjectionMatrix(camera.projectionMatrix,true);
+            // Direct command buffers have no URP camera depth-state inversion. Use
+            // conventional near=0/far=1 for the explicit front/behind diagnostic.
+            if(occluder!=null && SystemInfo.usesReversedZBuffer)
+                projection.SetRow(2,projection.GetRow(3)-projection.GetRow(2));
+            commands.SetViewProjectionMatrices(camera.worldToCameraMatrix,projection);
             commands.SetGlobalVector("_ShadowBias", Vector4.zero);
             commands.SetGlobalVector("_LightDirection", new Vector4(0, 1, 0, 0));
+            if(occluder!=null) commands.DrawMesh(mesh,Matrix4x4.Translate(Vector3.forward*occluderZ),occluder,0,occluder.FindPass("DepthOnly"));
             commands.DrawMesh(mesh, Matrix4x4.identity, material, 0, material.FindPass(pass));
             commands.SetGlobalVector("_ShadowBias", previousBias); commands.SetGlobalVector("_LightDirection", previousLight);
             Graphics.ExecuteCommandBuffer(commands); commands.Release();

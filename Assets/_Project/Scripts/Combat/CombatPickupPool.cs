@@ -615,6 +615,7 @@ namespace EchoScrap.Combat
             go.transform.localScale = scale;
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var renderer = go.AddComponent<MeshRenderer>();
+            renderer.renderingLayerMask |= EchoScrap.Core.ActorVisualComposer.FocusProtectionRenderingLayer;
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
