@@ -35,8 +35,9 @@ namespace EchoScrap.Combat
         {
             if(!initialized) return;
             inside=value;
+            game.Lighting?.SetWarehouse(value);
             if(inside) {RenderSettings.ambientMode=UnityEngine.Rendering.AmbientMode.Flat;RenderSettings.ambientLight=new Color(.48f,.53f,.6f);RenderSettings.ambientIntensity=1;}
-            else RestoreAmbient();
+            else if(game.Lighting==null) RestoreAmbient();
             confiner.BoundingVolume=travel.InteriorCameraBounds;
             confiner.enabled=inside && travel.InteriorCameraBounds!=null;
             Apply(1f);
@@ -48,6 +49,7 @@ namespace EchoScrap.Combat
         }
         private void Apply(float blend)
         {
+            if (!inside && game.Lighting != null) { game.Lighting.ApplyExteriorCamera(); return; }
             var rotation=inside ? Quaternion.Euler(32,0,0) : combatRotation;
             var offset=inside ? Quaternion.Euler(32,0,0)*Vector3.back*10f : combatOffset;
             follow.FollowOffset=offset;
@@ -55,13 +57,12 @@ namespace EchoScrap.Combat
             var lens=game.CameraRig.Lens; lens.FieldOfView=Mathf.Lerp(lens.FieldOfView,inside?65f:combatFov,blend);game.CameraRig.Lens=lens;
         }
         private void RestoreAmbient() {if(!initialized)return;RenderSettings.ambientMode=ambientMode;RenderSettings.ambientLight=ambientColor;RenderSettings.ambientIntensity=ambientIntensity;}
-        private void OnDestroy() {if(inside)RestoreAmbient();}
+        private void OnDestroy() {if(inside && (game==null || game.Lighting==null))RestoreAmbient();}
         public void ResetView()
         {
-            RestoreAmbient();inside=false;
+            if(game!=null && game.Lighting!=null)game.Lighting.SetWarehouse(false);else RestoreAmbient();inside=false;
             if(!initialized) return;
-            confiner.enabled=false; follow.FollowOffset=combatOffset;game.CameraRig.transform.rotation=combatRotation;
-            var lens=game.CameraRig.Lens;lens.FieldOfView=combatFov;game.CameraRig.Lens=lens;
+            confiner.enabled=false; Apply(1f);
         }
     }
 }

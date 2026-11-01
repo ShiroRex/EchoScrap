@@ -1,6 +1,7 @@
 using EchoScrap.Core;
 using EchoScrap.Player;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace EchoScrap.Combat
 {
@@ -40,6 +41,9 @@ namespace EchoScrap.Combat
         private Vector3 worldFacing = Vector3.back;
         private Vector3 entranceOffset;
         private Vector2 entranceScale = Vector2.one;
+        private bool arenaShadowOverride;
+        private ShadowCastingMode previousShadowCastingMode;
+        private bool projectedShadowVisible;
 
         public void SetEntrancePose(Vector3 worldOffset, Vector2 scale)
         {
@@ -54,13 +58,14 @@ namespace EchoScrap.Combat
         public CharacterSpriteSet Sprites => sprites;
         public MeshRenderer CharacterRenderer => characterRenderer;
         public MeshRenderer ProjectedShadowRenderer => projectedShadowRenderer;
+        public bool IsUsingArenaShadow => arenaShadowOverride;
         public Material AfterimageMaterial => afterimageMaterial;
         public Mesh CharacterMesh => characterRenderer.GetComponent<MeshFilter>().sharedMesh;
         public bool DeathComplete => Motion == CharacterMotion.Death && clipTime >= sprites.GetClip(Motion, Facing).Duration;
 
         private void Awake() => Initialize();
-        private void OnEnable() { Initialize(); Subscribe(); }
-        private void OnDisable() => Unsubscribe();
+        private void OnEnable() { Initialize(); Subscribe(); RefreshShadowMode(); }
+        private void OnDisable() { Unsubscribe(); RestoreShadowMode(); }
 
         private void Initialize()
         {
@@ -76,7 +81,10 @@ namespace EchoScrap.Combat
             projectedShadowProperties = new MaterialPropertyBlock();
             // The shadow shader projects these vertices onto the floor, outside the source quad bounds.
             if (projectedShadowRenderer != null)
+            {
                 projectedShadowRenderer.localBounds = new Bounds(Vector3.zero, Vector3.one * 24f);
+                projectedShadowVisible = projectedShadowRenderer.enabled;
+            }
             ResetPresentation();
         }
 
@@ -182,6 +190,7 @@ namespace EchoScrap.Combat
 
         private void ApplyFrame()
         {
+            RefreshShadowMode();
             CharacterSpriteSet.Clip clip = sprites.GetClip(Motion, Facing);
             FrameIndex = clip.FrameAt(clipTime);
             frameRect = clip.frames[FrameIndex].uvRect;
@@ -198,10 +207,34 @@ namespace EchoScrap.Combat
             }
             if (projectedShadowRenderer != null)
             {
-                projectedShadowRenderer.enabled = !DeathComplete;
+                projectedShadowRenderer.enabled = !arenaShadowOverride && projectedShadowVisible && !DeathComplete;
                 projectedShadowProperties.SetVector(FrameRectId, frameRect);
                 projectedShadowProperties.SetColor(BaseColorId, new Color(0.005f, 0.006f, 0.009f, opacity * 0.65f));
             }
+        }
+
+        private void RefreshShadowMode()
+        {
+            if (characterRenderer == null) return;
+            bool exterior = isActiveAndEnabled && ArenaLightingController.IsExteriorActive;
+            if (exterior && !arenaShadowOverride)
+            {
+                previousShadowCastingMode = characterRenderer.shadowCastingMode;
+                if (projectedShadowRenderer != null) projectedShadowVisible = projectedShadowRenderer.enabled;
+                arenaShadowOverride = true;
+            }
+            else if (!exterior) RestoreShadowMode();
+            if (!arenaShadowOverride) return;
+            characterRenderer.shadowCastingMode = DeathComplete ? ShadowCastingMode.Off : ShadowCastingMode.On;
+            if (projectedShadowRenderer != null) projectedShadowRenderer.enabled = false;
+        }
+
+        private void RestoreShadowMode()
+        {
+            if (!arenaShadowOverride) return;
+            if (characterRenderer != null) characterRenderer.shadowCastingMode = previousShadowCastingMode;
+            if (projectedShadowRenderer != null) projectedShadowRenderer.enabled = projectedShadowVisible && !DeathComplete;
+            arenaShadowOverride = false;
         }
 
         public void AlignToCamera()

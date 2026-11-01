@@ -79,15 +79,16 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator BalancedArenaUsesFiftyDegreeCameraAndCapsuleHeightCollector()
+        public IEnumerator MiniatureArenaKeepsCapsuleHeightCollectorAtItsGroundPivot()
         {
             var rig = Object.FindAnyObjectByType<Unity.Cinemachine.CinemachineCamera>();
-            Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, rig.transform.eulerAngles.x)), Is.LessThan(0.01f));
+            float pitch=game.Lighting.Profile.CameraPitch;
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(pitch, rig.transform.eulerAngles.x)), Is.LessThan(0.01f));
             var field = typeof(CollectorSpriteView).GetField("visualScale", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             Assert.That((float)field.GetValue(view), Is.EqualTo(0.65f).Within(0.001f));
-            Assert.That(Mathf.Abs(Mathf.DeltaAngle(50f, game.GameplayCamera.transform.eulerAngles.x)), Is.LessThan(0.01f));
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(pitch, game.GameplayCamera.transform.eulerAngles.x)), Is.LessThan(0.01f));
             for (int i = 0; i < 3; i++) game.Enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(-4 + i * 4, 1, 8));
-            yield return Capture(game.GameplayCamera, "Balance50Degrees.png");
+            yield return Capture(game.GameplayCamera, "MiniatureArena.png");
             Assert.That(view.CharacterRenderer.transform.localScale.x, Is.EqualTo(0.65f).Within(0.001f));
         }
 
@@ -338,7 +339,7 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator NormalsAndBothGroundShadowsChangeTheRenderedImage()
+        public IEnumerator NormalsAndGroundShadowsChangeTheRenderedImage()
         {
             game.Session.Clock.SetPause(PauseReason.Manual, true);
             var camera = new GameObject("Collector lighting validation camera").AddComponent<Camera>();
@@ -354,6 +355,8 @@ namespace EchoScrap.Tests
             material.SetFloat("_NormalStrength", 0f);
             yield return Capture(camera, "FlatNormals.png", pixels => flat = pixels);
             material.SetFloat("_NormalStrength", 1f);
+            // Restore the authored casting mode too; exterior lighting uses the real shadow map.
+            view.enabled = false;
             view.ProjectedShadowRenderer.gameObject.SetActive(false);
             Transform contact = game.Motor.transform.Find("Coleccionista Contact Shadow");
             contact.gameObject.SetActive(false);
@@ -364,6 +367,7 @@ namespace EchoScrap.Tests
             Assert.That(shadowPixels, Is.GreaterThan(100), "The floor shadows must be visible, not just configured.");
             Debug.Log($"[Collector presentation] Normal response: {reliefPixels} pixels; ground shadows: {shadowPixels} pixels.");
             view.CharacterRenderer.sharedMaterial = original;
+            view.enabled = true;
             Object.Destroy(material); Object.Destroy(camera.gameObject);
             game.Session.Clock.SetPause(PauseReason.Manual, false);
         }

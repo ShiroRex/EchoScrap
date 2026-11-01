@@ -162,6 +162,10 @@ namespace EchoScrap.Tests
             for (int i = 0; i < 3; i++)
             {
                 Assert.IsTrue(Game.Flow.BeginExpedition());
+                Game.Flow.View.DemoRoundButton.onClick.Invoke();
+                float deadline = Time.realtimeSinceStartup + 12;
+                while ((Game.Flow.IsLoading || Object.FindAnyObjectByType<ExpeditionIntro>().IsPlaying) && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.IsFalse(Game.Session.IsPaused);
                 Game.Session.SetManualPause(true); Game.Hud.RefreshNow(); Game.Flow.RequestAbandon(); Game.Flow.AcceptConfirmation();
                 Assert.AreSame(original, Game); Assert.AreEqual(GameFlowState.Vault, Game.Flow.State);
             }

@@ -25,6 +25,23 @@ namespace EchoScrap.Combat
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStaticState() => instance = null;
 
+        /// <summary>Short portal crossing within the loaded world; uses real time while gameplay is paused.</summary>
+        public static IEnumerator Transition(float duration, System.Action enterArena)
+        {
+            if (IsLoading) yield break;
+            var screen = Instantiate(Resources.Load<LoadingScreen>("UI/LoadingScreen"));
+            instance = screen;
+            try
+            {
+                yield return new WaitForSecondsRealtime(Mathf.Clamp(duration, .1f, 1f));
+                enterArena();
+            }
+            finally
+            {
+                if (screen != null) Destroy(screen.gameObject);
+            }
+        }
+
         public static void LoadScene(string sceneName)
         {
             if (IsLoading) return;
@@ -119,6 +136,7 @@ namespace EchoScrap.Combat
 
         private void OnDestroy()
         {
+            if (instance == this) instance = null;
             if (restoreLoadingPriority) Application.backgroundLoadingPriority = previousLoadingPriority;
         }
 

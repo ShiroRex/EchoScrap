@@ -13,6 +13,8 @@ namespace EchoScrap.Core
     [DisallowMultipleComponent]
     public sealed class ActorVisualComposer : MonoBehaviour
     {
+        // Rendering metadata only: actor physics layers and collisions are unchanged.
+        public const uint FocusProtectionRenderingLayer = 1u << 8;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
@@ -170,7 +172,10 @@ namespace EchoScrap.Core
             for (int i = 0; i < rendererScratch.Count; i++)
             {
                 if (rendererScratch[i] is MeshRenderer || rendererScratch[i] is SkinnedMeshRenderer || rendererScratch[i] is SpriteRenderer)
+                {
+                    rendererScratch[i].renderingLayerMask |= FocusProtectionRenderingLayer;
                     count++;
+                }
             }
 
             if (cachedRenderers.Length != count)
