@@ -59,6 +59,7 @@ namespace EchoScrap.Combat
             protected static readonly int FocusMask = Shader.PropertyToID("_EchoArenaFocusMask");
             protected static readonly int Steps = Shader.PropertyToID("_EchoArenaRaymarchSteps");
             protected static readonly int LanternLightIndex = Shader.PropertyToID("_EchoArenaLanternLightIndex");
+            protected static readonly int ShaftLightIndices = Shader.PropertyToID("_EchoArenaShaftLightIndices");
             protected static readonly Vector4 ScaleBias = new Vector4(1f, 1f, 0f, 0f);
 
             protected sealed class FullscreenData
@@ -66,7 +67,7 @@ namespace EchoScrap.Combat
                 public TextureHandle source, air, mask;
                 public Material material;
                 public int pass, steps, lanternIndex;
-                public Vector4 tactical, airTexelSize;
+                public Vector4 tactical, airTexelSize, shaftIndices;
                 public float intensity;
             }
 
@@ -93,6 +94,7 @@ namespace EchoScrap.Combat
                 context.cmd.SetGlobalFloat(Intensity, data.intensity);
                 context.cmd.SetGlobalInt(Steps, data.steps);
                 context.cmd.SetGlobalInt(LanternLightIndex, data.lanternIndex);
+                if (data.steps > 0) context.cmd.SetGlobalVector(ShaftLightIndices, data.shaftIndices);
                 if (data.air.IsValid())
                 {
                     context.cmd.SetGlobalTexture(AirTexture, data.air);
@@ -149,6 +151,10 @@ namespace EchoScrap.Combat
                     Populate(data, owner, source, material, 0);
                     data.steps = steps;
                     data.lanternIndex = FindAdditionalLightIndex(frameData.Get<UniversalLightData>(), owner.LanternLight);
+                    var lights = frameData.Get<UniversalLightData>();
+                    data.shaftIndices = new Vector4(FindAdditionalLightIndex(lights, owner.ShaftLightAt(0)),
+                        FindAdditionalLightIndex(lights, owner.ShaftLightAt(1)), FindAdditionalLightIndex(lights, owner.ShaftLightAt(2)),
+                        FindAdditionalLightIndex(lights, owner.ShaftLightAt(3)));
                     builder.UseTexture(source, AccessFlags.Read);
                     builder.UseTexture(resources.cameraDepthTexture, AccessFlags.Read);
                     if (resources.mainShadowsTexture.IsValid()) builder.UseTexture(resources.mainShadowsTexture, AccessFlags.Read);

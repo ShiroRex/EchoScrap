@@ -20,6 +20,12 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
         float4 _EchoArenaTactical;
         float4 _EchoArenaAirTexelSize;
         float4 _EchoArenaFocusParams;
+        float4 _EchoArenaScattering;
+        float4 _EchoArenaShaftPositions[4];
+        float4 _EchoArenaShaftDirections[4];
+        float4 _EchoArenaShaftColors[4];
+        float4 _EchoArenaShaftLightIndices;
+        int _EchoArenaShaftCount;
         float4 _EchoArenaMistCenters[4];
         float4 _EchoArenaMistExtents[4];
         int _EchoArenaMistCount;
@@ -53,6 +59,17 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
                 * (1.0 - smoothstep(top - span * .45, top, height));
         }
 
+        half AdditionalShadow(int index, float3 position)
+        {
+            if (index < 0) return 1;
+            #if USE_CLUSTER_LIGHT_LOOP
+                return GetAdditionalLight((uint)index, position, half4(1,1,1,1)).shadowAttenuation;
+            #else
+                Light light = GetAdditionalPerObjectLight(index, position);
+                return AdditionalLightRealtimeShadow(index, position, light.direction);
+            #endif
+        }
+
         float DensityAt(float3 position)
         {
             float3 moving = position + float3(_EchoArenaWind.x, 0, _EchoArenaWind.y) * _EchoArenaWind.z;
@@ -81,6 +98,86 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
             if (farDensity > .00001)
                 density += farDensity * smoothstep(.25, .8, WorldNoise(moving * max(.002, _EchoArenaFarMistParams.w) + 43.0));
             return max(0, density) * _EchoArenaDecorativeIntensity;
+        }
+
+        // Clip the view ray to the positive, finite spotlight cone. Sampling this
+        // short interval avoids the separated discs produced by a camera-wide march.
+        bool ConeInterval(float3 ray, float3 origin, float3 axis, float cosine, float lengthLimit,
+            float maximumDistance, out float enter, out float leave)
+        {
+            float3 p = _WorldSpaceCameraPos - origin;
+            float z = dot(p, axis), dz = dot(ray, axis);
+            enter = 0; leave = maximumDistance;
+            if (abs(dz) < .00001)
+            {
+                if (z <= 0 || z >= lengthLimit) return false;
+            }
+            else
+            {
+                float cap0 = -z / dz, cap1 = (lengthLimit - z) / dz;
+                enter = max(enter, min(cap0, cap1)); leave = min(leave, max(cap0, cap1));
+            }
+            if (leave <= enter) return false;
+            float c2 = cosine * cosine;
+            float a = c2 - dz * dz, b = 2 * (c2 * dot(p, ray) - z * dz), c = c2 * dot(p, p) - z * z;
+            if (abs(a) < .00001)
+            {
+                if (abs(b) < .00001) { if (c > 0) return false; }
+                else if (b > 0) leave = min(leave, -c / b);
+                else enter = max(enter, -c / b);
+            }
+            else
+            {
+                float discriminant = b * b - 4 * a * c;
+                if (discriminant < 0) { if (a > 0) return false; }
+                else
+                {
+                    float root = sqrt(max(0, discriminant));
+                    float r0 = (-b - root) / (2 * a), r1 = (-b + root) / (2 * a);
+                    float low = min(r0, r1), high = max(r0, r1);
+                    if (a > 0) { enter = max(enter, low); leave = min(leave, high); }
+                    else if (min(leave, low) > enter + .00001) leave = min(leave, low);
+                    else enter = max(enter, high);
+                }
+            }
+            return leave > enter + .00001;
+        }
+
+        void IntegrateShafts(float3 ray, float maximumDistance, float2 pixel, inout float transmission, inout float3 scattering)
+        {
+            [unroll] for (int beam = 0; beam < 4; beam++)
+            {
+                if (beam >= _EchoArenaShaftCount) break;
+                if (_EchoArenaShaftColors[beam].w < .01) continue;
+                float enter, leave;
+                if (!ConeInterval(ray, _EchoArenaShaftPositions[beam].xyz, _EchoArenaShaftDirections[beam].xyz,
+                    _EchoArenaShaftDirections[beam].w, _EchoArenaShaftPositions[beam].w, maximumDistance, enter, leave)) continue;
+                const int shaftSteps = 12;
+                float segment = (leave - enter) / shaftSteps;
+                float jitter = Hash31(float3(pixel, beam + 3));
+                float beamTransmission = 1; float3 beamScattering = 0;
+                [loop] for (int step = 0; step < shaftSteps; step++)
+                {
+                    float3 position = _WorldSpaceCameraPos + ray * (enter + (step + jitter) * segment);
+                    float3 fromLight = position - _EchoArenaShaftPositions[beam].xyz;
+                    float distanceToLight = max(.05, length(fromLight));
+                    float cosine = dot(fromLight / distanceToLight, _EchoArenaShaftDirections[beam].xyz);
+                    float cone = smoothstep(_EchoArenaShaftDirections[beam].w, min(.999, _EchoArenaShaftDirections[beam].w + .025), cosine);
+                    float range = saturate(1 - distanceToLight / max(.1, _EchoArenaShaftPositions[beam].w));
+                    float envelope = cone * smoothstep(.4, 1.4, distanceToLight) * smoothstep(0, .18, range);
+                    if (envelope < .001) continue;
+                    float3 moving = position + float3(_EchoArenaWind.x, 0, _EchoArenaWind.y) * _EchoArenaWind.z;
+                    float grain = lerp(.65, 1, WorldNoise(moving * .48 + beam * 13));
+                    float extinction = 1 - exp(-envelope * grain * _EchoArenaScattering.y * _EchoArenaDecorativeIntensity * segment);
+                    float shadow = AdditionalShadow((int)_EchoArenaShaftLightIndices[beam], position);
+                    float3 illumination = _EchoArenaAtmosphereColor.rgb * _EchoArenaScattering.x
+                        + _EchoArenaShaftColors[beam].rgb * _EchoArenaShaftColors[beam].w * _EchoArenaScattering.z * range * range * shadow;
+                    beamScattering += beamTransmission * extinction * illumination;
+                    beamTransmission *= 1 - extinction;
+                }
+                scattering += transmission * beamScattering;
+                transmission *= beamTransmission;
+            }
         }
 
         float3 PositionAtDepth(float2 uv, float depth)
@@ -117,7 +214,7 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
                 float extinction = 1 - exp(-density * segment);
                 Light sun = GetMainLight(TransformWorldToShadowCoord(position));
                 float sunPhase = .22 + .18 * pow(saturate(dot(-ray, sun.direction)), 3);
-                float3 illumination = _EchoArenaAtmosphereColor.rgb * .24
+                float3 illumination = _EchoArenaAtmosphereColor.rgb * _EchoArenaScattering.x
                     + sun.color * sun.shadowAttenuation * _EchoArenaAtmosphereColor.rgb * sunPhase;
                 float3 fromLantern = position - _EchoArenaLanternPosition.xyz;
                 float lanternDistance = max(.05, length(fromLantern));
@@ -143,6 +240,7 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
                 transmission *= 1 - extinction;
                 if (transmission < .015) break;
             }
+            IntegrateShafts(ray, lengthToIntegrate, input.positionCS.xy, transmission, scattering);
             float opacity = 1 - transmission;
             float outside = smoothstep(_EchoArenaTactical.w, _EchoArenaTactical.w + max(2, _EchoArenaFocusParams.y),
                 distance(destination.xz, _EchoArenaTactical.xz));

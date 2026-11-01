@@ -86,12 +86,35 @@ namespace EchoScrap.Tests
             Assert.IsFalse(lighting.AtmosphereEnabled);Assert.IsFalse(lighting.FocusEnabled);
             Assert.IsTrue(lighting.Rig.gameObject.activeSelf);
             foreach(var light in lighting.Rig.GetComponentsInChildren<Light>())Assert.IsTrue(light.enabled);
+            foreach(var motes in lighting.Rig.Dust)Assert.IsFalse(motes.gameObject.activeInHierarchy);
             game.Session.Effects.ReducedEffectsMode=false;
+            foreach(var motes in lighting.Rig.Dust)Assert.IsTrue(motes.gameObject.activeInHierarchy);
             lighting.SetAtmosphereEnabled(false);Assert.IsFalse(lighting.AtmosphereEnabled);Assert.IsTrue(lighting.FocusEnabled);
             lighting.SetAtmosphereEnabled(true);lighting.SetLightingEnabled(false);
             Assert.IsFalse(ArenaLightingController.IsExteriorActive);Assert.IsFalse(lighting.Rig.gameObject.activeSelf);
             Assert.IsFalse(game.GameplayCamera.GetUniversalAdditionalCameraData().renderPostProcessing);
             lighting.SetLightingEnabled(true);Assert.IsTrue(lighting.AtmosphereEnabled);
+        }
+        [Test]public void VisibleShaftsHaveRealElevatedSourcesAndMotesDoNotMultiplyTwoNearZeroAlphas()
+        {
+            var rig=game.Lighting.Rig;
+            Assert.That(rig.ShaftLights.Length,Is.GreaterThanOrEqualTo(4));
+            foreach(var source in rig.ShaftLights)
+            {
+                Assert.AreEqual(LightType.Spot,source.type);
+                Assert.That(source.transform.forward.y,Is.LessThan(-.5f));
+                Assert.That(source.transform.localPosition.z,Is.GreaterThan(0),"The light must sit ahead of the projector lens.");
+                Assert.That(source.range,Is.GreaterThan(10));
+            }
+            Assert.IsNotNull(game.Lighting.ShaftLightAt(0));
+            foreach(var motes in rig.Dust)
+            {
+                var material=motes.GetComponent<ParticleSystemRenderer>().sharedMaterial;
+                Assert.AreEqual("EchoScrap/Arena Dust",material.shader.name);
+                float combinedAlpha=motes.main.startColor.color.a*material.GetColor("_BaseColor").a;
+                Assert.That(combinedAlpha,Is.GreaterThan(.2f),"Double attenuation previously made the dust invisible.");
+                Assert.IsTrue(motes.main.prewarm,"Motes should be present at arrival, not only after waiting several seconds.");
+            }
         }
     }
 }

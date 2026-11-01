@@ -25,6 +25,7 @@ namespace EchoScrap.Combat
         public bool FocusEnabled => IsExteriorActive && DecorativeIntensity > .001f && focusEnabled && Profile.PeripheralBlurPixels > .001f;
         public ArenaLightingRig Rig => rig;
         public Light LanternLight => lantern;
+        public Light ShaftLightAt(int index) => index >= 0 && index < 4 ? shaftLights[index] : null;
 
         private CombatGameBootstrap game;
         private UniversalAdditionalCameraData cameraData;
@@ -53,6 +54,11 @@ namespace EchoScrap.Combat
         private readonly Vector4[] mistCenters = new Vector4[4];
         private readonly Vector4[] mistExtents = new Vector4[4];
         private readonly float[] mistDistances = new float[4];
+        private readonly Light[] shaftLights = new Light[4];
+        private readonly float[] shaftDistances = new float[4];
+        private readonly Vector4[] shaftPositions = new Vector4[4];
+        private readonly Vector4[] shaftDirections = new Vector4[4];
+        private readonly Vector4[] shaftColors = new Vector4[4];
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -155,6 +161,7 @@ namespace EchoScrap.Combat
         {
             Shader.SetGlobalFloat("_EchoArenaAtmosphereActive", AtmosphereEnabled ? 1f : 0f);
             Shader.SetGlobalColor("_EchoArenaAtmosphereColor", Profile.AirColor);
+            Shader.SetGlobalVector("_EchoArenaScattering", new Vector4(Profile.AmbientScattering, Profile.ShaftDensity, Profile.ShaftScattering, 0f));
             Shader.SetGlobalVector("_EchoArenaAtmosphereParams", new Vector4(Profile.AirDensity, Profile.HeightFalloff, Profile.MaximumDistance, Profile.HeightBase));
             Shader.SetGlobalVector("_EchoArenaMistParams", new Vector4(Profile.LowMistDensity, 0f, 1.5f, Profile.NoiseScale));
             Shader.SetGlobalVector("_EchoArenaFarMistParams", new Vector4(Profile.FarMistDensity, Profile.FarMistBase, Profile.FarMistTop, .035f));
@@ -170,6 +177,42 @@ namespace EchoScrap.Combat
             }
             else Shader.SetGlobalVector("_EchoArenaLanternColor", Vector4.zero);
             UpdateMistBanks();
+            UpdateShaftLights();
+        }
+
+        private void UpdateShaftLights()
+        {
+            for (int i = 0; i < 4; i++) { shaftDistances[i] = float.MaxValue; shaftLights[i] = null; }
+            if (rig != null && rig.ShaftLights != null)
+                foreach (var light in rig.ShaftLights)
+                {
+                    if (light == null || !light.isActiveAndEnabled) continue;
+                    float distance = (light.transform.position - PlayerPosition).sqrMagnitude;
+                    for (int slot = 0; slot < 4; slot++)
+                    {
+                        if (distance >= shaftDistances[slot]) continue;
+                        for (int j = 3; j > slot; j--) { shaftDistances[j] = shaftDistances[j - 1]; shaftLights[j] = shaftLights[j - 1]; }
+                        shaftDistances[slot] = distance; shaftLights[slot] = light; break;
+                    }
+                }
+            int count = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                var light = shaftLights[i];
+                shaftPositions[i] = shaftDirections[i] = shaftColors[i] = Vector4.zero;
+                if (light == null) continue;
+                Vector3 p = light.transform.position, d = light.transform.forward;
+                Color c = light.color.linear;
+                float fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(38f, 55f, Mathf.Sqrt(shaftDistances[i])));
+                shaftPositions[i] = new Vector4(p.x, p.y, p.z, light.range);
+                shaftDirections[i] = new Vector4(d.x, d.y, d.z, Mathf.Cos(light.spotAngle * .5f * Mathf.Deg2Rad));
+                shaftColors[i] = new Vector4(c.r, c.g, c.b, light.intensity * fade);
+                count++;
+            }
+            Shader.SetGlobalInt("_EchoArenaShaftCount", count);
+            Shader.SetGlobalVectorArray("_EchoArenaShaftPositions", shaftPositions);
+            Shader.SetGlobalVectorArray("_EchoArenaShaftDirections", shaftDirections);
+            Shader.SetGlobalVectorArray("_EchoArenaShaftColors", shaftColors);
         }
 
         private void UpdateMistBanks()

@@ -11,28 +11,32 @@ namespace EchoScrap.Combat
         public VolumeProfile PostProcessing;
         [Min(0)] public int RendererIndex = 1;
         [Range(0, 31)] public int AtmosphereLayer = 9;
-        [Header("Cold exterior, warm practical lights")]
-        public Color KeyColor = new Color(.53f, .67f, 1f);
-        [Min(0f)] public float KeyIntensity = .34f;
+        [Header("Violet exterior, warm practical lights")]
+        public Color KeyColor = new Color(.72f, .46f, 1f);
+        [Min(0f)] public float KeyIntensity = .26f;
         public Vector3 KeyRotation = new Vector3(48f, -32f, 0f);
-        public Color AmbientSky = new Color(.075f, .105f, .17f);
-        public Color AmbientEquator = new Color(.035f, .052f, .09f);
-        public Color AmbientGround = new Color(.018f, .024f, .043f);
-        public Color SkyColor = new Color(.018f, .029f, .047f);
+        public Color AmbientSky = new Color(.075f, .036f, .13f);
+        public Color AmbientEquator = new Color(.032f, .013f, .055f);
+        public Color AmbientGround = new Color(.015f, .006f, .027f);
+        public Color SkyColor = new Color(.026f, .009f, .048f);
         [Range(0f, 2f)] public float AmbientIntensity = 1f;
-        [Range(0f, 1f)] public float BloomIntensity = .18f;
+        [Range(0f, 1f)] public float BloomIntensity = .38f;
         [Header("Air in world space")]
-        public Color AirColor = new Color(.23f, .32f, .5f);
+        public Color AirColor = new Color(.44f, .3f, .62f);
         [Min(0f)] public float AirDensity = .0045f;
+        [Min(0f)] public float AmbientScattering = .5f;
         [Min(.001f)] public float HeightFalloff = .12f;
         [Min(1f)] public float MaximumDistance = 90f;
         public float HeightBase;
-        [Min(0f)] public float LowMistDensity = .07f;
+        [Min(0f)] public float LowMistDensity = .35f;
         [Min(.001f)] public float NoiseScale = .085f;
-        [Min(0f)] public float FarMistDensity = .009f;
+        [Min(0f)] public float FarMistDensity = .014f;
         public float FarMistBase = 2f;
         public float FarMistTop = 14f;
-        public Vector2 WindVelocity = new Vector2(.11f, .045f);
+        public Vector2 WindVelocity = new Vector2(.26f, .1f);
+        [Header("Industrial light shafts")]
+        [Min(0f)] public float ShaftDensity = .085f;
+        [Min(0f)] public float ShaftScattering = .08f;
         [Header("Readability")]
         [Min(0f)] public float MinimumProtectedRadius = 12f;
         [Min(0f)] public float ProtectedRadiusMargin = 2f;

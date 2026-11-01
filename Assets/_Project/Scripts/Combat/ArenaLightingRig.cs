@@ -7,5 +7,6 @@ namespace EchoScrap.Combat
     {
         public Transform[] MistBanks;
         public ParticleSystem[] Dust;
+        public Light[] ShaftLights;
     }
 }

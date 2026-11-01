@@ -16,26 +16,29 @@ MonoBehaviour:
   PostProcessing: {fileID: 11400000, guid: cf9661d134837f74c9cc0b202c3961c5, type: 2}
   RendererIndex: 1
   AtmosphereLayer: 9
-  KeyColor: {r: 0.53, g: 0.67, b: 1, a: 1}
-  KeyIntensity: 0.34
+  KeyColor: {r: 0.72, g: 0.46, b: 1, a: 1}
+  KeyIntensity: 0.26
   KeyRotation: {x: 48, y: -32, z: 0}
-  AmbientSky: {r: 0.075, g: 0.105, b: 0.17, a: 1}
-  AmbientEquator: {r: 0.035, g: 0.052, b: 0.09, a: 1}
-  AmbientGround: {r: 0.018, g: 0.024, b: 0.043, a: 1}
-  SkyColor: {r: 0.018, g: 0.029, b: 0.047, a: 1}
+  AmbientSky: {r: 0.075, g: 0.036, b: 0.13, a: 1}
+  AmbientEquator: {r: 0.032, g: 0.013, b: 0.055, a: 1}
+  AmbientGround: {r: 0.015, g: 0.006, b: 0.027, a: 1}
+  SkyColor: {r: 0.026, g: 0.009, b: 0.048, a: 1}
   AmbientIntensity: 1
-  BloomIntensity: 0.18
-  AirColor: {r: 0.23, g: 0.32, b: 0.5, a: 1}
+  BloomIntensity: 0.38
+  AirColor: {r: 0.44, g: 0.3, b: 0.62, a: 1}
   AirDensity: 0.0045
+  AmbientScattering: 0.5
   HeightFalloff: 0.12
   MaximumDistance: 90
   HeightBase: 0
-  LowMistDensity: 0.07
+  LowMistDensity: 0.35
   NoiseScale: 0.085
-  FarMistDensity: 0.009
+  FarMistDensity: 0.014
   FarMistBase: 2
   FarMistTop: 14
-  WindVelocity: {x: 0.11, y: 0.045}
+  WindVelocity: {x: 0.26, y: 0.1}
+  ShaftDensity: 0.085
+  ShaftScattering: 0.08
   MinimumProtectedRadius: 12
   ProtectedRadiusMargin: 2
   PeripheralBlurPixels: 3
