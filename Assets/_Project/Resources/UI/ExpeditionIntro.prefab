@@ -48,6 +48,6 @@ MonoBehaviour:
   announcementDuration: 1.65
   font: {fileID: 12800000, guid: 918b0589665d03c498011b0443876168, type: 3}
   portalMaterial: {fileID: 2100000, guid: 2952c7e9b9884f2d9854d5a9922a5fd2, type: 2}
-  entranceSound: {fileID: 8300000, guid: e9104bbb08f64fbb9c7d1ae92e543697, type: 3}
+  entranceSound: {fileID: 8300000, guid: 450707cb34a54559b529f5d1a6023e7c, type: 3}
   soundVolume: 0.7
   portalColor: {r: 0.65, g: 0.4, b: 1, a: 1}

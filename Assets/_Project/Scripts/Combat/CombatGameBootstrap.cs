@@ -223,6 +223,13 @@ namespace EchoScrap.Combat
             initialized = true;
         }
 
+        public void SelectWaveSettings(CombatWaveSettings settings)
+        {
+            if (settings == null) return;
+            waveSettings = settings;
+            if (Director != null) Director.Settings = settings;
+        }
+
         public void ResetRun(bool suppressConfirmation = true)
         {
             if (!Initialize()) return;

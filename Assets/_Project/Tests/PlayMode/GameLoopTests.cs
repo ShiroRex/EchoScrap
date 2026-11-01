@@ -65,7 +65,16 @@ namespace EchoScrap.Tests
             CombatTargetRegistry.Clear(); Time.timeScale = 1;
         }
         private void EnterVault() => flow.View.NewCollectionButton.onClick.Invoke();
-        private void StartRun() { EnterVault(); flow.View.StartButton.onClick.Invoke(); }
+        private IEnumerator StartRun() { EnterVault(); flow.View.StartButton.onClick.Invoke(); yield return ChooseRound(); }
+        private IEnumerator ChooseRound()
+        {
+            Assert.That(flow.IsSelectingExpedition, Is.True);
+            flow.View.DemoRoundButton.onClick.Invoke();
+            float deadline = Time.realtimeSinceStartup + 6;
+            while ((flow.IsLoading || Object.FindAnyObjectByType<ExpeditionIntro>().IsPlaying) && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(flow.State, Is.EqualTo(GameFlowState.Expedition));
+            Assert.That(game.Session.IsPaused, Is.False);
+        }
         private Button HudButton(string path) => game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/" + path).GetComponent<Button>();
 
         [UnityTest] public IEnumerator TitleFreezesWorldAndContinueRequiresACollection()
@@ -106,7 +115,7 @@ namespace EchoScrap.Tests
 
         [UnityTest] public IEnumerator StartButtonBeginsFreshRunAndRestoresCombatHud()
         {
-            StartRun();
+            yield return StartRun();
             yield return new WaitForSeconds(.1f);
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Expedition));
             Assert.That(game.Session.IsInWarehouse, Is.False);
@@ -124,9 +133,10 @@ namespace EchoScrap.Tests
             EnterVault();
             yield return new WaitForSeconds(1.05f);
             Assert.That(travel.TryTravel(true, game.Player), Is.True);
+            yield return ChooseRound();
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Expedition));
             Assert.That(game.Session.IsInWarehouse, Is.False);
-            Assert.That(game.Session.GameplayTime, Is.LessThan(.1f));
+            Assert.That(game.Session.GameplayTime, Is.LessThan(.5f));
         }
 
         [UnityTest] public IEnumerator WalkingIntoPhysicalPortalStartsRunWithoutClickingUi()
@@ -136,8 +146,9 @@ namespace EchoScrap.Tests
             var keyboard = InputSystem.AddDevice<Keyboard>(); testDevice = keyboard;
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W));
             float deadline = Time.realtimeSinceStartup + 5;
-            while (flow.State == GameFlowState.Vault && Time.realtimeSinceStartup < deadline) yield return null;
+            while (!flow.IsSelectingExpedition && Time.realtimeSinceStartup < deadline) yield return null;
             InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+            yield return ChooseRound();
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Expedition), $"Walking must reach the existing trigger. Position={game.Player.transform.position}, input={game.Motor.GetComponent<PlayerInputReader>().Movement}.");
             Assert.That(game.Session.IsInWarehouse, Is.False);
             Assert.That(Vector3.Distance(game.Player.transform.position, game.SpawnPosition), Is.LessThan(3));
@@ -158,7 +169,7 @@ namespace EchoScrap.Tests
 
         [UnityTest] public IEnumerator AbandonCanBeCancelledThenConfirmedWithoutLosingCollection()
         {
-            StartRun();
+            yield return StartRun();
             station.Progress.owned[4] = 3;
             game.Stats.SetUpgradeTier("BIO_01", 1);
             game.Enemies.Spawn(EnemyArchetypeId.Residual, Vector3.right * 12 + Vector3.up);
@@ -183,7 +194,7 @@ namespace EchoScrap.Tests
 
         [UnityTest] public IEnumerator DefeatReturnsToVaultAndAllowsAnotherRun()
         {
-            StartRun(); game.Player.TakeContactOrHazardDamage(10000, Vector3.right);
+            yield return StartRun(); game.Player.TakeContactOrHazardDamage(10000, Vector3.right);
             game.Session.ResolveSimulationStepOutcome(); game.Hud.RefreshNow();
             Assert.That(game.Session.State, Is.EqualTo(SessionState.Defeat));
             Assert.That(game.Hud.IsResultVisible, Is.True);
@@ -193,13 +204,14 @@ namespace EchoScrap.Tests
             Assert.That(game.Player.IsAlive, Is.True);
             Assert.That(game.Session.IsPaused, Is.False);
             flow.View.StartButton.onClick.Invoke();
+            yield return ChooseRound();
             Assert.That(game.Session.IsInWarehouse, Is.False);
             Assert.That(game.Session.State, Is.EqualTo(SessionState.Running));
         }
 
         [UnityTest] public IEnumerator VictoryReturnsToVaultWithoutResettingFusion()
         {
-            StartRun(); station.Progress.Begin(new[] { 0, 0, 0, 0 }, 9000, 0);
+            yield return StartRun(); station.Progress.Begin(new[] { 0, 0, 0, 0 }, 9000, 0);
             float remaining = station.Progress.remaining;
             var death = new ActorDeathEvent(999, 5, false, true, Vector3.zero, Vector3.forward, DamageSourceType.FlashlightPulse, 0, false, true);
             game.Session.QueueBossDeath(in death); game.Session.ResolveSimulationStepOutcome(); game.Hud.RefreshNow();
@@ -241,7 +253,7 @@ namespace EchoScrap.Tests
             Assert.That(game.Hud.IsPauseVisible, Is.False);
             Assert.That(game.Session.IsPaused, Is.True);
             Assert.That(game.Session.GameplayTime, Is.Zero);
-            StartRun();
+            yield return StartRun();
             Assert.That(game.Session.Effects.RawShakeIntensity, Is.EqualTo(.35f).Within(.001));
         }
 
@@ -251,6 +263,7 @@ namespace EchoScrap.Tests
             for (int i = 0; i < 5; i++)
             {
                 Assert.That(flow.BeginExpedition(), Is.True);
+                yield return ChooseRound();
                 game.Session.SetManualPause(true); game.Hud.RefreshNow();
                 flow.RequestAbandon(); flow.AcceptConfirmation();
             }

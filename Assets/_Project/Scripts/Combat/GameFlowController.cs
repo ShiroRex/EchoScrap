@@ -1,3 +1,4 @@
+using System.Collections;
 using EchoScrap.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -16,9 +17,12 @@ namespace EchoScrap.Combat
         private FusionStation station;
         private GameMenuView view;
         private ExpeditionIntro entrance;
+        private ExpeditionEntrySettings entrySettings;
+        private AudioSource selectionAudio;
         private bool persist = true;
         private bool separateScenes;
         public bool IsLoading { get; private set; }
+        public bool IsSelectingExpedition { get; private set; }
         public CombatGameBootstrap Game => game;
         public EffectPreferences Effects => game.Session.Effects;
         private bool transientProfile;
@@ -27,7 +31,7 @@ namespace EchoScrap.Combat
         public GameFlowState State { get; private set; }
         public bool IsConfirming { get; private set; }
         public bool IsConfiguring { get; private set; }
-        public bool OwnsOverlay => State == GameFlowState.MainMenu || IsConfirming;
+        public bool OwnsOverlay => State == GameFlowState.MainMenu || IsConfirming || IsSelectingExpedition || IsLoading;
         public bool HasCollection => persist
             ? PlayerPrefs.HasKey(ProfileKey) || PlayerPrefs.HasKey(FusionStation.SaveKey) : transientProfile;
         public GameMenuView View => view;
@@ -55,6 +59,12 @@ namespace EchoScrap.Combat
             view.Build(this, !separateScenes);
             entrance = Instantiate(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro"), transform);
             entrance.Bind(game);
+            entrySettings = Resources.Load<ExpeditionEntrySettings>("UI/ExpeditionEntrySettings");
+            selectionAudio = gameObject.AddComponent<AudioSource>();
+            selectionAudio.playOnAwake = false;
+            selectionAudio.spatialBlend = 0f;
+            selectionAudio.clip = entrySettings.SelectionRoar;
+            selectionAudio.volume = entrySettings.RoarVolume;
             ReturnToVault();
             if (separateScenes) SceneTransitionState.Apply(game);
             else ShowMainMenu();
@@ -73,9 +83,11 @@ namespace EchoScrap.Combat
 
         private void Update()
         {
+            if (IsLoading) return;
             bool cancel = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame
                 || Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame;
-            if (cancel && IsConfirming) CancelConfirmation();
+            if (cancel && IsSelectingExpedition) CancelExpeditionSelection();
+            else if (cancel && IsConfirming) CancelConfirmation();
             else if (cancel && IsConfiguring) CloseConfiguration();
         }
 
@@ -129,12 +141,46 @@ namespace EchoScrap.Combat
 
         public bool BeginExpedition()
         {
-            if (State != GameFlowState.Vault || game.Session.IsPaused || IsConfirming || IsConfiguring) return false;
-            State = GameFlowState.Expedition;
-            game.ResetRun();
+            if (State != GameFlowState.Vault || game.Session.IsPaused || OwnsOverlay || IsConfiguring) return false;
+            IsSelectingExpedition = true;
+            game.Motor.CancelDashAndRestoreState();
+            game.Motor.Stop();
+            game.Session.Clock.SetPause(PauseReason.FrontEnd, true);
             Sync();
-            entrance.Play();
             return true;
+        }
+
+        public void SelectExpedition(bool completeRound)
+        {
+            if (!IsSelectingExpedition || IsLoading) return;
+            IsSelectingExpedition = false;
+            IsLoading = true;
+            selectionAudio.Play();
+            Sync();
+            StartCoroutine(EnterArena(completeRound ? entrySettings.CompleteRound : entrySettings.DemoRound));
+        }
+
+        private IEnumerator EnterArena(CombatWaveSettings waves)
+        {
+            yield return LoadingScreen.Transition(entrySettings.TransitionDuration, () =>
+            {
+                game.SelectWaveSettings(waves);
+                State = GameFlowState.Expedition;
+                game.ResetRun();
+                IsLoading = false;
+                Sync();
+                entrance.Play();
+            });
+        }
+
+        public void CancelExpeditionSelection()
+        {
+            if (!IsSelectingExpedition || IsLoading) return;
+            IsSelectingExpedition = false;
+            selectionAudio.Play();
+            game.Motor.GetComponent<EchoScrap.Player.PlayerInputReader>()?.SuppressDashFromUiConfirmation();
+            game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
+            Sync();
         }
 
         public void ReturnFromResult()
@@ -145,7 +191,7 @@ namespace EchoScrap.Combat
 
         private void ReturnToVault()
         {
-            IsConfirming = IsConfiguring = false;
+            IsConfirming = IsConfiguring = IsSelectingExpedition = false;
             State = GameFlowState.Vault;
             game.ResetRun();
             travel.PlaceInWarehouse(true);

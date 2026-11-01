@@ -70,7 +70,7 @@ namespace EchoScrap.Combat
         {
             if (!IsPlaying) return;
             age += Time.unscaledDeltaTime;
-            if (age >= arrivalDuration + announcementDuration) { Cancel(); return; }
+            if (age >= arrivalDuration + announcementDuration) { Finish(false); return; }
             ApplyPresentation();
         }
 
@@ -106,14 +106,17 @@ namespace EchoScrap.Combat
             band.localScale = new Vector3(decoration > .01f ? Mathf.SmoothStep(0f, 1f, enter) : 1f, 1f, 1f);
         }
 
-        public void Cancel()
+        public void Cancel() => Finish(true);
+
+        private void Finish(bool stopSound)
         {
+            // The supplied portal clip can outlast the objective announcement.
+            if (stopSound && audioSource != null) audioSource.Stop();
             if (!IsPlaying) return;
             IsPlaying = false;
             collector?.SetEntrancePose(Vector3.zero, Vector2.one);
             announcement.gameObject.SetActive(false);
             effectRoot.gameObject.SetActive(false);
-            audioSource.Stop();
             game.Player.IsEncounterTransferProtected = previousProtection;
             game.Session.AllowManualPause = previousManualPause;
             game.Session.Clock.SetPause(PauseReason.FrontEnd, false);

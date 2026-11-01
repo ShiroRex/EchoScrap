@@ -11,7 +11,8 @@ namespace EchoScrap.Combat
         private CombatGameBootstrap game;
         private PixelMenuArt artwork;
         private Font font;
-        private GameObject title, vault, confirmation;
+        private GameObject title, vault, confirmation, expeditionSelection;
+        private Button demoButton, completeButton, exitExpeditionButton;
         private Button continueButton, newButton, settingsButton, quitButton, startButton, menuButton;
         private Button cancelButton, acceptButton;
         private Text confirmTitle, confirmMessage;
@@ -23,6 +24,10 @@ namespace EchoScrap.Combat
         public Button NewCollectionButton => newButton;
         public Button StartButton => startButton;
         public Button CancelButton => cancelButton;
+        public Button DemoRoundButton => demoButton;
+        public Button CompleteRoundButton => completeButton;
+        public Button ExitExpeditionButton => exitExpeditionButton;
+        public bool IsExpeditionSelectionVisible => expeditionSelection != null && expeditionSelection.activeSelf;
         public bool IsTitleVisible => title != null && title.activeSelf;
         public bool IsVaultVisible => vault != null && vault.activeSelf;
         public bool IsConfirmationVisible => confirmation != null && confirmation.activeSelf;
@@ -74,6 +79,18 @@ namespace EchoScrap.Combat
                 controls.rectTransform.anchorMin = controls.rectTransform.anchorMax = new Vector2(.5f, 0);
                 Link(menuButton, startButton, startButton); Link(startButton, menuButton, menuButton);
 
+                var worldFlow = (GameFlowController)flow;
+                expeditionSelection = Overlay(root.transform, "ExpeditionSelection", new Color(.025f, .035f, .055f, .88f));
+                var selectionFrame = Frame(expeditionSelection.transform, "SelectionFrame");
+                Label(selectionFrame, "¿QUIERES ENTRAR A LA ARENA?", new Vector2(0, 218), new Vector2(800, 88), 34, new Color(.91f, .76f, .44f));
+                Label(selectionFrame, "Elige una ronda para comenzar.", new Vector2(0, 150), new Vector2(700, 48), 24, Color.white);
+                demoButton = ButtonAt(selectionFrame, "DemoRound", "RONDA DEMO", new Vector2(0, 44), new Vector2(500, 100), artwork.Green, () => worldFlow.SelectExpedition(false));
+                completeButton = ButtonAt(selectionFrame, "CompleteRound", "RONDA COMPLETA", new Vector2(0, -70), new Vector2(500, 100), artwork.Blue, () => worldFlow.SelectExpedition(true));
+                exitExpeditionButton = ButtonAt(selectionFrame, "ExitExpedition", "SALIR", new Vector2(0, -202), new Vector2(500, 100), artwork.Red, worldFlow.CancelExpeditionSelection);
+                Link(demoButton, exitExpeditionButton, completeButton);
+                Link(completeButton, demoButton, exitExpeditionButton);
+                Link(exitExpeditionButton, completeButton, demoButton);
+                expeditionSelection.SetActive(false);
             }
 
             confirmation = Overlay(root.transform, "Confirmation", new Color(.025f, .035f, .055f, .94f));
@@ -93,6 +110,8 @@ namespace EchoScrap.Combat
             if (backdrop != null) backdrop.gameObject.SetActive(flow.State == GameFlowState.MainMenu);
             if (title != null) title.SetActive(showTitle);
             confirmation.SetActive(flow.IsConfirming);
+            bool selectingExpedition = (flow as GameFlowController)?.IsSelectingExpedition == true;
+            if (expeditionSelection != null) expeditionSelection.SetActive(selectingExpedition);
             if (continueButton != null)
             {
                 continueButton.interactable = flow.HasCollection && !flow.IsLoading;
@@ -103,7 +122,9 @@ namespace EchoScrap.Combat
                 Link(quitButton, settingsButton, continueButton.interactable ? continueButton : newButton);
             }
             RefreshVault();
-            if (flow.IsConfirming) Select(cancelButton);
+            if (selectingExpedition) Select(demoButton);
+            else if (flow.IsLoading) EventSystem.current?.SetSelectedGameObject(null);
+            else if (flow.IsConfirming) Select(cancelButton);
             else if (showTitle && !flow.IsLoading) Select(continueButton.interactable ? continueButton : newButton);
             else if (vaultVisible) EventSystem.current?.SetSelectedGameObject(null);
         }
