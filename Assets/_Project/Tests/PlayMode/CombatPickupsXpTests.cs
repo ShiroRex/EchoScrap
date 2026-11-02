@@ -63,6 +63,22 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void ExperienceOrbUsesSuppliedPixelSpriteAndBudgetedSubtleGreenGlow()
+        {
+            pickups.SpawnExperience(new Vector3(20,0,20),1);pickups.Step(.1f);
+            var roots=pickups.GetComponentsInChildren<CombatGlowSource>();
+            Assert.That(roots.Length,Is.EqualTo(1));
+            var glow=roots[0];var visual=glow.transform.Find("Visual");
+            var renderer=visual.Find("Experience Orb Sprite").GetComponent<MeshRenderer>();
+            var texture=Resources.Load<Texture2D>("Pickups/ExperienceOrb");
+            Assert.That(renderer.sharedMaterial.GetTexture("_BaseMap"),Is.SameAs(texture));
+            Assert.That(texture.filterMode,Is.EqualTo(FilterMode.Point));
+            Assert.That(glow.Color.g,Is.GreaterThan(glow.Color.r));Assert.That(glow.Intensity,Is.LessThan(.3f));
+            Assert.That(glow.GetComponentsInChildren<Light>(),Is.Empty,"Orbs share the existing readability-light budget.");
+            var rotation=visual.rotation;pickups.Step(.4f);Assert.That(Quaternion.Angle(rotation,visual.rotation),Is.LessThan(.01f));
+        }
+
+        [Test]
         public void ExperienceUsesSuppliedClipAndIndependentPitchesWithoutChangingCombatRandomness()
         {
             var clip = Resources.Load<AudioClip>("Audio/XP_sound");
