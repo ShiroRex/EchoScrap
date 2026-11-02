@@ -59,7 +59,11 @@ namespace EchoScrap.Tests
             keyboard = InputSystem.AddDevice<Keyboard>();
             gamepad = InputSystem.AddDevice<Gamepad>();
 
+#if UNITY_EDITOR
+            yield return UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode("Assets/_Project/Scenes/LocomotionSandbox.unity",new LoadSceneParameters(LoadSceneMode.Single));
+#else
             yield return SceneManager.LoadSceneAsync("LocomotionSandbox", LoadSceneMode.Single);
+#endif
             sandbox = SceneManager.GetActiveScene();
 
             motor = Object.FindAnyObjectByType<PlayerMotor>();

@@ -76,7 +76,7 @@ namespace EchoScrap.Combat
             ButtonAt(picker.transform,"VOLVER",new Vector2(610,558),new Vector2(340,48),ClosePicker);
             picker.SetActive(false);
             result=Panel("Resultado",panel,new Vector2(0,90),new Vector2(1120,650),Color.clear).gameObject;
-            resultImage=new GameObject("ColeccionableRevelado",typeof(RectTransform)).AddComponent<Image>();resultImage.transform.SetParent(result.transform,false);Rect(resultImage.rectTransform,new Vector2(65,60),new Vector2(330,370));resultImage.preserveAspect=true;
+            resultImage=new GameObject("ColeccionableRevelado",typeof(RectTransform)).AddComponent<Image>();resultImage.transform.SetParent(result.transform,false);resultImage.preserveAspect=true;Rect(resultImage.rectTransform,new Vector2(65,60),new Vector2(330,370));
             resultTitle=Label(result.transform,"",new Vector2(440,90),new Vector2(620,100),38);
             resultDescription=Label(result.transform,"",new Vector2(440,215),new Vector2(600,150),24);
             ButtonAt(result.transform,"COLECCIONAR",new Vector2(130,515),new Vector2(360,65),()=>station.Resolve(true));
@@ -130,7 +130,7 @@ namespace EchoScrap.Combat
             selection.text=valid?"4 / 4 · Listo para fusionar":chosen.Length+" / 4 · Vista previa según la calidad actual; completa los cuatro espacios.";
         }
         private Image Portrait(Transform parent,Vector2 position,Vector2 size)
-        {var image=new GameObject("Retrato",typeof(RectTransform)).AddComponent<Image>();image.transform.SetParent(parent,false);Rect(image.rectTransform,position,size);image.preserveAspect=true;image.raycastTarget=false;return image;}
+        {var image=new GameObject("Retrato",typeof(RectTransform)).AddComponent<Image>();image.transform.SetParent(parent,false);image.preserveAspect=true;Rect(image.rectTransform,position,size);image.raycastTarget=false;return image;}
         private void Frame(Image image,bool button)
         {
             image.sprite=null;image.type=Image.Type.Simple;
@@ -173,7 +173,7 @@ namespace EchoScrap.Combat
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect,screen,canvas.renderMode==RenderMode.ScreenSpaceOverlay?null:canvas.worldCamera,out var local);prompt.anchoredPosition=local;
             promptText.text=phase==FusionPhase.Ready||phase==FusionPhase.AwaitingDecision?"E · VER FUSIÓN":"E · FUSIONAR";
         }
-        private static void Rect(RectTransform t,Vector2 p,Vector2 size){t.anchorMin=t.anchorMax=new Vector2(0,1);t.pivot=new Vector2(0,1);t.anchoredPosition=new Vector2(p.x,-p.y);t.sizeDelta=size;}
+        private static void Rect(RectTransform t,Vector2 p,Vector2 size){t.anchorMin=t.anchorMax=new Vector2(0,1);bool art=t.TryGetComponent<Image>(out var image)&&image.preserveAspect;t.pivot=art?Vector2.one*.5f:new Vector2(0,1);t.anchoredPosition=art?new Vector2(p.x+size.x*.5f,-p.y-size.y*.5f):new Vector2(p.x,-p.y);t.sizeDelta=size;}
         private static RectTransform Panel(string name,Transform parent,Vector2 p,Vector2 size,Color color){var o=new GameObject(name,typeof(RectTransform));o.transform.SetParent(parent,false);var t=o.GetComponent<RectTransform>();Rect(t,p,size);o.AddComponent<Image>().color=color;return t;}
         private Text Label(Transform parent,string value,Vector2 p,Vector2 size,int points,TextAnchor alignment=TextAnchor.MiddleLeft){var text=new GameObject("Texto",typeof(RectTransform)).AddComponent<Text>();text.transform.SetParent(parent,false);Rect(text.rectTransform,p,size);text.font=points>=26?strongFont:font;text.fontStyle=FontStyle.Normal;text.text=value;text.fontSize=points;text.color=Pale;text.alignment=alignment;text.raycastTarget=false;return text;}
         private Button ButtonAt(Transform parent,string value,Vector2 p,Vector2 size,UnityEngine.Events.UnityAction action){var t=Panel("Boton_"+value,parent,p,size,new Color(.16f,.18f,.25f));Frame(t.GetComponent<Image>(),true);var button=t.gameObject.AddComponent<Button>();button.targetGraphic=t.GetComponent<Image>();

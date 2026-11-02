@@ -29,6 +29,7 @@ namespace EchoScrap.Combat
         private float age, decoration;
         private bool previousManualPause, previousProtection;
         public bool IsPlaying { get; private set; }
+        public Font AnnouncementFont => font;
 
         public void Bind(CombatGameBootstrap owner)
         {

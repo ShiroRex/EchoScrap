@@ -85,6 +85,15 @@ namespace EchoScrap.Tests
                 Assert.IsFalse(Physics.CheckCapsule(p+Vector3.up,p+Vector3.up*2,.6f,1,QueryTriggerInteraction.Ignore));}
             Random.state=previous;Assert.Greater(maxX-minX,90);Assert.Greater(maxZ-minZ,90);yield return null;
         }
+        [UnityTest] public IEnumerator SpawnHasNoDiscAndShowsSmallAnimatedAnnouncement()
+        {
+            Assert.IsTrue(system.TrySpawn(0));yield return new WaitForSeconds(.35f);
+            var display=Object.FindObjectsByType<CollectibleDisplay>(FindObjectsSortMode.None).Single(d=>d.name=="ColeccionableArena_Lobito");Assert.IsNull(display.transform.Find("Rareza"));
+            var notice=station.transform.Find("CompanionCanvas/AvisoColeccionables");Assert.IsTrue(notice.gameObject.activeSelf);
+            var label=notice.GetComponentInChildren<Text>();Assert.AreEqual("¡NUEVOS COLECCIONABLES!",label.text);Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,label.font);Assert.LessOrEqual(label.fontSize,36);
+            Assert.Greater(notice.GetComponent<CanvasGroup>().alpha,.9f);yield return Capture("AvisoColeccionables");
+            yield return new WaitForSeconds(2);Assert.IsFalse(notice.gameObject.activeSelf);
+        }
         private IEnumerator Capture(string name){
             yield return null;yield return null;
             var camera=new GameObject("CompanionAudit").AddComponent<Camera>();camera.transform.SetPositionAndRotation(game.GameplayCamera.transform.position,game.GameplayCamera.transform.rotation);

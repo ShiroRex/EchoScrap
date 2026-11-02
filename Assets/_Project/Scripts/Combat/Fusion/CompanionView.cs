@@ -18,6 +18,11 @@ namespace EchoScrap.Combat
         private int selected=>system.SelectedSlot;
         private Text title,hintText,emptyText;
         private GameObject collectPrompt;
+        private CanvasGroup announcement;
+        private RectTransform announcementText;
+        private float announcementAge=2f;
+        public void AnnounceSpawn(){announcementAge=0;}
+        public void ClearAnnouncement(){announcementAge=2f;if(announcement!=null)announcement.gameObject.SetActive(false);}
         public bool IsOpen => modal!=null&&modal.activeSelf;
         private RectTransform Panel(string name,Transform parent,Vector2 position,Vector2 size,Color color)
         {
@@ -45,6 +50,10 @@ namespace EchoScrap.Combat
             var canvas=new GameObject("CompanionCanvas",typeof(RectTransform),typeof(Canvas),typeof(CanvasScaler),typeof(GraphicRaycaster));canvas.transform.SetParent(transform,false);
             canvas.GetComponent<Canvas>().renderMode=RenderMode.ScreenSpaceOverlay;canvas.GetComponent<Canvas>().sortingOrder=115;
             var scaler=canvas.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;
+            var notice=Panel("AvisoColeccionables",canvas.transform,new Vector2(0,-165),new Vector2(660,68),new Color(.018f,.012f,.028f,.86f));notice.anchorMin=notice.anchorMax=new Vector2(.5f,1);
+            announcement=notice.gameObject.AddComponent<CanvasGroup>();announcement.blocksRaycasts=announcement.interactable=false;
+            var message=Label(notice,"Mensaje","¡NUEVOS COLECCIONABLES!",Vector2.zero,new Vector2(640,64),34);
+            message.font=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;message.color=new Color(.91f,.76f,.44f);announcementText=message.rectTransform;notice.gameObject.SetActive(false);
             var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(300,42),new Color(.05f,.07f,.11f,.94f));hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
             hintText=Label(hint,"Texto","",Vector2.zero,new Vector2(290,40),20);hintText.font=strong;
             var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(260,48),new Color(.05f,.07f,.11f,.94f));collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
@@ -73,6 +82,11 @@ namespace EchoScrap.Combat
         {
             if(station==null||station.Progress==null||modal==null)return;
             bool playing=!game.Session.IsPaused && game.Session.State==SessionState.Running && game.Player.IsAlive;
+            bool showNotice=playing&&!game.Session.IsInWarehouse&&announcementAge<2f;
+            announcement.gameObject.SetActive(showNotice);
+            if(showNotice){announcementAge+=Time.deltaTime;float enter=Mathf.Clamp01(announcementAge/.26f),leave=Mathf.Clamp01((announcementAge-1.68f)/.32f);float decoration=game.Session.Effects.ReducedEffectsMode?0:game.Session.Effects.DecorativeIntensity;
+                announcement.alpha=Mathf.SmoothStep(0,1,enter)*(1-leave);float pop=1+2.7f*Mathf.Pow(enter-1,3)+1.7f*Mathf.Pow(enter-1,2);
+                announcementText.localScale=Vector3.one*(decoration>.01f?Mathf.Lerp(.72f,1,pop):1);announcementText.anchoredPosition=Vector2.up*(leave*32*decoration);}
             prompt.SetActive(!IsOpen&&playing&&system.CanEquip);
             hintText.text="E · EQUIPAR PUESTO "+(system.NearestSlot+1);
             collectPrompt.SetActive(!IsOpen&&playing&&system.CanCollect);

@@ -68,6 +68,7 @@ namespace EchoScrap.Player
             body = GetComponent<Rigidbody>();
             input = GetComponent<PlayerInputReader>();
             playerCollider = GetComponent<Collider>();
+            if(playerCollider!=null)playerCollider.sharedMaterial=Resources.Load<PhysicsMaterial>("Physics/NoFriction");
             if (playerCollider is CapsuleCollider capsule)
                 terrainCollision = new TerrainPlayerCollision(body, capsule);
             ResolveRuntimeStats();

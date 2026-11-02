@@ -68,7 +68,7 @@ namespace EchoScrap.Combat
             game.Stats.SetCompanionUpgrades(station.Progress.equipped.Where(FusionCatalog.Valid).Select(id=>Powers[id]).ToArray());
             station.RefreshDisplays();if(view!=null)view.Refresh();
         }
-        private void ResetRun() { elapsed=0;ClearPickups();Close();RefreshEquipment(); }
+        private void ResetRun() { elapsed=0;ClearPickups();view.ClearAnnouncement();Close();RefreshEquipment(); }
         public void Advance(float seconds)
         {
             if(seconds<=0 || float.IsNaN(seconds) || float.IsInfinity(seconds) || game.Session.IsPaused || game.Session.IsInWarehouse || game.Session.State!=SessionState.Running || !game.Player.IsAlive)return;
@@ -97,11 +97,7 @@ namespace EchoScrap.Combat
                 if(blocked)continue;
                 var o=new GameObject("ColeccionableArena_"+FusionCatalog.Names[id]);o.transform.position=p-Vector3.up*.85f;
                 o.AddComponent<CollectibleDisplay>().Configure(id,2.2f,true);
-                var marker=GameObject.CreatePrimitive(PrimitiveType.Cylinder);marker.name="Rareza";marker.transform.SetParent(o.transform,false);
-                marker.transform.localScale=new Vector3(1.5f,.04f,1.5f);Destroy(marker.GetComponent<Collider>());
-                var mat=new Material(Shader.Find("Universal Render Pipeline/Unlit"));mat.color=FusionCatalog.ColorOf(id);marker.GetComponent<Renderer>().sharedMaterial=mat;
-                o.AddComponent<CompanionPickupMaterial>().Material=mat;
-                pickups.Add(new Pickup{Id=id,Object=o,Ground=o.transform.position});return true;
+                pickups.Add(new Pickup{Id=id,Object=o,Ground=o.transform.position});view.AnnounceSpawn();return true;
             }
             return false;
         }
@@ -125,10 +121,5 @@ namespace EchoScrap.Combat
         }
         private void ClearPickups(){foreach(var p in pickups)if(p.Object!=null)Destroy(p.Object);pickups.Clear();}
         private void OnDestroy(){ClearPickups();if(game!=null){game.Session.SessionReset-=ResetRun;game.Session.Clock.SetPause(PauseReason.CompanionMenu,false);}}
-    }
-    internal sealed class CompanionPickupMaterial : MonoBehaviour
-    {
-        public Material Material;
-        private void OnDestroy(){if(Material!=null)Destroy(Material);}
     }
 }

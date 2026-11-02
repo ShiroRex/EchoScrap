@@ -21,6 +21,7 @@ namespace EchoScrap.Tests
         private InputSettings.BackgroundBehavior background;
         private InputSettings.EditorInputBehaviorInPlayMode editorInput;
         private readonly List<InputDevice> disabledDevices=new List<InputDevice>();
+        private void Loaded(Scene scene,LoadSceneMode mode){var station=Object.FindAnyObjectByType<FusionStation>();if(station!=null)station.PersistProgress=false;}
         [UnitySetUp] public IEnumerator Setup()
         {
             background=InputSystem.settings.backgroundBehavior;
@@ -31,7 +32,7 @@ namespace EchoScrap.Tests
                 if(device.enabled) { disabledDevices.Add(device); InputSystem.DisableDevice(device); }
             keyboard=InputSystem.AddDevice<Keyboard>();
             Time.timeScale=1;
-            yield return SceneManager.LoadSceneAsync("CombatArena"); yield return null;
+            SceneManager.sceneLoaded+=Loaded;yield return SceneManager.LoadSceneAsync("CombatArena"); yield return null;SceneManager.sceneLoaded-=Loaded;
             game=Object.FindAnyObjectByType<CombatGameBootstrap>();
             game.Director.AutoTick=false; game.Encounter.AutoTick=false; game.ResetRun(false); game.Weapon.enabled=false;
             game.Motor.GetComponent<PlayerInputReader>().SendMessage("OnApplicationFocus",true);
@@ -39,6 +40,7 @@ namespace EchoScrap.Tests
         }
         [UnityTearDown] public IEnumerator Cleanup()
         {
+            SceneManager.sceneLoaded-=Loaded;
             Time.timeScale=1;
             if(keyboard!=null) InputSystem.RemoveDevice(keyboard);
             foreach(var device in disabledDevices) if(device.added) InputSystem.EnableDevice(device);
@@ -52,23 +54,18 @@ namespace EchoScrap.Tests
             }
             CombatTargetRegistry.Clear();
         }
-        [Test] public void ObstaclesUseCompoundWorldAlignedBoxes_AndTerrainMatchesItsExpandedHeightProfile()
+        [Test] public void ObstaclesUseVisibleMeshCollisions_AndTerrainMatchesExpandedProfile()
         {
             var world=GameObject.Find("Mundo3D_EchoScrap");
             // The open portal frame and emblem retain their authored mesh surfaces.
             var colliders=world.GetComponentsInChildren<Collider>(true).Where(c=>
                 !c.transform.IsChildOf(world.transform.Find("Portal")) &&
-                !c.transform.IsChildOf(world.transform.Find("Emblema_triangular"))).ToArray();
-            Assert.AreEqual(0,colliders.OfType<MeshCollider>().Count(),"Scenery uses fitted boxes.");
+                (world.transform.Find("Emblema_triangular")==null || !c.transform.IsChildOf(world.transform.Find("Emblema_triangular")))).ToArray();
             Assert.Greater(colliders.Length,100);
-            foreach(var collider in colliders)
-            {
-                Assert.IsInstanceOf<BoxCollider>(collider,collider.name);
-                Assert.IsFalse(collider.isTrigger,collider.name);
-                Assert.Less(Quaternion.Angle(collider.transform.rotation,Quaternion.identity),0.01f,collider.name);
-                Transform parent=collider.transform;
-                while(parent!=null && parent.name!="CollisionBoxes") parent=parent.parent;
-                Assert.IsNotNull(parent,"Each obstacle box belongs to its authored CollisionBoxes compound: "+collider.name);
+            foreach(var collider in colliders){
+                Assert.IsInstanceOf<MeshCollider>(collider,collider.name);Assert.IsFalse(collider.isTrigger);
+                Assert.AreSame(collider.GetComponent<MeshFilter>().sharedMesh,((MeshCollider)collider).sharedMesh);
+                Assert.IsFalse(((MeshCollider)collider).convex,"Do not fill concave gaps with a convex hull.");
             }
             Assert.AreSame(game.ArenaGround,ArenaSurface.Active.GroundCollider);
             Assert.AreEqual(200f,ArenaSurface.Active.WorldSize,0.001f);
@@ -160,7 +157,7 @@ namespace EchoScrap.Tests
                 InputSystem.QueueStateEvent(keyboard,new KeyboardState()); yield return null;
             }
         }
-        [UnityTest] public IEnumerator RealFbxTreeOverheadPassageSurvivesBoxFittingAndPlayerWalksThroughIt()
+        [UnityTest] public IEnumerator RealFbxTreeOverheadPassageAllowsPlayerMovement()
         {
             Transform world=GameObject.Find("Mundo3D_EchoScrap").transform;
             CapsuleCollider capsule=game.Player.GetComponent<CapsuleCollider>();
@@ -183,42 +180,10 @@ namespace EchoScrap.Tests
                 if(renderers.Length==0) continue;
                 Bounds bounds=renderers[0].bounds;
                 foreach(var renderer in renderers) bounds.Encapsulate(renderer.bounds);
-                var boxes=anchor.GetComponentsInChildren<BoxCollider>();
-                Assert.Greater(boxes.Length,0,anchor.name+" needs its fitted solid trunk/branches.");
-                var enabled=boxes.Select(c=>c.enabled).ToArray();
-                var actualMesh=new List<MeshCollider>();
-                bool found=false;
-                bool originalBackfaceQueries=Physics.queriesHitBackfaces;
-                try
-                {
-                    foreach(var box in boxes) box.enabled=false;
-                    foreach(var filter in anchor.GetComponentsInChildren<MeshFilter>())
-                    {
-                        if(filter.sharedMesh==null) continue;
-                        var collider=filter.gameObject.AddComponent<MeshCollider>();
-                        collider.sharedMesh=filter.sharedMesh;
-                        collider.convex=false;
-                        actualMesh.Add(collider);
-                    }
-                    Physics.SyncTransforms();
-                    // The FBX can contain single-sided branch triangles. The
-                    // reference must find their physical undersides regardless
-                    // of winding; normal gameplay query settings are restored.
-                    Physics.queriesHitBackfaces=true;
-                    // The conservative fitted boxes can extend one voxel's
-                    // diagonal beyond the FBX. Reserve that discretization
-                    // error in the reference; the actual fitted path and motor
-                    // still have to retain their full 0.3 m clearance below.
-                    float voxel=Mathf.Max(0.3f,Mathf.Max(bounds.size.x,Mathf.Max(bounds.size.y,bounds.size.z))/64f);
-                    found=FindVisibleOverheadPassage(bounds,actualMesh,world,capsule,0.3f+Mathf.Sqrt(3f)*voxel,contacts,out start,out end);
-                }
-                finally
-                {
-                    Physics.queriesHitBackfaces=originalBackfaceQueries;
-                    foreach(var collider in actualMesh) Object.DestroyImmediate(collider);
-                    for(int i=0;i<boxes.Length;i++) boxes[i].enabled=enabled[i];
-                    Physics.SyncTransforms();
-                }
+                var actualMesh=anchor.GetComponentsInChildren<MeshCollider>().ToList();Assert.Greater(actualMesh.Count,0);
+                bool originalBackfaceQueries=Physics.queriesHitBackfaces;bool found;
+                try{Physics.queriesHitBackfaces=true;found=FindVisibleOverheadPassage(bounds,actualMesh,world,capsule,.3f,contacts,out start,out end);}
+                finally{Physics.queriesHitBackfaces=originalBackfaceQueries;}
                 if(!found) continue;
                 treeName=anchor.name; treeBounds=bounds;
                 break;
@@ -367,8 +332,8 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0f,entry.transform.position.x,.01f);
             Assert.That(entry.transform.position.z,Is.InRange(77f,79f));
             Assert.Less(travel.CombatArrival.position.z,entry.transform.position.z-2f);
-            Assert.AreEqual(-18f,fusion.transform.position.x,.01f);
-            Assert.AreEqual(55f,fusion.transform.position.z,.01f);
+            Assert.Greater(fusion.transform.position.x,150);
+            Assert.IsNotNull(fusion.GetComponentInParent<VaultFloorSurface>());
             Assert.Less(ArenaSurface.Profile(0,78,200),-7.9f);
             Assert.Greater(ArenaSurface.Profile(70,-58,200),-1f,"The old southern excavation must be filled.");
             foreach(var p in new[]{new Vector3(70,0,-58),new Vector3(0,0,78)})
@@ -395,6 +360,39 @@ namespace EchoScrap.Tests
             }
             foreach(var lava in Object.FindObjectsByType<LavaHazard>(FindObjectsSortMode.None))
                 Assert.IsFalse(lava.Contains(Vector3.zero,22f),"Existing lava must stay outside the caldera.");
+        }
+        [UnityTest] public IEnumerator DashIntoPortalRailCanImmediatelyMoveAway()
+        {
+            foreach(var gate in Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None))gate.GetComponent<Collider>().enabled=false;
+            var body=game.Player.GetComponent<Rigidbody>();
+            foreach(float side in new[]{-1f,1f})foreach(float z in new[]{61f,65f,72f,76f}){
+                var start=ArenaSurface.OnGround(new Vector3(side*4.2f,0,z),1);body.position=start;game.Player.transform.position=start;body.linearVelocity=Vector3.zero;game.Motor.ResetDashForSession();Physics.SyncTransforms();
+                Key into=side<0?Key.A:Key.D,away=side<0?Key.D:Key.A;
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState(into));yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(into,Key.Space));yield return null;
+                for(int tick=0;tick<12;tick++)yield return new WaitForFixedUpdate();
+                float contact=body.position.x;InputSystem.QueueStateEvent(keyboard,new KeyboardState(away));yield return null;
+                for(int tick=0;tick<35;tick++)yield return new WaitForFixedUpdate();
+                Assert.Greater((body.position.x-contact)*-side,1f,"Cannot escape portal rail: start="+start+" end="+body.position);
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;
+            }
+        }
+        [UnityTest] public IEnumerator RepeatedDashesCanDescendAndClimbPortalWithoutGettingStuck()
+        {
+            foreach(var gate in Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None))gate.GetComponent<Collider>().enabled=false;
+            var body=game.Player.GetComponent<Rigidbody>();
+            foreach(float lane in new[]{-3f,0f,3f}){
+                var start=ArenaSurface.OnGround(new Vector3(lane,0,59),1);body.position=start;game.Player.transform.position=start;body.linearVelocity=Vector3.zero;Physics.SyncTransforms();
+                foreach(var key in new[]{Key.W,Key.S}){
+                    for(int dash=0;dash<7;dash++){
+                        game.Motor.ResetDashForSession();InputSystem.QueueStateEvent(keyboard,new KeyboardState(key));yield return null;
+                        InputSystem.QueueStateEvent(keyboard,new KeyboardState(key,Key.Space));yield return null;
+                        for(int tick=0;tick<10;tick++)yield return new WaitForFixedUpdate();
+                        InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;
+                        Assert.IsFalse(game.Motor.IsDashing);Assert.AreEqual(ArenaSurface.SupportHeight(body.position,.45f)+1,body.position.y,.2f,"Dash must stay grounded lane="+lane+" pos="+body.position);
+                    }
+                    if(key==Key.W)Assert.Greater(body.position.z,76,"Descent stuck: "+body.position);else Assert.Less(body.position.z,61,"Ascent stuck: "+body.position);
+                }
+            }
         }
         [UnityTest] public IEnumerator PortalStairsAllowDescentAndAscent()
         {
@@ -469,19 +467,12 @@ namespace EchoScrap.Tests
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W,Key.Space));yield return null;yield return new WaitForFixedUpdate();yield return new WaitForFixedUpdate();
             Assert.IsTrue(game.Motor.IsDashing);Assert.Greater(game.Motor.DashDirection.z,.9f,"W + dash heads north toward the portal.");
         }
-        [Test] public void GarageHasEightLargeAccessibleDisplayAreas()
+        [Test] public void GarageHasTenAccessibleDisplayAreas()
         {
-            var room=GameObject.Find("BovedaInterior");
-            var slots=room.GetComponentsInChildren<Transform>().Where(t=>t.name.EndsWith("_Coleccionable")).ToArray();
-            Assert.AreEqual(8,slots.Length);
-            foreach(var slot in slots) {
-                float side=slot.position.x<180?-1:1;
-                var p=new Vector3(180+side*8,1,slot.position.z);
-                Assert.IsFalse(Physics.CheckCapsule(p-Vector3.up*.5f,p+Vector3.up*.5f,.45f,1,QueryTriggerInteraction.Ignore),slot.name+" approach is blocked");
-                Assert.Greater(Mathf.Abs(slot.position.x-180),14);
-            }
-            var b=room.GetComponentsInChildren<Renderer>().First(r=>r.name=="SueloInterior").bounds;
-            Assert.GreaterOrEqual(b.size.x,47.9f);Assert.GreaterOrEqual(b.size.z,63.9f);
+            var room=GameObject.Find("BovedaModular");Assert.IsNotNull(room);
+            var slots=Object.FindAnyObjectByType<FusionStation>().DisplaySlots;Assert.AreEqual(10,slots.Length);
+            foreach(var slot in slots){var p=ArenaSurface.OnGround(slot.position+Vector3.back*4,1);Assert.IsFalse(Physics.CheckCapsule(p-Vector3.up*.5f,p+Vector3.up*.5f,.45f,1,QueryTriggerInteraction.Ignore),slot.name+" approach is blocked");}
+            var b=room.transform.Find("ApoyoPlantaBaja").GetComponent<Collider>().bounds;Assert.GreaterOrEqual(b.size.x,47.9f);Assert.GreaterOrEqual(b.size.z,63.9f);
         }
         [UnityTest] public IEnumerator PortalsPreserveCombatAndAllowReturnWithoutBouncing()
         {
@@ -500,9 +491,9 @@ namespace EchoScrap.Tests
             yield return new WaitForFixedUpdate(); yield return null;
             Assert.IsTrue(travel.IsInWarehouse,"Walking into the actual trigger must transport the player.");
             Assert.Greater(body.position.x,170f);
-            var interior=GameObject.Find("BovedaInterior"); Assert.IsNotNull(interior);
-            int slots=0; foreach(var marker in interior.GetComponentsInChildren<Transform>()) if(marker.name.EndsWith("_Coleccionable")) slots++;
-            Assert.AreEqual(8,slots);
+            var interior=GameObject.Find("BovedaModular"); Assert.IsNotNull(interior);
+            int slots=Object.FindAnyObjectByType<FusionStation>().DisplaySlots.Length;
+            Assert.AreEqual(10,slots);
             var confiner=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineConfiner3D>();
             Assert.IsTrue(confiner.enabled); Assert.AreSame(travel.InteriorCameraBounds,confiner.BoundingVolume);
             float clock=game.Session.GameplayTime;
@@ -698,4 +689,3 @@ namespace EchoScrap.Tests
         }
     }
 }
-
