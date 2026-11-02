@@ -204,7 +204,7 @@ namespace EchoScrap.Combat
                 return false;
             if (playerHealth != null && playerHealth.IsDead)
                 return false;
-            if (session != null && (session.IsPaused || !session.IsGameplayFlowActive()))
+            if (session != null && (session.IsPaused || session.State==SessionState.BossIntro || !session.IsGameplayFlowActive()))
                 return false;
             if (Time.timeScale <= 0f)
                 return false;

@@ -63,6 +63,7 @@ namespace EchoScrap.Combat
                     case GolgoraState.SweepWindup: Play(3, .7f); break;
                     case GolgoraState.BarrageWindup: Play(5, .65f); break;
                     case GolgoraState.CercoWindup: Play(6, .8f); break;
+                    case GolgoraState.CercoReposition: Play(6,.8f);break;
                     case GolgoraState.PhaseTransition: Play(8, .85f); break;
                 }
                 previous = actor.State;

@@ -99,11 +99,13 @@ namespace EchoScrap.Combat
             float intensity = Intensity;
             bool hammer = actor.State == GolgoraState.StompWindup;
             bool intro = actor.State == GolgoraState.Intro;
+            bool landing=actor.IsAirborne;
             bool sweep = actor.State == GolgoraState.SweepWindup;
-            warningRing.gameObject.SetActive(hammer || intro); warningFill.gameObject.SetActive(hammer || intro);
-            if (hammer || intro)
-                Circle(warningRing, warningFill, hammer ? actor.AttackOrigin : actor.WorldCenter,
-                    hammer ? actor.Settings.HammerRadius : actor.HitRadius + .5f, hammer ? actor.PhaseProgress : introProgress, intensity);
+            warningRing.gameObject.SetActive(hammer || intro || landing); warningFill.gameObject.SetActive(hammer || intro || landing);
+            if (hammer || intro || landing)
+                Circle(warningRing,warningFill,landing?actor.ArenaCenter:hammer?actor.AttackOrigin:actor.WorldCenter,
+                    landing?actor.Settings.RingStartRadius:hammer?actor.Settings.HammerRadius:actor.HitRadius+.5f,
+                    landing?actor.JumpProgress:hammer?actor.PhaseProgress:introProgress,intensity);
             sweepEdge.gameObject.SetActive(sweep); sweepFill.gameObject.SetActive(sweep);
             for (int i = 0; i < 2; i++) sweepSides[i].gameObject.SetActive(sweep);
             if (sweep)

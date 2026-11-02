@@ -196,6 +196,7 @@ namespace EchoScrap.Combat
             GetOrAdd<CombatMusicPlayer>(gameObject).Bind(this);
             cameraRig.Follow = playerObject.transform;
             cameraFeedback = GetOrAdd<CombatCameraFeedback>(cameraRig.gameObject);
+            Encounter.RoarPresentation.BindFeedback(cameraFeedback);
             cameraFeedback.BindReferences(Session, playerObject.transform,
                 playerObject.GetComponent<PlayerInputReader>(), playerMotor, Weapon);
             yield return null;

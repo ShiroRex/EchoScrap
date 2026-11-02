@@ -21,12 +21,18 @@ namespace EchoScrap.Combat
         private readonly Vector3[] barrageTargets = new Vector3[3];
         private CorrosivePuddlePool hazards;
         private GolgoraPresentation presentation;
+        private MataColeccionistaView modelView;
         private GolgoraMagmaRingPool ringPool;
         private float phaseTime, nextStompTime, nextSweepTime, nextBarrageTime, nextCercoTime;
         private Vector3 stompOrigin, attackDirection = Vector3.forward, arenaCenter;
         private float arenaRadius = 22f, firstCercoGap;
         private Rigidbody playerBody;
         private bool cercoSequence, preferSweep, ownsFallbackSettings;
+        private Vector3 jumpStart;
+        private bool jumpWasKinematic, jumpHadCollider;
+        public bool IsAirborne => State==GolgoraState.CercoReposition;
+        public float JumpProgress => Mathf.Clamp01(phaseTime/Mathf.Max(.5f,Settings.CercoJumpDuration));
+        public float JumpHeight { get; private set; }
 
         public bool AutoTick { get; set; } = true;
         public GolgoraState State { get; private set; } = GolgoraState.Intro;
@@ -68,7 +74,8 @@ namespace EchoScrap.Combat
             GolgoraState.SweepWindup => Settings.SweepWindup,
             GolgoraState.BarrageWindup => Settings.BarrageWindup,
             GolgoraState.CercoWindup => Settings.CercoWindup,
-            GolgoraState.PhaseTransition => Settings.TransitionDuration,
+            GolgoraState.PhaseTransition => Mathf.Max(Settings.TransitionDuration,GolgoraRoarPresentation.RoarDuration),
+            GolgoraState.CercoReposition => Settings.CercoJumpDuration,
             GolgoraState.Recovery => CurrentAttackKind switch
             {
                 GolgoraAttackKind.Hammer => Settings.HammerRecovery,
@@ -82,6 +89,8 @@ namespace EchoScrap.Combat
         public float RecoveryProgress => State == GolgoraState.Recovery ? PhaseProgress : 0f;
         public event Action CercoStarted;
         public event Action CercoCompleted;
+        public event Action PhaseTransitionStarted;
+        public event Action PhaseTransitionCompleted;
         public event Action<GolgoraAttackKind, Vector3, Vector3> AttackExecuted;
 
         public void SetCombatSettings(GolgoraCombatSettings settings)
@@ -98,6 +107,7 @@ namespace EchoScrap.Combat
             base.ResetForSpawn(spawnPosition);
             State = GolgoraState.Intro; CurrentAttackKind = GolgoraAttackKind.None;
             IsPhaseTwo = cercoSequence = preferSweep = false;
+            JumpHeight=0;
             BossTime = phaseTime = 0f;
             nextStompTime = nextSweepTime = 2f; nextBarrageTime = 3.5f;
             nextCercoTime = Settings.FirstCercoTime;
@@ -113,6 +123,7 @@ namespace EchoScrap.Combat
             if (presentation == null) presentation = GetComponent<GolgoraPresentation>() ?? gameObject.AddComponent<GolgoraPresentation>();
             if (hazards == null) hazards = PuddlePool;
             presentation.Bind(this); presentation.ResetPresentation();
+            modelView = GetComponent<MataColeccionistaView>();
         }
         public void ActivateCombat()
         {
@@ -123,14 +134,16 @@ namespace EchoScrap.Combat
         }
         public override DamageResult ReceiveDamage(in DamageRequest request)
         {
-            if (State == GolgoraState.Intro)
+            if (State == GolgoraState.Intro || State==GolgoraState.PhaseTransition || IsAirborne)
             {
                 var immune = new DamageResult(request.SourceId, TargetId, request.SourceType,
                     request.OriginPosition, WorldCenter, request.HitDirection, request.BaseDamage, 0f, 0f,
                     CurrentHealth, MaxHealth, false, false, false, true, false, false, request.BurstId, request.PulseIndex);
                 Session?.Events.PublishDamage(in immune); return immune;
             }
-            return base.ReceiveDamage(in request);
+            var result=base.ReceiveDamage(in request);
+            if(IsAlive && !IsPhaseTwo && CurrentHealth<=MaxHealth*Settings.PhaseTwoHealthFraction)BeginTransition();
+            return result;
         }
         public override void StepPhysics(float fixedDeltaTime) { if (AutoTick) Step(fixedDeltaTime); }
         public void Step(float deltaTime)
@@ -140,7 +153,8 @@ namespace EchoScrap.Combat
             if (State == GolgoraState.Intro) { presentation?.Step(deltaTime); return; }
             ringPool?.Step(deltaTime);
             if (IsControlLocked) { StopBody(); return; }
-            BossTime += deltaTime; phaseTime += deltaTime;
+            BossTime += deltaTime;
+            phaseTime += State==GolgoraState.PhaseTransition && Session!=null?deltaTime/Mathf.Max(.05f,Session.Clock.SimulationRate):deltaTime;
             switch (State)
             {
                 case GolgoraState.Pursuing:
@@ -174,7 +188,7 @@ namespace EchoScrap.Combat
                     break;
                 case GolgoraState.PhaseTransition:
                     StopBody();
-                    if (phaseTime + .0001f >= CurrentPhaseDuration) BeginCerco();
+                    if (phaseTime + .0001f >= CurrentPhaseDuration) {PhaseTransitionCompleted?.Invoke();BeginCerco();}
                     break;
                 case GolgoraState.CercoReposition: StepReturnToCenter(deltaTime); break;
                 case GolgoraState.CercoWindup:
@@ -342,32 +356,40 @@ namespace EchoScrap.Combat
         {
             IsPhaseTwo = true; State = GolgoraState.PhaseTransition; CurrentAttackKind = GolgoraAttackKind.None;
             phaseTime = 0f; LockDirection(); stompOrigin = ArenaSurface.OnGround(WorldCenter); StopBody();
+            ringPool?.Clear();hazards?.ClearAll();
+            PhaseTransitionStarted?.Invoke();
         }
         private void BeginCerco()
         {
             cercoSequence = true; State = GolgoraState.CercoReposition; CurrentAttackKind = GolgoraAttackKind.Cerco;
             phaseTime = 0f; CercoPulsesEmitted = 0; ringPool.Clear(); StopBody();
+            jumpStart=Body.position;jumpWasKinematic=Body.isKinematic;jumpHadCollider=BodyCollider.enabled;
+            Body.isKinematic=true;BodyCollider.enabled=false;CombatTargetRegistry.Unregister(this);
+            stompOrigin=arenaCenter;LockDirection();
+            Vector3 toPlayer=TargetPlayer!=null?TargetPlayer.WorldCenter-arenaCenter:attackDirection;
+            firstCercoGap=Mathf.Atan2(toPlayer.x,toPlayer.z)*Mathf.Rad2Deg+60f;
+            ringPool.ShowGapPreview(arenaCenter,firstCercoGap,Settings.RingStartRadius,arenaRadius,Settings.RingGapDegrees);
             CercoStarted?.Invoke();
             StepReturnToCenter(0f);
         }
         private void StepReturnToCenter(float deltaTime)
         {
-            Vector3 delta = arenaCenter - WorldCenter; delta.y = 0f;
-            if (delta.magnitude <= .15f)
+            float progress=JumpProgress;
+            float flight=Mathf.InverseLerp(.16f,1f,progress);
+            Vector3 target=ArenaSurface.OnGround(arenaCenter,1f);
+            Body.position=Vector3.Lerp(jumpStart,target,Mathf.SmoothStep(0,1,flight));
+            transform.position=Body.position;
+            JumpHeight=Mathf.Sin(flight*Mathf.PI)*Settings.CercoJumpHeight;
+            modelView?.SetJumpHeight(JumpHeight);
+            if(progress>=1f-.0001f)
             {
-                Body.position = ArenaSurface.OnGround(arenaCenter, 1f); StopBody();
-                State = GolgoraState.CercoWindup; phaseTime = 0f; LockDirection(); stompOrigin = arenaCenter;
-                Vector3 playerDirection = TargetPlayer != null ? TargetPlayer.WorldCenter - arenaCenter : attackDirection;
-                firstCercoGap = Mathf.Atan2(playerDirection.x, playerDirection.z) * Mathf.Rad2Deg + 60f;
-                ringPool.ShowGapPreview(arenaCenter, firstCercoGap, Settings.RingStartRadius, arenaRadius, Settings.RingGapDegrees);
-                return;
+                JumpHeight=0;modelView?.SetJumpHeight(0);
+                Body.position=target;Body.isKinematic=jumpWasKinematic;BodyCollider.enabled=jumpHadCollider;
+                if(BodyCollider.enabled)CombatTargetRegistry.Register(this);StopBody();
+                State=GolgoraState.CercoActive;phaseTime=0;stompOrigin=arenaCenter;
+                DamagePlayerInRadius(arenaCenter,Settings.RingStartRadius,Settings.RingDamage,DamageSourceType.BossStomp);
+                EmitCercoPulse();
             }
-            attackDirection = delta.normalized;
-            if (deltaTime <= 0f) return;
-            // MovePosition follows the authored, obstacle-free central disc and cannot tunnel into its rim.
-            Vector3 position = Vector3.MoveTowards(Body.position, ArenaSurface.OnGround(arenaCenter, 1f),
-                Mathf.Max(.1f, Settings.CercoReturnSpeed) * deltaTime);
-            Body.linearVelocity = Vector3.zero; Body.MovePosition(position);
         }
         private bool EmitCercoPulse()
         {

@@ -166,7 +166,7 @@ namespace EchoScrap.Combat
         {
             if (game == null || game.Motor == null || game.Player == null || game.Session == null) return;
             var input = game.Motor.GetComponent<PlayerInputReader>();
-            if (input != null) input.SetInputEnabled(enabled && !game.Session.IsPaused && game.Player.IsAlive);
+            if (input != null) input.SetInputEnabled(enabled && !game.Session.IsPaused && game.Session.State==SessionState.Running && game.Player.IsAlive);
         }
 
         private void LateUpdate()
@@ -186,7 +186,7 @@ namespace EchoScrap.Combat
             required = Mathf.Max(required, RequiredCameraDistance(playerFeet, cameraAnchor.position, right, up, forward, originalFov, aspect));
             required = Mathf.Max(required, RequiredCameraDistance(playerHead, cameraAnchor.position, right, up, forward, originalFov, aspect));
             Bounds bounds = new Bounds(boss.WorldCenter + Vector3.up * 2f, new Vector3(boss.HitRadius * 2f, 6f, boss.HitRadius * 2f));
-            if (bodyRenderers != null)
+            if (bodyRenderers != null && !boss.IsAirborne)
                 for (int i = 0; i < bodyRenderers.Length; i++)
                     if (bodyRenderers[i] != null && bodyRenderers[i].enabled && bodyRenderers[i].gameObject.activeInHierarchy &&
                         (bodyRenderers[i] is MeshRenderer || bodyRenderers[i] is SkinnedMeshRenderer))

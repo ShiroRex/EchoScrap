@@ -73,7 +73,8 @@ namespace EchoScrap.Combat
             if(paused)return;
             float step=Mathf.Max(0,deltaTime)/Mathf.Max(.05f,crossfadeSeconds);
             Blend(arena,ref arenaMix,CurrentTrack==CombatMusicTrack.Arena,arenaVolume,step);
-            Blend(boss,ref bossMix,CurrentTrack==CombatMusicTrack.Boss,bossVolume,step);
+            float roarMix=game.Encounter!=null && game.Encounter.RoarPresentation.IsRoaring ? .45f : 1f;
+            Blend(boss,ref bossMix,CurrentTrack==CombatMusicTrack.Boss,bossVolume*roarMix,step);
         }
         private static void Blend(AudioSource source,ref float mix,bool wanted,float volume,float step)
         {
