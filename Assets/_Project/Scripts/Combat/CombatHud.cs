@@ -21,6 +21,8 @@ namespace EchoScrap.Combat
         private Font font;
         private Sprite whiteSprite;
         private Sprite borderSprite;
+        private Sprite killsSprite;
+        private Image killsIcon;
         private Texture2D borderTexture;
         private Canvas canvas;
         private RectTransform canvasRect;
@@ -122,6 +124,7 @@ namespace EchoScrap.Combat
             Unsubscribe();
             if (whiteSprite != null) Destroy(whiteSprite);
             if (borderSprite != null) Destroy(borderSprite);
+            if (killsSprite != null) Destroy(killsSprite);
             if (borderTexture != null) Destroy(borderTexture);
         }
 
@@ -160,7 +163,7 @@ namespace EchoScrap.Combat
         private void HandleSessionState(SessionStateEvent _) => RefreshNow();
         private void HandleDeath(ActorDeathEvent death)
         {
-            if (!death.IsPlayer) { kills++; killsText.text = $"BAJAS  {kills}"; }
+            if (!death.IsPlayer) { kills++; RefreshKills(); }
         }
         private void HandleReset() { kills = 0; ResetReadouts(); RefreshNow(); }
 
@@ -170,8 +173,17 @@ namespace EchoScrap.Combat
             previousState = (SessionState)(-1);
             cardsDirty = experienceDirty = true;
             refreshTimer = 0f;
-            if (killsText != null) killsText.text = $"BAJAS  {kills}";
+            RefreshKills();
             SyncPreferences();
+        }
+
+        private void RefreshKills()
+        {
+            if(killsText==null)return;
+            killsText.text=$"BAJAS  {kills}";
+            if(killsIcon!=null)
+                killsIcon.rectTransform.anchoredPosition=killsText.rectTransform.anchoredPosition+
+                    new Vector2(killsText.rectTransform.rect.width*.5f-killsText.preferredWidth-27.5f,0);
         }
 
         private void Update()
@@ -438,6 +450,11 @@ namespace EchoScrap.Combat
             timerText = AnchorLabel(canvasRect, "Clock", new Vector2(0.5f, 1f), new Vector2(0f, -49f), new Vector2(400f, 56f), "00:00", 42, TextAnchor.MiddleCenter, Pale);
             phaseText = AnchorLabel(canvasRect, "Phase", new Vector2(0.5f, 1f), new Vector2(0f, -91f), new Vector2(600f, 34f), "VERTEDERO  /  SOBREVIVE", 22, TextAnchor.MiddleCenter, Apollo);
             killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), new Vector2(-220f, -53f), new Vector2(350f, 40f), "BAJAS  0", 27, TextAnchor.MiddleRight, Pale);
+            var killsTexture=Resources.Load<Texture2D>("Hud/Kills/Icono_Kills");
+            killsSprite=Sprite.Create(killsTexture,new Rect(16,11,31,39),Vector2.one*.5f,100,0,SpriteMeshType.FullRect);
+            killsIcon=ImageRect(canvasRect,"KillsIcon",Vector2.zero,new Vector2(31,39),Color.white);
+            killsIcon.sprite=killsSprite;killsIcon.rectTransform.anchorMin=killsIcon.rectTransform.anchorMax=new Vector2(1,1);
+            RefreshKills();
             AnchorLabel(canvasRect, "PauseHint", new Vector2(1f, 1f), new Vector2(-220f, -92f), new Vector2(350f, 30f), "ESC / START   PAUSA", 20, TextAnchor.MiddleRight, new Color(0.62f, 0.67f, 0.67f));
 
             RectTransform experience = Rect(canvasRect, "Experience", new Vector2(0.5f, 0f), new Vector2(0f, 60f), new Vector2(620f, 70f));
@@ -468,9 +485,12 @@ namespace EchoScrap.Combat
             cardsText = AnchorLabel(canvasRect, "AcquiredCards", new Vector2(1f, 0f), new Vector2(-275f, 182f), new Vector2(470f, 250f), "Sin mejoras", 22, TextAnchor.UpperRight, new Color(0.73f, 0.78f, 0.77f));
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));
 
-            bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -161f), new Vector2(720f, 72f)).gameObject;
-            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 16f), new Vector2(720f, 36f), "GÓLGORA · EL GUARDIÁN", 26, TextAnchor.MiddleCenter, Apollo);
+            bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(640f, 128f)).gameObject;
+            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 60f), new Vector2(640f, 40f), "GÓLGORA · EL GUARDIÁN", 24, TextAnchor.MiddleCenter, Apollo);
             bossFill = Fill(ImageRect(bossPanel.transform, "BossTrack", new Vector2(0f, -15f), new Vector2(720f, 12f), new Color(0.15f, 0.13f, 0.16f)).transform, "BossFill", new Color(0.91f, 0.42f, 0.22f));
+            bossPanel.transform.Find("BossTrack").GetComponent<Image>().color=Color.clear;
+            BossBarArtwork.Attach(bossPanel.transform,bossFill,game);
+            bossHealthText.transform.SetAsLastSibling();
             bossPanel.SetActive(false);
             bossArrow = Rect(canvasRect, "BossOffscreenArrow", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48f, 52f));
             ImageRect(bossArrow, "LeftWing", new Vector2(-8f, 0f), new Vector2(8f, 30f), Apollo).rectTransform.localRotation = Quaternion.Euler(0f, 0f, -35f);

@@ -6,6 +6,7 @@ using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace EchoScrap.Tests
 {
@@ -55,6 +56,55 @@ namespace EchoScrap.Tests
             game.Encounter.Step(0.31f);
             game.Encounter.Step(BossEncounter.IntroDuration);
             Assert.IsTrue(game.Director.BossActive);
+        }
+
+        [Test]
+        public void SuppliedBossArtworkTracksRealHealthAndHidesAfterEncounterReset()
+        {
+            Activate();game.Hud.RefreshNow();
+            var panel=game.Hud.CanvasRoot.transform.Find("BossHealth");
+            var art=panel.GetComponent<BossBarArtwork>();
+            var fill=panel.Find("BossEmptyTrack/BossFill").GetComponent<Image>();
+            Assert.That(art.FrameCount,Is.EqualTo(3));Assert.That(panel.gameObject.activeSelf);
+            Assert.That(fill.fillAmount,Is.EqualTo(1f));Assert.That(fill.color,Is.EqualTo(Color.white));
+            Assert.That(fill.sprite.texture.filterMode,Is.EqualTo(FilterMode.Point));
+            Canvas.ForceUpdateCanvases();
+            Assert.That(panel.Find("BossName").GetComponent<Text>().cachedTextGenerator.characterCountVisible,Is.GreaterThan(0),"The boss name and health values must fit their text rectangle.");
+            var hit=new DamageRequest(1,DamageSourceType.FlashlightPulse,Vector3.zero,Vector3.forward,game.Encounter.Boss.MaxHealth*.55f);
+            game.Encounter.Boss.ReceiveDamage(in hit);game.Hud.RefreshNow();
+            Assert.That(fill.fillAmount,Is.EqualTo(game.Encounter.Boss.CurrentHealth/game.Encounter.Boss.MaxHealth).Within(.001f));
+            Assert.That(fill.fillAmount,Is.InRange(.01f,.99f));
+            game.ResetRun(false);game.Hud.RefreshNow();Assert.That(panel.gameObject.activeSelf,Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator BossArtworkAnimatesAndFreezesDuringManualPause()
+        {
+            Activate();game.Hud.RefreshNow();var art=game.Hud.CanvasRoot.GetComponentInChildren<BossBarArtwork>();
+            int first=art.FrameIndex;float until=Time.realtimeSinceStartup+2;
+            while(art.FrameIndex==first && Time.realtimeSinceStartup<until)yield return null;
+            Assert.That(art.FrameIndex,Is.Not.EqualTo(first));
+            game.Session.SetManualPause(true);int paused=art.FrameIndex;
+            yield return new WaitForSecondsRealtime(.24f);Assert.That(art.FrameIndex,Is.EqualTo(paused));
+            game.Session.SetManualPause(false);
+        }
+
+        [Test]
+        public void KillIconStaysNextToChangingCountAndResetKeepsTheArtwork()
+        {
+            var root=game.Hud.CanvasRoot.transform;var icon=root.Find("KillsIcon").GetComponent<Image>();
+            var text=root.Find("Kills").GetComponent<Text>();Assert.That(icon.sprite,Is.Not.Null);
+            Assert.That(icon.sprite.texture.filterMode,Is.EqualTo(FilterMode.Point));Assert.That(icon.raycastTarget,Is.False);
+            float initial=icon.rectTransform.anchoredPosition.x;
+            for(int i=0;i<123;i++)
+            {
+                var death=new ActorDeathEvent(i,0,false,false,Vector3.zero,Vector3.zero,DamageSourceType.FlashlightPulse,0,false,false);
+                game.Session.Events.PublishDeath(in death);
+            }
+            Assert.That(game.Hud.KillCount,Is.EqualTo(123));Assert.That(text.text,Does.Contain("123"));
+            Assert.That(icon.rectTransform.anchoredPosition.x,Is.LessThan(initial));
+            game.ResetRun(false);Assert.That(game.Hud.KillCount,Is.Zero);Assert.That(icon.sprite,Is.Not.Null);
+            Assert.That(icon.rectTransform.anchoredPosition.x,Is.EqualTo(initial).Within(.01f));
         }
 
         [Test]
