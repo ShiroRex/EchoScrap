@@ -189,6 +189,7 @@ namespace EchoScrap.Combat
             EnemyArchetypeId archId = (EnemyArchetypeId)evt.ArchetypeId;
             // These enemies own independent authored death presentations.
             if (archId == EnemyArchetypeId.ExplosiveMoth || archId == EnemyArchetypeId.Mortar) return;
+            if (EnemySpriteSet.Supports(archId) && EnemySpriteSet.Load(archId) != null) return;
             EnemyArchetypeData data = EnemyArchetypeData.CreateDefault(archId);
             SpawnDeathRupture(evt.WorldPosition, evt.HitDirection, data.SecondaryColor, data.VisualScale.x);
         }
