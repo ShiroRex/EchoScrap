@@ -44,21 +44,21 @@ namespace EchoScrap.Tests
             CombatTargetRegistry.Clear();
         }
 
-        [UnityTest]
-        public IEnumerator NormalAndQuickScenesStartBossAtTheirOwnConfiguredTime()
+        [Test]
+        public void SelectedRoundsStartBossAtTheirOwnConfiguredTime()
         {
-            foreach (var variant in new[] { ("CombatArena_8Min", 480f), ("CombatArena_3Min", 180f) })
+            var entry = Resources.Load<ExpeditionEntrySettings>("UI/ExpeditionEntrySettings");
+            Assert.That(entry, Is.Not.Null);
+            foreach (var variant in new[] { (entry.CompleteRound, 480f), (entry.DemoRound, 180f) })
             {
-                Assert.That(Application.CanStreamedLevelBeLoaded(variant.Item1), Is.True);
-                yield return SceneManager.LoadSceneAsync(variant.Item1, LoadSceneMode.Single);
-                yield return null;
-                game = Object.FindAnyObjectByType<CombatGameBootstrap>();
+                Assert.That(variant.Item1, Is.Not.Null);
+                game.SelectWaveSettings(variant.Item1);
                 Assert.That(game.IsInitialized, Is.True);
                 var station = Object.FindAnyObjectByType<FusionStation>();
                 Assert.That(station, Is.Not.Null, "Both duration variants retain the latest fusion station.");
                 station.PersistProgress = false;
                 Assert.That(station.gameObject.scene, Is.EqualTo(game.gameObject.scene));
-                Assert.That(station.gameObject.scene.name, Is.EqualTo(variant.Item1));
+                Assert.That(station.gameObject.scene.name, Is.EqualTo("CombatArena"));
                 Assert.That(station.DisplaySlots, Has.Length.EqualTo(8), "Both variants retain the expanded garage.");
                 Assert.That(station.Door, Is.Not.Null);
                 Assert.That(station.InteractionPoint, Is.Not.Null);
@@ -87,8 +87,9 @@ namespace EchoScrap.Tests
         {
             Assert.AreEqual(1, Object.FindObjectsByType<CombatSession>(FindObjectsSortMode.None).Length);
 #if UNITY_EDITOR
-            Assert.IsTrue(Application.CanStreamedLevelBeLoaded("LocomotionSandbox"));
-            Assert.IsTrue(Application.CanStreamedLevelBeLoaded("CombatSandbox"));
+            Assert.IsTrue(Application.CanStreamedLevelBeLoaded("MainMenu"));
+            Assert.IsFalse(Application.CanStreamedLevelBeLoaded("LocomotionSandbox"));
+            Assert.IsFalse(Application.CanStreamedLevelBeLoaded("CombatSandbox"));
 #endif
             Assert.IsNotNull(game.Player);
             Assert.IsNotNull(game.Stats);

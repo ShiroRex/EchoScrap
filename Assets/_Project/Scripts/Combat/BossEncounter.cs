@@ -8,7 +8,7 @@ namespace EchoScrap.Combat
     [DisallowMultipleComponent]
     public sealed class BossEncounter : MonoBehaviour
     {
-        public const float IntroDuration = 3f;
+        public static float IntroDuration => GolgoraRoarPresentation.EntranceDuration;
         public const int ClosingXp = 500;
         public const float ClearanceMargin = 0.5f;
         [SerializeField] private CombatSession session;
@@ -32,6 +32,7 @@ namespace EchoScrap.Combat
         public bool IntroWaitingForClearance { get; private set; }
         public GolgoraDeathPresentation DeathPresentation => deathPresentation;
         public BossArena Arena => arena;
+        public GolgoraRoarPresentation RoarPresentation { get; private set; }
         public event Action<GolgoraActor> OnBossActivated;
         public event Action<int> ClosingXpAwarded;
 
@@ -49,6 +50,8 @@ namespace EchoScrap.Combat
             playerBody = player != null ? player.GetComponent<Rigidbody>() : null;
             deathPresentation = GetComponent<GolgoraDeathPresentation>() ?? gameObject.AddComponent<GolgoraDeathPresentation>();
             deathPresentation.BindSession(session);
+            RoarPresentation = GetComponent<GolgoraRoarPresentation>() ?? gameObject.AddComponent<GolgoraRoarPresentation>();
+            RoarPresentation.Bind(session);
             if (isActiveAndEnabled) Subscribe();
         }
 
@@ -99,10 +102,13 @@ namespace EchoScrap.Combat
             director?.SetBossActive(false);
             director?.SuppressBossMinions(false);
             session?.SetBossIntroState(true);
+            if (player != null) player.IsBossCinematicProtected = true;
             Vector3 spawn = arena != null ? ArenaSurface.OnGround(arena.Center, 1f) : Vector3.up;
             Boss = enemies.Spawn(EnemyArchetypeId.GolgoraBoss, spawn) as GolgoraActor;
-            if (Boss == null) return;
+            if (Boss == null) { ReleaseCinematic(); return; }
             Boss.BindHazards(hazards);
+            Boss.PhaseTransitionStarted += BeginPhaseRoar;
+            Boss.PhaseTransitionCompleted += ReleaseCinematic;
             if (arena != null)
             {
                 Boss.BindArena(arena.Center, arena.Radius);
@@ -116,6 +122,7 @@ namespace EchoScrap.Combat
             IntroWaitingForClearance = false;
             ClosingXpReward = 0;
             deathPresentation?.Clear();
+            RoarPresentation?.BeginIntro();
         }
 
         private void Update()
@@ -129,8 +136,20 @@ namespace EchoScrap.Combat
                 || (session != null && (session.IsPaused || !session.IsGameplayFlowActive())))
                 return;
             arena?.Step(deltaTime);
-            if (!introInProgress || (arena != null && arena.IsTransferring)) return;
-            IntroRemaining = Mathf.Max(0f, IntroRemaining - deltaTime);
+            float cinematicDelta = deltaTime / Mathf.Max(.05f, session != null ? session.Clock.SimulationRate : 1f);
+            if (!introInProgress)
+            {
+                if (Boss.State == GolgoraState.PhaseTransition)
+                {
+                    session?.PlayerMotor?.Stop();
+                    RoarPresentation?.StepPhase(Boss.PhaseProgress * Boss.CurrentPhaseDuration, cinematicDelta);
+                }
+                return;
+            }
+            session?.PlayerMotor?.Stop();
+            if (arena != null && arena.IsTransferring) return;
+            IntroRemaining = Mathf.Max(0f, IntroRemaining - cinematicDelta);
+            RoarPresentation?.StepIntro(IntroDuration - IntroRemaining, cinematicDelta);
             var presentation = Boss.GetComponent<GolgoraPresentation>();
             presentation?.SetIntroProgress(1f - IntroRemaining / IntroDuration);
             if (IntroRemaining > 0.0001f) return;
@@ -141,7 +160,7 @@ namespace EchoScrap.Combat
             introInProgress = false;
             IntroRemaining = 0f;
             Boss.ActivateCombat();
-            session?.SetBossIntroState(false);
+            ReleaseCinematic();
             director?.SetBossActive(true);
             OnBossActivated?.Invoke(Boss);
         }
@@ -164,11 +183,28 @@ namespace EchoScrap.Combat
 
         private void ResumeReinforcements() => director?.SuppressBossMinions(false);
 
+        private void BeginPhaseRoar()
+        {
+            if (player != null) player.IsBossCinematicProtected = true;
+            session?.SetBossIntroState(true);
+            SuspendReinforcements();
+            RoarPresentation?.BeginPhase();
+        }
+
+        private void ReleaseCinematic()
+        {
+            RoarPresentation?.Cancel();
+            if (player != null) player.IsBossCinematicProtected = false;
+            session?.SetBossIntroState(false);
+        }
+
         private void DetachBossEvents()
         {
             if (Boss == null) return;
             Boss.CercoStarted -= SuspendReinforcements;
             Boss.CercoCompleted -= ResumeReinforcements;
+            Boss.PhaseTransitionStarted -= BeginPhaseRoar;
+            Boss.PhaseTransitionCompleted -= ReleaseCinematic;
         }
 
         private bool EnsurePlayerClearance()
@@ -236,6 +272,7 @@ namespace EchoScrap.Combat
         {
             DetachBossEvents();
             arena?.EndEncounter();
+            ReleaseCinematic();
             introInProgress = false;
             IntroRemaining = 0f;
             IsEncounterActive = false;
@@ -251,6 +288,7 @@ namespace EchoScrap.Combat
         {
             DetachBossEvents();
             arena?.EndEncounter();
+            ReleaseCinematic();
             if (Boss != null && Boss.gameObject.activeSelf)
             {
                 if (enemies != null) enemies.ReturnToPool(Boss);

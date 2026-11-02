@@ -68,6 +68,7 @@ namespace EchoScrap.Combat
         private Prototype.EnemyMoth prototypeMoth;
         private MothExplosionPool mothExplosions;
         private MortarSpriteView mortarView;
+        private EnemySpriteView groundSpriteView;
         private Transform mortarEmitter;
         private Vector3 mortarEmitterRestPosition;
         private Vector3 mortarEmitterRestScale;
@@ -313,7 +314,7 @@ namespace EchoScrap.Combat
                 if (r == null)
                     continue;
 
-                if (r.name == "Polilla Reactor Pixels" || r.name == "Mortero Campana Pixels") continue;
+                if (r.name == "Polilla Reactor Pixels" || r.name == "Mortero Campana Pixels" || r.name == "Enemy Sprite Pixels") continue;
                 if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.GolgoraBoss && r.GetComponentInParent<Animator>() != null) continue;
 
                 r.sharedMaterial = r.gameObject.name.Contains("Crest") ? secondaryMat : primaryMat;
@@ -369,6 +370,7 @@ namespace EchoScrap.Combat
             assignedMoveSpeed = runtimeArchetype.BaseMoveSpeed;
             bodyCollider.enabled = false;
             body.isKinematic = true;
+            BindGroundSpriteView();
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
             {
                 EnsurePuddlePool();
@@ -386,6 +388,14 @@ namespace EchoScrap.Combat
                 mothExplosions = MothExplosionPool.GetOrCreate(session, targetPlayer);
                 (GetComponent<MothSpriteView>() ?? gameObject.AddComponent<MothSpriteView>()).Bind(this);
             }
+        }
+
+        private void BindGroundSpriteView()
+        {
+            if (!EnemySpriteSet.Supports(runtimeArchetype.ArchetypeId)) return;
+            transform.localScale = runtimeArchetype.VisualScale;
+            groundSpriteView = GetComponent<EnemySpriteView>() ?? gameObject.AddComponent<EnemySpriteView>();
+            groundSpriteView.Bind(this);
         }
 
         public Bounds CaptureSpawnModelBounds()
@@ -621,6 +631,7 @@ namespace EchoScrap.Combat
                 mortarView = GetComponent<MortarSpriteView>() ?? gameObject.AddComponent<MortarSpriteView>();
                 mortarView.Bind(this);
             }
+            BindGroundSpriteView();
             Physics.SyncTransforms();
         }
 
@@ -944,6 +955,7 @@ namespace EchoScrap.Combat
                 runtimeArchetype.ContactDamage);
 
             targetPlayer.ReceiveDamage(in request);
+            groundSpriteView?.NotifyContact();
             return true;
         }
 
@@ -1081,6 +1093,7 @@ namespace EchoScrap.Combat
                 bool reduced = session != null && session.Effects.ReducedEffectsMode;
                 visualComposer.TriggerHitReaction(request.HitDirection, isCritical, isPlayerHurt: false, reducedEffects: reduced);
             }
+            if (!lethal) groundSpriteView?.NotifyHit();
 
             // El impacto conserva su posición y resultado antes de desactivar o devolver el enemigo al pool
             var result = new DamageResult(
@@ -1141,6 +1154,7 @@ namespace EchoScrap.Combat
             // Desactivar inmediatamente daño, selección y colisión del actor
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
                 mortarView?.PlayDeath();
+            groundSpriteView?.PlayDeath();
             if (bodyCollider != null)
                 bodyCollider.enabled = false;
             if (body != null && !body.isKinematic)

@@ -91,7 +91,7 @@ namespace EchoScrap.Combat
 
         private bool CanPlay => isActiveAndEnabled && weapon != null && weapon.isActiveAndEnabled &&
             (health == null || health.IsAlive) && Time.timeScale > 0f &&
-            (session == null || (!session.IsPaused && session.IsGameplayFlowActive()));
+            (session == null || (!session.IsPaused && session.State!=SessionState.BossIntro && session.IsGameplayFlowActive()));
 
         private void Update()
         {

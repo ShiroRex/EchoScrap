@@ -87,7 +87,7 @@ namespace EchoScrap.Combat
         private Mesh beaconMesh;
         private Material beaconMaterial;
         private Material crystalMaterial;
-        private Material darkMaterial;
+        private Camera presentationCamera;
         private Material medkitMaterial;
         private Material medkitShadowMaterial;
         private Material absorptionMaterial;
@@ -127,7 +127,6 @@ namespace EchoScrap.Combat
             Destroy(ringMesh);
             Destroy(beaconMesh);
             Destroy(crystalMaterial);
-            Destroy(darkMaterial);
             // Imported medkit materials are shared Unity assets, not runtime instances.
             Destroy(absorptionMaterial);
             Destroy(flightTrailMaterial);
@@ -142,10 +141,12 @@ namespace EchoScrap.Combat
             stats = runtimeStats != null ? runtimeStats : (player != null ? player.Stats : null);
             progression = combatProgression;
             EnsureInitialized();
-            foreach (PickupSlot slot in slots)
-                if (slot.Kind == CombatPickupKind.Medkit) slot.Root.GetComponent<CombatGlowSource>().Bind(session);
+            foreach (PickupSlot slot in slots) slot.Root.GetComponent<CombatGlowSource>()?.Bind(session);
             Subscribe();
         }
+
+        public void BindCamera(Camera camera) => presentationCamera = camera;
+        private Quaternion OrbRotation => presentationCamera != null ? presentationCamera.transform.rotation : Quaternion.Euler(50f,0f,0f);
 
         private void ResolveReferences()
         {
@@ -187,15 +188,16 @@ namespace EchoScrap.Combat
             if (initialized)
                 return;
             initialized = true;
-            crystalMesh = CreateCrystalMesh();
+            crystalMesh = CreatePickupQuad("Experience orb quad",.72f,.72f,0f);
             // Fixed upright proportions keep the case readable under the arena's high camera.
             medkitMesh = CreatePickupQuad("Botiquin Apollo Quad", 1f * MedkitVisualScale, 1.5f * MedkitVisualScale, (-PickupHeight - 0.045f) * MedkitVisualScale);
             medkitShadowMesh = CreatePickupQuad("Botiquin Contact Shadow Quad", 0.9f * MedkitVisualScale, 0.5f * MedkitVisualScale, -0.25f * MedkitVisualScale);
             beaconMesh = CreatePickupQuad("Medkit green beacon quad", 0.48f, 3.5f, -PickupHeight + 0.04f);
             beaconMaterial = Resources.Load<Material>("Pickups/MedkitBeacon");
             ringMesh = CreateRingMesh();
-            crystalMaterial = CreateMaterial("XP_Cyan", new Color(0.35f, 0.95f, 1f));
-            darkMaterial = CreateMaterial("Pickup_DarkOutline", new Color(0.025f, 0.07f, 0.11f));
+            crystalMaterial = CreateMaterial("XP_GreenOrb", new Color(1f,1.18f,1f),true);
+            crystalMaterial.SetTexture("_BaseMap",Resources.Load<Texture2D>("Pickups/ExperienceOrb"));
+            crystalMaterial.SetFloat("_Cull",0f);
             medkitMaterial = Resources.Load<Material>("Pickups/Botiquin");
             medkitShadowMaterial = Resources.Load<Material>("Pickups/BotiquinShadow");
             if (medkitMaterial == null || medkitShadowMaterial == null)
@@ -221,9 +223,10 @@ namespace EchoScrap.Combat
             visual.SetParent(root.transform, false);
             if (kind == CombatPickupKind.Experience)
             {
-                Transform outline = CreateMeshObject("Outline", visual, crystalMesh, darkMaterial, new Vector3(0.44f, 0.10f, 0.44f));
-                outline.localPosition = Vector3.down * 0.19f;
-                CreateMeshObject("Crystal", visual, crystalMesh, crystalMaterial, Vector3.one * 0.32f);
+                CreateMeshObject("Experience Orb Sprite",visual,crystalMesh,crystalMaterial,Vector3.one);
+                var glow=root.AddComponent<CombatGlowSource>();
+                glow.Color=new Color(.28f,1f,.18f);glow.Range=1.25f;glow.Intensity=.18f;
+                glow.Priority=.15f;glow.Offset=Vector3.up*.15f;glow.Bind(session);
             }
             else
             {
@@ -248,8 +251,8 @@ namespace EchoScrap.Combat
                 slot.FlightTrail.sharedMaterial = flightTrailMaterial;
                 slot.FlightTrail.useWorldSpace = true; slot.FlightTrail.positionCount = 5;
                 slot.FlightTrail.startWidth = .065f; slot.FlightTrail.endWidth = .005f;
-                slot.FlightTrail.startColor = new Color(.36f, .85f, 1f, .68f);
-                slot.FlightTrail.endColor = new Color(.23f, .52f, .9f, 0f);
+                slot.FlightTrail.startColor = kind==CombatPickupKind.Experience?new Color(.4f,1f,.25f,.5f):new Color(.36f,.85f,1f,.68f);
+                slot.FlightTrail.endColor = kind==CombatPickupKind.Experience?new Color(.2f,.7f,.1f,0):new Color(.23f,.52f,.9f,0f);
                 slot.FlightTrail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 slot.FlightTrail.receiveShadows = false; slot.FlightTrail.enabled = false;
             }
@@ -312,6 +315,7 @@ namespace EchoScrap.Combat
             slot.Root.transform.position = position;
             slot.Visual.localPosition = Vector3.zero;
             slot.Visual.localRotation = Quaternion.identity;
+            if(kind==CombatPickupKind.Experience)slot.Visual.rotation=OrbRotation;
             slot.Visual.localScale = Vector3.one * 0.7f;
             slot.Root.SetActive(true);
             ActivePickupCount++;
@@ -379,7 +383,8 @@ namespace EchoScrap.Combat
                     slot.Position = CollectorFlightPosition(slot, target, progress, decorative);
                     slot.Root.transform.position = slot.Position;
                     slot.Visual.localScale = Vector3.one * 1.4f;
-                    slot.Visual.localRotation = slot.Kind == CombatPickupKind.Experience ? Quaternion.Euler(0f, slot.Age * 180f, 0f) : Quaternion.identity;
+                    if(slot.Kind==CombatPickupKind.Experience)slot.Visual.rotation=OrbRotation;
+                    else slot.Visual.localRotation=Quaternion.identity;
                     if (slot.FlightTrail != null)
                     {
                         slot.FlightTrail.enabled = decorative && progress > .02f;
@@ -404,8 +409,8 @@ namespace EchoScrap.Combat
                 slot.Root.transform.position = slot.Position;
                 float bob = decorative ? Mathf.Sin(slot.Age * 4f + slot.BobPhase) * 0.045f : 0f;
                 slot.Visual.localPosition = Vector3.up * bob;
-                slot.Visual.localRotation = slot.Kind == CombatPickupKind.Experience
-                    ? Quaternion.Euler(0f, decorative ? slot.Age * 50f : 0f, 0f) : Quaternion.identity;
+                if(slot.Kind==CombatPickupKind.Experience)slot.Visual.rotation=OrbRotation;
+                else slot.Visual.localRotation=Quaternion.identity;
                 float pop = !decorative ? 1f : (slot.Age < 0.06f
                     ? Mathf.Lerp(0.7f, 1.12f, slot.Age / 0.06f)
                     : Mathf.Lerp(1.12f, 1f, (slot.Age - 0.06f) / 0.10f));
@@ -470,7 +475,7 @@ namespace EchoScrap.Combat
                 int awarded = Mathf.FloorToInt(boosted + .00001f);
                 experienceRemainder = boosted - awarded;
                 progression.AddCollectedExperience(awarded);
-                TriggerAbsorption(new Color(0.35f, 0.95f, 1f));
+                TriggerAbsorption(new Color(.4f,1f,.25f));
             }
             else
             {

@@ -19,6 +19,14 @@ namespace EchoScrap.Combat
         private Light coreLight;
         private AnimationClip idleHeavy, overload, deathHeavy;
         private Vector3 defaultModelPosition, defaultModelScale;
+        private Vector3 modelGroundPosition;
+        private float jumpHeight;
+        public void SetJumpHeight(float height){jumpHeight=height;ApplyJumpHeight();}
+        private void ApplyJumpHeight()
+        {
+            if(model!=null)model.localPosition=modelGroundPosition+model.parent.InverseTransformVector(Vector3.up*jumpHeight);
+            if(coreLight!=null)coreLight.transform.localPosition=Vector3.up*.85f+transform.InverseTransformVector(Vector3.up*jumpHeight);
+        }
         private Quaternion defaultModelRotation;
         private Transform spine, head;
         private static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
@@ -38,6 +46,7 @@ namespace EchoScrap.Combat
             model = instance.transform;
             model.name = "MataColeccionista";
             model.localPosition = Vector3.down * (.95f / actor.transform.lossyScale.y);
+            modelGroundPosition=model.localPosition;
             coreLight = new GameObject("ResplandorLava").AddComponent<Light>();
             coreLight.transform.SetParent(actor.transform, false);
             coreLight.transform.localPosition = Vector3.up * .85f;
@@ -71,6 +80,7 @@ namespace EchoScrap.Combat
         }
         public void ResetPose()
         {
+            SetJumpHeight(0);
             elapsed = strideDistance = 0f;
             previousWorldPosition = actor != null ? actor.WorldCenter : transform.position;
             previousState = actor != null ? actor.State : GolgoraState.Intro;
@@ -103,13 +113,12 @@ namespace EchoScrap.Combat
             {
                 case GolgoraState.Intro: Sample("Spawn", Mathf.Clamp01(introProgress)); break;
                 case GolgoraState.Pursuing:
-                case GolgoraState.CercoReposition:
                     if (speed > .05f)
                     {
                         float previousStride = strideDistance;
                         strideDistance += distanceMoved;
                         if (Mathf.FloorToInt(previousStride / 1.5f) != Mathf.FloorToInt(strideDistance / 1.5f)) Footstep?.Invoke(actor.WorldCenter);
-                        Sample(actor.State == GolgoraState.CercoReposition ? "Run" : "WalkHeavy", Mathf.Repeat(strideDistance / 3f, 1f));
+                        Sample("WalkHeavy", Mathf.Repeat(strideDistance / 3f, 1f));
                     }
                     else Sample("IdleHeavy", Mathf.Repeat(elapsed / 2.4f, 1f));
                     break;
@@ -119,6 +128,7 @@ namespace EchoScrap.Combat
                 case GolgoraState.CercoWindup: Sample(attack, actor.PhaseProgress * contact); break;
                 case GolgoraState.Recovery: Sample(attack, Mathf.Lerp(contact, 1f, actor.RecoveryProgress)); break;
                 case GolgoraState.PhaseTransition: Sample("Overload", actor.PhaseProgress); break;
+                case GolgoraState.CercoReposition: Sample("HammerSlam",Mathf.Lerp(.08f,.35f,actor.JumpProgress));break;
                 case GolgoraState.CercoActive: Sample("HammerSlam", Mathf.Lerp(.35f, .64f, actor.PhaseProgress)); break;
                 case GolgoraState.Dead: Sample("DeathHeavy", Mathf.Clamp01(elapsed / 2.2f)); break;
             }
@@ -131,6 +141,7 @@ namespace EchoScrap.Combat
                 renderer.GetPropertyBlock(properties); properties.SetColor(EmissionColor, heat * charge); renderer.SetPropertyBlock(properties);
             }
             if (coreLight != null) coreLight.intensity = actor.IsPhaseTwo ? 3.5f : 2.5f;
+            ApplyJumpHeight();
         }
         private void LateUpdate()
         {

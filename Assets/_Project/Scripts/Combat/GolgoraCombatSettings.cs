@@ -37,6 +37,8 @@ namespace EchoScrap.Combat
         [Header("Cerco de magma")]
         [Min(.1f)] public float FirstCercoTime = 12f;
         [Min(.1f)] public float CercoReturnSpeed = 4f;
+        [Min(.5f)] public float CercoJumpDuration = 1.4f;
+        [Min(12f)] public float CercoJumpHeight = 28f;
         [Min(.1f)] public float CercoWindup = 1.2f;
         [Min(.1f)] public float CercoRecovery = 1.2f;
         [Min(.1f)] public float CercoCooldown = 18f;

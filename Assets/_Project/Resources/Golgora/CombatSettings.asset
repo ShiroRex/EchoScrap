@@ -40,6 +40,8 @@ MonoBehaviour:
   PuddleTickInterval: 0.5
   FirstCercoTime: 12
   CercoReturnSpeed: 4
+  CercoJumpDuration: 1.4
+  CercoJumpHeight: 28
   CercoWindup: 1.2
   CercoRecovery: 1.2
   CercoCooldown: 18

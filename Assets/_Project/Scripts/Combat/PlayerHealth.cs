@@ -42,7 +42,8 @@ namespace EchoScrap.Combat
         public bool IsDashInvulnerable => dashInvulnerable || (motor != null && motor.IsDashInvulnerable);
         public bool IgnoreIncomingDamage { get; set; }
         public bool IsEncounterTransferProtected { get; internal set; }
-        public bool IsInvulnerable => IgnoreIncomingDamage || IsEncounterTransferProtected || HasDamageProtection || IsDashInvulnerable || upgradeProtection > 0f;
+        public bool IsBossCinematicProtected { get; internal set; }
+        public bool IsInvulnerable => IgnoreIncomingDamage || IsEncounterTransferProtected || IsBossCinematicProtected || HasDamageProtection || IsDashInvulnerable || upgradeProtection > 0f;
         public Vector3 WorldCenter => transform.position;
         public float HitRadius => hurtboxCollider is CapsuleCollider cap ? cap.radius : 0.5f;
         public Collider HurtboxCollider => hurtboxCollider;
@@ -375,6 +376,7 @@ namespace EchoScrap.Combat
             EnsureInitialized();
             IgnoreIncomingDamage = false;
             IsEncounterTransferProtected = false;
+            IsBossCinematicProtected = false;
             isDead = false;
             protectionRemaining = 0f;
             dashInvulnerable = false;

@@ -343,6 +343,7 @@ namespace EchoScrap.Combat
                 return;
 
             bossIntroRequested = inIntro;
+            if(inIntro){playerMotor?.CancelDashAndRestoreState();playerMotor?.Stop();playerWeapon?.StopWeapon();}
             RefreshHighLevelState();
         }
 
@@ -413,7 +414,7 @@ namespace EchoScrap.Combat
 
             if (playerInput != null)
             {
-                bool allowGameplayInput = !clock.IsPaused && (state == SessionState.Running || state == SessionState.BossIntro);
+                bool allowGameplayInput = !clock.IsPaused && state==SessionState.Running;
                 playerInput.SetInputEnabled(allowGameplayInput);
             }
 

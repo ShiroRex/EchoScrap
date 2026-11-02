@@ -204,7 +204,7 @@ namespace EchoScrap.Tests
                 lastDeath = evt;
             };
 
-            // 3. Matar con 15 de daño: desactiva inmediatamente actor/colisión, resuelve recompensa 1 sola vez y lanza ruptura en EnemyDeathPresentationPool
+            // 3. La muerte dibujada continúa independientemente del actor reciclado.
             var killReq = new DamageRequest(1, DamageSourceType.FlashlightPulse, Vector3.zero, Vector3.forward, 20f);
             residual.ReceiveDamage(in killReq);
 
@@ -213,9 +213,8 @@ namespace EchoScrap.Tests
             Assert.AreEqual(10, lastDeath.XpReward);
             Assert.IsTrue(lastDeath.RewardResolved);
             Assert.IsFalse(residual.gameObject.activeSelf, "El actor debe desactivarse y volver al pool inmediatamente al morir.");
-            Assert.GreaterOrEqual(deathPool.ActiveBurstCount, 1, "La ruptura visual independiente debe quedar activa en el lugar de muerte.");
-            Assert.GreaterOrEqual(deathPool.LastSpawnedFragmentCount, 6);
-            Assert.LessOrEqual(deathPool.LastSpawnedFragmentCount, 10);
+            Assert.GreaterOrEqual(EnemySpriteDeathPool.GetOrCreate(session).ActiveCount, 1);
+            Assert.AreEqual(0, deathPool.ActiveBurstCount, "The authored skeleton replaces generic death fragments.");
 
             // Un segundo impacto sobre el actor ya muerto no duplica muerte ni recompensas
             residual.ReceiveDamage(in killReq);
@@ -286,7 +285,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(hpCondition1, hpCondition2, 0.0001f, "Cambiar partículas/efectos no debe alterar el resultado de combate.");
             Assert.AreEqual(hpCondition1, hpCondition3, 0.0001f, "El modo reducido debe conservar exactamente el mismo resultado de combate.");
             Assert.AreEqual(0, fragmentsCond1, "Sin efectos decorativos no deben emitirse fragmentos de muerte.");
-            Assert.GreaterOrEqual(fragmentsCond2, 6, "Con respuesta visual completa deben emitirse 6-10 fragmentos radiales.");
+            Assert.AreEqual(0, fragmentsCond2, "Skeleton deaths use the authored sprite in every effects mode.");
             Assert.AreEqual(0, fragmentsCond3, "En modo reducido se omiten fragmentos secundarios conservando lectura clara.");
 
             // Preparar captura visual del primer encuentro (Jugador + Cono Linterna + Residuales + Ruptura de muerte)

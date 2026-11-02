@@ -170,6 +170,8 @@ namespace EchoScrap.Combat
             dashPresentation = GetOrAdd<PlayerDashPresentation>(playerObject);
             Pickups = SystemObject<CombatPickupPool>("Pickups");
             Pickups.BindReferences(Session, Player, Stats, Progression);
+            Pickups.BindCamera(gameplayCamera);
+            GetOrAdd<ExperiencePickupAudio>(Pickups.gameObject).Bind(Pickups, Session);
             yield return null;
             Upgrades = SystemObject<UpgradeCombatRuntime>("UpgradeMechanics");
             Upgrades.Bind(Session, Stats, Player, Weapon, Pickups, Progression);
@@ -191,8 +193,10 @@ namespace EchoScrap.Combat
             Encounter = SystemObject<BossEncounter>("BossEncounter");
             Encounter.BindReferences(Session, Enemies, Hazards, Director, Player);
             Encounter.BindArena(BossArena);
+            GetOrAdd<CombatMusicPlayer>(gameObject).Bind(this);
             cameraRig.Follow = playerObject.transform;
             cameraFeedback = GetOrAdd<CombatCameraFeedback>(cameraRig.gameObject);
+            Encounter.RoarPresentation.BindFeedback(cameraFeedback);
             cameraFeedback.BindReferences(Session, playerObject.transform,
                 playerObject.GetComponent<PlayerInputReader>(), playerMotor, Weapon);
             yield return null;

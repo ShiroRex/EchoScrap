@@ -57,7 +57,7 @@ namespace EchoScrap.Tests
             Assert.IsTrue(found, "The final prefab must resolve the charcoal armor and molten-seam material.");
         }
         [Test]
-        public void MovePositionReturnUsesDisplacementForRunAndStationaryActorsDoNotStamp()
+        public void GroundedMovementUsesDisplacementAndJumpAndTeleportsDoNotStamp()
         {
             var owner = new GameObject("StridePresentationTest");
             try
@@ -72,20 +72,27 @@ namespace EchoScrap.Tests
                 var hazards = owner.AddComponent<CorrosivePuddlePool>(); hazards.BindReferences(session, player);
                 var enemies = owner.AddComponent<EnemyPool>(); enemies.BindReferences(session, player, hazards);
                 var boss = enemies.Spawn(EnemyArchetypeId.GolgoraBoss, new Vector3(5, 1, 0)) as GolgoraActor;
-                Assert.IsNotNull(boss); boss.AutoTick = false; boss.ActivateCombat(); boss.Step(12f);
-                Assert.AreEqual(GolgoraState.CercoReposition, boss.State);
+                Assert.IsNotNull(boss); boss.AutoTick = false; boss.ActivateCombat();
+                Assert.AreEqual(GolgoraState.Pursuing, boss.State);
                 var view = boss.GetComponent<MataColeccionistaView>(); view.ResetPose();
                 int footsteps = 0; view.Footstep += _ => footsteps++;
                 for (int i = 0; i < 8; i++)
                 {
                     Vector3 position = boss.transform.position + Vector3.left * .2f;
                     boss.Body.position = position; boss.transform.position = position; boss.Body.linearVelocity = Vector3.zero;
-                    view.Step(.1f, 0f); Assert.AreEqual("Run", view.CurrentClip);
+                    view.Step(.1f, 0f); Assert.AreEqual("WalkHeavy", view.CurrentClip);
                 }
                 Assert.AreEqual(1, footsteps, "Zero-velocity MovePosition movement still produces a grounded stride.");
                 view.Step(.1f, 0f); Assert.AreEqual("IdleHeavy", view.CurrentClip); Assert.AreEqual(1, footsteps);
                 view.ResetPose(); boss.transform.position += Vector3.right * 5f; boss.Body.position = boss.transform.position;
                 view.Step(.1f, 0f); Assert.AreEqual(1, footsteps, "A reset or teleport must not stamp a foot.");
+                boss.Step(boss.Settings.FirstCercoTime);
+                Assert.AreEqual(GolgoraState.CercoReposition, boss.State);
+                boss.Step(boss.Settings.CercoJumpDuration * .58f);
+                Assert.Greater(boss.JumpHeight, 0f);
+                view.Step(.1f, 0f);
+                Assert.AreEqual("HammerSlam", view.CurrentClip);
+                Assert.AreEqual(1, footsteps, "The airborne return to center must not produce grounded footsteps.");
             }
             finally { Object.DestroyImmediate(owner); }
         }
