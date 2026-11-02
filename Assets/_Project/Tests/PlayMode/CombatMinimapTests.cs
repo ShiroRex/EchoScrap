@@ -32,10 +32,15 @@ namespace EchoScrap.Tests
             var before=map.PlayerMarker.anchoredPosition;var previous=game.Player.transform.position;
             game.Player.transform.position=previous+new Vector3(20,0,15);map.Refresh();
             var delta=map.PlayerMarker.anchoredPosition-before;
-            Assert.AreEqual(236*20/ArenaSurface.Active.WorldSize,delta.x,.1f);Assert.AreEqual(236*15/ArenaSurface.Active.WorldSize,delta.y,.1f);
+            Assert.AreEqual(map.MapPosition(game.Player.transform.position),map.PlayerMarker.anchoredPosition);Assert.Greater(delta.x,0);Assert.Greater(delta.y,0);
+            Assert.IsTrue(map.IsExplored(previous));Assert.IsTrue(map.IsExplored(game.Player.transform.position));Assert.IsFalse(map.IsExplored(new Vector3(-95,0,-95)));Assert.Greater(map.VisibleRadius,30);
             var canvas=game.Hud.HudCanvas.transform;var frame=(RectTransform)canvas.Find("Minimap");var kills=(RectTransform)canvas.Find("Kills");
-            Assert.AreEqual(new Vector2(1,1),frame.anchorMax);Assert.Less(kills.anchoredPosition.y+kills.sizeDelta.y*.5f,frame.anchoredPosition.y-frame.sizeDelta.y*.5f);
-            Assert.IsTrue(frame.Find("Interior/MapaArena/Portal").gameObject.activeSelf);
+            Assert.AreEqual(new Vector2(1,1),frame.anchorMax);
+            Assert.AreEqual(180,frame.sizeDelta.x);Assert.IsNotNull(frame.Find("Interior").GetComponent<UnityEngine.UI.Mask>());
+            Assert.AreSame(Resources.Load<Texture2D>("Hud/PortraitAtlas"),map.PlayerMarker.GetComponent<UnityEngine.UI.Image>().sprite.texture);
+            Assert.LessOrEqual(map.MapPosition(new Vector3(10000,0,10000)).magnitude,72.3f);Assert.Less(kills.anchoredPosition.y+kills.sizeDelta.y*.5f,frame.anchoredPosition.y-frame.sizeDelta.y*.5f);
+            Assert.IsNotNull(frame.Find("Interior/MapaArena/Portal"));
+            var stone=GameObject.Find("roca_baja_-1_41").GetComponentInChildren<Renderer>();Assert.AreEqual(ArenaSurface.Height(stone.bounds.center),stone.bounds.min.y,.15f);Assert.Less(stone.bounds.max.x,-6);
             var old=RenderTexture.active;RenderTexture.active=map.MapTexture;var sample=new Texture2D(256,256,TextureFormat.RGB24,false);sample.ReadPixels(new Rect(0,0,256,256),0,0);sample.Apply();RenderTexture.active=old;
             var colors=new HashSet<Color32>();foreach(var color in sample.GetPixels32())colors.Add(color);Assert.Greater(colors.Count,30,"Minimap must contain the arena, not a blank render target.");Object.Destroy(sample);
             game.Player.transform.position=previous;yield return Capture();
@@ -45,7 +50,7 @@ namespace EchoScrap.Tests
             game.Session.SetManualPause(true);map.Refresh();Assert.IsFalse(map.IsVisible);
             game.Session.SetManualPause(false);map.Refresh();Assert.IsTrue(map.IsVisible);
             Assert.IsTrue(Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true));map.Refresh();Assert.IsFalse(map.IsVisible);
-            game.ResetRun();map.Refresh();Assert.IsTrue(map.IsVisible);yield return null;
+            game.ResetRun();map.Refresh();Assert.IsTrue(map.IsVisible);Assert.AreEqual(30,map.VisibleRadius);yield return null;
         }
         private IEnumerator Capture()
         {
