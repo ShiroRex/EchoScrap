@@ -164,7 +164,7 @@ namespace EchoScrap.Tests
             var travel=Object.FindAnyObjectByType<WarehouseTravel>();
             Assert.IsTrue(travel.TryTravel(false,game.Player));yield return new WaitForFixedUpdate();
             Assert.IsTrue(game.Session.IsInWarehouse);Assert.Greater(station.transform.position.x,150);
-            Assert.AreEqual(8,station.DisplaySlots.Length);
+            Assert.AreEqual(10,station.DisplaySlots.Length);
             Assert.AreEqual(5,ArenaSurface.Height(new Vector3(167,0,24)),.05f);
             Assert.That(ArenaSurface.Height(new Vector3(160,0,8)),Is.InRange(2.8f,3.8f));
             Assert.AreEqual(0,ArenaSurface.Height(new Vector3(180,0,-12)),.05f);
@@ -188,7 +188,7 @@ namespace EchoScrap.Tests
             yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();
             var possible=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel/Ingredientes/PosiblesFusiones");
             Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
-            ui.AddIngredient(0);ui.AddIngredient(0);Assert.AreEqual(1,ui.SelectedCount);
+            ui.OpenPicker(0);var picker=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel/MiGaraje");for(int id=0;id<FusionCatalog.Count;id++)Assert.AreEqual(id==0||id==6,picker.Find("Garaje_"+id).gameObject.activeSelf);ui.AddIngredient(0);ui.AddIngredient(0);Assert.AreEqual(1,ui.SelectedCount);
             var values=possible.GetComponentsInChildren<UnityEngine.UI.Text>().Select(t=>t.text).ToArray();
             CollectionAssert.AreEquivalent(new[]{"Reaper\n60%","Chico Emo\n40%"},values);
             ui.ClearSelection();for(int i=0;i<4;i++)ui.AddIngredient(6);
@@ -201,6 +201,17 @@ namespace EchoScrap.Tests
         {
             foreach(var key in FusionCatalog.ResourceKeys){var front=Resources.Load<Sprite>("Collectibles/"+key+"/000");var face=Resources.Load<Sprite>("Collectibles/"+key+"/Portrait");Assert.IsNotNull(front,key);Assert.IsNotNull(face,key);Assert.AreEqual(FilterMode.Point,front.texture.filterMode);}
             yield return null;
+        }
+        [UnityTest] public IEnumerator NearbyPickupShowsCollectPromptAndECollectsOnce()
+        {
+            station.ResetCollection();var companions=station.GetComponent<CompanionSystem>();companions.AutoTick=false;
+            Assert.IsTrue(companions.TrySpawn(0));var point=companions.PickupPosition(0)+Vector3.up;
+            game.Player.transform.position=point;game.Player.GetComponent<Rigidbody>().position=point;Physics.SyncTransforms();yield return null;
+            var prompt=station.transform.Find("CompanionCanvas/ColeccionarIndicador");Assert.IsTrue(prompt.gameObject.activeSelf);
+            Assert.AreEqual("E · COLECCIONAR",prompt.GetComponentInChildren<UnityEngine.UI.Text>().text);
+            Assert.AreEqual(0,station.Progress.owned[0]);InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;
+            Assert.AreEqual(1,station.Progress.owned[0]);Assert.AreEqual(0,companions.ActivePickups);Assert.IsFalse(prompt.gameObject.activeSelf);
+            yield return null;Assert.AreEqual(1,station.Progress.owned[0]);
         }
         private IEnumerator VaultCapture()
         {

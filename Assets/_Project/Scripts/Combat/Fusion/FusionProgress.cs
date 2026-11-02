@@ -68,7 +68,7 @@ namespace EchoScrap.Combat
         public float remaining,duration,opening;
         public int result=-1;
         public int[] owned=new int[FusionCatalog.Count];
-        public int[] displays={-1,-1,-1,-1,-1,-1,-1,-1};
+        public int[] displays={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
         public int Available(int id)=>FusionCatalog.Valid(id)?Mathf.Max(0,owned[id]-equipped.Count(value=>value==id)):0;
         public bool CanBegin(int[] ingredients){if(phase!=FusionPhase.Idle||!FusionRecipe.TryCreate(ingredients,out _))return false;var used=new int[FusionCatalog.Count];foreach(int id in ingredients)if(++used[id]>Available(id))return false;return true;}
         public bool Begin(int[] ingredients,int roll,int variant)
@@ -95,7 +95,7 @@ namespace EchoScrap.Combat
             // Prototype collections are deliberately discarded once; production saves keep all counts.
             if(version<4||owned==null||owned.Length!=FusionCatalog.Count){owned=new int[FusionCatalog.Count];equipped=new[]{-1,-1,-1};phase=FusionPhase.Idle;result=-1;}
             for(int i=0;i<owned.Length;i++)owned[i]=Mathf.Max(0,owned[i]);
-            if(displays==null||displays.Length!=8)displays=Enumerable.Repeat(-1,8).ToArray();
+            if(displays==null||displays.Length!=10)displays=Enumerable.Repeat(-1,10).ToArray();
             for(int i=0;i<displays.Length;i++)if(!FusionCatalog.Valid(displays[i])||owned[displays[i]]==0)displays[i]=-1;
             if(phase<FusionPhase.Idle||phase>FusionPhase.Ready||(phase!=FusionPhase.Idle&&!FusionCatalog.Valid(result))){phase=FusionPhase.Idle;result=-1;}
             if(phase==FusionPhase.Opening){phase=FusionPhase.Ready;opening=0;}

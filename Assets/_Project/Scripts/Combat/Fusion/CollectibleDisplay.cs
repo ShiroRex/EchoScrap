@@ -69,7 +69,7 @@ namespace EchoScrap.Combat
                 visual.transform.rotation=Quaternion.Euler(0,cameraView.transform.eulerAngles.y,0);
                 if(label!=null){
                     if(game==null)game=FindAnyObjectByType<CombatGameBootstrap>();
-                    label.gameObject.SetActive(showTitle && (game==null || (game.Session.IsInWarehouse && !game.Session.IsPaused)));
+                    label.gameObject.SetActive(showTitle && (game==null || (!game.Session.IsPaused && game.Player.IsAlive)));
                     label.transform.rotation=cameraView.transform.rotation;
                     label.transform.position=transform.position+Vector3.up*(height+.35f);
                 }

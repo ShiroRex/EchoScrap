@@ -15,7 +15,9 @@ namespace EchoScrap.Combat
         private readonly Text[] slots=new Text[3], choices=new Text[FusionCatalog.Count];
         private readonly Button[] chooseButtons=new Button[FusionCatalog.Count];
         private readonly Sprite[] faces=new Sprite[FusionCatalog.Count];
-        private int selected;
+        private int selected=>system.SelectedSlot;
+        private Text title,hintText,emptyText;
+        private GameObject collectPrompt;
         public bool IsOpen => modal!=null&&modal.activeSelf;
         private RectTransform Panel(string name,Transform parent,Vector2 position,Vector2 size,Color color)
         {
@@ -44,7 +46,9 @@ namespace EchoScrap.Combat
             canvas.GetComponent<Canvas>().renderMode=RenderMode.ScreenSpaceOverlay;canvas.GetComponent<Canvas>().sortingOrder=115;
             var scaler=canvas.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;
             var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(300,42),new Color(.05f,.07f,.11f,.94f));hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
-            Label(hint,"Texto","E · EQUIPAR COMPAÑEROS",Vector2.zero,new Vector2(290,40),20).font=strong;
+            hintText=Label(hint,"Texto","",Vector2.zero,new Vector2(290,40),20);hintText.font=strong;
+            var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(260,48),new Color(.05f,.07f,.11f,.94f));collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
+            Label(collect,"Texto","E · COLECCIONAR",Vector2.zero,new Vector2(248,46),22).font=strong;
             var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(155,-190),new Vector2(206,64),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,1);hud=bar.gameObject;
             for(int i=0;i<3;i++){
                 var box=Panel("Retrato_"+i,bar,new Vector2((i-1)*68,0),new Vector2(60,60),Color.gray);backgrounds[i]=box.GetComponent<Image>();
@@ -52,8 +56,9 @@ namespace EchoScrap.Combat
             }
             var shade=Panel("EquipoBoveda",canvas.transform,Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;shade.GetComponent<Image>().raycastTarget=true;modal=shade.gameObject;
             var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1060,650),new Color(.045f,.06f,.09f));
-            Label(panel,"Titulo","COMPAÑEROS · ELIGE TUS TRES PODERES",new Vector2(0,270),new Vector2(990,60),30).font=strong;
-            for(int i=0;i<3;i++){int index=i;var b=Button(panel,"Puesto_"+i,new Vector2((i-1)*320,165),new Vector2(300,100),()=>{selected=index;Refresh();});slots[i]=Label(b.transform,"Seleccion","",Vector2.zero,new Vector2(290,94),21);}
+            title=Label(panel,"Titulo","",new Vector2(0,270),new Vector2(990,60),30);title.font=strong;
+            for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,165),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);}
+            emptyText=Label(panel,"SinColeccionables","Todavía no tienes coleccionables. Encuéntralos en la arena.",new Vector2(0,-30),new Vector2(930,90),24);
             for(int i=0;i<FusionCatalog.Count;i++){int id=i;var b=Button(panel,"Elegir_"+i,new Vector2((i%7-3)*142,15-(i/7)*180),new Vector2(132,170),()=>system.Equip(selected,id));chooseButtons[i]=b;
                 var face=Panel("Cara",b.transform,new Vector2(0,52),new Vector2(48,48),FusionCatalog.ColorOf(i));
                 var image=Panel("Retrato",face,Vector2.zero,new Vector2(44,44),Color.white).GetComponent<Image>();image.sprite=faces[i];image.preserveAspect=true;
@@ -69,18 +74,26 @@ namespace EchoScrap.Combat
             if(station==null||station.Progress==null||modal==null)return;
             bool playing=!game.Session.IsPaused && game.Session.State==SessionState.Running && game.Player.IsAlive;
             prompt.SetActive(!IsOpen&&playing&&system.CanEquip);
+            hintText.text="E · EQUIPAR PUESTO "+(system.NearestSlot+1);
+            collectPrompt.SetActive(!IsOpen&&playing&&system.CanCollect);
             hud.SetActive(playing&&!game.Session.IsInWarehouse);
             for(int i=0;i<3;i++){
                 int id=station.Progress.equipped[i];portraits[i].enabled=id>=0;portraits[i].sprite=id>=0?faces[id]:null;
                 backgrounds[i].color=id>=0?FusionCatalog.ColorOf(id):new Color(.1f,.12f,.16f,.6f);
                 slots[i].text=(selected==i?"▸ ":"")+"PUESTO "+(i+1)+"\n"+(id>=0?FusionCatalog.Names[id]+" · "+CompanionSystem.PowerNames[id]:"VACÍO");
+                slots[i].transform.parent.gameObject.SetActive(i==selected);
             }
             if(!IsOpen)return;
+            title.text="PUESTO "+(selected+1)+" · ELIGE UN COMPAÑERO";int visible=0,totalOwned=0;foreach(int count in station.Progress.owned)if(count>0)totalOwned++;
             for(int id=0;id<FusionCatalog.Count;id++){
+                bool owned=station.Progress.owned[id]>0;chooseButtons[id].gameObject.SetActive(owned);if(!owned)continue;
+                int rowCount=Mathf.Min(7,totalOwned-(visible/7)*7);
+                chooseButtons[id].GetComponent<RectTransform>().anchoredPosition=new Vector2((visible%7-(rowCount-1)*.5f)*142,15-(visible/7)*180);visible++;
                 int used=0;for(int i=0;i<3;i++)if(i!=selected&&station.Progress.equipped[i]==id)used++;
                 choices[id].text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]+"\n"+CompanionSystem.PowerNames[id]+"\nDisponibles: "+Mathf.Max(0,station.Progress.owned[id]-used);
                 chooseButtons[id].interactable=station.Progress.owned[id]>used;
             }
+            emptyText.gameObject.SetActive(visible==0);
         }
 
     }

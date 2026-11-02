@@ -62,6 +62,7 @@ namespace EchoScrap.Combat
             start=ButtonAt(inventory.transform,"FUSIONAR",new Vector2(620,602),new Vector2(210,48),()=>station.StartFusion((int[])ingredients.Clone()));
             picker=Panel("MiGaraje",panel,new Vector2(20,90),new Vector2(1080,660),Ink).gameObject;
             Label(picker.transform,"TU GARAJE · ELIGE UN COLECCIONABLE",new Vector2(28,15),new Vector2(1024,46),27,TextAnchor.MiddleCenter);
+            var empty=Label(picker.transform,"Todavía no tienes coleccionables. Encuéntralos en la arena.",new Vector2(70,190),new Vector2(940,100),24,TextAnchor.MiddleCenter);empty.name="SinColeccionables";
             for(int i=0;i<FusionCatalog.Count;i++){
                 int id=i;var card=ButtonAt(picker.transform,"",new Vector2(28+(i%7)*146,75+(i/7)*215),new Vector2(138,200),()=>AddIngredient(id));
                 card.name="Garaje_"+i;Frame(card.GetComponent<Image>(),false);card.interactable=false;
@@ -87,7 +88,15 @@ namespace EchoScrap.Combat
         {
             if(slot<0||slot>=4||station.Progress.phase!=FusionPhase.Idle)return;
             selectedSlot=slot;
-            for(int i=0;i<FusionCatalog.Count;i++){stock[i].text=i==4?"PROTEGIDO":"DISPONIBLES: "+AvailableIngredient(i,slot);picker.transform.Find("Garaje_"+i).GetComponent<Button>().interactable=i!=4&&AvailableIngredient(i,slot)>0;}
+            int visible=0,totalOwned=station.Progress.owned.Count(count=>count>0);
+            for(int i=0;i<FusionCatalog.Count;i++){
+                var card=picker.transform.Find("Garaje_"+i).GetComponent<Button>();bool owned=station.Progress.owned[i]>0;
+                card.gameObject.SetActive(owned);if(!owned)continue;
+                int rowCount=Mathf.Min(7,totalOwned-(visible/7)*7);
+                Rect(card.GetComponent<RectTransform>(),new Vector2(471+(visible%7-(rowCount-1)*.5f)*146,75+(visible/7)*215),new Vector2(138,200));visible++;
+                stock[i].text=i==4?"PROTEGIDO":"DISPONIBLES: "+AvailableIngredient(i,slot);card.interactable=i!=4&&AvailableIngredient(i,slot)>0;
+            }
+            picker.transform.Find("SinColeccionables").gameObject.SetActive(visible==0);
             inventory.SetActive(false);picker.SetActive(true);picker.transform.SetAsLastSibling();
         }
         private void ClosePicker(){picker.SetActive(false);inventory.SetActive(true);}
