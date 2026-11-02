@@ -9,8 +9,8 @@ namespace EchoScrap.Combat
     public sealed class CompanionSystem : MonoBehaviour
     {
         public const float SpawnInterval = 30f;
-        public static readonly UpgradeId[] Powers = { UpgradeId.DASH_01, UpgradeId.CRYO_01, UpgradeId.DEMO_02, UpgradeId.BIO_02, UpgradeId.FLASH_05 };
-        public static readonly string[] PowerNames = { "Dash ágil", "Freón residual", "Reacción en cadena", "Sifón", "Rayo solar" };
+        public static readonly UpgradeId[] Powers = { UpgradeId.DASH_01, UpgradeId.CRYO_01, UpgradeId.DEMO_02, UpgradeId.BIO_02, UpgradeId.FLASH_05, UpgradeId.FLASH_02, UpgradeId.BIO_03, UpgradeId.CRYO_03, UpgradeId.CRIT_01, UpgradeId.DASH_02, UpgradeId.BIO_02, UpgradeId.FLASH_03, UpgradeId.CRYO_02 };
+        public static readonly string[] PowerNames = { "Dash ágil", "Freón residual", "Reacción en cadena", "Sifón", "Rayo solar", "Pulso rápido", "Nanobots", "Ventisca", "Óptica precisa", "Onda sísmica", "Sifón", "Prisma voltaico", "Cero absoluto" };
         private sealed class Pickup { public int Id; public GameObject Object; public float Life = 90; }
         private readonly List<Pickup> pickups = new List<Pickup>();
         private FusionStation station;
@@ -23,7 +23,7 @@ namespace EchoScrap.Combat
         public bool IsOpen => view != null && view.IsOpen;
         public bool CanEquip => game != null && game.Session.IsInWarehouse && game.Player.IsAlive &&
             station.DisplaySlots.Take(3).Any(t => Vector3.Distance(game.Player.transform.position,t.position + Vector3.back*3) < 5);
-        public static int RollSpawn(int roll) => roll < 70 ? 0 : roll < 90 ? 1 : roll < 95 ? 2 : 3;
+        public static int RollSpawn(int roll) => FusionCatalog.RollMap(roll);
 
         public void Initialize(FusionStation owner, CombatGameBootstrap bootstrap)
         {
@@ -73,7 +73,7 @@ namespace EchoScrap.Combat
         }
         public bool TrySpawn(int id)
         {
-            if(id<0||id>=4||pickups.Count>=12||game.Session.IsInWarehouse||game.Session.IsPaused||game.Session.State!=SessionState.Running)return false;
+            if(!FusionCatalog.CanSpawn(id)||pickups.Count>=12||game.Session.IsInWarehouse||game.Session.IsPaused||game.Session.State!=SessionState.Running)return false;
             for(int attempt=0;attempt<32;attempt++){
                 float angle=Random.Range(0,Mathf.PI*2),distance=Random.Range(10f,19f);
                 var p=game.Player.transform.position+new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle))*distance;

@@ -23,7 +23,7 @@ namespace EchoScrap.Tests
         private void Approach(){Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true);var p=station.DisplaySlots[0].position+Vector3.back*3;
             p=ArenaSurface.OnGround(p,1);game.Player.transform.position=p;game.Player.GetComponent<Rigidbody>().position=p;Physics.SyncTransforms();}
         [UnityTest] public IEnumerator SpawnWeightsExcludeLegendaryAndTimerRespectsPauseAndVault(){
-            int[] counts=new int[5];for(int i=0;i<100;i++)counts[CompanionSystem.RollSpawn(i)]++;CollectionAssert.AreEqual(new[]{70,20,5,5,0},counts);
+            int[] counts=new int[6];for(int i=0;i<100;i++)counts[(int)FusionCatalog.Rarities[CompanionSystem.RollSpawn(i)]]++;CollectionAssert.AreEqual(new[]{50,30,10,7,3,0},counts);
             system.Advance(29);Assert.AreEqual(0,system.ActivePickups);game.Session.SetManualPause(true);system.Advance(60);Assert.AreEqual(29,system.SpawnElapsed);
             game.Session.SetManualPause(false);system.Advance(1);Assert.That(system.ActivePickups,Is.InRange(1,3));Assert.IsFalse(system.TrySpawn(4));
             game.Session.SetWarehouseVisit(true);system.Advance(30);Assert.AreEqual(0,system.SpawnElapsed);game.Session.SetWarehouseVisit(false);
@@ -36,6 +36,7 @@ namespace EchoScrap.Tests
             system.Advance(.1f);Assert.AreEqual(before+1,station.Progress.owned[2]);Assert.AreEqual(0,system.ActivePickups);yield return null;
         }
         [UnityTest] public IEnumerator ThreeSlotsRequireOwnedCopiesAndPowersSurviveResetWithoutStacking(){
+            for(int id=0;id<4;id++)station.CollectFromArena(id);
             Assert.IsFalse(system.TryOpen());Approach();Assert.IsTrue(system.TryOpen());
             Assert.IsTrue(system.Equip(0,0));Assert.IsFalse(system.Equip(1,0));Assert.IsFalse(system.Equip(1,4));Assert.IsFalse(system.Equip(3,1));
             Assert.IsTrue(system.Equip(1,1));Assert.IsTrue(system.Equip(2,2));
@@ -50,7 +51,7 @@ namespace EchoScrap.Tests
             yield return Capture("Retratos");game.Session.SetManualPause(true);yield return null;Assert.IsFalse(hud.gameObject.activeSelf);
         }
         [UnityTest] public IEnumerator EquipmentRoundTripsAndMalformedSaveIsRepaired(){
-            var progress=new FusionProgress();progress.equipped=new[]{0,1,2};var copy=JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(progress));copy.Validate();CollectionAssert.AreEqual(progress.equipped,copy.equipped);
+            var progress=new FusionProgress();for(int id=0;id<4;id++)progress.owned[id]=1;progress.equipped=new[]{0,1,2};var copy=JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(progress));copy.Validate();CollectionAssert.AreEqual(progress.equipped,copy.equipped);
             copy.equipped=new[]{4,0,0};copy.Validate();CollectionAssert.AreEqual(new[]{-1,0,-1},copy.equipped);
             copy.equipped=null;copy.Validate();CollectionAssert.AreEqual(new[]{-1,-1,-1},copy.equipped);yield return null;
         }

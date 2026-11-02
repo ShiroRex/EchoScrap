@@ -10,13 +10,13 @@ namespace EchoScrap.Combat
         private Camera cameraView;private Canvas label;private Text nameText,rarityText;
         private float spriteScale;private bool showTitle;private CombatGameBootstrap game;
         public int CollectibleId {get;private set;}=-1;
-        public static Sprite FrontSprite(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.Names[id]+"/000"):null;
+        public static Sprite FrontSprite(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/000"):null;
         public void Configure(int id,float displayHeight,bool showLabel)
         {
             CollectibleId=id;height=displayHeight;showTitle=showLabel;
             if(visual==null){var child=new GameObject("SpriteColeccionable");child.transform.SetParent(transform,false);visual=child.AddComponent<SpriteRenderer>();}
             if(!FusionCatalog.Valid(id)){visual.enabled=false;if(label!=null)label.gameObject.SetActive(false);return;}
-            string path="Collectibles/"+FusionCatalog.Names[id]+"/";
+            string path="Collectibles/"+FusionCatalog.ResourceKeys[id]+"/";
             var timing=Resources.Load<TextAsset>(path+"Timing");times=timing==null?new[]{.2f}:JsonUtility.FromJson<Timing>(timing.text).durations;
             // Yanikua's two cels are front/back views, not alternating animation poses.
             if(id==4 && times.Length>1)times=new[]{times[0]};

@@ -200,7 +200,7 @@ namespace EchoScrap.Tests
 
         [UnityTest] public IEnumerator VictoryReturnsToVaultWithoutResettingFusion()
         {
-            StartRun(); station.Progress.Begin(new[] { 0, 0, 0, 0 }, 9000, 0);
+            StartRun(); station.Progress.owned[0]=4;station.Progress.Begin(new[] { 0, 0, 0, 0 }, 9000, 0);
             float remaining = station.Progress.remaining;
             var death = new ActorDeathEvent(999, 5, false, true, Vector3.zero, Vector3.forward, DamageSourceType.FlashlightPulse, 0, false, true);
             game.Session.QueueBossDeath(in death); game.Session.ResolveSimulationStepOutcome(); game.Hud.RefreshNow();
