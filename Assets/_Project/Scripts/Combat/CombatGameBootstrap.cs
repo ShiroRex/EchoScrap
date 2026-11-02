@@ -192,6 +192,7 @@ namespace EchoScrap.Combat
             Encounter = SystemObject<BossEncounter>("BossEncounter");
             Encounter.BindReferences(Session, Enemies, Hazards, Director, Player);
             Encounter.BindArena(BossArena);
+            GetOrAdd<CombatMusicPlayer>(gameObject).Bind(this);
             cameraRig.Follow = playerObject.transform;
             cameraFeedback = GetOrAdd<CombatCameraFeedback>(cameraRig.gameObject);
             cameraFeedback.BindReferences(Session, playerObject.transform,

@@ -11,6 +11,13 @@ namespace EchoScrap.Combat
         private readonly AudioClip[] clips = new AudioClip[10];
         private GolgoraState previous;
         private bool paused, musicStarted;
+        private bool musicEnabled=true;
+        public bool MusicEnabled=>musicEnabled;
+        public void SetMusicEnabled(bool enabled)
+        {
+            musicEnabled=enabled;
+            if(!enabled && foundation!=null){foundation.Stop();pressure.Stop();musicStarted=false;}
+        }
         private float foundationVolume, pressureVolume;
         public bool IsMusicPlaying => foundation != null && foundation.isPlaying;
         public bool AudioPaused => paused;
@@ -45,7 +52,7 @@ namespace EchoScrap.Combat
                 else { cues.UnPause(); foundation.UnPause(); pressure.UnPause(); }
             }
             if (paused) return;
-            if (!musicStarted && actor.State != GolgoraState.Dead)
+            if (musicEnabled && !musicStarted && actor.State != GolgoraState.Dead)
             { musicStarted = true; foundation.Play(); pressure.Play(); }
             if (actor.State != previous)
             {
@@ -62,7 +69,7 @@ namespace EchoScrap.Combat
             }
             foundationVolume = Mathf.MoveTowards(foundationVolume, actor.State == GolgoraState.Intro ? .10f : .19f, deltaTime * .12f);
             pressureVolume = Mathf.MoveTowards(pressureVolume, actor.IsPhaseTwo ? .17f : 0f, deltaTime * .1f);
-            foundation.volume = foundationVolume; pressure.volume = pressureVolume;
+            foundation.volume = musicEnabled?foundationVolume:0f; pressure.volume = musicEnabled?pressureVolume:0f;
         }
         public void Impact(GolgoraAttackKind kind)
         {
