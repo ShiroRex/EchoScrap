@@ -64,7 +64,8 @@ namespace EchoScrap.Combat
                 game.Session.State!=SessionState.Defeat && game.Session.State!=SessionState.Victory;
             CurrentTrack=!playing?CombatMusicTrack.None:
                 actor!=null?(actor.IsAlive && game.Encounter.IsEncounterActive?CombatMusicTrack.Boss:CombatMusicTrack.None):CombatMusicTrack.Arena;
-            bool paused=playing && game.Session.IsPaused;
+            // Menu pauses freeze combat, while the streamed musical bed keeps its DSP clock.
+            bool paused=playing && (game.Session.Clock.ActiveReasons & PauseReason.FocusLost)!=0;
             if(paused!=IsPaused)
             {
                 IsPaused=paused;

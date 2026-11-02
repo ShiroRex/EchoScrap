@@ -57,13 +57,36 @@ namespace EchoScrap.Tests
             music.Step(1);Assert.That(Arena.isPlaying,Is.False);Assert.That(Boss.isPlaying);
             music.enabled=false;Assert.That(audio.MusicEnabled);Assert.That(Boss.isPlaying,Is.False);
         }
-        [UnityTest] public IEnumerator PausePreservesMusicPositionAndWarehouseAndResetStopPlayback()
+        [UnityTest] public IEnumerator ArenaAndBossMusicContinueThroughPauseAndUpgradeMenus()
+        {
+            foreach(bool bossTrack in new[]{false,true})
+            {
+                if(bossTrack)
+                {
+                    game.Session.Clock.SetGameplayTimeForTesting(game.WaveSettings.BossStartTime);game.Director.Step();
+                    game.Encounter.Boss.AutoTick=false;
+                }
+                music.Step(1);var source=bossTrack?Boss:Arena;var clip=source.clip;
+                foreach(var reason in new[]{PauseReason.Manual,PauseReason.TacticalDraft})
+                {
+                    game.Session.Clock.SetPause(reason,true);music.Step(.2f);
+                    Assert.That(Time.timeScale,Is.Zero);Assert.That(music.IsPaused,Is.False);Assert.That(source.isPlaying);
+                    float position=source.time;
+                    yield return new WaitForSecondsRealtime(.25f);
+                    Assert.That(source.time,Is.GreaterThan(position+.08f),"The actual streamed audio must advance while combat is frozen.");
+                    game.Session.Clock.SetPause(reason,false);music.Step(.2f);
+                    Assert.That(source.clip,Is.SameAs(clip));Assert.That(source.time,Is.GreaterThan(position+.08f),"Closing the menu must not restart the song.");
+                }
+            }
+        }
+
+        [UnityTest] public IEnumerator FocusLossPreservesMusicPositionAndWarehouseAndResetStopPlayback()
         {
             music.Step(1);yield return new WaitForSecondsRealtime(.15f);
-            game.Session.SetManualPause(true);float position=Arena.time;music.Step(1);
+            game.Session.SimulateFocusChange(false);float position=Arena.time;music.Step(1);
             Assert.That(music.IsPaused);Assert.That(Arena.isPlaying,Is.False);
             yield return new WaitForSecondsRealtime(.15f);Assert.That(Arena.time,Is.EqualTo(position).Within(.05f));
-            game.Session.SetManualPause(false);Assert.That(music.IsPaused,Is.False);Assert.That(Arena.isPlaying);
+            game.Session.ResumeFromFocusLoss();Assert.That(music.IsPaused,Is.False);Assert.That(Arena.isPlaying);
             game.Session.SetWarehouseVisit(true);music.Step(1);
             Assert.That(music.CurrentTrack,Is.EqualTo(CombatMusicTrack.None));Assert.That(Arena.isPlaying,Is.False);
             game.Session.SetWarehouseVisit(false);music.Step(1);Assert.That(Arena.isPlaying);
