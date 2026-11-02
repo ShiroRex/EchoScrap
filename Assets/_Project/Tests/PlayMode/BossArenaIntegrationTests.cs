@@ -140,9 +140,8 @@ namespace EchoScrap.Tests
         {
             Activate();game.Hud.RefreshNow();
             var panel=game.Hud.CanvasRoot.transform.Find("BossHealth");
-            var art=panel.GetComponent<BossBarArtwork>();
             var fill=panel.Find("BossEmptyTrack/BossFill").GetComponent<Image>();
-            Assert.That(art.FrameCount,Is.EqualTo(3));Assert.That(panel.gameObject.activeSelf);
+            Assert.That(Resources.LoadAll<Texture2D>("Hud/Boss"),Has.Length.EqualTo(1));Assert.That(panel.gameObject.activeSelf);
             Assert.That(fill.fillAmount,Is.EqualTo(1f));Assert.That(fill.color,Is.EqualTo(Color.white));
             Assert.That(fill.sprite.texture.filterMode,Is.EqualTo(FilterMode.Point));
             Canvas.ForceUpdateCanvases();
@@ -155,14 +154,18 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator BossArtworkAnimatesAndFreezesDuringManualPause()
+        public IEnumerator BossArtworkKeepsRedSpriteDuringCombatAndManualPause()
         {
-            Activate();game.Hud.RefreshNow();var art=game.Hud.CanvasRoot.GetComponentInChildren<BossBarArtwork>();
-            int first=art.FrameIndex;float until=Time.realtimeSinceStartup+2;
-            while(art.FrameIndex==first && Time.realtimeSinceStartup<until)yield return null;
-            Assert.That(art.FrameIndex,Is.Not.EqualTo(first));
-            game.Session.SetManualPause(true);int paused=art.FrameIndex;
-            yield return new WaitForSecondsRealtime(.24f);Assert.That(art.FrameIndex,Is.EqualTo(paused));
+            Activate();game.Hud.RefreshNow();var panel=game.Hud.CanvasRoot.transform.Find("BossHealth");
+            var artwork=panel.Find("BossArtwork").GetComponent<Image>();
+            var fill=panel.Find("BossEmptyTrack/BossFill").GetComponent<Image>();
+            var red=artwork.sprite;var redFill=fill.sprite;
+            Assert.That(red.texture.name,Is.EqualTo("000"));
+            yield return new WaitForSecondsRealtime(.35f);
+            Assert.That(artwork.sprite,Is.SameAs(red));Assert.That(fill.sprite,Is.SameAs(redFill));
+            game.Session.SetManualPause(true);
+            yield return new WaitForSecondsRealtime(.24f);
+            Assert.That(artwork.sprite,Is.SameAs(red));Assert.That(fill.sprite,Is.SameAs(redFill));
             game.Session.SetManualPause(false);
         }
 

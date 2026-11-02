@@ -489,7 +489,7 @@ namespace EchoScrap.Combat
             bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 60f), new Vector2(640f, 40f), "GÓLGORA · EL GUARDIÁN", 24, TextAnchor.MiddleCenter, Apollo);
             bossFill = Fill(ImageRect(bossPanel.transform, "BossTrack", new Vector2(0f, -15f), new Vector2(720f, 12f), new Color(0.15f, 0.13f, 0.16f)).transform, "BossFill", new Color(0.91f, 0.42f, 0.22f));
             bossPanel.transform.Find("BossTrack").GetComponent<Image>().color=Color.clear;
-            BossBarArtwork.Attach(bossPanel.transform,bossFill,game);
+            BossBarArtwork.Attach(bossPanel.transform,bossFill);
             bossHealthText.transform.SetAsLastSibling();
             bossPanel.SetActive(false);
             bossArrow = Rect(canvasRect, "BossOffscreenArrow", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48f, 52f));
