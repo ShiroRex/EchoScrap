@@ -1,57 +1,31 @@
+using System.Linq;
 using EchoScrap.Combat;
 using NUnit.Framework;
 using UnityEngine;
 namespace EchoScrap.Tests
 {
-    public sealed class FusionRulesTests
-    {
-        [TestCase(new[]{0,0,0,0},60,0)]
-        [TestCase(new[]{0,1,1,1},120,0)]
-        [TestCase(new[]{2,0,0,0},180,0)]
-        [TestCase(new[]{2,2,0,0},180,0)]
-        [TestCase(new[]{2,2,1,1},180,1)]
-        [TestCase(new[]{2,3,3,3},180,1)]
-        public void RecipesUseQualityAndNeverExceedThreeMinutes(int[] ids,int seconds,int legend)
-        {Assert.IsTrue(FusionRecipe.TryCreate(ids,out var recipe));Assert.AreEqual(seconds,recipe.Seconds);Assert.AreEqual(legend,recipe.Legendary);Assert.AreEqual(100,recipe.Common+recipe.Rare+recipe.Epic+recipe.Legendary);}
-        [Test] public void EveryRecipeHasExactOddsAndLegendaryRequiresTwoEpicsAndRare()
-        {
-            for(int a=0;a<4;a++)for(int b=0;b<4;b++)for(int c=0;c<4;c++)for(int d=0;d<4;d++){
-                var ids=new[]{a,b,c,d};Assert.IsTrue(FusionRecipe.TryCreate(ids,out var r));int[] counts=new int[4];
-                for(int roll=0;roll<10000;roll++)counts[(int)FusionCatalog.Rarities[r.Roll(roll,roll)]]++;
-                CollectionAssert.AreEqual(new[]{r.Common*100,r.Rare*100,r.Epic*100,r.Legendary*100},counts);
-                int epics=0,rares=0;foreach(int id in ids){if(id>=2)epics++;if(id==1)rares++;}
-                Assert.AreEqual(epics>=2&&epics+rares==4?100:0,counts[3]);
-            }
-        }
-        [Test] public void IndividualResultPercentagesMatchEveryRollAndSumToOneHundred()
-        {
-            foreach(var ids in new[]{new[]{0,0,0,0},new[]{1,0,0,0},new[]{2,0,0,0},new[]{2,3,1,1}}){
-                FusionRecipe.TryCreate(ids,out var recipe);var counts=new int[5];
-                for(int roll=0;roll<10000;roll++)counts[recipe.Roll(roll,0)]++;
-                int total=0;for(int id=0;id<5;id++){Assert.AreEqual(recipe.ResultWeight(id),counts[id]);total+=counts[id];}
-                Assert.AreEqual(10000,total);Assert.Greater(recipe.ResultPercent(2),recipe.ResultPercent(3));
-            }
-        }
-        [Test] public void PartialPreviewDoesNotDependOnSelectionOrder()
-        {FusionRecipe.TryPreview(new[]{1,2},out var a);FusionRecipe.TryPreview(new[]{2,1},out var b);Assert.AreEqual(a.Odds,b.Odds);Assert.AreEqual(a.Seconds,b.Seconds);Assert.AreEqual(0,a.Legendary);Assert.IsFalse(FusionRecipe.TryCreate(new[]{0,0,0},out _));}
-        [Test] public void LegendaryIsProtectedAndInvalidRecipesAreRejected()
-        {foreach(var ids in new[]{new[]{4,2,3,3},new[]{-1,2,3},new[]{9,2,3,3},new[]{0,0},new int[0]})Assert.IsFalse(FusionRecipe.TryCreate(ids,out _));Assert.IsFalse(FusionRecipe.TryCreate(null,out _));}
-        [Test] public void DuplicateInputsResultsAndOverflowStayInInventory()
-        {
-            var p=new FusionProgress();Assert.AreEqual(0,p.owned[4]);
-            for(int i=0;i<12;i++){Assert.IsTrue(p.Begin(new[]{0,0,0,0},9999,0));Assert.IsFalse(p.Begin(new[]{2,2,2,2},0,0));p.Advance(60);Assert.AreEqual(FusionPhase.Ready,p.phase);Assert.IsTrue(p.OpenReady());Assert.IsFalse(p.Resolve(true));p.Advance(1.2f);Assert.IsTrue(p.Resolve(true));Assert.IsFalse(p.Resolve(true));}
-            Assert.AreEqual(13,p.owned[0]);Assert.AreEqual(8,p.displays.Length);Assert.AreEqual(0,p.displays[7]);
-            p.Begin(new[]{2,3,1,1},0,0);p.Advance(180);p.OpenReady();p.Advance(1.2f);p.Resolve(true);
-            CollectionAssert.Contains(p.displays,4);Assert.AreEqual(13,p.owned[0]);Assert.AreEqual(1,p.owned[4]);
-            foreach(int initial in new[]{0,1,2,3})CollectionAssert.Contains(p.displays,initial);
-        }
-        [Test] public void ReleaseDiscardsWithoutAddingOwnedOrDisplay()
-        {var p=new FusionProgress();p.Begin(new[]{2,3,1,1},0,0);p.Advance(180);p.OpenReady();p.Advance(1.2f);Assert.AreEqual(4,p.result);Assert.IsTrue(p.Resolve(false));Assert.AreEqual(0,p.owned[4]);Assert.AreEqual(-1,p.displays[2]);Assert.AreEqual(-1,p.result);}
-        [Test] public void SaveRoundTripPreservesPendingResultAndRemainingTime()
-        {var p=new FusionProgress();p.Begin(new[]{2,3,1,1},0,0);p.Advance(75);var q=JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(p));q.Validate();Assert.AreEqual(105,q.remaining);Assert.AreEqual(4,q.result);q.Advance(105);q.OpenReady();q.Advance(1.2f);q.Resolve(true);Assert.AreEqual(1,q.owned[4]);Assert.AreEqual(4,q.displays[2]);}
-        [Test] public void CompletedFusionWaitsAndSurvivesReloadWithoutOpening()
-        {var p=new FusionProgress();p.Begin(new[]{0,0,0,0},9999,0);p.Advance(60);p.Advance(1000);Assert.AreEqual(FusionPhase.Ready,p.phase);Assert.AreEqual(0,p.opening);Assert.IsFalse(p.Resolve(true));var q=JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(p));q.Validate();Assert.AreEqual(FusionPhase.Ready,q.phase);Assert.IsTrue(q.OpenReady());Assert.IsFalse(q.OpenReady());q.Advance(2);Assert.IsTrue(q.Resolve(true));}
-        [Test] public void NonpositiveOrInvalidTimeCannotFinishFusion()
-        {var p=new FusionProgress();p.Begin(new[]{0,0,0,0},5,0);p.Advance(-100);p.Advance(float.NaN);p.Advance(float.PositiveInfinity);Assert.AreEqual(60,p.remaining);}
-    }
+ public sealed class FusionRulesTests
+ {
+  private static FusionProgress Stock(){var p=new FusionProgress();for(int i=0;i<FusionCatalog.Count;i++)p.owned[i]=20;return p;}
+  [Test] public void CatalogHasThirteenCharactersAndSeparateSources(){Assert.AreEqual(13,FusionCatalog.Count);Assert.AreEqual(13,FusionCatalog.Names.Distinct().Count());CollectionAssert.AreEquivalent(Enumerable.Range(0,13),FusionCatalog.MapIds.Concat(FusionCatalog.FusionIds));Assert.IsFalse(FusionCatalog.MapIds.Intersect(FusionCatalog.FusionIds).Any());Assert.AreEqual(CollectibleRarity.Mythic,FusionCatalog.Rarities[4]);}
+  [Test] public void MapRaritiesHaveExactRequestedOdds(){var counts=new int[6];for(int roll=0;roll<100;roll++){int id=FusionCatalog.RollMap(roll);Assert.IsTrue(FusionCatalog.CanSpawn(id));counts[(int)FusionCatalog.Rarities[id]]++;}CollectionAssert.AreEqual(new[]{50,30,10,7,3,0},counts);}
+  [TestCase(new[]{0,0,0,0},0,60)]
+  [TestCase(new[]{7,0,0,0},1,120)]
+  [TestCase(new[]{7,12,0,0},5,180)]
+  [TestCase(new[]{7,12,7,0},15,180)]
+  [TestCase(new[]{7,12,7,12},30,180)]
+  public void MythicOddsMatchLegendaryCount(int[] input,int mythic,int seconds){Assert.IsTrue(FusionRecipe.TryCreate(input,out var r));Assert.AreEqual(mythic,r.ResultPercent(4));Assert.AreEqual(seconds,r.Seconds);}
+  [Test] public void AllRecipesSumToOneHundredAndOnlyProduceFusionSpecies(){
+   int[] ids=Enumerable.Range(0,13).Where(id=>id!=4).ToArray();
+   foreach(int a in ids)foreach(int b in ids)foreach(int c in ids)foreach(int d in ids){var input=new[]{a,b,c,d};Assert.IsTrue(FusionRecipe.TryCreate(input,out var r));Assert.AreEqual(10000,Enumerable.Range(0,13).Sum(r.ResultWeight));Assert.That(r.Seconds,Is.InRange(60,180));foreach(int id in FusionCatalog.MapIds)Assert.AreEqual(0,r.ResultWeight(id));}
+  }
+  [TestCase(0,8,9)] [TestCase(1,9,10)] [TestCase(3,10,11)] public void HomogeneousLowerTiersOnlyOfferCurrentAndNextTier(int input,int same,int next){FusionRecipe.TryCreate(new[]{input,input,input,input},out var r);Assert.AreEqual(60,r.ResultPercent(same));Assert.AreEqual(40,r.ResultPercent(next));Assert.AreEqual(2,FusionCatalog.FusionIds.Count(id=>r.ResultWeight(id)>0));}
+  [Test] public void EveryRollMatchesDisplayedProbabilities(){foreach(var input in new[]{new[]{0,0,0,0},new[]{1,2,3,6},new[]{7,12,0,0},new[]{7,7,7,12}}){FusionRecipe.TryCreate(input,out var r);var count=new int[13];for(int roll=0;roll<10000;roll++)count[r.Roll(roll,0)]++;for(int id=0;id<13;id++)Assert.AreEqual(r.ResultWeight(id),count[id]);}}
+  [Test] public void ProductionStartsEmptyAndPrototypeInventoryIsDiscarded(){var p=new FusionProgress();p.Validate();Assert.AreEqual(0,p.owned.Sum());Assert.IsTrue(p.equipped.All(id=>id==-1));p.version=3;p.owned=Enumerable.Repeat(999,5).ToArray();p.Validate();Assert.AreEqual(13,p.owned.Length);Assert.AreEqual(0,p.owned.Sum());}
+  [Test] public void FusionConsumesExactlyFourAvailableCopiesAndProtectsEquipped(){var p=new FusionProgress();p.owned[0]=4;p.equipped[0]=0;Assert.IsFalse(p.Begin(new[]{0,0,0,0},0,0));Assert.AreEqual(4,p.owned[0]);p.equipped[0]=-1;Assert.IsTrue(p.Begin(new[]{0,0,0,0},0,0));Assert.AreEqual(0,p.owned[0]);Assert.IsFalse(p.Begin(new[]{0,0,0,0},0,0));p.Advance(60);Assert.IsTrue(p.OpenReady());p.Advance(2);Assert.IsTrue(p.Resolve(true));Assert.AreEqual(1,p.owned[8]);Assert.IsFalse(p.Resolve(true));}
+  [Test] public void MythicIsProtectedAndInvalidRecipesAreRejected(){var p=Stock();foreach(var input in new[]{new[]{4,0,0,0},new[]{-1,0,0,0},new[]{13,0,0,0},new[]{0,0},new int[0]})Assert.IsFalse(p.Begin(input,0,0));Assert.IsFalse(FusionRecipe.TryCreate(null,out _));}
+  [Test] public void PartialPreviewIsOrderIndependent(){FusionRecipe.TryPreview(new[]{7,12,0},out var a);FusionRecipe.TryPreview(new[]{0,12,7},out var b);Assert.AreEqual(a.Odds,b.Odds);Assert.AreEqual(5,a.Mythic);Assert.IsFalse(FusionRecipe.TryCreate(new[]{7,12,0},out _));}
+  [Test] public void SaveReloadDoesNotRefundConsumedItemsOrAutoOpen(){var p=Stock();p.Begin(new[]{7,12,7,12},0,0);p.Advance(75);var copy=JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(p));copy.Validate();Assert.AreEqual(105,copy.remaining);Assert.AreEqual(18,copy.owned[7]);copy.Advance(105);copy.Advance(1000);Assert.AreEqual(FusionPhase.Ready,copy.phase);Assert.IsFalse(copy.Resolve(true));Assert.IsTrue(copy.OpenReady());Assert.IsFalse(copy.OpenReady());copy.Advance(2);Assert.IsTrue(copy.Resolve(false));Assert.AreEqual(20,copy.owned[4]);}
+  [Test] public void NonpositiveOrInvalidTimeCannotFinishFusion(){var p=Stock();p.Begin(new[]{0,0,0,0},9999,0);p.Advance(-1);p.Advance(float.NaN);p.Advance(float.PositiveInfinity);Assert.AreEqual(60,p.remaining);}
+ }
 }

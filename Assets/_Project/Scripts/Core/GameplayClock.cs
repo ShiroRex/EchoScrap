@@ -12,7 +12,8 @@ namespace EchoScrap.Core
         FocusLost = 1 << 2,
         SessionEnded = 1 << 3,
         FusionMenu = 1 << 4,
-        FrontEnd = 1 << 5
+        FrontEnd = 1 << 5,
+        CompanionMenu = 1 << 6
     }
 
     /// <summary>

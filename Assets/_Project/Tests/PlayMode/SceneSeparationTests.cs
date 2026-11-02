@@ -113,7 +113,7 @@ namespace EchoScrap.Tests
         {
             yield return NewCollection();
             var station = Object.FindAnyObjectByType<FusionStation>();
-            station.Progress.owned[4] = 6;
+            station.Progress.owned[4] = 6; station.Progress.owned[0] = 4;
             Assert.IsTrue(station.Progress.Begin(new[] { 0, 0, 0, 0 }, 1234, 0));
             station.Advance(12); float remaining = station.Progress.remaining; int result = station.Progress.result;
             Game.Flow.ShowMainMenu();
@@ -184,3 +184,4 @@ namespace EchoScrap.Tests
         }
     }
 }
+

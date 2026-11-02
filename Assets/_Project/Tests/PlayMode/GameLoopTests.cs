@@ -144,7 +144,8 @@ namespace EchoScrap.Tests
             EnterVault();
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
             var keyboard = InputSystem.AddDevice<Keyboard>(); testDevice = keyboard;
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W));
+            // The vault portal is now at the front of the room, behind the arrival point.
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S));
             float deadline = Time.realtimeSinceStartup + 5;
             while (!flow.IsSelectingExpedition && Time.realtimeSinceStartup < deadline) yield return null;
             InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
@@ -211,7 +212,7 @@ namespace EchoScrap.Tests
 
         [UnityTest] public IEnumerator VictoryReturnsToVaultWithoutResettingFusion()
         {
-            yield return StartRun(); station.Progress.Begin(new[] { 0, 0, 0, 0 }, 9000, 0);
+            yield return StartRun(); station.Progress.owned[0]=4;station.Progress.Begin(new[] { 0, 0, 0, 0 }, 9000, 0);
             float remaining = station.Progress.remaining;
             var death = new ActorDeathEvent(999, 5, false, true, Vector3.zero, Vector3.forward, DamageSourceType.FlashlightPulse, 0, false, true);
             game.Session.QueueBossDeath(in death); game.Session.ResolveSimulationStepOutcome(); game.Hud.RefreshNow();
@@ -367,3 +368,4 @@ namespace EchoScrap.Tests
         }
     }
 }
+

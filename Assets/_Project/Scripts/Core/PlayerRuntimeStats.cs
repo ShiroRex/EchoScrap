@@ -20,6 +20,7 @@ namespace EchoScrap.Core
         private float bonusMoveSpeed;
 
         private readonly int[] tiers = new int[UpgradeRules.Count];
+        private readonly int[] companionTiers = new int[UpgradeRules.Count];
         [SerializeField] private UpgradeTuning upgradeTuning;
         public UpgradeTuning Upgrades => upgradeTuning != null ? upgradeTuning :
             (upgradeTuning = Resources.Load<UpgradeTuning>("Upgrades/UpgradeTuning") ?? ScriptableObject.CreateInstance<UpgradeTuning>());
@@ -173,8 +174,15 @@ namespace EchoScrap.Core
         {
             return UpgradeRules.TryGetId(cardId, out UpgradeId id) ? GetUpgradeTier(id) : 0;
         }
-        public int GetUpgradeTier(UpgradeId id) => tiers[(int)id];
-        public void CopyUpgradeTiers(int[] destination) => Array.Copy(tiers, destination, tiers.Length);
+        public int GetUpgradeTier(UpgradeId id) => Mathf.Max(tiers[(int)id], companionTiers[(int)id]);
+        public void CopyUpgradeTiers(int[] destination) { for(int i=0;i<tiers.Length;i++)destination[i]=GetUpgradeTier((UpgradeId)i); }
+        // Companion powers provide starting tiers; earned card upgrades remain independent.
+        public void SetCompanionUpgrades(UpgradeId[] upgrades)
+        {
+            Array.Clear(companionTiers,0,companionTiers.Length);
+            foreach(var id in upgrades)companionTiers[(int)id]=Mathf.Min(UpgradeRules.MaxTier(id),companionTiers[(int)id]+1);
+            OnStatsChanged?.Invoke();
+        }
 
         public void ResetToInitial()
         {
@@ -185,6 +193,7 @@ namespace EchoScrap.Core
             bonusCritChance = 0f;
             bonusMoveSpeed = 0f;
             Array.Clear(tiers, 0, tiers.Length);
+            Array.Clear(companionTiers,0,companionTiers.Length);
             OnStatsChanged?.Invoke();
         }
 
