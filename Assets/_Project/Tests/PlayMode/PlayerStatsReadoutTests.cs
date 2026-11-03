@@ -95,6 +95,34 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void PauseVolumeControlsTheAudioListenerAndKeepsTheSavedPreferenceAcrossRunReset()
+        {
+            const string key="EchoScrap.Audio.MasterVolume";
+            bool existed=PlayerPrefs.HasKey(key);float saved=PlayerPrefs.GetFloat(key,1f),volume=AudioListener.volume;
+            try
+            {
+                game.Session.SetManualPause(true);game.Hud.RefreshNow();
+                var pause=game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause");
+                var slider=pause.Find("VolumeSlider").GetComponent<Slider>();
+                slider.value=35;
+                Assert.AreEqual(.35f,AudioListener.volume,.001f);
+                Assert.AreEqual(.35f,PlayerPrefs.GetFloat(key),.001f);
+                Assert.AreSame(pause.Find("ShakeSlider").GetComponent<Slider>(),slider.FindSelectableOnDown());
+                Assert.AreEqual(Image.Type.Sliced,pause.Find("Artwork").GetComponent<Image>().type);
+                Assert.Greater(pause.Find("Artwork").GetComponent<Image>().sprite.border.x,0);
+                game.ResetRun(false);Assert.AreEqual(.35f,AudioListener.volume,.001f);
+            }
+            finally { AudioListener.volume=volume;if(existed)PlayerPrefs.SetFloat(key,saved);else PlayerPrefs.DeleteKey(key);PlayerPrefs.Save(); }
+        }
+        [UnityTest]
+        public IEnumerator PauseFitsSmallPortraitAndWideScreensWithoutOverlappingControls()
+        {
+            game.Session.SetManualPause(true);game.Hud.RefreshNow();
+            foreach(var size in new[]{new Vector2Int(640,480),new Vector2Int(720,1280),new Vector2Int(2560,720)})
+                yield return Capture(size,true);
+        }
+
+        [Test]
         public void ReducedModePacksSixCoreStatsAndReusesTheSameObjectsWhenSwitchingModes()
         {
             string[] core = { "damage", "attackSpeed", "range", "critChance", "critMultiplier", "moveSpeed" };
@@ -310,6 +338,11 @@ namespace EchoScrap.Tests
                 }
                 else
                 {
+                    Rect bounds=WorldRect((RectTransform)canvas.transform),panel=WorldRect((RectTransform)content);
+                    Assert.IsTrue(bounds.Contains(panel.min)&&bounds.Contains(panel.max),"The complete pause frame must stay on screen.");
+                    string[] controls={"VolumeLabel","VolumeSlider","ShakeLabel","ShakeSlider","EffectsLabel","EffectsSlider","ReducedEffects","StatsDisplayMode","Resume","Restart"};
+                    for(int a=0;a<controls.Length;a++)for(int b=a+1;b<controls.Length;b++)
+                        Assert.IsFalse(WorldRect((RectTransform)content.Find(controls[a])).Overlaps(WorldRect((RectTransform)content.Find(controls[b]))),controls[a]+" overlaps "+controls[b]);
                     Transform selector = content.Find("StatsDisplayMode");
                     Rect selectorRect = WorldRect((RectTransform)selector);
                     foreach (string choice in new[] { "Full", "Reduced", "None" })

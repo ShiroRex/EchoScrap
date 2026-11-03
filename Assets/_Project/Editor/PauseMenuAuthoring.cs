@@ -20,7 +20,10 @@ namespace EchoScrap.Editor
                 skin = ScriptableObject.CreateInstance<PauseMenuSkin>();
                 AssetDatabase.CreateAsset(skin, resource);
             }
-            skin.frame = Import("PauseFrame", Vector4.zero);
+            skin.frame = Import("PauseFrame_Sliced", new Vector4(40,14,18,24));
+            skin.topCrest = Import("PauseCrestTop",Vector4.zero);
+            skin.bottomCrest = Import("PauseCrestBottom",Vector4.zero);
+            skin.sideOrnament = Import("PauseSideOrnament",Vector4.zero);
             skin.blueButton = Import("Button_Blue", Vector4.one * 14f);
             skin.redButton = Import("Button_Red", Vector4.one * 14f);
             skin.greenButton = Import("Button_Green", Vector4.one * 14f);

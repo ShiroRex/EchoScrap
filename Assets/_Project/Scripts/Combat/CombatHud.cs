@@ -14,6 +14,8 @@ namespace EchoScrap.Combat
         private static readonly Color Apollo = new Color(0.91f, 0.76f, 0.44f);
         private static readonly Color Ink = new Color(0.055f, 0.065f, 0.085f, 0.96f);
         private static readonly Color Pale = new Color(0.92f, 0.94f, 0.92f);
+        private const string VolumePreference = "EchoScrap.Audio.MasterVolume";
+        private static readonly Vector2 PauseSize = new Vector2(1000f, 860f);
         private CombatGameBootstrap game;
         private CombatSession subscribedSession;
         private PlayerRuntimeStats subscribedStats;
@@ -52,9 +54,11 @@ namespace EchoScrap.Combat
         private Text resultSummary;
         private Text shakeLabel;
         private Text decorativeLabel;
+        private Text volumeLabel;
         private Text controlsHint;
         private Slider shakeSlider;
         private Slider decorativeSlider;
+        private Slider volumeSlider;
         private Toggle reducedToggle;
         private readonly Button[] statsModeButtons = new Button[3];
         private PlayerStatsReadout statsReadout;
@@ -201,6 +205,7 @@ namespace EchoScrap.Combat
         {
             if (game != null) UpdateBossArrow();
             if (IsStatsVisible) statsReadout.FitToCanvas();
+            if (IsPauseVisible) FitPauseToCanvas();
         }
 
         public void RefreshNow()
@@ -346,7 +351,7 @@ namespace EchoScrap.Combat
             pauseContent.SetActive(showPause);
             resultContent.SetActive(ended);
             modalPanel.color = showPause && pauseSkin != null ? Color.clear : Ink;
-            modalPanel.rectTransform.sizeDelta = showPause ? new Vector2(904f, 696f) : new Vector2(760f, 720f);
+            if(showPause)FitPauseToCanvas();else modalPanel.rectTransform.sizeDelta=new Vector2(760f,720f);
             modalAccent.gameObject.SetActive(!showPause || pauseSkin == null);
             if (ended && (state != previousState || !wasVisible))
             {
@@ -364,10 +369,17 @@ namespace EchoScrap.Combat
 
         public void ResumeGame()
         {
+            PlayerPrefs.Save();
             if (game != null && game.Flow != null && game.Flow.IsConfiguring)
             { game.Flow.CloseConfiguration(); return; }
             game?.Session.ResumeAllUserPauses();
             RefreshNow();
+        }
+        private void FitPauseToCanvas()
+        {
+            float scale=Mathf.Clamp(Mathf.Min((canvasRect.rect.width-48f)/PauseSize.x,(canvasRect.rect.height-48f)/PauseSize.y),.1f,1f);
+            pauseContent.transform.localScale=Vector3.one*scale;
+            modalPanel.rectTransform.sizeDelta=PauseSize*scale;
         }
         public void RestartGame() => game?.ResetRun();
         private void PauseSecondaryAction()
@@ -383,6 +395,12 @@ namespace EchoScrap.Combat
         }
         public void SetShakePercent(float value) { if (game != null) game.Session.Effects.ShakeIntensity = value / 100f; }
         public void SetDecorativePercent(float value) { if (game != null) game.Session.Effects.DecorativeIntensity = value / 100f; }
+        public void SetVolumePercent(float value)
+        {
+            AudioListener.volume = Mathf.Clamp01(value / 100f);
+            PlayerPrefs.SetFloat(VolumePreference,AudioListener.volume);
+            if(volumeLabel!=null)volumeLabel.text=$"VOLUMEN GENERAL   {Mathf.RoundToInt(AudioListener.volume*100f)}%";
+        }
         public void SetReducedEffects(bool value) { if (game != null) game.Session.Effects.ReducedEffectsMode = value; }
         public void SetStatsVisible(bool value) => SetStatsDisplayMode(value ? StatsDisplayMode.Full : StatsDisplayMode.None);
         public void SetStatsDisplayMode(StatsDisplayMode value)
@@ -407,14 +425,16 @@ namespace EchoScrap.Combat
             if (selected == null || resumeButton == null || pauseRestartButton == null) return;
             SetNavigation(reducedToggle, decorativeSlider, selected);
             bool configuring = game != null && game.Flow != null && game.Flow.IsConfiguring;
-            SetNavigation(resumeButton, selected, shakeSlider, configuring ? resumeButton : pauseRestartButton, configuring ? resumeButton : pauseRestartButton);
-            SetNavigation(pauseRestartButton, selected, shakeSlider, resumeButton, resumeButton);
+            SetNavigation(resumeButton, selected, volumeSlider, configuring ? resumeButton : pauseRestartButton, configuring ? resumeButton : pauseRestartButton);
+            SetNavigation(pauseRestartButton, selected, volumeSlider, resumeButton, resumeButton);
         }
 
         private void SyncPreferences()
         {
             if (game == null || shakeSlider == null) return;
             var preferences = game.Session.Effects;
+            volumeSlider.SetValueWithoutNotify(AudioListener.volume * 100f);
+            volumeLabel.text=$"VOLUMEN GENERAL   {Mathf.RoundToInt(AudioListener.volume*100f)}%";
             shakeSlider.SetValueWithoutNotify(preferences.RawShakeIntensity * 100f);
             decorativeSlider.SetValueWithoutNotify(preferences.RawDecorativeIntensity * 100f);
             reducedToggle.SetIsOnWithoutNotify(preferences.ReducedEffectsMode);
@@ -428,6 +448,7 @@ namespace EchoScrap.Combat
             if (canvas != null) return;
             font = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.regular ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             pauseSkin = Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin");
+            AudioListener.volume=Mathf.Clamp01(PlayerPrefs.GetFloat(VolumePreference,1f));
             whiteSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height), Vector2.one * 0.5f);
             CreateBorderSprite();
             var root = new GameObject("CombatHUDCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -520,35 +541,43 @@ namespace EchoScrap.Combat
             Image panel = modalPanel = ImageRect(modal.transform, "Panel", Vector2.zero, new Vector2(760f, 720f), Ink);
             panel.raycastTarget = true;
             modalAccent = ImageRect(panel.transform, "TopAccent", new Vector2(0f, 357f), new Vector2(760f, 4f), Apollo);
-            pauseContent = Rect(panel.transform, "Pause", Vector2.one * 0.5f, Vector2.zero, new Vector2(904f, 696f)).gameObject;
+            pauseContent = Rect(panel.transform, "Pause", Vector2.one * 0.5f, Vector2.zero, PauseSize).gameObject;
             if (pauseSkin != null)
             {
-                Image artwork = ImageRect(pauseContent.transform, "Artwork", Vector2.zero, new Vector2(904f, 696f), Color.white);
+                Image artwork = ImageRect(pauseContent.transform, "Artwork", Vector2.zero, PauseSize, Color.white);
                 artwork.sprite = pauseSkin.frame;
-                artwork.preserveAspect = true; // Exactly 8x the delivered 113x87 frame, including every ornament.
+                artwork.type = Image.Type.Sliced;
+                artwork.pixelsPerUnitMultiplier = .25f;
+                if(pauseSkin.topCrest!=null)ImageRect(pauseContent.transform,"TopCrest",new Vector2(0,402),new Vector2(72,56),Color.white).sprite=pauseSkin.topCrest;
+                if(pauseSkin.bottomCrest!=null)ImageRect(pauseContent.transform,"BottomCrest",new Vector2(0,-404),new Vector2(80,52),Color.white).sprite=pauseSkin.bottomCrest;
+                if(pauseSkin.sideOrnament!=null)ImageRect(pauseContent.transform,"SideOrnament",new Vector2(482,0),new Vector2(36,144),Color.white).sprite=pauseSkin.sideOrnament;
             }
-            pauseTitle = Label(pauseContent.transform, "Title", new Vector2(0f, 201f), new Vector2(640f, 58f), "PAUSA", 42, TextAnchor.MiddleCenter, Apollo);
-            Label(pauseContent.transform, "Subtitle", new Vector2(0f, 151f), new Vector2(640f, 32f), "ESC / START PARA VOLVER", 20, TextAnchor.MiddleCenter, Pale);
-            shakeLabel = Label(pauseContent.transform, "ShakeLabel", new Vector2(0f, 92f), new Vector2(640f, 38f), "MOVIMIENTO DE CÁMARA   100%", 23, TextAnchor.MiddleLeft, Pale);
-            shakeSlider = CreateSlider(pauseContent.transform, "ShakeSlider", new Vector2(0f, 52f));
+            pauseTitle = Label(pauseContent.transform, "Title", new Vector2(0f, 306f), new Vector2(640f, 58f), "PAUSA", 42, TextAnchor.MiddleCenter, Apollo);
+            Label(pauseContent.transform, "Subtitle", new Vector2(0f, 256f), new Vector2(640f, 32f), "ESC / START PARA VOLVER", 20, TextAnchor.MiddleCenter, Pale);
+            volumeLabel=Label(pauseContent.transform,"VolumeLabel",new Vector2(0,190),new Vector2(640,38),"VOLUMEN GENERAL   100%",23,TextAnchor.MiddleLeft,Pale);
+            volumeSlider=CreateSlider(pauseContent.transform,"VolumeSlider",new Vector2(0,150));
+            volumeSlider.onValueChanged.AddListener(SetVolumePercent);
+            shakeLabel = Label(pauseContent.transform, "ShakeLabel", new Vector2(0f, 96f), new Vector2(640f, 38f), "MOVIMIENTO DE CÁMARA   100%", 23, TextAnchor.MiddleLeft, Pale);
+            shakeSlider = CreateSlider(pauseContent.transform, "ShakeSlider", new Vector2(0f, 56f));
             shakeSlider.onValueChanged.AddListener(SetShakePercent);
             decorativeLabel = Label(pauseContent.transform, "EffectsLabel", new Vector2(0f, -2f), new Vector2(640f, 38f), "EFECTOS DECORATIVOS   100%", 23, TextAnchor.MiddleLeft, Pale);
             decorativeSlider = CreateSlider(pauseContent.transform, "EffectsSlider", new Vector2(0f, -42f));
             decorativeSlider.onValueChanged.AddListener(SetDecorativePercent);
-            reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -85f), "EFECTOS REDUCIDOS");
+            reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -103f), "EFECTOS REDUCIDOS");
             reducedToggle.onValueChanged.AddListener(SetReducedEffects);
-            var statsModes = Rect(pauseContent.transform, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0f, -137f), new Vector2(640f, 48f));
+            var statsModes = Rect(pauseContent.transform, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0f, -163f), new Vector2(640f, 48f));
             Label(statsModes, "Label", new Vector2(-240f, 0f), new Vector2(160f, 44f), "ESTADÍSTICAS", 21, TextAnchor.MiddleLeft, Pale);
             CreateStatsModeButton(statsModes, StatsDisplayMode.Full, "Full", -72f, "COMPLETA");
             CreateStatsModeButton(statsModes, StatsDisplayMode.Reduced, "Reduced", 84f, "REDUCIDA");
             CreateStatsModeButton(statsModes, StatsDisplayMode.None, "None", 240f, "SIN");
-            resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(-170f, -225f), "REANUDAR", pauseSkin != null ? pauseSkin.greenButton : null);
+            resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(-172f, -270f), "REANUDAR", pauseSkin != null ? pauseSkin.greenButton : null);
             resumeButton.onClick.AddListener(ResumeGame);
-            pauseRestartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(170f, -225f), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null);
+            pauseRestartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(172f, -270f), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null);
             pauseRestartButton.onClick.AddListener(PauseSecondaryAction);
             resumeLabel = resumeButton.transform.Find("Label").GetComponent<Text>();
             pauseSecondaryLabel = pauseRestartButton.transform.Find("Label").GetComponent<Text>();
-            SetNavigation(shakeSlider, resumeButton, decorativeSlider);
+            SetNavigation(volumeSlider, resumeButton, shakeSlider);
+            SetNavigation(shakeSlider, volumeSlider, decorativeSlider);
             SetNavigation(decorativeSlider, shakeSlider, reducedToggle);
             SetNavigation(statsModeButtons[(int)StatsDisplayMode.Full], reducedToggle, resumeButton,
                 statsModeButtons[(int)StatsDisplayMode.None], statsModeButtons[(int)StatsDisplayMode.Reduced]);

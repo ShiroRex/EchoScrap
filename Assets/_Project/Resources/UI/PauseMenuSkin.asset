@@ -12,7 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 646f7605d0fa35e439066f9e5932bccc, type: 3}
   m_Name: PauseMenuSkin
   m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.PauseMenuSkin
-  frame: {fileID: 21300000, guid: 22c603987ea20b74e81d7ecae01963fa, type: 3}
+  frame: {fileID: 21300000, guid: 5fa18637d5dd5a5e89ee9765fc78a35b, type: 3}
   blueButton: {fileID: 21300000, guid: 19ea41a14b64cd44f97499baf97a25e2, type: 3}
   redButton: {fileID: 21300000, guid: 7234a3a79ad1cd64295cf95aede4fb7f, type: 3}
   greenButton: {fileID: 21300000, guid: cafe52528c0fdd547abbaf41d2a96892, type: 3}
+  topCrest: {fileID: 21300000, guid: 579bfed65adc5de3b7d85bf7f4958aa7, type: 3}
+  bottomCrest: {fileID: 21300000, guid: 78b41a0cb51055be9ff332d55153a070, type: 3}
+  sideOrnament: {fileID: 21300000, guid: 69d25209c35e51d6a4a92cbbf57d60bb, type: 3}

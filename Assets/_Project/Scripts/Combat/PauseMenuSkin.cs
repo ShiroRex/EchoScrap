@@ -6,6 +6,7 @@ namespace EchoScrap.Combat
     public sealed class PauseMenuSkin : ScriptableObject
     {
         public Sprite frame;
+        public Sprite topCrest, bottomCrest, sideOrnament;
         public Sprite blueButton;
         public Sprite redButton;
         public Sprite greenButton;
