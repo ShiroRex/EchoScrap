@@ -9,8 +9,8 @@ namespace EchoScrap.Combat
     public sealed class CompanionSystem : MonoBehaviour
     {
         public const float SpawnInterval = 30f;
-        public static readonly UpgradeId[] Powers = { UpgradeId.DASH_01, UpgradeId.CRYO_01, UpgradeId.DEMO_02, UpgradeId.BIO_02, UpgradeId.FLASH_05, UpgradeId.FLASH_02, UpgradeId.BIO_03, UpgradeId.CRYO_03, UpgradeId.CRIT_01, UpgradeId.DASH_02, UpgradeId.BIO_02, UpgradeId.FLASH_03, UpgradeId.CRYO_02 };
-        public static readonly string[] PowerNames = { "Dash ágil", "Freón residual", "Reacción en cadena", "Sifón", "Rayo solar", "Pulso rápido", "Nanobots", "Ventisca", "Óptica precisa", "Onda sísmica", "Sifón", "Prisma voltaico", "Cero absoluto" };
+        public static readonly UpgradeId[] Powers = { UpgradeId.DASH_01, UpgradeId.CRYO_01, UpgradeId.DEMO_02, UpgradeId.BIO_02, UpgradeId.FLASH_05, UpgradeId.FLASH_02, UpgradeId.BIO_03, UpgradeId.CRYO_03, UpgradeId.CRIT_01, UpgradeId.DASH_02, UpgradeId.BIO_02, UpgradeId.FLASH_03, UpgradeId.CRYO_02, UpgradeId.DEMO_02, UpgradeId.CRIT_01 };
+        public static readonly string[] PowerNames = { "Dash ágil", "Freón residual", "Reacción en cadena", "Sifón", "Rayo solar", "Pulso rápido", "Nanobots", "Ventisca", "Óptica precisa", "Onda sísmica", "Sifón", "Prisma voltaico", "Cero absoluto", "Reacción en cadena", "Óptica precisa" };
         public const float PickupLifetime = 10f;
         private sealed class Pickup { public int Id; public GameObject Object; public Vector3 Ground; public float Life = PickupLifetime; }
         private readonly List<Pickup> pickups = new List<Pickup>();

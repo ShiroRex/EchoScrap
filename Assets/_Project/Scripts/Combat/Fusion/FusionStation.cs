@@ -19,6 +19,7 @@ namespace EchoScrap.Combat
         public bool CanInteract=>game!=null&&game.Player.IsAlive&&Vector3.Distance(game.Player.transform.position,InteractionPoint.position+Vector3.up)<InteractionDistance;
         public string Notice {get;private set;}="";
         private FusionRevealSmoke smoke;
+        private AudioSource openingAudio;
         private CombatGameBootstrap game;private FusionStationUI ui;private CollectibleDisplay resultView;
         private CollectibleDisplay[] displays;private Transform[] slats;private Vector3[] closed;private float doorTop,doorAmount,saveClock;
         private void Start()
@@ -34,6 +35,9 @@ namespace EchoScrap.Combat
             displays=new CollectibleDisplay[DisplaySlots.Length];
             for(int i=0;i<displays.Length;i++){displays[i]=new GameObject("Coleccionable_"+(i+1)).AddComponent<CollectibleDisplay>();displays[i].transform.SetParent(DisplaySlots[i],false);}
             smoke=gameObject.AddComponent<FusionRevealSmoke>();
+            openingAudio=new GameObject("FusionOpenAudio").AddComponent<AudioSource>();
+            openingAudio.transform.SetParent(transform,false);openingAudio.playOnAwake=false;openingAudio.loop=false;
+            openingAudio.spatialBlend=0;openingAudio.volume=.7f;openingAudio.clip=Resources.Load<AudioClip>("Audio/FusionOpen");
             ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);RefreshDisplays();UpdateResult();
             if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);}
         }
@@ -56,7 +60,7 @@ namespace EchoScrap.Combat
         {
             if(!CanInteract || game.Session.IsPaused || game.Session.State!=SessionState.Running || Progress.phase==FusionPhase.Fusing || Progress.phase==FusionPhase.Opening)return false;
             game.Motor.CancelDashAndRestoreState();game.Motor.Stop();game.Session.Clock.SetPause(PauseReason.FusionMenu,true);
-            if(Progress.OpenReady()){smoke.Play(ResultPoint.position);UpdateResult();Save();return true;}
+            if(Progress.OpenReady()){openingAudio.Play();smoke.Play(ResultPoint.position);UpdateResult();Save();return true;}
             ui.Show();return true;
         }
         public void CloseMenu(){if(ui!=null)ui.Hide();if(game!=null)game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}
@@ -102,10 +106,10 @@ namespace EchoScrap.Combat
         }
         public void ResetCollection()
         {
-            CloseMenu();Notice="";Progress=new FusionProgress();Progress.Validate();
+            openingAudio.Stop();CloseMenu();Notice="";Progress=new FusionProgress();Progress.Validate();
             RefreshDisplays();UpdateResult();Save();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
-        private void OnSessionReset(){if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();}
+        private void OnSessionReset(){openingAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();}
         private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}
         private void OnApplicationPause(bool paused){if(paused)Save();}
         private void OnApplicationQuit(){Save();}

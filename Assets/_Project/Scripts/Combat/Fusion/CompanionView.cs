@@ -64,7 +64,7 @@ namespace EchoScrap.Combat
                 var picture=Panel("Cara",box,Vector2.zero,new Vector2(60,60),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
             }
             var shade=Panel("EquipoBoveda",canvas.transform,Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;shade.GetComponent<Image>().raycastTarget=true;modal=shade.gameObject;
-            var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1060,740),new Color(.045f,.06f,.09f));
+            var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1160,740),new Color(.045f,.06f,.09f));
             title=Label(panel,"Titulo","",new Vector2(0,325),new Vector2(990,60),30);title.font=strong;
             for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);}
             emptyText=Label(panel,"SinColeccionables","Todavía no tienes coleccionables. Encuéntralos en la arena.",new Vector2(0,-30),new Vector2(930,90),24);
@@ -101,8 +101,8 @@ namespace EchoScrap.Combat
             title.text="PUESTO "+(selected+1)+" · ELIGE UN COMPAÑERO";int visible=0,totalOwned=0;foreach(int count in station.Progress.owned)if(count>0)totalOwned++;
             for(int id=0;id<FusionCatalog.Count;id++){
                 bool owned=station.Progress.owned[id]>0;chooseButtons[id].gameObject.SetActive(owned);if(!owned)continue;
-                int rowCount=Mathf.Min(7,totalOwned-(visible/7)*7);
-                chooseButtons[id].GetComponent<RectTransform>().anchoredPosition=new Vector2((visible%7-(rowCount-1)*.5f)*142,40-(visible/7)*200);visible++;
+                int rowCount=Mathf.Min(8,totalOwned-(visible/8)*8);
+                chooseButtons[id].GetComponent<RectTransform>().anchoredPosition=new Vector2((visible%8-(rowCount-1)*.5f)*140,40-(visible/8)*200);visible++;
                 int used=0;for(int i=0;i<3;i++)if(i!=selected&&station.Progress.equipped[i]==id)used++;
                 choices[id].text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]+"\n"+CompanionSystem.PowerNames[id]+"\nDisponibles: "+Mathf.Max(0,station.Progress.owned[id]-used);
                 chooseButtons[id].interactable=station.Progress.owned[id]>used;

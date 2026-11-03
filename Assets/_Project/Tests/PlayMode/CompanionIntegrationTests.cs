@@ -35,6 +35,14 @@ namespace EchoScrap.Tests
             game.Player.transform.position=pickup.transform.position+Vector3.up;Physics.SyncTransforms();system.Advance(.1f);Assert.AreEqual(before,station.Progress.owned[2]);Assert.IsTrue(system.TryCollectNearest());Assert.AreEqual(before+1,station.Progress.owned[2]);
             system.Advance(.1f);Assert.AreEqual(before+1,station.Progress.owned[2]);Assert.AreEqual(0,system.ActivePickups);yield return null;
         }
+        [UnityTest] public IEnumerator NewCharactersSpawnWithFrontSpritesAndCanBeCollected()
+        {
+            foreach(int id in new[]{13,14}){
+                Assert.IsTrue(system.TrySpawn(id));var pickup=Object.FindObjectsByType<CollectibleDisplay>(FindObjectsSortMode.None).Single(v=>v.name=="ColeccionableArena_"+FusionCatalog.Names[id]);
+                var sprite=pickup.GetComponentInChildren<SpriteRenderer>().sprite;Assert.AreSame(CollectibleDisplay.FrontSprite(id),sprite);Assert.Less(sprite.rect.width,64);
+                int before=station.Progress.owned[id];game.Player.GetComponent<Rigidbody>().position=pickup.transform.position+Vector3.up;game.Player.transform.position=pickup.transform.position+Vector3.up;Physics.SyncTransforms();Assert.IsTrue(system.TryCollectNearest());Assert.AreEqual(before+1,station.Progress.owned[id]);yield return null;
+            }
+        }
         [UnityTest] public IEnumerator ThreeSlotsRequireOwnedCopiesAndPowersSurviveResetWithoutStacking(){
             for(int id=0;id<4;id++)station.CollectFromArena(id);
             Assert.IsFalse(system.TryOpen());Approach();Assert.IsTrue(system.TryOpen());
@@ -97,7 +105,7 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator AuthoredFramesAreUsedForEveryChoiceAndTheThreeCombatSlots()
         {
             for(int id=0;id<FusionCatalog.Count;id++){station.Progress.owned[id]=1;Assert.IsNotNull(CollectibleDisplay.CardPortrait(id),FusionCatalog.Names[id]);}
-            var ids=new[]{9,6,4};
+            var ids=new[]{13,14,4};
             for(int slot=0;slot<3;slot++){Approach(slot);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(slot,ids[slot]));
                 var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
                 for(int id=0;id<FusionCatalog.Count;id++){var art=panel.Find("Elegir_"+id+"/Cara/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(id),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}

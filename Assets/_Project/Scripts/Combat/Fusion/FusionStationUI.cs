@@ -64,12 +64,12 @@ namespace EchoScrap.Combat
             Label(picker.transform,"TU GARAJE · ELIGE UN COLECCIONABLE",new Vector2(28,15),new Vector2(1024,46),27,TextAnchor.MiddleCenter);
             var empty=Label(picker.transform,"Todavía no tienes coleccionables. Encuéntralos en la arena.",new Vector2(70,190),new Vector2(940,100),24,TextAnchor.MiddleCenter);empty.name="SinColeccionables";
             for(int i=0;i<FusionCatalog.Count;i++){
-                int id=i;var card=ButtonAt(picker.transform,"",new Vector2(28+(i%7)*146,75+(i/7)*215),new Vector2(138,200),()=>AddIngredient(id));
+                int id=i;var card=ButtonAt(picker.transform,"",new Vector2(28+(i%7)*146,75+(i/7)*215),new Vector2(122,200),()=>AddIngredient(id));
                 card.name="Garaje_"+i;Frame(card.GetComponent<Image>(),false);card.interactable=false;
-                var art=Portrait(card.transform,new Vector2(37,8),new Vector2(64,78));art.sprite=CollectibleDisplay.CardPortrait(i);
-                Label(card.transform,FusionCatalog.Names[i],new Vector2(4,89),new Vector2(130,40),15,TextAnchor.MiddleCenter);
-                var rarity=Label(card.transform,FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[i]],new Vector2(4,130),new Vector2(130,25),15,TextAnchor.MiddleCenter);rarity.color=FusionCatalog.ColorOf(i);
-                stock[i]=Label(card.transform,"",new Vector2(4,155),new Vector2(130,42),15,TextAnchor.MiddleCenter);
+                var art=Portrait(card.transform,new Vector2(29,8),new Vector2(64,78));art.sprite=CollectibleDisplay.CardPortrait(i);
+                Label(card.transform,FusionCatalog.Names[i],new Vector2(4,89),new Vector2(114,40),14,TextAnchor.MiddleCenter);
+                var rarity=Label(card.transform,FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[i]],new Vector2(4,130),new Vector2(114,25),14,TextAnchor.MiddleCenter);rarity.color=FusionCatalog.ColorOf(i);
+                stock[i]=Label(card.transform,"",new Vector2(4,155),new Vector2(114,42),14,TextAnchor.MiddleCenter);
             }
             Label(picker.transform,"Se consumen cuatro copias disponibles. Los equipados y Yanikua están protegidos.",new Vector2(28,501),new Vector2(1024,40),18,TextAnchor.MiddleCenter);
             ButtonAt(picker.transform,"QUITAR DEL ESPACIO",new Vector2(60,558),new Vector2(430,48),()=>{if(selectedSlot>=0)ingredients[selectedSlot]=-1;ClosePicker();RefreshSelection();});
@@ -92,8 +92,8 @@ namespace EchoScrap.Combat
             for(int i=0;i<FusionCatalog.Count;i++){
                 var card=picker.transform.Find("Garaje_"+i).GetComponent<Button>();bool owned=station.Progress.owned[i]>0;
                 card.gameObject.SetActive(owned);if(!owned)continue;
-                int rowCount=Mathf.Min(7,totalOwned-(visible/7)*7);
-                Rect(card.GetComponent<RectTransform>(),new Vector2(471+(visible%7-(rowCount-1)*.5f)*146,75+(visible/7)*215),new Vector2(138,200));visible++;
+                int rowCount=Mathf.Min(8,totalOwned-(visible/8)*8);
+                Rect(card.GetComponent<RectTransform>(),new Vector2(479+(visible%8-(rowCount-1)*.5f)*128,75+(visible/8)*215),new Vector2(122,200));visible++;
                 stock[i].text=i==4?"PROTEGIDO":"DISPONIBLES: "+AvailableIngredient(i,slot);card.interactable=i!=4&&AvailableIngredient(i,slot)>0;
             }
             picker.transform.Find("SinColeccionables").gameObject.SetActive(visible==0);

@@ -7,14 +7,14 @@ namespace EchoScrap.Combat
     public enum FusionPhase { Idle, Fusing, Opening, AwaitingDecision, Ready }
     public static class FusionCatalog
     {
-        public const int Count=13, Yanikua=4;
-        public static readonly string[] Names={"Lobito","Mago","Demonio","Shireen","Yanikua","Basket","Hada","Lisa","Reaper","Chico Emo","Conde Alucard","Murciélago Cristal","Sirena"};
-        public static readonly string[] ResourceKeys={"Lobito","Mago","Demonio","Shireen","Yanikua","Basket","Hada","Lisa","Reaper","Chico_Emo","Conde_Alucard","MurcielagoCristal","Sirena"};
-        public static readonly CollectibleRarity[] Rarities={CollectibleRarity.Common,CollectibleRarity.Rare,CollectibleRarity.Rare,CollectibleRarity.Special,CollectibleRarity.Mythic,CollectibleRarity.Common,CollectibleRarity.Epic,CollectibleRarity.Legendary,CollectibleRarity.Common,CollectibleRarity.Rare,CollectibleRarity.Special,CollectibleRarity.Epic,CollectibleRarity.Legendary};
+        public const int Count=15, Yanikua=4;
+        public static readonly string[] Names={"Lobito","Mago","Demonio","Shireen","Yanikua","Basket","Hada","Lisa","Reaper","Chico Emo","Conde Alucard","Murciélago Cristal","Sirena","Soldier","Joel"};
+        public static readonly string[] ResourceKeys={"Lobito","Mago","Demonio","Shireen","Yanikua","Basket","Hada","Lisa","Reaper","Chico_Emo","Conde_Alucard","MurcielagoCristal","Sirena","Soldier","Joel"};
+        public static readonly CollectibleRarity[] Rarities={CollectibleRarity.Common,CollectibleRarity.Rare,CollectibleRarity.Rare,CollectibleRarity.Special,CollectibleRarity.Mythic,CollectibleRarity.Common,CollectibleRarity.Epic,CollectibleRarity.Legendary,CollectibleRarity.Common,CollectibleRarity.Rare,CollectibleRarity.Special,CollectibleRarity.Epic,CollectibleRarity.Legendary,CollectibleRarity.Special,CollectibleRarity.Rare};
         public static readonly string[] RarityNames={"COMÚN","RARO","ESPECIAL","ÉPICO","LEGENDARIO","MÍTICO"};
-        public static readonly int[] MapIds={5,0,1,2,3,6,7};
+        public static readonly int[] MapIds={5,0,1,2,14,3,13,6,7};
         public static readonly int[] FusionIds={8,9,10,11,12,4};
-        private static readonly int[] MapWeights={25,25,15,15,10,7,3};
+        private static readonly int[] MapWeights={25,25,10,10,10,5,5,7,3};
         private static readonly Color[] Colors={new Color(.3f,.85f,.35f),new Color(.2f,.55f,1),new Color(1,.45f,.08f),new Color(.7f,.25f,1),new Color(1,.95f,.1f),new Color(1,.67f,.08f)};
         public static bool Valid(int id)=>id>=0&&id<Count;
         public static Color ColorOf(int id)=>Valid(id)?Colors[(int)Rarities[id]]:Color.gray;
@@ -93,7 +93,8 @@ namespace EchoScrap.Combat
         public void Validate()
         {
             // Prototype collections are deliberately discarded once; production saves keep all counts.
-            if(version<4||owned==null||owned.Length!=FusionCatalog.Count){owned=new int[FusionCatalog.Count];equipped=new[]{-1,-1,-1};phase=FusionPhase.Idle;result=-1;}
+            if(version<4||owned==null){owned=new int[FusionCatalog.Count];equipped=new[]{-1,-1,-1};phase=FusionPhase.Idle;result=-1;}
+            if(owned.Length!=FusionCatalog.Count)Array.Resize(ref owned,FusionCatalog.Count);
             for(int i=0;i<owned.Length;i++)owned[i]=Mathf.Max(0,owned[i]);
             if(displays==null||displays.Length!=10)displays=Enumerable.Repeat(-1,10).ToArray();
             for(int i=0;i<displays.Length;i++)if(!FusionCatalog.Valid(displays[i])||owned[displays[i]]==0)displays[i]=-1;

@@ -13,6 +13,7 @@ namespace EchoScrap.Tests
         private CombatGameBootstrap game;
         private CombatMusicPlayer music;
         private AudioSource Arena=>music.transform.Find("ArenaMusic").GetComponent<AudioSource>();
+        private AudioSource Vault=>music.transform.Find("VaultMusic").GetComponent<AudioSource>();
         private AudioSource Boss=>music.transform.Find("BossMusic").GetComponent<AudioSource>();
         private void Loaded(Scene scene,LoadSceneMode mode)
         {var station=Object.FindAnyObjectByType<FusionStation>();if(station!=null)station.PersistProgress=false;}
@@ -80,6 +81,17 @@ namespace EchoScrap.Tests
             }
         }
 
+        [UnityTest] public IEnumerator VaultMusicLoopsThroughVaultMenusAndStopsOutsideOrAtTitle()
+        {
+            Assert.IsNotNull(Vault.clip);Assert.AreEqual(AudioClipLoadType.Streaming,Vault.clip.loadType);Assert.IsTrue(Vault.loop);
+            game.Session.SetWarehouseVisit(true);music.Step(1);Assert.IsTrue(Vault.isPlaying);Assert.IsFalse(Arena.isPlaying);Assert.IsFalse(Boss.isPlaying);
+            foreach(var reason in new[]{PauseReason.FusionMenu,PauseReason.CompanionMenu,PauseReason.Manual}){
+                game.Session.Clock.SetPause(reason,true);music.Step(1);float position=Vault.time;yield return new WaitForSecondsRealtime(.2f);Assert.Greater(Vault.time,position+.05f);game.Session.Clock.SetPause(reason,false);
+            }
+            game.Session.SimulateFocusChange(false);music.Step(0);Assert.IsFalse(Vault.isPlaying);game.Session.ResumeFromFocusLoss();music.Step(0);Assert.IsTrue(Vault.isPlaying);
+            game.Session.Clock.SetPause(PauseReason.FrontEnd,true);music.Step(0);Assert.IsFalse(Vault.isPlaying);Assert.AreEqual(CombatMusicTrack.None,music.CurrentTrack);
+        }
+
         [UnityTest] public IEnumerator FocusLossPreservesMusicPositionAndWarehouseAndResetStopPlayback()
         {
             music.Step(1);yield return new WaitForSecondsRealtime(.15f);
@@ -88,8 +100,8 @@ namespace EchoScrap.Tests
             yield return new WaitForSecondsRealtime(.15f);Assert.That(Arena.time,Is.EqualTo(position).Within(.05f));
             game.Session.ResumeFromFocusLoss();Assert.That(music.IsPaused,Is.False);Assert.That(Arena.isPlaying);
             game.Session.SetWarehouseVisit(true);music.Step(1);
-            Assert.That(music.CurrentTrack,Is.EqualTo(CombatMusicTrack.None));Assert.That(Arena.isPlaying,Is.False);
-            game.Session.SetWarehouseVisit(false);music.Step(1);Assert.That(Arena.isPlaying);
+            Assert.That(music.CurrentTrack,Is.EqualTo(CombatMusicTrack.Vault));Assert.That(Arena.isPlaying,Is.False);Assert.That(Vault.isPlaying);
+            game.Session.SetWarehouseVisit(false);music.Step(0);Assert.IsFalse(Vault.isPlaying);music.Step(1);Assert.That(Arena.isPlaying);
             game.ResetRun(false);Assert.That(Arena.isPlaying,Is.False);Assert.That(Boss.isPlaying,Is.False);
             Assert.That(Arena.volume,Is.Zero);Assert.That(Boss.volume,Is.Zero);
         }

@@ -3,18 +3,18 @@ using UnityEngine;
 
 namespace EchoScrap.Combat
 {
-    public enum CombatMusicTrack { None, Arena, Boss }
+    public enum CombatMusicTrack { None, Arena, Boss, Vault }
 
-    /// <summary>Two streamed placeholder tracks; boss excerpt starts at the supplied song's 2:00.</summary>
+    /// <summary>Contextual arena, boss and vault music.</summary>
     [DisallowMultipleComponent, RequireComponent(typeof(CombatGameBootstrap))]
     public sealed class CombatMusicPlayer : MonoBehaviour
     {
-        [SerializeField] private AudioClip arenaClip, bossClip;
-        [SerializeField, Range(0,1)] private float arenaVolume=.22f, bossVolume=.25f;
+        [SerializeField] private AudioClip arenaClip, bossClip, vaultClip;
+        [SerializeField, Range(0,1)] private float arenaVolume=.22f, bossVolume=.25f, vaultVolume=.25f;
         [SerializeField, Min(.05f)] private float crossfadeSeconds=.8f;
         private CombatGameBootstrap game;
-        private AudioSource arena, boss;
-        private float arenaMix, bossMix;
+        private AudioSource arena, boss, vault;
+        private float arenaMix, bossMix, vaultMix;
         private GolgoraActor lastBoss;
         private GolgoraAudio legacyAudio;
         private bool legacyMusicEnabled;
@@ -32,6 +32,8 @@ namespace EchoScrap.Combat
             Unsubscribe();ResetPlayback();game=owner;
             if(arenaClip==null)arenaClip=Resources.Load<AudioClip>("Audio/Music/Arena_combat_Test");
             if(bossClip==null)bossClip=Resources.Load<AudioClip>("Audio/Music/Bossfight_Prueba_From2m");
+            if(vaultClip==null)vaultClip=Resources.Load<AudioClip>("Audio/Music/Vault");
+            if(vault==null)vault=Voice("VaultMusic",vaultClip);
             if(arena==null)arena=Voice("ArenaMusic",arenaClip);
             if(boss==null)boss=Voice("BossMusic",bossClip);
             if(isActiveAndEnabled && game!=null && game.Session!=null)
@@ -62,17 +64,23 @@ namespace EchoScrap.Combat
             bool playing=game.IsInitialized && game.IsSceneEntryReady && !game.Session.IsInWarehouse &&
                 (game.Session.Clock.ActiveReasons & (PauseReason.FrontEnd|PauseReason.FusionMenu))==0 &&
                 game.Session.State!=SessionState.Defeat && game.Session.State!=SessionState.Victory;
-            CurrentTrack=!playing?CombatMusicTrack.None:
+            bool inVault=game.IsInitialized && game.IsSceneEntryReady && game.Session.IsInWarehouse &&
+                (game.Session.Clock.ActiveReasons & PauseReason.FrontEnd)==0;
+            CurrentTrack=inVault?CombatMusicTrack.Vault:!playing?CombatMusicTrack.None:
                 actor!=null?(actor.IsAlive && game.Encounter.IsEncounterActive?CombatMusicTrack.Boss:CombatMusicTrack.None):CombatMusicTrack.Arena;
             // Menu pauses freeze combat, while the streamed musical bed keeps its DSP clock.
-            bool paused=playing && (game.Session.Clock.ActiveReasons & PauseReason.FocusLost)!=0;
+            bool paused=(playing||inVault) && (game.Session.Clock.ActiveReasons & PauseReason.FocusLost)!=0;
             if(paused!=IsPaused)
             {
                 IsPaused=paused;
-                if(paused){arena.Pause();boss.Pause();}else{arena.UnPause();boss.UnPause();}
+                if(paused){arena.Pause();boss.Pause();vault.Pause();}else{arena.UnPause();boss.UnPause();vault.UnPause();}
             }
+            // The vault track cannot leak into combat or the title screen, even during a fade.
+            if(!inVault){vault.Stop();vault.volume=0;vaultMix=0;}
+            if(inVault){arena.Stop();boss.Stop();arenaMix=bossMix=0;}
             if(paused)return;
             float step=Mathf.Max(0,deltaTime)/Mathf.Max(.05f,crossfadeSeconds);
+            Blend(vault,ref vaultMix,inVault,vaultVolume,step);
             Blend(arena,ref arenaMix,CurrentTrack==CombatMusicTrack.Arena,arenaVolume,step);
             float roarMix=game.Encounter!=null && game.Encounter.RoarPresentation.IsRoaring ? .45f : 1f;
             Blend(boss,ref bossMix,CurrentTrack==CombatMusicTrack.Boss,bossVolume*roarMix,step);
@@ -89,7 +97,8 @@ namespace EchoScrap.Combat
         private void ResetPlayback()
         {
             if(arena!=null){arena.Stop();arena.volume=0;}if(boss!=null){boss.Stop();boss.volume=0;}
-            arenaMix=bossMix=0;IsPaused=false;CurrentTrack=CombatMusicTrack.None;RestoreLegacyMusic();
+            if(vault!=null){vault.Stop();vault.volume=0;}
+            arenaMix=bossMix=vaultMix=0;IsPaused=false;CurrentTrack=CombatMusicTrack.None;RestoreLegacyMusic();
         }
         private void Unsubscribe()
         {
