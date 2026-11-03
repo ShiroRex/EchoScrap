@@ -15,6 +15,7 @@ Shader "EchoScrap/Oil Lantern Volume"
             #pragma vertex Vert
             #pragma fragment Frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             CBUFFER_START(UnityPerMaterial)
                 half4 _BeamColor;
             CBUFFER_END
@@ -35,7 +36,9 @@ Shader "EchoScrap/Oil Lantern Volume"
                 // The exterior raymarch supplies the illuminated air. Keep this cheap
                 // fallback for the warehouse and renderers without the atmosphere pass.
                 clip(.5-_EchoArenaAtmosphereActive);
-                clip(i.positionWS.y-0.035);
+                float sceneDepth=LinearEyeDepth(SampleSceneDepth(GetNormalizedScreenSpaceUV(i.positionCS)),_ZBufferParams);
+                float beamDepth=-TransformWorldToView(i.positionWS).z;
+                float intersection=saturate((sceneDepth-beamDepth)/.18);
                 float3 view=GetWorldSpaceNormalizeViewDir(i.positionWS);
                 float side=pow(saturate(1-abs(dot(normalize(i.normalWS),view))),1.6);
                 // Keep the short path from the lantern to its first ground intersection
@@ -43,7 +46,7 @@ Shader "EchoScrap/Oil Lantern Volume"
                 float ends=smoothstep(0,0.012,i.uv.y)*(1-smoothstep(0.65,1,i.uv.y));
                 float sourceScattering=12*(1-smoothstep(0.02,0.16,i.uv.y));
                 float opacity=min(0.35,_BeamColor.a*ends*(0.25+0.75*side+sourceScattering));
-                return half4(_BeamColor.rgb,opacity);
+                return half4(_BeamColor.rgb,opacity*intersection);
             }
             ENDHLSL
         }

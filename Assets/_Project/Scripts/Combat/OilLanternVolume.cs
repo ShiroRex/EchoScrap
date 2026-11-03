@@ -123,7 +123,7 @@ namespace EchoScrap.Combat
             oilGlow.enabled = visible;
             flicker.enabled = visible && !reduced && decorative;
             flame.gameObject.SetActive(visible && drawFlameMesh);
-            beamRenderer.enabled = visible && decorative && !reduced;
+            beamRenderer.enabled = visible && decorative && !reduced && (session == null || !session.IsInWarehouse);
             float range = weapon.ActiveBurstRange;
             float angle = Mathf.Min(150f, weapon.ActiveBurstAngle);
             if (!Mathf.Approximately(range, lastRange) || !Mathf.Approximately(angle, lastAngle))

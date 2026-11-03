@@ -180,6 +180,32 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
             }
         }
 
+        void IntegrateLantern(float3 ray, float maximumDistance, inout float3 scattering)
+        {
+            if (_EchoArenaLanternLightIndex < 0 || _EchoArenaLanternColor.w <= 0) return;
+            float enter, leave;
+            if (!ConeInterval(ray, _EchoArenaLanternPosition.xyz, normalize(_EchoArenaLanternDirection.xyz),
+                _EchoArenaLanternDirection.w, _EchoArenaLanternPosition.w, maximumDistance, enter, leave)) return;
+            // Sample the short light interval independently of the distant atmosphere.
+            // A camera-wide march could skip the whole beam as the camera moved.
+            const int samples = 16;
+            float segment = (leave - enter) / samples;
+            [loop] for (int sampleIndex = 0; sampleIndex < samples; sampleIndex++)
+            {
+                float3 position = _WorldSpaceCameraPos + ray * (enter + (sampleIndex + .5) * segment);
+                float3 fromLantern = position - _EchoArenaLanternPosition.xyz;
+                float distanceToLight = max(.05, length(fromLantern));
+                float cone = smoothstep(_EchoArenaLanternDirection.w, min(.999, _EchoArenaLanternDirection.w + .08),
+                    dot(fromLantern / distanceToLight, normalize(_EchoArenaLanternDirection.xyz)));
+                float attenuation = saturate(1 - distanceToLight / max(.1, _EchoArenaLanternPosition.w));
+                float density = DensityAt(position);
+                float shadow = AdditionalShadow(_EchoArenaLanternLightIndex, position);
+                float transmission = exp(-density * (enter + (sampleIndex + .5) * segment));
+                scattering += transmission * (1-exp(-density * segment)) * _EchoArenaLanternColor.rgb
+                    * _EchoArenaLanternColor.w * cone * attenuation * attenuation * shadow * .075;
+            }
+        }
+
         float3 PositionAtDepth(float2 uv, float depth)
         {
             #if !UNITY_REVERSED_Z
@@ -216,30 +242,11 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
                 float sunPhase = .22 + .18 * pow(saturate(dot(-ray, sun.direction)), 3);
                 float3 illumination = _EchoArenaAtmosphereColor.rgb * _EchoArenaScattering.x
                     + sun.color * sun.shadowAttenuation * _EchoArenaAtmosphereColor.rgb * sunPhase;
-                float3 fromLantern = position - _EchoArenaLanternPosition.xyz;
-                float lanternDistance = max(.05, length(fromLantern));
-                float inside = smoothstep(_EchoArenaLanternDirection.w, min(.999, _EchoArenaLanternDirection.w + .08),
-                    dot(fromLantern / lanternDistance, normalize(_EchoArenaLanternDirection.xyz + .00001)));
-                float attenuation = saturate(1 - lanternDistance / max(.1, _EchoArenaLanternPosition.w));
-                if (_EchoArenaLanternLightIndex >= 0 && inside * attenuation > .001)
-                {
-                    half lanternShadow;
-                    #if USE_CLUSTER_LIGHT_LOOP
-                        Light lantern = GetAdditionalLight((uint)_EchoArenaLanternLightIndex, position, half4(1,1,1,1));
-                        lanternShadow = lantern.shadowAttenuation;
-                    #else
-                        // Fullscreen passes have no per-object index list. Use the packed
-                        // index explicitly if another renderer disables Forward+.
-                        Light lantern = GetAdditionalPerObjectLight(_EchoArenaLanternLightIndex, position);
-                        lanternShadow = AdditionalLightRealtimeShadow(_EchoArenaLanternLightIndex, position, lantern.direction);
-                    #endif
-                    illumination += _EchoArenaLanternColor.rgb * max(0, _EchoArenaLanternColor.w) * inside
-                        * attenuation * attenuation * lanternShadow * .075;
-                }
                 scattering += transmission * extinction * illumination;
                 transmission *= 1 - extinction;
                 if (transmission < .015) break;
             }
+            IntegrateLantern(ray, lengthToIntegrate, scattering);
             IntegrateShafts(ray, lengthToIntegrate, input.positionCS.xy, transmission, scattering);
             float opacity = 1 - transmission;
             float outside = smoothstep(_EchoArenaTactical.w, _EchoArenaTactical.w + max(2, _EchoArenaFocusParams.y),

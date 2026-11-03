@@ -52,6 +52,23 @@ namespace EchoScrap.Tests
             Assert.AreEqual(CameraClearFlags.SolidColor,game.GameplayCamera.clearFlags);
             Assert.AreEqual(game.Lighting.Profile.SkyColor,game.GameplayCamera.backgroundColor);
         }
+        [UnityTest]public IEnumerator WarehouseKeepsOnlyPassiveLanternGlowAndRestoresTheBeamOnExit()
+        {
+            var travel=Object.FindAnyObjectByType<WarehouseTravel>();
+            var presentation=game.Player.GetComponent<FlashlightPresentation>();
+            game.Session.Effects.DecorativeIntensity=1f;game.Session.Effects.ReducedEffectsMode=false;
+            for(int visit=0;visit<2;visit++)
+            {
+                Assert.IsTrue(travel.PlaceInWarehouse(true));yield return null;yield return null;
+                Assert.IsFalse(presentation.ImportedView.KeyLight.enabled,"The vault must have no directional flashlight.");
+                Assert.IsFalse(presentation.OilLantern.BeamRenderer.enabled,"The vault must have no visible cone.");
+                Assert.IsTrue(presentation.OilLantern.OilGlow.enabled);
+                Assert.Greater(presentation.OilLantern.OilGlow.intensity,0f);
+                Assert.IsTrue(travel.PlaceInWarehouse(false));yield return null;yield return null;
+                Assert.IsTrue(presentation.ImportedView.KeyLight.enabled);
+                Assert.IsTrue(presentation.OilLantern.BeamRenderer.enabled);
+            }
+        }
         [UnityTest]public IEnumerator WarehouseRestoresOriginalRenderingAndExteriorReturnsAfterRepeatedTravel()
         {
             var camera=game.GameplayCamera.GetUniversalAdditionalCameraData();
