@@ -49,7 +49,7 @@ namespace EchoScrap.Tests
             Assert.IsTrue(system.Equip(0,0));Assert.IsFalse(system.Equip(1,0));Assert.IsFalse(system.Equip(1,4));Assert.IsFalse(system.Equip(3,1));
             Assert.IsFalse(system.Equip(1,1));system.Close();Approach(1);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(1,1));system.Close();Approach(2);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(2,2));
             Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.CRYO_01));Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.DEMO_02));
-            game.Stats.SetUpgradeTier("DASH_01",3);system.Close();Approach(0);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(0,3));Assert.AreEqual(3,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
+            game.Stats.SetUpgradeTier("DASH_01",3);system.Close();Approach(0);Assert.IsTrue(station.GetComponent<VaultReleaseInteraction>().TryUnequip());Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(0,3));Assert.AreEqual(3,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
             Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.BIO_02));
             yield return Capture("Equipo");system.Close();yield return Capture("BovedaEquipo");game.ResetRun();game.ResetRun();
             Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.BIO_02));
@@ -69,7 +69,7 @@ namespace EchoScrap.Tests
             Vector3 original=display.transform.position;system.Advance(.5f);yield return null;
             Assert.AreNotEqual(original.y,display.transform.position.y);Assert.AreEqual(2,display.GetComponentsInChildren<Text>().Length);
             var texts=display.GetComponentsInChildren<Text>().Select(t=>t.text).ToArray();CollectionAssert.AreEquivalent(new[]{"Basket","COMÚN"},texts);
-            var map=game.Hud.GetComponent<CombatMinimap>();map.Refresh();var marker=game.Hud.HudCanvas.transform.Find("Minimap/Interior/MapaArena/Coleccionable_0");Assert.IsTrue(marker.gameObject.activeSelf);
+            var map=game.Hud.GetComponent<CombatMinimap>();map.Refresh();var marker=game.Hud.HudCanvas.transform.Find("Minimap/Interior/MapaArena/Coleccionable_0");Assert.IsTrue(marker.gameObject.activeSelf);Assert.AreEqual(0,marker.childCount);Assert.AreEqual(Vector2.one*7,marker.GetComponent<RectTransform>().sizeDelta);Assert.IsNotNull(marker.GetComponent<Image>().sprite);
             game.Session.SetManualPause(true);system.Advance(10);Assert.AreEqual(1,system.ActivePickups);game.Session.SetManualPause(false);
             system.Advance(9.5f);yield return null;map.Refresh();Assert.AreEqual(0,system.ActivePickups);Assert.IsFalse(marker.gameObject.activeSelf);Assert.IsFalse(system.TryCollectNearest());
         }
@@ -108,8 +108,8 @@ namespace EchoScrap.Tests
             var ids=new[]{13,14,4};
             for(int slot=0;slot<3;slot++){Approach(slot);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(slot,ids[slot]));
                 var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
-                var available=Enumerable.Range(0,FusionCatalog.Count).Where(id=>station.Progress.Available(id)>0).ToArray();var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(available.Length,grid.VisibleUnits);for(int i=0;i<available.Length;i++){var art=panel.Find("Unidades/Unidad_"+i+"/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(available[i]),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}
-                if(slot==2)yield return Capture("MarcosSelector");system.Close();}
+                var available=Enumerable.Range(0,FusionCatalog.Count).Where(id=>station.Progress.Available(id)>0).ToArray();var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(Mathf.Min(10,available.Length),grid.VisibleUnits);for(int i=0;i<grid.VisibleUnits;i++){var art=panel.Find("Unidades/Unidad_"+i+"/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(available[i]),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}
+                system.Close();}
             game.ResetRun(false);game.Session.ResumeAllUserPauses();yield return null;
             var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
             for(int slot=0;slot<3;slot++){var art=hud.Find("Retrato_"+slot+"/Cara").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(ids[slot]),art.sprite);Assert.IsTrue(art.enabled);Assert.AreEqual(Vector2.one*60,art.rectTransform.sizeDelta);}
@@ -121,9 +121,16 @@ namespace EchoScrap.Tests
             var release=station.GetComponent<VaultReleaseInteraction>();Approach(0);Assert.IsFalse(release.TryOpen());Assert.IsTrue(system.TryOpen());
             var grid=station.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(3,grid.VisibleUnits);Assert.AreEqual(0,grid.UnitId(0));Assert.AreEqual(0,grid.UnitId(1));Assert.IsFalse(grid.GetComponentsInChildren<Button>(true).Any(b=>b.name=="LIBERAR"));
             Assert.IsTrue(system.Equip(0,0));grid.Refresh(true);Assert.AreEqual(2,grid.VisibleUnits);system.Close();Approach(1);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(1,0));grid.Refresh(true);Assert.AreEqual(1,grid.VisibleUnits);Assert.AreEqual(6,grid.UnitId(0));system.Close();
-            Approach(0);Assert.IsFalse(release.TryOpen());Approach(3);Assert.AreEqual(3,release.NearestSlot);Assert.IsFalse(system.TryOpen());yield return null;yield return Capture("LiberarEnGaleria",true);
+            Approach(0);Assert.IsTrue(release.TryOpen());release.Close();Approach(3);Assert.AreEqual(3,release.NearestSlot);Assert.IsFalse(system.TryOpen());yield return null;yield return Capture("LiberarEnGaleria",true);
             Assert.IsTrue(release.TryOpen());Assert.IsTrue(game.Session.IsPaused);StringAssert.Contains("Hada",release.ConfirmationText);yield return Capture("ConfirmarLiberacionGaleria",true);
             release.Close();Assert.AreEqual(1,station.Progress.owned[6]);Assert.IsTrue(release.TryOpen());Assert.IsTrue(release.ConfirmRelease());Assert.AreEqual(0,station.Progress.owned[6]);Assert.IsFalse(release.ConfirmRelease());Assert.IsFalse(release.TryOpen());CollectionAssert.AreEqual(new[]{0,0,-1},station.Progress.equipped);
+        }
+        [UnityTest] public IEnumerator OccupiedEquipmentSupportsUnequipWithoutLossAndConfirmedRelease()
+        {
+            station.ResetCollection();station.Progress.owned[0]=1;Approach();Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(0,0));system.Close();var release=station.GetComponent<VaultReleaseInteraction>();
+            Assert.IsFalse(system.TryOpen());Assert.IsTrue(release.TryUnequip());Assert.AreEqual(1,station.Progress.owned[0]);Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
+            Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(0,0));system.Close();Assert.IsTrue(release.TryOpen());release.Close();Assert.AreEqual(0,station.Progress.equipped[0]);Assert.AreEqual(1,station.Progress.owned[0]);
+            Assert.IsTrue(release.TryOpen());Assert.IsTrue(release.ConfirmRelease());Assert.AreEqual(0,station.Progress.owned[0]);Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));yield return null;
         }
         private IEnumerator Capture(string name,bool release=false){
             yield return null;yield return null;

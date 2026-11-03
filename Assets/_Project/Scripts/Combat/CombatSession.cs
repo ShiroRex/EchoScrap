@@ -210,7 +210,7 @@ namespace EchoScrap.Combat
 
         public void ToggleManualPause()
         {
-            if (!AllowManualPause) return;
+            if (!AllowManualPause || clock.HasPauseReason(PauseReason.CompanionMenu)) return;
             SetManualPause(!clock.HasPauseReason(PauseReason.Manual));
         }
 

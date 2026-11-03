@@ -109,7 +109,7 @@ namespace EchoScrap.Tests
         {
             yield return Approach();var ui=station.GetComponent<FusionStationUI>();
             Assert.AreEqual("MÁQUINA DE FUSIÓN",ui.HeaderTitle);Assert.AreEqual("",ui.HeaderTime);
-            Assert.AreSame(Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").semibold,ui.HeaderFont);
+            Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,ui.HeaderFont);
             Assert.IsNotNull(station.transform.GetComponentInParent<VaultFloorSurface>());Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
             Assert.AreEqual(3,station.GetComponent<FusionAura>().GetComponentsInChildren<ParticleSystem>().Length);
             Assert.IsNull(station.GetComponentInChildren<LineRenderer>());
@@ -148,8 +148,8 @@ namespace EchoScrap.Tests
             Assert.IsNull(panel.Find("MarcoFusion").GetComponent<UnityEngine.UI.Image>().sprite);
             var possible=panel.Find("Ingredientes/PosiblesFusiones");Assert.IsNotNull(possible.Find("BordeFusion"));
             Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
-            var close=panel.Find("Boton_Cerrar · E").GetComponent<UnityEngine.UI.Button>();Assert.IsNull(close.image.sprite);Assert.AreSame(skin.regular,close.GetComponentInChildren<UnityEngine.UI.Text>().font);
-            Assert.AreSame(skin.semibold,panel.GetComponentInChildren<UnityEngine.UI.Text>().font);
+            var close=panel.Find("Boton_Cerrar · E").GetComponent<UnityEngine.UI.Button>();Assert.AreSame(Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin").blueButton,close.image.sprite);Assert.AreSame(skin.regular,close.GetComponentInChildren<UnityEngine.UI.Text>().font);
+            Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,panel.GetComponentInChildren<UnityEngine.UI.Text>().font);
             game.Session.SetManualPause(true);yield return null;game.Hud.RefreshNow();
             Assert.IsFalse(game.Hud.HudCanvas.transform.Find("PauseAndResultOverlay").gameObject.activeSelf);
             foreach(int id in new[]{0,1,2,3})ui.AddIngredient(id);
@@ -249,6 +249,21 @@ namespace EchoScrap.Tests
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;Assert.IsTrue(release.IsOpen);Assert.IsFalse(station.IsMenuOpen);Assert.IsFalse(station.GetComponent<CompanionSystem>().IsOpen);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.Escape));yield return null;yield return null;Assert.IsFalse(release.IsOpen);Assert.AreEqual(1,station.Progress.owned[0]);
             var fusionCanvas=station.transform.Find("FusionCanvas");Assert.IsFalse(fusionCanvas.GetComponentsInChildren<UnityEngine.UI.Button>(true).Any(b=>b.name.Contains("LIBERAR")));
+        }
+        [UnityTest] public IEnumerator InventoryPortraitsUseAnnouncementFontAndNoGrayBacking()
+        {
+            station.ResetCollection();station.Progress.owned[10]=1;yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();ui.OpenPicker(0);
+            var grid=station.GetComponentInChildren<CollectibleUnitGrid>();var card=grid.transform.Find("Unidad_0");Assert.AreEqual(0,card.GetComponent<UnityEngine.UI.Image>().color.a);Assert.AreEqual(0,card.GetComponent<RectTransform>().anchoredPosition.x);Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,card.Find("Detalle").GetComponent<UnityEngine.UI.Text>().font);yield return Capture("InventarioUnaUnidad",true);
+            station.Progress.owned[10]=10;grid.Refresh(true);Assert.AreEqual(10,grid.VisibleUnits);yield return Capture("InventarioDiezUnidades",true);
+        }
+        [UnityTest] public IEnumerator TAtOccupiedEquipmentRemovesPowerAndKeepsCollectible()
+        {
+            station.ResetCollection();station.Progress.owned[0]=1;station.Progress.equipped[0]=0;station.GetComponent<CompanionSystem>().RefreshEquipment();Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true);
+            var p=ArenaSurface.OnGround(station.DisplaySlots[0].position+Vector3.back*3,1);game.Player.transform.position=p;game.Player.GetComponent<Rigidbody>().position=p;Physics.SyncTransforms();yield return null;
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;Assert.IsTrue(station.GetComponent<VaultReleaseInteraction>().IsOpen);
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.Escape));yield return null;yield return null;
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.T));yield return null;yield return null;
+            Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(1,station.Progress.owned[0]);Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
         }
         private IEnumerator VaultCapture()
         {

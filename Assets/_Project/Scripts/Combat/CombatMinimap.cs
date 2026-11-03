@@ -15,7 +15,6 @@ namespace EchoScrap.Combat
         private Transform portal;
         private CompanionSystem companions;
         private readonly RectTransform[] collectibleMarkers=new RectTransform[12];
-        private readonly Image[] collectibleFaces=new Image[12];
         private readonly int[] collectibleIds=new int[12];
         private float nextRender;
         private Texture2D fogTexture;
@@ -80,8 +79,8 @@ namespace EchoScrap.Combat
             game.Session.SessionReset+=ResetExploration;
             portalMarker=Marker("Portal",picture.transform,new Color(.8f,.3f,1),8);
             for(int i=0;i<collectibleMarkers.Length;i++){
-                collectibleMarkers[i]=Box("Coleccionable_"+i,picture.transform,Vector2.one*18,Color.white);
-                collectibleFaces[i]=Box("Cara",collectibleMarkers[i],Vector2.one*14,Color.white).GetComponent<Image>();collectibleFaces[i].preserveAspect=true;collectibleIds[i]=-1;
+                collectibleMarkers[i]=Box("Coleccionable_"+i,picture.transform,Vector2.one*7,Color.white);
+                collectibleMarkers[i].GetComponent<Image>().sprite=circleSprite;collectibleIds[i]=-1;
                 collectibleMarkers[i].gameObject.SetActive(false);
             }
             playerMarker=Box("Jugador",picture.transform,new Vector2(26,26),Color.white);
@@ -122,7 +121,7 @@ namespace EchoScrap.Combat
             for(int i=0;i<collectibleMarkers.Length;i++){
                 int id=companions!=null?companions.PickupId(i):-1;collectibleMarkers[i].gameObject.SetActive(id>=0);if(id<0)continue;
                 collectibleMarkers[i].anchoredPosition=MapPosition(companions.PickupPosition(i));
-                if(collectibleIds[i]!=id){collectibleIds[i]=id;collectibleMarkers[i].GetComponent<Image>().color=FusionCatalog.ColorOf(id);collectibleFaces[i].sprite=Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/Portrait");}
+                if(collectibleIds[i]!=id){collectibleIds[i]=id;collectibleMarkers[i].GetComponent<Image>().color=FusionCatalog.ColorOf(id);}
             }
             portalMarker.gameObject.SetActive(portal!=null&&IsExplored(portal.position));if(portal!=null)portalMarker.anchoredPosition=MapPosition(portal.position);
             if(wasVisible&&Time.unscaledTime<nextRender)return;

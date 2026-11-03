@@ -7,7 +7,7 @@ namespace EchoScrap.Combat
     // Counts remain save-compatible; each copy is represented by its own paged inventory slot.
     public sealed class CollectibleUnitGrid : MonoBehaviour
     {
-        public const int PageSize=16;
+        public const int PageSize=10;
         private FusionStation station;
         private Func<int,int> available;
         private Action<int,int> select;
@@ -24,16 +24,16 @@ namespace EchoScrap.Combat
         public void Build(FusionStation owner,Func<int,int> availableCopies,Action<int,int> choose)
         {
             station=owner;available=availableCopies;select=choose;
-            font=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").regular;
+            font=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;
             for(int i=0;i<PageSize;i++){
-                int slot=i;var card=Box("Unidad_"+i,transform,new Vector2((i%8-3.5f)*128,110-(i/8)*205),new Vector2(122,194),new Color(.1f,.13f,.19f));
+                int slot=i;var card=Box("Unidad_"+i,transform,Vector2.zero,new Vector2(184,170),Color.clear);
                 cards[i]=card.gameObject.AddComponent<Button>();cards[i].onClick.AddListener(()=>SelectUnit(slot));
-                portraits[i]=Box("Retrato",card,new Vector2(0,49),new Vector2(76,76),Color.white).GetComponent<Image>();portraits[i].preserveAspect=true;portraits[i].raycastTarget=false;
-                labels[i]=Label(card,"Detalle",new Vector2(0,-14),new Vector2(116,64),14);
+                portraits[i]=Box("Retrato",card,new Vector2(0,28),new Vector2(104,104),Color.white).GetComponent<Image>();portraits[i].preserveAspect=true;portraits[i].raycastTarget=false;cards[i].targetGraphic=portraits[i];var colors=cards[i].colors;colors.highlightedColor=new Color(1,.88f,.65f);colors.pressedColor=new Color(.7f,.6f,.85f);cards[i].colors=colors;
+                labels[i]=Label(card,"Detalle",new Vector2(0,-57),new Vector2(184,54),18);
             }
-            previous=MakeButton(transform,"‹",new Vector2(-170,-220),new Vector2(60,30),()=>ChangePage(-1));
-            next=MakeButton(transform,"›",new Vector2(170,-220),new Vector2(60,30),()=>ChangePage(1));
-            pageLabel=Label(transform,"Pagina",new Vector2(0,-220),new Vector2(270,30),18);
+            previous=MakeButton(transform,"‹",new Vector2(-170,-190),new Vector2(60,30),()=>ChangePage(-1));
+            next=MakeButton(transform,"›",new Vector2(170,-190),new Vector2(60,30),()=>ChangePage(1));
+            pageLabel=Label(transform,"Pagina",new Vector2(0,-190),new Vector2(270,30),18);
             empty=Label(transform,"SinColeccionables",Vector2.zero,new Vector2(940,100),24);empty.text="Todavía no tienes coleccionables. Encuéntralos en la arena.";
             Refresh(true);
         }
@@ -52,11 +52,12 @@ namespace EchoScrap.Combat
                     portraits[slot].sprite=CollectibleDisplay.CardPortrait(id);labels[slot].text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]+(cards[slot].interactable?"":"\nRESERVADO");labels[slot].color=FusionCatalog.ColorOf(id);
                 }index+=count;
             }
+            for(int i=0;i<VisibleUnits;i++){int rowCount=Mathf.Min(5,VisibleUnits-i/5*5);cards[i].GetComponent<RectTransform>().anchoredPosition=new Vector2((i%5-(rowCount-1)*.5f)*202,(VisibleUnits<=5?45:110)-i/5*180);}
             for(int i=VisibleUnits;i<PageSize;i++)cards[i].gameObject.SetActive(false);
-            empty.gameObject.SetActive(total==0);pageLabel.text=total+" unidades · "+(page+1)+" / "+pages;previous.interactable=page>0;next.interactable=page+1<pages;
+            empty.gameObject.SetActive(total==0);pageLabel.text=total+(total==1?" unidad":" unidades")+(pages>1?"  ·  "+(page+1)+" / "+pages:"");previous.interactable=page>0;next.interactable=page+1<pages;previous.gameObject.SetActive(pages>1);next.gameObject.SetActive(pages>1);
         }
         private RectTransform Box(string name,Transform parent,Vector2 position,Vector2 size,Color color){var r=new GameObject(name,typeof(RectTransform),typeof(Image)).GetComponent<RectTransform>();r.SetParent(parent,false);r.anchoredPosition=position;r.sizeDelta=size;r.GetComponent<Image>().color=color;return r;}
         private Text Label(Transform parent,string name,Vector2 position,Vector2 size,int points){var t=new GameObject(name,typeof(RectTransform),typeof(Text)).GetComponent<Text>();t.transform.SetParent(parent,false);t.rectTransform.anchoredPosition=position;t.rectTransform.sizeDelta=size;t.font=font;t.fontSize=points;t.color=Color.white;t.alignment=TextAnchor.MiddleCenter;t.raycastTarget=false;return t;}
-        private Button MakeButton(Transform parent,string text,Vector2 position,Vector2 size,UnityEngine.Events.UnityAction action){var r=Box(text,parent,position,size,new Color(.2f,.24f,.33f));var b=r.gameObject.AddComponent<Button>();b.onClick.AddListener(action);Label(r,"Texto",Vector2.zero,size,16).text=text;return b;}
+        private Button MakeButton(Transform parent,string text,Vector2 position,Vector2 size,UnityEngine.Events.UnityAction action){var r=Box(text,parent,position,size,new Color(.2f,.24f,.33f));var b=r.gameObject.AddComponent<Button>();CollectionMenuStyle.Button(b);b.onClick.AddListener(action);var label=Label(r,"Texto",Vector2.zero,size,18);label.font=CollectionMenuStyle.ButtonFont;label.text=text;return b;}
     }
 }

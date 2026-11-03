@@ -39,11 +39,11 @@ namespace EchoScrap.Combat
         private Button Button(Transform parent,string name,Vector2 pos,Vector2 size,UnityEngine.Events.UnityAction action)
         {
             var r=Panel(name,parent,pos,size,new Color(.15f,.19f,.26f));r.GetComponent<Image>().raycastTarget=true;
-            var b=r.gameObject.AddComponent<Button>();b.targetGraphic=r.GetComponent<Image>();b.onClick.AddListener(action);return b;
+            var b=r.gameObject.AddComponent<Button>();b.targetGraphic=r.GetComponent<Image>();CollectionMenuStyle.Button(b);b.onClick.AddListener(action);return b;
         }
         public void Build(CompanionSystem owner,FusionStation fusion,CombatGameBootstrap bootstrap)
         {
-            system=owner;station=fusion;game=bootstrap;var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");font=skin.regular;strong=skin.semibold;
+            system=owner;station=fusion;game=bootstrap;var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");font=skin.regular;strong=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;
             for(int id=0;id<FusionCatalog.Count;id++){
                 faces[id]=CollectibleDisplay.CardPortrait(id);
             }
@@ -65,6 +65,7 @@ namespace EchoScrap.Combat
             }
             var shade=Panel("EquipoBoveda",canvas.transform,Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;shade.GetComponent<Image>().raycastTarget=true;modal=shade.gameObject;
             var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1160,740),new Color(.045f,.06f,.09f));
+            CollectionMenuStyle.Frame(panel);
             title=Label(panel,"Titulo","",new Vector2(0,325),new Vector2(990,60),30);title.font=strong;
             for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);}
             var gridRoot=Panel("Unidades",panel,new Vector2(0,-60),new Vector2(1080,470),Color.clear);

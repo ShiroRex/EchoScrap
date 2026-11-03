@@ -22,7 +22,7 @@ namespace EchoScrap.Combat
         public void Build(FusionStation owner)
         {
             station=owner;var cardSkin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
-            font=cardSkin?.regular??Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");strongFont=cardSkin?.semibold??font;
+            font=cardSkin?.regular??Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");strongFont=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;
             var root=new GameObject("FusionCanvas",typeof(RectTransform));root.transform.SetParent(transform,false);
             canvas=root.AddComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=120;
             root.AddComponent<GraphicRaycaster>();var scaler=root.AddComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;canvasRect=root.GetComponent<RectTransform>();
@@ -33,7 +33,7 @@ namespace EchoScrap.Combat
             header.GetComponent<Image>().raycastTarget=false;header.anchorMin=header.anchorMax=header.pivot=new Vector2(.5f,.5f);
             headerTitle=Label(header,"MÁQUINA DE FUSIÓN",Vector2.zero,new Vector2(620,52),34,TextAnchor.MiddleCenter);
             headerTime=Label(header,"",new Vector2(0,53),new Vector2(620,48),36,TextAnchor.MiddleCenter);
-            var cardFont=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.semibold??font;
+            var cardFont=strongFont;
             foreach(var text in new[]{headerTitle,headerTime}){text.font=cardFont;var shadow=text.gameObject.AddComponent<Shadow>();shadow.effectColor=new Color(0,0,0,.9f);shadow.effectDistance=new Vector2(2,-2);}
             headerTitle.color=new Color(.88f,.76f,1);headerTime.color=Color.white;
             var shade=Panel("InventarioFusion",canvasRect,Vector2.zero,Vector2.zero,new Color(0,0,0,.65f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;modal=shade.gameObject;
@@ -65,7 +65,7 @@ namespace EchoScrap.Combat
             var gridRoot=Panel("Unidades",picker.transform,new Vector2(0,60),new Vector2(1080,465),Color.clear);
             unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
             unitGrid.Build(station,id=>id==4?0:AvailableIngredient(id,selectedSlot),SelectFusionUnit);
-            Label(picker.transform,"Elige cuatro unidades. Las equipadas se retiran de su puesto al seleccionarlas.",new Vector2(28,501),new Vector2(1024,40),18,TextAnchor.MiddleCenter);
+            Label(picker.transform,"Elige cuatro unidades. Las equipadas se retiran de su puesto al seleccionarlas.",new Vector2(28,510),new Vector2(1024,28),16,TextAnchor.MiddleCenter);
             ButtonAt(picker.transform,"QUITAR DEL ESPACIO",new Vector2(60,558),new Vector2(430,48),()=>{if(selectedSlot>=0)ingredients[selectedSlot]=-1;ClosePicker();RefreshSelection();});
             ButtonAt(picker.transform,"VOLVER",new Vector2(610,558),new Vector2(340,48),ClosePicker);
             picker.SetActive(false);
@@ -169,7 +169,7 @@ namespace EchoScrap.Combat
         private static void Rect(RectTransform t,Vector2 p,Vector2 size){t.anchorMin=t.anchorMax=new Vector2(0,1);bool art=t.TryGetComponent<Image>(out var image)&&image.preserveAspect;t.pivot=art?Vector2.one*.5f:new Vector2(0,1);t.anchoredPosition=art?new Vector2(p.x+size.x*.5f,-p.y-size.y*.5f):new Vector2(p.x,-p.y);t.sizeDelta=size;}
         private static RectTransform Panel(string name,Transform parent,Vector2 p,Vector2 size,Color color){var o=new GameObject(name,typeof(RectTransform));o.transform.SetParent(parent,false);var t=o.GetComponent<RectTransform>();Rect(t,p,size);o.AddComponent<Image>().color=color;return t;}
         private Text Label(Transform parent,string value,Vector2 p,Vector2 size,int points,TextAnchor alignment=TextAnchor.MiddleLeft){var text=new GameObject("Texto",typeof(RectTransform)).AddComponent<Text>();text.transform.SetParent(parent,false);Rect(text.rectTransform,p,size);text.font=points>=26?strongFont:font;text.fontStyle=FontStyle.Normal;text.text=value;text.fontSize=points;text.color=Pale;text.alignment=alignment;text.raycastTarget=false;return text;}
-        private Button ButtonAt(Transform parent,string value,Vector2 p,Vector2 size,UnityEngine.Events.UnityAction action){var t=Panel("Boton_"+value,parent,p,size,new Color(.16f,.18f,.25f));Frame(t.GetComponent<Image>(),true);var button=t.gameObject.AddComponent<Button>();button.targetGraphic=t.GetComponent<Image>();
+        private Button ButtonAt(Transform parent,string value,Vector2 p,Vector2 size,UnityEngine.Events.UnityAction action){var t=Panel("Boton_"+value,parent,p,size,new Color(.16f,.18f,.25f));var button=t.gameObject.AddComponent<Button>();button.targetGraphic=t.GetComponent<Image>();CollectionMenuStyle.Button(button);
             var colors=button.colors;colors.highlightedColor=new Color(.8f,.75f,1);colors.pressedColor=new Color(.6f,.5f,.8f);colors.disabledColor=new Color(.45f,.45f,.5f);button.colors=colors;
             button.onClick.AddListener(action);Label(t,value,Vector2.zero,size,23,TextAnchor.MiddleCenter);return button;}
     }
