@@ -50,6 +50,27 @@ namespace EchoScrap.Combat
         [Range(10f, 180f)] public float RingGapDegrees = 60f;
         [Range(0f, 120f)] public float RingGapRotation = 45f;
         [Min(0f)] public float RingDamage = 30f;
+        [Header("Fisura de magma")]
+        [Min(.1f)] public float FirstFissureTime = 6f;
+        [Min(0f)] public float FissureMinimumRange = 8f;
+        [Min(4f)] public float FissureMaximumReach = 22f;
+        [Min(.1f)] public float FissureWindup = 1.1f;
+        [Min(.1f)] public float FissureRecovery = .8f;
+        [Min(.1f)] public float FissureCooldown = 10f;
+        [Min(.1f)] public float FissureRadius = 1.4f;
+        [Min(0f)] public float FissureDamage = 24f;
+        [Min(.05f)] public float FissureTravelStep = .14f;
+        [Min(.1f)] public float FissurePuddleDuration = 3f;
+        [Header("Lluvia de escoria - segunda fase")]
+        [Min(.1f)] public float FirstRainTime = 9f;
+        [Min(.1f)] public float RainWindup = 1.35f;
+        [Min(.1f)] public float RainRecovery = 1f;
+        [Min(.1f)] public float RainCooldown = 14f;
+        [Min(1f)] public float RainSpread = 4.5f;
+        [Min(.1f)] public float RainRadius = 1.8f;
+        [Min(.1f)] public float RainFlightDuration = .9f;
+        [Min(0f)] public float RainDamage = 26f;
+        [Min(.1f)] public float RainPuddleDuration = 3.5f;
         [Header("Segunda fase")]
         [Range(.05f, .95f)] public float PhaseTwoHealthFraction = .5f;
         [Min(.1f)] public float TransitionDuration = 1.8f;

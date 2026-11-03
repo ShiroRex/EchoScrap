@@ -54,6 +54,25 @@ MonoBehaviour:
   RingGapRotation: 45
   RingDamage: 30
   PhaseTwoHealthFraction: 0.5
+  FirstFissureTime: 6
+  FissureMinimumRange: 8
+  FissureMaximumReach: 22
+  FissureWindup: 1.1
+  FissureRecovery: 0.8
+  FissureCooldown: 10
+  FissureRadius: 1.4
+  FissureDamage: 24
+  FissureTravelStep: 0.14
+  FissurePuddleDuration: 3
+  FirstRainTime: 9
+  RainWindup: 1.35
+  RainRecovery: 1
+  RainCooldown: 14
+  RainSpread: 4.5
+  RainRadius: 1.8
+  RainFlightDuration: 0.9
+  RainDamage: 26
+  RainPuddleDuration: 3.5
   TransitionDuration: 1.8
   PhaseTwoSpeedMultiplier: 1.3
   PhaseTwoWindupMultiplier: 0.85

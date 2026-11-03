@@ -13,8 +13,8 @@ namespace EchoScrap.Combat
         private GolgoraActor actor;
         private GameObject groundRoot;
         private Transform warningRing, warningFill, sweepEdge, sweepFill, trailPoint;
-        private readonly Transform[] barrageRings = new Transform[3];
-        private readonly Transform[] barrageFills = new Transform[3];
+        private readonly Transform[] barrageRings = new Transform[GolgoraActor.PatternProjectileCount];
+        private readonly Transform[] barrageFills = new Transform[GolgoraActor.PatternProjectileCount];
         private readonly LineRenderer[] sweepSides = new LineRenderer[2];
         private Material groundMaterial, trailMaterial;
         private Mesh ringMesh, discMesh, sectorMesh, sectorRingMesh;
@@ -31,6 +31,7 @@ namespace EchoScrap.Combat
         public float WarningRadius => actor != null && actor.State == GolgoraState.SweepWindup ? actor.Settings.SweepRadius : warningRing != null ? warningRing.localScale.x * .5f : 0f;
         public bool IsSweepWarningVisible => sweepEdge != null && sweepEdge.gameObject.activeSelf;
         public int BarrageWarningsVisible { get; private set; }
+        public int PatternWarningsVisible { get; private set; }
         public GolgoraAudio AudioView => audioView;
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorProperty = Shader.PropertyToID("_Color");
@@ -65,7 +66,7 @@ namespace EchoScrap.Combat
             sectorMesh = GroundMesh(false, 180f); sectorRingMesh = GroundMesh(true, 180f, .4945f);
             warningRing = Ground("HammerBoundary", ringMesh); warningFill = Ground("HammerFill", discMesh);
             sweepEdge = Ground("SweepBoundary180", sectorRingMesh); sweepFill = Ground("SweepFill180", sectorMesh);
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < barrageRings.Length; i++)
             {
                 barrageRings[i] = Ground("MagmaLanding_" + i, ringMesh);
                 barrageFills[i] = Ground("MagmaLandingFill_" + i, discMesh);
@@ -128,10 +129,14 @@ namespace EchoScrap.Combat
                 }
             }
             bool barrage = actor.State == GolgoraState.BarrageWindup; BarrageWarningsVisible = barrage ? 3 : 0;
-            for (int i = 0; i < 3; i++)
+            PatternWarningsVisible=actor.IsPatternWindup?GolgoraActor.PatternProjectileCount:0;
+            int warningCount=barrage?3:PatternWarningsVisible;
+            for (int i = 0; i < barrageRings.Length; i++)
             {
-                barrageRings[i].gameObject.SetActive(barrage); barrageFills[i].gameObject.SetActive(barrage);
-                if (barrage) Circle(barrageRings[i], barrageFills[i], actor.GetLastBarrageTarget(i), actor.Settings.BarrageRadius, actor.PhaseProgress, intensity);
+                bool visible=i<warningCount;
+                barrageRings[i].gameObject.SetActive(visible); barrageFills[i].gameObject.SetActive(visible);
+                if (visible) Circle(barrageRings[i], barrageFills[i], barrage?actor.GetLastBarrageTarget(i):actor.GetPatternTarget(i),
+                    barrage?actor.Settings.BarrageRadius:actor.PatternRadius, actor.PhaseProgress, intensity);
             }
             bool charging = actor.State == GolgoraState.PhaseTransition || actor.State == GolgoraState.CercoWindup;
             impactVfx.Step(deltaTime, intensity, actor.WorldCenter, charging, actor.PhaseProgress,
@@ -158,7 +163,7 @@ namespace EchoScrap.Combat
         private void HandleImpact(GolgoraAttackKind kind, Vector3 origin, Vector3 direction)
         {
             audioView?.Impact(kind);
-            if (kind == GolgoraAttackKind.Hammer || kind == GolgoraAttackKind.Cerco) TriggerStomp(origin);
+            if (kind == GolgoraAttackKind.Hammer || kind == GolgoraAttackKind.Cerco || kind==GolgoraAttackKind.Fissure) TriggerStomp(origin);
             else if (kind == GolgoraAttackKind.Sweep)
             {
                 impactVfx.Sweep(origin, direction, actor.Settings.SweepRadius, Intensity);
@@ -181,7 +186,7 @@ namespace EchoScrap.Combat
         public void ResetPresentation()
         {
             if (!initialized) return;
-            age = introProgress = 0f; BarrageWarningsVisible = 0;
+            age = introProgress = 0f; BarrageWarningsVisible = PatternWarningsVisible = 0;
             for (int i = 0; i < groundRoot.transform.childCount; i++) groundRoot.transform.GetChild(i).gameObject.SetActive(false);
             impactVfx.Clear();
             trailPoint.gameObject.SetActive(true); weaponTrail.Clear(); weaponTrail.emitting = false;

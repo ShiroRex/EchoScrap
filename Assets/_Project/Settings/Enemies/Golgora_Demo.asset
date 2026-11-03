@@ -15,7 +15,7 @@ MonoBehaviour:
   data:
     ArchetypeId: 99
     DisplayName: Gólgora
-    MaxHealth: 1200
+    MaxHealth: 3600
     BaseMoveSpeed: 1.6
     SpeedVarianceFraction: 0
     ContactDamage: 30

@@ -62,7 +62,7 @@ namespace EchoScrap.Tests
         public void BossUsesTheSelectedRoundsHealthAndUpgradesWaitThroughItsCinematic()
         {
             var entry = Resources.Load<ExpeditionEntrySettings>("UI/ExpeditionEntrySettings");
-            foreach (var variant in new[] { (entry.DemoRound, 1200f), (entry.CompleteRound, 4200f) })
+            foreach (var variant in new[] { (entry.DemoRound, 3600f), (entry.CompleteRound, 9000f) })
             {
                 game.SelectWaveSettings(variant.Item1); game.ResetRun(false);
                 var boundary = game.BossArena.transform.Find("FoundryBoundary_0");

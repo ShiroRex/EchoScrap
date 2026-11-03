@@ -92,10 +92,10 @@ namespace EchoScrap.Combat
             if (actor.State != previousState)
             {
                 elapsed = 0f;
-                if (actor.State == GolgoraState.StompWindup || actor.State == GolgoraState.CercoWindup)
+                if (actor.State == GolgoraState.StompWindup || actor.State == GolgoraState.CercoWindup || actor.State==GolgoraState.FissureWindup)
                 { attack = "HammerSlam"; contact = .35f; }
                 else if (actor.State == GolgoraState.SweepWindup) { attack = "HeavySweep"; contact = .34f; }
-                else if (actor.State == GolgoraState.BarrageWindup) { attack = "ProjectileThrow"; contact = .40f; }
+                else if (actor.State == GolgoraState.BarrageWindup || actor.State==GolgoraState.RainWindup) { attack = "ProjectileThrow"; contact = .40f; }
                 previousState = actor.State;
             }
             else elapsed += Mathf.Max(0f, deltaTime);
@@ -125,6 +125,8 @@ namespace EchoScrap.Combat
                 case GolgoraState.StompWindup:
                 case GolgoraState.SweepWindup:
                 case GolgoraState.BarrageWindup:
+                case GolgoraState.FissureWindup:
+                case GolgoraState.RainWindup:
                 case GolgoraState.CercoWindup: Sample(attack, actor.PhaseProgress * contact); break;
                 case GolgoraState.Recovery: Sample(attack, Mathf.Lerp(contact, 1f, actor.RecoveryProgress)); break;
                 case GolgoraState.PhaseTransition: Sample("Overload", actor.PhaseProgress); break;

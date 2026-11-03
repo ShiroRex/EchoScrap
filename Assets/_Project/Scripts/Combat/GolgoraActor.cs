@@ -5,8 +5,8 @@ using UnityEngine;
 namespace EchoScrap.Combat
 {
     // Preserve the original values for serialized scenes and recorded QA data.
-    public enum GolgoraState { Intro, Pursuing, StompWindup, BarrageWindup, Recovery, Dead, SweepWindup, PhaseTransition, CercoReposition, CercoWindup, CercoActive }
-    public enum GolgoraAttackKind { None, Hammer, Sweep, Barrage, Cerco }
+    public enum GolgoraState { Intro, Pursuing, StompWindup, BarrageWindup, Recovery, Dead, SweepWindup, PhaseTransition, CercoReposition, CercoWindup, CercoActive, FissureWindup, RainWindup }
+    public enum GolgoraAttackKind { None, Hammer, Sweep, Barrage, Cerco, Fissure, Rain }
 
     /// <summary>Exclusive, announced attacks driven by the same clock as animation and hit resolution.</summary>
     public sealed class GolgoraActor : EnemyActor
@@ -19,6 +19,9 @@ namespace EchoScrap.Combat
         [SerializeField] private GolgoraCombatSettings combatSettings;
         private readonly EnemyActor[] collateralTargets = new EnemyActor[256];
         private readonly Vector3[] barrageTargets = new Vector3[3];
+        public const int PatternProjectileCount = 5;
+        private readonly Vector3[] patternTargets = new Vector3[PatternProjectileCount];
+        private float nextFissureTime, nextRainTime;
         private CorrosivePuddlePool hazards;
         private GolgoraPresentation presentation;
         private MataColeccionistaView modelView;
@@ -45,6 +48,11 @@ namespace EchoScrap.Combat
         public int StompsExecuted { get; private set; }
         public int SweepsExecuted { get; private set; }
         public int BarragesExecuted { get; private set; }
+        public int FissuresExecuted { get; private set; }
+        public int RainsExecuted { get; private set; }
+        public bool IsPatternWindup => State==GolgoraState.FissureWindup || State==GolgoraState.RainWindup;
+        public float PatternRadius => State==GolgoraState.FissureWindup ? Settings.FissureRadius : Settings.RainRadius;
+        public Vector3 GetPatternTarget(int index) => patternTargets[Mathf.Clamp(index,0,PatternProjectileCount-1)];
         public int CercosExecuted { get; private set; }
         public int CercoPulsesEmitted { get; private set; }
         public int CercoPulseCount => IsPhaseTwo ? 3 : 1;
@@ -74,6 +82,8 @@ namespace EchoScrap.Combat
             GolgoraState.StompWindup => Settings.HammerWindup * WindupMultiplier,
             GolgoraState.SweepWindup => Settings.SweepWindup * WindupMultiplier,
             GolgoraState.BarrageWindup => Settings.BarrageWindup * WindupMultiplier,
+            GolgoraState.FissureWindup => Settings.FissureWindup * WindupMultiplier,
+            GolgoraState.RainWindup => Settings.RainWindup * WindupMultiplier,
             GolgoraState.CercoWindup => Settings.CercoWindup,
             GolgoraState.PhaseTransition => Mathf.Max(Settings.TransitionDuration,GolgoraRoarPresentation.RoarDuration),
             GolgoraState.CercoReposition => Settings.CercoJumpDuration,
@@ -82,6 +92,8 @@ namespace EchoScrap.Combat
                 GolgoraAttackKind.Hammer => Settings.HammerRecovery,
                 GolgoraAttackKind.Sweep => Settings.SweepRecovery,
                 GolgoraAttackKind.Barrage => Settings.BarrageRecovery,
+                GolgoraAttackKind.Fissure => Settings.FissureRecovery,
+                GolgoraAttackKind.Rain => Settings.RainRecovery,
                 _ => Settings.CercoRecovery
             }),
             _ => 1f
@@ -138,6 +150,8 @@ namespace EchoScrap.Combat
             BossTime = phaseTime = 0f;
             nextStompTime = nextSweepTime = 2f; nextBarrageTime = 3.5f;
             nextCercoTime = Settings.FirstCercoTime;
+            nextFissureTime=Settings.FirstFissureTime;nextRainTime=Settings.FirstRainTime;
+            FissuresExecuted=RainsExecuted=0;
             StompsExecuted = SweepsExecuted = BarragesExecuted = CercosExecuted = CercoPulsesEmitted = 0;
             stompOrigin = ArenaSurface.OnGround(WorldCenter); attackDirection = FacingDirection;
             playerBody = TargetPlayer != null ? TargetPlayer.GetComponent<Rigidbody>() : null;
@@ -192,6 +206,10 @@ namespace EchoScrap.Combat
                     if (TargetPlayer != null && TargetPlayer.IsAlive)
                     {
                         Vector3 delta = PursuitGoal - WorldCenter; delta.y = 0f;
+                        if(IsPhaseTwo && BossTime>=nextRainTime && CanLaunchPattern(PatternProjectileCount))
+                        { BeginPattern(true);break; }
+                        if(BossTime>=nextFissureTime && delta.sqrMagnitude>=Settings.FissureMinimumRange*Settings.FissureMinimumRange && CanLaunchPattern(PatternProjectileCount))
+                        { BeginPattern(false);break; }
                         if (delta.sqrMagnitude <= Settings.HammerTriggerRange * Settings.HammerTriggerRange)
                         {
                             if (preferSweep && BossTime >= nextSweepTime) BeginSweep();
@@ -212,6 +230,11 @@ namespace EchoScrap.Combat
                 case GolgoraState.BarrageWindup:
                     StopBody();
                     if (phaseTime + .0001f >= CurrentPhaseDuration && CanFireBarrage()) { ExecuteBarrage(); EnterRecovery(); }
+                    break;
+                case GolgoraState.FissureWindup:
+                case GolgoraState.RainWindup:
+                    StopBody();
+                    if(phaseTime+.0001f>=CurrentPhaseDuration){ExecutePattern();EnterRecovery();}
                     break;
                 case GolgoraState.PhaseTransition:
                     StopBody();
@@ -283,9 +306,51 @@ namespace EchoScrap.Combat
             phaseTime = 0f; nextSweepTime = BossTime + Settings.SweepCooldown * CooldownMultiplier; preferSweep = false;
             LockDirection(); stompOrigin = ArenaSurface.OnGround(WorldCenter); StopBody();
         }
-        private bool CanFireBarrage() => hazards != null &&
-            CorrosivePuddlePool.MaxInFlightProjectiles - hazards.ActiveProjectileCount >= 3 &&
-            CorrosivePuddlePool.MaxActivePuddles - hazards.ActivePuddleCount - hazards.ReservedPuddleCount >= 3;
+        private bool CanFireBarrage() => CanLaunchPattern(3);
+        private bool CanLaunchPattern(int count) => hazards != null &&
+            CorrosivePuddlePool.MaxInFlightProjectiles - hazards.ActiveProjectileCount >= count &&
+            CorrosivePuddlePool.MaxActivePuddles - hazards.ActivePuddleCount - hazards.ReservedPuddleCount >= count;
+        private void BeginPattern(bool rain)
+        {
+            State=rain?GolgoraState.RainWindup:GolgoraState.FissureWindup;
+            CurrentAttackKind=rain?GolgoraAttackKind.Rain:GolgoraAttackKind.Fissure;
+            phaseTime=0;LockDirection();stompOrigin=ArenaSurface.OnGround(WorldCenter);StopBody();
+            if(rain)
+            {
+                nextRainTime=BossTime+Settings.RainCooldown*CooldownMultiplier;
+                Vector3 predicted=PursuitGoal+(playerBody!=null?Vector3.ProjectOnPlane(playerBody.linearVelocity,Vector3.up)*Settings.BarragePrediction:Vector3.zero);
+                patternTargets[0]=ClampTarget(predicted);
+                for(int i=1;i<PatternProjectileCount;i++)
+                    patternTargets[i]=ClampTarget(predicted+Quaternion.AngleAxis((i-1)*90,Vector3.up)*attackDirection*Settings.RainSpread);
+            }
+            else
+            {
+                nextFissureTime=BossTime+Settings.FissureCooldown*CooldownMultiplier;
+                float reach=Mathf.Clamp(Vector3.ProjectOnPlane(PursuitGoal-WorldCenter,Vector3.up).magnitude,Settings.FissureMinimumRange,Settings.FissureMaximumReach);
+                for(int i=0;i<PatternProjectileCount;i++)
+                    patternTargets[i]=ClampTarget(stompOrigin+attackDirection*Mathf.Lerp(Settings.HammerForwardOffset,reach,i/(float)(PatternProjectileCount-1)));
+            }
+        }
+        private void ExecutePattern()
+        {
+            bool rain=CurrentAttackKind==GolgoraAttackKind.Rain;
+            for(int i=0;i<PatternProjectileCount;i++)
+            {
+                var spec=new CorrosivePuddlePool.ProjectileSpec
+                {
+                    SourceId=TargetId,LaunchOrigin=rain?WorldCenter+Vector3.up*3.3f:stompOrigin+Vector3.up*.2f,
+                    TargetPosition=patternTargets[i],FlightDuration=rain?Settings.RainFlightDuration+i*.1f:.25f+i*Settings.FissureTravelStep,
+                    ArcPeakHeight=rain?5f:.15f,ImpactRadius=rain?Settings.RainRadius:Settings.FissureRadius,
+                    DirectImpactDamage=rain?Settings.RainDamage:Settings.FissureDamage,DirectImpactSource=DamageSourceType.BossBombardmentImpact,
+                    PuddleRadius=rain?Settings.RainRadius:Settings.FissureRadius,PuddleDuration=rain?Settings.RainPuddleDuration:Settings.FissurePuddleDuration,
+                    PuddleTickDamage=Settings.PuddleDamage,PuddleTickInterval=Settings.PuddleTickInterval,
+                    PuddleDamageSource=DamageSourceType.BossBombardmentPuddle,Style=CorrosivePuddlePool.HazardStyle.BossMagma
+                };
+                hazards.TryLaunchParabolicProjectile(in spec);
+            }
+            if(rain)RainsExecuted++;else FissuresExecuted++;
+            AttackExecuted?.Invoke(CurrentAttackKind,stompOrigin,attackDirection);
+        }
         private void BeginBarrage()
         {
             State = GolgoraState.BarrageWindup; CurrentAttackKind = GolgoraAttackKind.Barrage;
