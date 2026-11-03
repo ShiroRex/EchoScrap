@@ -39,7 +39,7 @@ namespace EchoScrap.Combat
             openingAudio.transform.SetParent(transform,false);openingAudio.playOnAwake=false;openingAudio.loop=false;
             openingAudio.spatialBlend=0;openingAudio.volume=.7f;openingAudio.clip=Resources.Load<AudioClip>("Audio/FusionOpen");
             ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);RefreshDisplays();UpdateResult();
-            if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);}
+            if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);gameObject.AddComponent<VaultReleaseInteraction>().Initialize(this,game);}
         }
         private void Update()
         {
@@ -91,6 +91,13 @@ namespace EchoScrap.Combat
             int id=i<3?Progress.equipped[i]:i-3<gallery.Length?gallery[i-3]:-1;
             displays[i].Configure(FusionCatalog.Valid(id)&&Progress.owned[id]>0?id:-1,DisplayHeight,true);
         }}
+        public int DisplayedId(int slot)=>displays!=null&&slot>=0&&slot<displays.Length?displays[slot].CollectibleId:-1;
+        public bool UnequipForFusion(int id)
+        {
+            if(!IsMenuOpen||!CanInteract||!FusionCatalog.Valid(id))return false;
+            int slot=Array.IndexOf(Progress.equipped,id);if(slot<0)return false;
+            Progress.equipped[slot]=-1;GetComponent<CompanionSystem>()?.RefreshEquipment();Save();return true;
+        }
         public bool ReleaseCollectible(int id)
         {
             if(!FusionCatalog.Valid(id)||Progress.Available(id)<=0)return false;

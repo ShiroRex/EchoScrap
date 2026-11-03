@@ -31,7 +31,7 @@ namespace EchoScrap.Combat
                 return slot;
             }
         }
-        public bool CanEquip => NearestSlot>=0 && (!IsOpen || NearestSlot==SelectedSlot);
+        public bool CanEquip => (GetComponent<VaultReleaseInteraction>()?.NearestSlot??-1)<3 && NearestSlot>=0 && (!IsOpen || NearestSlot==SelectedSlot);
         public bool CanCollect => NearestPickup()>=0;
         public int PickupId(int index)=>index>=0&&index<pickups.Count?pickups[index].Id:-1;
         public Vector3 PickupPosition(int index)=>index>=0&&index<pickups.Count?pickups[index].Ground:Vector3.zero;
@@ -60,7 +60,7 @@ namespace EchoScrap.Combat
         public void Close() { if(view!=null)view.Show(false);if(game!=null)game.Session.Clock.SetPause(PauseReason.CompanionMenu,false);SelectedSlot=-1; }
         public bool Equip(int slot,int id)
         {
-            if(!IsOpen || !CanEquip || slot!=SelectedSlot || !station.EquipCompanion(slot,id))return false;
+            if(!IsOpen || !CanEquip || slot!=SelectedSlot || id>=0&&station.Progress.Available(id)<=0 || !station.EquipCompanion(slot,id))return false;
             RefreshEquipment();return true;
         }
         public void RefreshEquipment()

@@ -231,7 +231,24 @@ namespace EchoScrap.Tests
             var panel=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel");
             var labels=panel.Find("Ingredientes/PosiblesFusiones").GetComponentsInChildren<UnityEngine.UI.Text>().OrderBy(t=>t.rectTransform.anchoredPosition.x).Select(t=>t.text).ToArray();
             StringAssert.StartsWith("Chico Emo\nRARO\n44.55%",labels[0]);StringAssert.StartsWith("Conde Alucard\nESPECIAL",labels[1]);StringAssert.StartsWith("Yanikua\nMÍTICO\n1%",labels[3]);yield return Capture("ProbabilidadesOrdenadas",true);
-            ui.OpenPicker(0);var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();grid.RequestRelease(0);Assert.IsFalse(grid.ConfirmationOpen);Assert.AreEqual(2,station.Progress.owned[0]);
+            ui.OpenPicker(0);var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.IsFalse(grid.GetComponentsInChildren<UnityEngine.UI.Button>(true).Any(b=>b.name=="LIBERAR"));Assert.AreEqual(2,station.Progress.owned[0]);
+        }
+        [UnityTest] public IEnumerator FusionCanSelectEquippedCopyAndImmediatelyRemovesItsPowerAndDisplay()
+        {
+            station.ResetCollection();station.Progress.owned[0]=2;station.Progress.owned[1]=2;station.Progress.equipped[0]=0;station.GetComponent<CompanionSystem>().RefreshEquipment();
+            Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();ui.OpenPicker(0);
+            var grid=station.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(4,grid.VisibleUnits);grid.SelectUnit(1);Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(-1,station.DisplayedId(0));Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.AreEqual(2,station.Progress.owned[0]);
+            ui.OpenPicker(1);Assert.AreEqual(3,grid.VisibleUnits);grid.SelectUnit(0);ui.AddIngredient(1);ui.AddIngredient(1);Assert.AreEqual(4,ui.SelectedCount);Assert.IsTrue(station.StartFusion(new[]{0,0,1,1}));Assert.AreEqual(0,station.Progress.owned[0]);Assert.AreEqual(0,station.Progress.owned[1]);
+            yield return null;
+        }
+        [UnityTest] public IEnumerator EAtGalleryOpensReleaseAndEscapeCancelsWithoutChangingInventory()
+        {
+            station.ResetCollection();station.Progress.owned[0]=1;station.RefreshDisplays();Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true);
+            var p=ArenaSurface.OnGround(station.DisplaySlots[3].position+Vector3.back*3,1);game.Player.transform.position=p;game.Player.GetComponent<Rigidbody>().position=p;Physics.SyncTransforms();yield return null;
+            var release=station.GetComponent<VaultReleaseInteraction>();Assert.AreEqual(3,release.NearestSlot);
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;Assert.IsTrue(release.IsOpen);Assert.IsFalse(station.IsMenuOpen);Assert.IsFalse(station.GetComponent<CompanionSystem>().IsOpen);
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.Escape));yield return null;yield return null;Assert.IsFalse(release.IsOpen);Assert.AreEqual(1,station.Progress.owned[0]);
+            var fusionCanvas=station.transform.Find("FusionCanvas");Assert.IsFalse(fusionCanvas.GetComponentsInChildren<UnityEngine.UI.Button>(true).Any(b=>b.name.Contains("LIBERAR")));
         }
         private IEnumerator VaultCapture()
         {

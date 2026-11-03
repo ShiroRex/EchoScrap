@@ -9,60 +9,47 @@ namespace EchoScrap.Combat
     {
         public const int PageSize=16;
         private FusionStation station;
-        private Func<int,int> available, releasable;
-        private Action<int> select, changed;
-        private readonly Button[] cards=new Button[PageSize], releases=new Button[PageSize];
+        private Func<int,int> available;
+        private Action<int,int> select;
+        private readonly Button[] cards=new Button[PageSize];
         private readonly Image[] portraits=new Image[PageSize];
         private readonly Text[] labels=new Text[PageSize];
         private readonly int[] ids=new int[PageSize], copies=new int[PageSize];
-        private GameObject confirmation;
-        private Text question,pageLabel,empty;
+        private Text pageLabel,empty;
         private Button previous,next;
         private Font font;
-        private int page,hash=int.MinValue,pending=-1,pendingCopy;
-        public bool ConfirmationOpen=>confirmation.activeSelf;
-        public string ConfirmationText=>question.text;
+        private int page,hash=int.MinValue;
         public int VisibleUnits {get;private set;}
         public int UnitId(int slot)=>ids[slot];
-        public void Build(FusionStation owner,Func<int,int> availableCopies,Func<int,int> releaseCopies,Action<int> choose,Action<int> onChanged)
+        public void Build(FusionStation owner,Func<int,int> availableCopies,Action<int,int> choose)
         {
-            station=owner;available=availableCopies;releasable=releaseCopies;select=choose;changed=onChanged;
+            station=owner;available=availableCopies;select=choose;
             font=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").regular;
             for(int i=0;i<PageSize;i++){
                 int slot=i;var card=Box("Unidad_"+i,transform,new Vector2((i%8-3.5f)*128,110-(i/8)*205),new Vector2(122,194),new Color(.1f,.13f,.19f));
                 cards[i]=card.gameObject.AddComponent<Button>();cards[i].onClick.AddListener(()=>SelectUnit(slot));
                 portraits[i]=Box("Retrato",card,new Vector2(0,49),new Vector2(76,76),Color.white).GetComponent<Image>();portraits[i].preserveAspect=true;portraits[i].raycastTarget=false;
                 labels[i]=Label(card,"Detalle",new Vector2(0,-14),new Vector2(116,64),14);
-                releases[i]=MakeButton(card,"LIBERAR",new Vector2(0,-74),new Vector2(106,28),()=>RequestRelease(slot));
             }
             previous=MakeButton(transform,"‹",new Vector2(-170,-220),new Vector2(60,30),()=>ChangePage(-1));
             next=MakeButton(transform,"›",new Vector2(170,-220),new Vector2(60,30),()=>ChangePage(1));
             pageLabel=Label(transform,"Pagina",new Vector2(0,-220),new Vector2(270,30),18);
             empty=Label(transform,"SinColeccionables",Vector2.zero,new Vector2(940,100),24);empty.text="Todavía no tienes coleccionables. Encuéntralos en la arena.";
-            var shade=Box("ConfirmarLiberacion",transform,Vector2.zero,new Vector2(1080,510),new Color(.02f,.025f,.045f,.98f));confirmation=shade.gameObject;shade.SetParent(transform.parent,false);shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;
-            question=Label(shade,"Pregunta",new Vector2(0,75),new Vector2(800,130),28);
-            MakeButton(shade,"CANCELAR",new Vector2(-170,-75),new Vector2(260,48),CancelRelease);
-            MakeButton(shade,"LIBERAR",new Vector2(170,-75),new Vector2(260,48),()=>ConfirmRelease());
-            confirmation.SetActive(false);Refresh(true);
+            Refresh(true);
         }
-        public void SelectUnit(int slot){if(slot>=0&&slot<VisibleUnits&&cards[slot].interactable&&!ConfirmationOpen)select(ids[slot]);}
-        public void RequestRelease(int slot){if(slot<0||slot>=VisibleUnits||!releases[slot].interactable||ConfirmationOpen)return;pending=ids[slot];pendingCopy=copies[slot];question.text="¿Seguro que quieres liberar a\n"+FusionCatalog.Names[pending]+"?\nEsta unidad desaparecerá de tu colección.";confirmation.SetActive(true);confirmation.transform.SetAsLastSibling();}
-        public void CancelRelease(){pending=-1;confirmation.SetActive(false);}
-        public bool ConfirmRelease(){int id=pending;bool valid=FusionCatalog.Valid(id)&&pendingCopy<releasable(id);CancelRelease();if(!valid||!station.ReleaseCollectible(id))return false;changed?.Invoke(id);Refresh(true);return true;}
+        public void SelectUnit(int slot){if(slot>=0&&slot<VisibleUnits&&cards[slot].interactable)select(ids[slot],copies[slot]);}
         public void ChangePage(int delta){page=Mathf.Max(0,page+delta);Refresh(true);}
-        private void OnDisable(){if(confirmation!=null)CancelRelease();}
         public void Refresh(bool force=false)
         {
             int total=0,newHash=page;
-            unchecked{for(int id=0;id<FusionCatalog.Count;id++){total+=station.Progress.owned[id];newHash=newHash*31+station.Progress.owned[id];newHash=newHash*31+available(id);newHash=newHash*31+releasable(id);}}
+            unchecked{for(int id=0;id<FusionCatalog.Count;id++){total+=Mathf.Max(0,available(id));newHash=newHash*31+station.Progress.owned[id];newHash=newHash*31+available(id);}}
             if(!force&&hash==newHash)return;hash=newHash;
             int pages=Mathf.Max(1,(total+PageSize-1)/PageSize);page=Mathf.Clamp(page,0,pages-1);int offset=page*PageSize,index=0;VisibleUnits=0;
             for(int id=0;id<FusionCatalog.Count&&VisibleUnits<PageSize;id++){
-                int count=station.Progress.owned[id];if(index+count<=offset){index+=count;continue;}
+                int count=Mathf.Max(0,available(id));if(index+count<=offset){index+=count;continue;}
                 for(int copy=Mathf.Max(0,offset-index);copy<count&&VisibleUnits<PageSize;copy++){
                     int slot=VisibleUnits++;ids[slot]=id;copies[slot]=copy;cards[slot].gameObject.SetActive(true);cards[slot].interactable=copy<available(id);
                     portraits[slot].sprite=CollectibleDisplay.CardPortrait(id);labels[slot].text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]+(cards[slot].interactable?"":"\nRESERVADO");labels[slot].color=FusionCatalog.ColorOf(id);
-                    releases[slot].interactable=copy<releasable(id);
                 }index+=count;
             }
             for(int i=VisibleUnits;i<PageSize;i++)cards[i].gameObject.SetActive(false);

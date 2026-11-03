@@ -64,8 +64,8 @@ namespace EchoScrap.Combat
             Label(picker.transform,"TU GARAJE · ELIGE UN COLECCIONABLE",new Vector2(28,15),new Vector2(1024,46),27,TextAnchor.MiddleCenter);
             var gridRoot=Panel("Unidades",picker.transform,new Vector2(0,60),new Vector2(1080,465),Color.clear);
             unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
-            unitGrid.Build(station,id=>id==4?0:AvailableIngredient(id,selectedSlot),id=>Mathf.Max(0,station.Progress.Available(id)-ingredients.Count(value=>value==id)),AddIngredient,id=>RefreshSelection());
-            Label(picker.transform,"Se consumen cuatro copias disponibles. Los equipados y Yanikua están protegidos.",new Vector2(28,501),new Vector2(1024,40),18,TextAnchor.MiddleCenter);
+            unitGrid.Build(station,id=>id==4?0:AvailableIngredient(id,selectedSlot),SelectFusionUnit);
+            Label(picker.transform,"Elige cuatro unidades. Las equipadas se retiran de su puesto al seleccionarlas.",new Vector2(28,501),new Vector2(1024,40),18,TextAnchor.MiddleCenter);
             ButtonAt(picker.transform,"QUITAR DEL ESPACIO",new Vector2(60,558),new Vector2(430,48),()=>{if(selectedSlot>=0)ingredients[selectedSlot]=-1;ClosePicker();RefreshSelection();});
             ButtonAt(picker.transform,"VOLVER",new Vector2(610,558),new Vector2(340,48),ClosePicker);
             picker.SetActive(false);
@@ -73,8 +73,7 @@ namespace EchoScrap.Combat
             resultImage=new GameObject("ColeccionableRevelado",typeof(RectTransform)).AddComponent<Image>();resultImage.transform.SetParent(result.transform,false);resultImage.preserveAspect=true;Rect(resultImage.rectTransform,new Vector2(65,60),new Vector2(330,370));
             resultTitle=Label(result.transform,"",new Vector2(440,90),new Vector2(620,100),38);
             resultDescription=Label(result.transform,"",new Vector2(440,215),new Vector2(600,150),24);
-            ButtonAt(result.transform,"COLECCIONAR",new Vector2(130,515),new Vector2(360,65),()=>station.Resolve(true));
-            ButtonAt(result.transform,"LIBERAR",new Vector2(630,515),new Vector2(360,65),()=>station.Resolve(false));
+            ButtonAt(result.transform,"COLECCIONAR",new Vector2(380,515),new Vector2(360,65),()=>station.Resolve(true));
             status=Label(panel,"El combate se pausa mientras eliges. La fusión continúa al cerrar.",new Vector2(36,766),new Vector2(1050,25),17,TextAnchor.MiddleCenter);
             modal.SetActive(false);RefreshSelection();
         }
@@ -86,13 +85,21 @@ namespace EchoScrap.Combat
             inventory.SetActive(false);picker.SetActive(true);picker.transform.SetAsLastSibling();
         }
         private void ClosePicker(){picker.SetActive(false);inventory.SetActive(true);}
+        private void SelectFusionUnit(int id,int copy)
+        {
+            int reserved=ingredients.Where((value,index)=>index!=selectedSlot&&value==id).Count();
+            if(copy>=Mathf.Max(0,station.Progress.Available(id)-reserved)&&!station.UnequipForFusion(id))return;
+            AddIngredient(id);
+        }
         public void AddIngredient(int id)
         {
             if(!FusionCatalog.Valid(id)||id==4||station.Progress.phase!=FusionPhase.Idle)return;
             int slot=selectedSlot>=0?selectedSlot:System.Array.IndexOf(ingredients,-1);if(slot<0||AvailableIngredient(id,slot)<=0)return;
+            int reserved=ingredients.Where((value,index)=>index!=slot&&value==id).Count();
+            if(station.Progress.Available(id)<=reserved&&!station.UnequipForFusion(id))return;
             ingredients[slot]=id;selectedSlot=-1;ClosePicker();RefreshSelection();
         }
-        private int AvailableIngredient(int id,int slot)=>Mathf.Max(0,station.Progress.Available(id)-ingredients.Where((value,index)=>index!=slot&&value==id).Count());
+        private int AvailableIngredient(int id,int slot)=>Mathf.Max(0,station.Progress.owned[id]-ingredients.Where((value,index)=>index!=slot&&value==id).Count());
         public void ClearSelection(){for(int i=0;i<4;i++)ingredients[i]=-1;selectedSlot=-1;RefreshSelection();}
         private void RefreshSelection()
         {
@@ -135,7 +142,7 @@ namespace EchoScrap.Combat
         {
             bool ready=station.Progress.phase==FusionPhase.AwaitingDecision;
             picker.SetActive(false);modal.SetActive(true);inventory.SetActive(!ready);result.SetActive(ready);
-            if(ready){int id=station.Progress.result;resultImage.sprite=CollectibleDisplay.CardPortrait(id);resultTitle.text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]];resultTitle.color=FusionCatalog.ColorOf(id);resultDescription.text="Coleccionar: guardarlo en tu inventario y colocarlo en una plaza libre de la bóveda.\n\nLiberar: descartarlo y cerrar la máquina.";status.text="Los repetidos también se guardan. Puedes elegir tus tres compañeros en la bóveda.";}
+            if(ready){int id=station.Progress.result;resultImage.sprite=CollectibleDisplay.CardPortrait(id);resultTitle.text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]];resultTitle.color=FusionCatalog.ColorOf(id);resultDescription.text="Coleccionar: guardarlo en tu inventario y colocarlo en una plaza libre de la bóveda.\n\nPodrás liberarlo desde su plaza en la bóveda.";status.text="Los repetidos también se guardan. Puedes elegir tus tres compañeros en la bóveda.";}
             else {ClearSelection();status.text="El combate se pausa mientras eliges. La fusión continúa al cerrar.";}
         }
         public void Hide(){if(modal!=null)modal.SetActive(false);}

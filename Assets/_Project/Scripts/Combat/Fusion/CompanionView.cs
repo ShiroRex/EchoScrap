@@ -69,12 +69,12 @@ namespace EchoScrap.Combat
             for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);}
             var gridRoot=Panel("Unidades",panel,new Vector2(0,-60),new Vector2(1080,470),Color.clear);
             unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
-            unitGrid.Build(station,AvailableForSlot,id=>station.Progress.Available(id),id=>system.Equip(selected,id),id=>system.RefreshEquipment());
+            unitGrid.Build(station,AvailableForSlot,(id,copy)=>system.Equip(selected,id));
             var remove=Button(panel,"Quitar",new Vector2(-180,-330),new Vector2(250,45),()=>system.Equip(selected,-1));Label(remove.transform,"Texto","QUITAR DEL PUESTO",Vector2.zero,new Vector2(240,45),20);
             var close=Button(panel,"Cerrar",new Vector2(180,-330),new Vector2(250,45),system.Close);Label(close.transform,"Texto","CERRAR · E / ESC",Vector2.zero,new Vector2(240,45),20);
             modal.SetActive(false);Refresh();
         }
-        private int AvailableForSlot(int id){int count=station.Progress.owned[id];for(int i=0;i<3;i++)if(i!=selected&&station.Progress.equipped[i]==id)count--;return Mathf.Max(0,count);}
+        private int AvailableForSlot(int id)=>station.Progress.Available(id);
         public void Show(bool value){modal.SetActive(value);Refresh();}
         public void Refresh()
         {

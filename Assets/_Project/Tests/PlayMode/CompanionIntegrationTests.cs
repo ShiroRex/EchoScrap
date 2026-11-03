@@ -108,29 +108,27 @@ namespace EchoScrap.Tests
             var ids=new[]{13,14,4};
             for(int slot=0;slot<3;slot++){Approach(slot);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(slot,ids[slot]));
                 var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
-                for(int id=0;id<FusionCatalog.Count;id++){var art=panel.Find("Unidades/Unidad_"+id+"/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(id),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}
+                var available=Enumerable.Range(0,FusionCatalog.Count).Where(id=>station.Progress.Available(id)>0).ToArray();var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(available.Length,grid.VisibleUnits);for(int i=0;i<available.Length;i++){var art=panel.Find("Unidades/Unidad_"+i+"/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(available[i]),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}
                 if(slot==2)yield return Capture("MarcosSelector");system.Close();}
             game.ResetRun(false);game.Session.ResumeAllUserPauses();yield return null;
             var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
             for(int slot=0;slot<3;slot++){var art=hud.Find("Retrato_"+slot+"/Cara").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(ids[slot]),art.sprite);Assert.IsTrue(art.enabled);Assert.AreEqual(Vector2.one*60,art.rectTransform.sizeDelta);}
             yield return Capture("MarcosCombate");
         }
-        [UnityTest] public IEnumerator DuplicateUnitsHaveSeparateCardsAndReleaseRequiresNamedConfirmation()
+        [UnityTest] public IEnumerator ReleaseOnlyAtOccupiedGalleryAndEquipmentOnlyListsFreeCopies()
         {
-            station.ResetCollection();station.Progress.owned[0]=3;station.Progress.owned[6]=17;station.RefreshDisplays();
-            Assert.AreEqual(7,station.DisplaySlots.Skip(3).Count(t=>t.GetComponentInChildren<CollectibleDisplay>().CollectibleId==6));
-            Approach();Assert.IsTrue(system.TryOpen());var grid=station.GetComponentInChildren<CollectibleUnitGrid>();
-            Assert.AreEqual(16,grid.VisibleUnits);Assert.AreEqual(0,grid.UnitId(0));Assert.AreEqual(0,grid.UnitId(1));Assert.AreEqual(0,grid.UnitId(2));
-            grid.RequestRelease(1);Assert.IsTrue(grid.ConfirmationOpen);StringAssert.Contains("Lobito",grid.ConfirmationText);Assert.AreEqual(3,station.Progress.owned[0]);yield return Capture("ConfirmarLiberacion");
-            grid.CancelRelease();Assert.AreEqual(3,station.Progress.owned[0]);grid.RequestRelease(1);Assert.IsTrue(grid.ConfirmRelease());Assert.AreEqual(2,station.Progress.owned[0]);Assert.IsFalse(grid.ConfirmRelease());
-            grid.ChangePage(1);Assert.AreEqual(3,grid.VisibleUnits);Assert.AreEqual(6,grid.UnitId(0));grid.ChangePage(-1);
-            Assert.IsTrue(system.Equip(0,0));grid.Refresh(true);grid.RequestRelease(1);Assert.IsFalse(grid.ConfirmationOpen);Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsFalse(station.ReleaseCollectible(0));
-            yield return Capture("InventarioUnidades");
+            station.ResetCollection();station.Progress.owned[0]=2;station.Progress.owned[6]=1;station.RefreshDisplays();
+            var release=station.GetComponent<VaultReleaseInteraction>();Approach(0);Assert.IsFalse(release.TryOpen());Assert.IsTrue(system.TryOpen());
+            var grid=station.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(3,grid.VisibleUnits);Assert.AreEqual(0,grid.UnitId(0));Assert.AreEqual(0,grid.UnitId(1));Assert.IsFalse(grid.GetComponentsInChildren<Button>(true).Any(b=>b.name=="LIBERAR"));
+            Assert.IsTrue(system.Equip(0,0));grid.Refresh(true);Assert.AreEqual(2,grid.VisibleUnits);system.Close();Approach(1);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(1,0));grid.Refresh(true);Assert.AreEqual(1,grid.VisibleUnits);Assert.AreEqual(6,grid.UnitId(0));system.Close();
+            Approach(0);Assert.IsFalse(release.TryOpen());Approach(3);Assert.AreEqual(3,release.NearestSlot);Assert.IsFalse(system.TryOpen());yield return null;yield return Capture("LiberarEnGaleria",true);
+            Assert.IsTrue(release.TryOpen());Assert.IsTrue(game.Session.IsPaused);StringAssert.Contains("Hada",release.ConfirmationText);yield return Capture("ConfirmarLiberacionGaleria",true);
+            release.Close();Assert.AreEqual(1,station.Progress.owned[6]);Assert.IsTrue(release.TryOpen());Assert.IsTrue(release.ConfirmRelease());Assert.AreEqual(0,station.Progress.owned[6]);Assert.IsFalse(release.ConfirmRelease());Assert.IsFalse(release.TryOpen());CollectionAssert.AreEqual(new[]{0,0,-1},station.Progress.equipped);
         }
-        private IEnumerator Capture(string name){
+        private IEnumerator Capture(string name,bool release=false){
             yield return null;yield return null;
             var camera=new GameObject("CompanionAudit").AddComponent<Camera>();camera.transform.SetPositionAndRotation(game.GameplayCamera.transform.position,game.GameplayCamera.transform.rotation);
-            var rt=new RenderTexture(1400,900,24);camera.targetTexture=rt;var canvas=station.transform.Find("CompanionCanvas").GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;
+            var rt=new RenderTexture(1400,900,24);camera.targetTexture=rt;var canvas=station.transform.Find(release?"LiberarBovedaCanvas":"CompanionCanvas").GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;
             var hudCanvas=game.Hud.HudCanvas;hudCanvas.renderMode=RenderMode.ScreenSpaceCamera;hudCanvas.worldCamera=camera;hudCanvas.planeDistance=1.1f;
             yield return null;camera.Render();var old=RenderTexture.active;RenderTexture.active=rt;var image=new Texture2D(1400,900,TextureFormat.RGB24,false);image.ReadPixels(new Rect(0,0,1400,900),0,0);image.Apply();Directory.CreateDirectory("Logs/Companions");File.WriteAllBytes("Logs/Companions/"+name+".png",image.EncodeToPNG());RenderTexture.active=old;
             canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.worldCamera=null;hudCanvas.renderMode=RenderMode.ScreenSpaceOverlay;hudCanvas.worldCamera=null;Object.Destroy(image);Object.Destroy(rt);Object.Destroy(camera.gameObject);
