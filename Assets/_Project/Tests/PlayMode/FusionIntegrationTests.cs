@@ -219,7 +219,7 @@ namespace EchoScrap.Tests
             var possible=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel/Ingredientes/PosiblesFusiones");
             var images=possible.GetComponentsInChildren<UnityEngine.UI.Image>().Where(i=>i.name=="Retrato").OrderBy(i=>i.rectTransform.anchoredPosition.x).ToArray();
             var names=possible.GetComponentsInChildren<UnityEngine.UI.Text>().OrderBy(t=>t.rectTransform.anchoredPosition.x).ToArray();
-            Assert.AreEqual(2,images.Length);
+            Assert.AreEqual(2,images.Length);foreach(var art in images)Assert.That(art.sprite.name,Is.EqualTo("CardPortrait"));
             for(int i=0;i<images.Length;i++){Assert.AreEqual(Vector2.one*.5f,images[i].rectTransform.pivot);Assert.AreEqual(images[i].rectTransform.TransformPoint(images[i].rectTransform.rect.center).x,names[i].rectTransform.TransformPoint(names[i].rectTransform.rect.center).x,.01f);}
             yield return Capture("ResultadosCentrados",true);
         }
@@ -243,3 +243,4 @@ namespace EchoScrap.Tests
         }
     }
 }
+

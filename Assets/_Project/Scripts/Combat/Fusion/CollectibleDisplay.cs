@@ -11,6 +11,7 @@ namespace EchoScrap.Combat
         private float spriteScale;private bool showTitle;private CombatGameBootstrap game;
         public int CollectibleId {get;private set;}=-1;
         public static Sprite FrontSprite(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/000"):null;
+        public static Sprite CardPortrait(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/CardPortrait"):null;
         public void Configure(int id,float displayHeight,bool showLabel)
         {
             CollectibleId=id;height=displayHeight;showTitle=showLabel;

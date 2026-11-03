@@ -47,7 +47,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.BIO_02));
             for(int i=0;i<3;i++)Assert.AreEqual(station.Progress.equipped[i],station.DisplaySlots[i].GetComponentInChildren<CollectibleDisplay>().CollectibleId);
             yield return null;var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
-            Assert.AreEqual(FusionCatalog.ColorOf(3),hud.GetChild(0).GetComponent<Image>().color);Assert.IsNotNull(hud.GetChild(0).GetChild(0).GetComponent<Image>().sprite);
+            Assert.AreEqual(Color.clear,hud.GetChild(0).GetComponent<Image>().color);Assert.IsNotNull(hud.GetChild(0).GetChild(0).GetComponent<Image>().sprite);
             yield return Capture("Retratos");game.Session.SetManualPause(true);yield return null;Assert.IsFalse(hud.gameObject.activeSelf);
         }
         [UnityTest] public IEnumerator EquipmentRoundTripsAndMalformedSaveIsRepaired(){
@@ -94,6 +94,19 @@ namespace EchoScrap.Tests
             Assert.Greater(notice.GetComponent<CanvasGroup>().alpha,.9f);yield return Capture("AvisoColeccionables");
             yield return new WaitForSeconds(2);Assert.IsFalse(notice.gameObject.activeSelf);
         }
+        [UnityTest] public IEnumerator AuthoredFramesAreUsedForEveryChoiceAndTheThreeCombatSlots()
+        {
+            for(int id=0;id<FusionCatalog.Count;id++){station.Progress.owned[id]=1;Assert.IsNotNull(CollectibleDisplay.CardPortrait(id),FusionCatalog.Names[id]);}
+            var ids=new[]{9,6,4};
+            for(int slot=0;slot<3;slot++){Approach(slot);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(slot,ids[slot]));
+                var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
+                for(int id=0;id<FusionCatalog.Count;id++){var art=panel.Find("Elegir_"+id+"/Cara/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(id),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}
+                if(slot==2)yield return Capture("MarcosSelector");system.Close();}
+            game.ResetRun(false);game.Session.ResumeAllUserPauses();yield return null;
+            var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
+            for(int slot=0;slot<3;slot++){var art=hud.Find("Retrato_"+slot+"/Cara").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(ids[slot]),art.sprite);Assert.IsTrue(art.enabled);Assert.AreEqual(Vector2.one*60,art.rectTransform.sizeDelta);}
+            yield return Capture("MarcosCombate");
+        }
         private IEnumerator Capture(string name){
             yield return null;yield return null;
             var camera=new GameObject("CompanionAudit").AddComponent<Camera>();camera.transform.SetPositionAndRotation(game.GameplayCamera.transform.position,game.GameplayCamera.transform.rotation);
@@ -104,3 +117,4 @@ namespace EchoScrap.Tests
         }
     }
 }
+

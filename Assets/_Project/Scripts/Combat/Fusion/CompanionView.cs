@@ -45,7 +45,7 @@ namespace EchoScrap.Combat
         {
             system=owner;station=fusion;game=bootstrap;var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");font=skin.regular;strong=skin.semibold;
             for(int id=0;id<FusionCatalog.Count;id++){
-                faces[id]=Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/Portrait");
+                faces[id]=CollectibleDisplay.CardPortrait(id);
             }
             var canvas=new GameObject("CompanionCanvas",typeof(RectTransform),typeof(Canvas),typeof(CanvasScaler),typeof(GraphicRaycaster));canvas.transform.SetParent(transform,false);
             canvas.GetComponent<Canvas>().renderMode=RenderMode.ScreenSpaceOverlay;canvas.GetComponent<Canvas>().sortingOrder=115;
@@ -61,20 +61,20 @@ namespace EchoScrap.Combat
             var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(155,-190),new Vector2(206,64),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,1);hud=bar.gameObject;
             for(int i=0;i<3;i++){
                 var box=Panel("Retrato_"+i,bar,new Vector2((i-1)*68,0),new Vector2(60,60),Color.gray);backgrounds[i]=box.GetComponent<Image>();
-                var picture=Panel("Cara",box,Vector2.zero,new Vector2(50,50),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
+                var picture=Panel("Cara",box,Vector2.zero,new Vector2(60,60),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
             }
             var shade=Panel("EquipoBoveda",canvas.transform,Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;shade.GetComponent<Image>().raycastTarget=true;modal=shade.gameObject;
-            var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1060,650),new Color(.045f,.06f,.09f));
-            title=Label(panel,"Titulo","",new Vector2(0,270),new Vector2(990,60),30);title.font=strong;
-            for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,165),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);}
+            var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1060,740),new Color(.045f,.06f,.09f));
+            title=Label(panel,"Titulo","",new Vector2(0,325),new Vector2(990,60),30);title.font=strong;
+            for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);}
             emptyText=Label(panel,"SinColeccionables","Todavía no tienes coleccionables. Encuéntralos en la arena.",new Vector2(0,-30),new Vector2(930,90),24);
-            for(int i=0;i<FusionCatalog.Count;i++){int id=i;var b=Button(panel,"Elegir_"+i,new Vector2((i%7-3)*142,15-(i/7)*180),new Vector2(132,170),()=>system.Equip(selected,id));chooseButtons[i]=b;
-                var face=Panel("Cara",b.transform,new Vector2(0,52),new Vector2(48,48),FusionCatalog.ColorOf(i));
-                var image=Panel("Retrato",face,Vector2.zero,new Vector2(44,44),Color.white).GetComponent<Image>();image.sprite=faces[i];image.preserveAspect=true;
-                choices[i]=Label(b.transform,"Detalle","",new Vector2(0,-30),new Vector2(126,108),14);
+            for(int i=0;i<FusionCatalog.Count;i++){int id=i;var b=Button(panel,"Elegir_"+i,new Vector2((i%7-3)*142,15-(i/7)*180),new Vector2(132,190),()=>system.Equip(selected,id));chooseButtons[i]=b;
+                var face=Panel("Cara",b.transform,new Vector2(0,44),new Vector2(84,84),Color.clear);
+                var image=Panel("Retrato",face,Vector2.zero,new Vector2(84,84),Color.white).GetComponent<Image>();image.sprite=faces[i];image.preserveAspect=true;
+                choices[i]=Label(b.transform,"Detalle","",new Vector2(0,-47),new Vector2(126,90),14);
             }
-            var remove=Button(panel,"Quitar",new Vector2(-180,-290),new Vector2(250,45),()=>system.Equip(selected,-1));Label(remove.transform,"Texto","QUITAR DEL PUESTO",Vector2.zero,new Vector2(240,45),20);
-            var close=Button(panel,"Cerrar",new Vector2(180,-290),new Vector2(250,45),system.Close);Label(close.transform,"Texto","CERRAR · E / ESC",Vector2.zero,new Vector2(240,45),20);
+            var remove=Button(panel,"Quitar",new Vector2(-180,-330),new Vector2(250,45),()=>system.Equip(selected,-1));Label(remove.transform,"Texto","QUITAR DEL PUESTO",Vector2.zero,new Vector2(240,45),20);
+            var close=Button(panel,"Cerrar",new Vector2(180,-330),new Vector2(250,45),system.Close);Label(close.transform,"Texto","CERRAR · E / ESC",Vector2.zero,new Vector2(240,45),20);
             modal.SetActive(false);Refresh();
         }
         public void Show(bool value){modal.SetActive(value);Refresh();}
@@ -93,7 +93,7 @@ namespace EchoScrap.Combat
             hud.SetActive(playing&&!game.Session.IsInWarehouse);
             for(int i=0;i<3;i++){
                 int id=station.Progress.equipped[i];portraits[i].enabled=id>=0;portraits[i].sprite=id>=0?faces[id]:null;
-                backgrounds[i].color=id>=0?FusionCatalog.ColorOf(id):new Color(.1f,.12f,.16f,.6f);
+                backgrounds[i].color=id>=0?Color.clear:new Color(.1f,.12f,.16f,.6f);
                 slots[i].text=(selected==i?"▸ ":"")+"PUESTO "+(i+1)+"\n"+(id>=0?FusionCatalog.Names[id]+" · "+CompanionSystem.PowerNames[id]:"VACÍO");
                 slots[i].transform.parent.gameObject.SetActive(i==selected);
             }
@@ -102,7 +102,7 @@ namespace EchoScrap.Combat
             for(int id=0;id<FusionCatalog.Count;id++){
                 bool owned=station.Progress.owned[id]>0;chooseButtons[id].gameObject.SetActive(owned);if(!owned)continue;
                 int rowCount=Mathf.Min(7,totalOwned-(visible/7)*7);
-                chooseButtons[id].GetComponent<RectTransform>().anchoredPosition=new Vector2((visible%7-(rowCount-1)*.5f)*142,15-(visible/7)*180);visible++;
+                chooseButtons[id].GetComponent<RectTransform>().anchoredPosition=new Vector2((visible%7-(rowCount-1)*.5f)*142,40-(visible/7)*200);visible++;
                 int used=0;for(int i=0;i<3;i++)if(i!=selected&&station.Progress.equipped[i]==id)used++;
                 choices[id].text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]+"\n"+CompanionSystem.PowerNames[id]+"\nDisponibles: "+Mathf.Max(0,station.Progress.owned[id]-used);
                 chooseButtons[id].interactable=station.Progress.owned[id]>used;
@@ -112,3 +112,4 @@ namespace EchoScrap.Combat
 
     }
 }
+

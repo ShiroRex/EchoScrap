@@ -53,7 +53,7 @@ namespace EchoScrap.Combat
             var possible=Panel("PosiblesFusiones",inventory.transform,new Vector2(38,335),new Vector2(1034,155),new Color(.07f,.11f,.14f));Frame(possible.GetComponent<Image>(),false);
             for(int i=0;i<FusionCatalog.Count;i++){
                 possibleArt[i]=Portrait(possible,new Vector2(48+i*202,8),new Vector2(100,90));
-                possibleArt[i].sprite=CollectibleDisplay.FrontSprite(i);
+                possibleArt[i].sprite=CollectibleDisplay.CardPortrait(i);
                 possibleText[i]=Label(possible,FusionCatalog.Names[i],new Vector2(8+i*202,100),new Vector2(160,48),15,TextAnchor.MiddleCenter);
             }
             odds=Label(inventory.transform,"",new Vector2(36,498),new Vector2(1048,48),24,TextAnchor.MiddleCenter);
@@ -66,7 +66,7 @@ namespace EchoScrap.Combat
             for(int i=0;i<FusionCatalog.Count;i++){
                 int id=i;var card=ButtonAt(picker.transform,"",new Vector2(28+(i%7)*146,75+(i/7)*215),new Vector2(138,200),()=>AddIngredient(id));
                 card.name="Garaje_"+i;Frame(card.GetComponent<Image>(),false);card.interactable=false;
-                var art=Portrait(card.transform,new Vector2(37,8),new Vector2(64,78));art.sprite=CollectibleDisplay.FrontSprite(i);
+                var art=Portrait(card.transform,new Vector2(37,8),new Vector2(64,78));art.sprite=CollectibleDisplay.CardPortrait(i);
                 Label(card.transform,FusionCatalog.Names[i],new Vector2(4,89),new Vector2(130,40),15,TextAnchor.MiddleCenter);
                 var rarity=Label(card.transform,FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[i]],new Vector2(4,130),new Vector2(130,25),15,TextAnchor.MiddleCenter);rarity.color=FusionCatalog.ColorOf(i);
                 stock[i]=Label(card.transform,"",new Vector2(4,155),new Vector2(130,42),15,TextAnchor.MiddleCenter);
@@ -111,7 +111,7 @@ namespace EchoScrap.Combat
         private void RefreshSelection()
         {
             for(int i=0;i<4;i++){
-                int id=ingredients[i];slotArt[i].gameObject.SetActive(id>=0);slotArt[i].sprite=id>=0?CollectibleDisplay.FrontSprite(id):null;
+                int id=ingredients[i];slotArt[i].gameObject.SetActive(id>=0);slotArt[i].sprite=id>=0?CollectibleDisplay.CardPortrait(id):null;
                 slotText[i].text=id>=0?FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]:"+";
                 Rect(slotText[i].rectTransform,id>=0?new Vector2(8,150):new Vector2(8,35),id>=0?new Vector2(229,70):new Vector2(229,160));
                 slotText[i].font=strongFont;slotText[i].fontSize=id>=0?22:64;slotText[i].color=id>=0?FusionCatalog.ColorOf(id):Pale;
@@ -149,7 +149,7 @@ namespace EchoScrap.Combat
             bool ready=station.Progress.phase==FusionPhase.AwaitingDecision;
             for(int i=0;i<stock.Length;i++)stock[i].text="GUARDADOS: "+station.Progress.owned[i];
             picker.SetActive(false);modal.SetActive(true);inventory.SetActive(!ready);result.SetActive(ready);
-            if(ready){int id=station.Progress.result;resultImage.sprite=CollectibleDisplay.FrontSprite(id);resultTitle.text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]];resultTitle.color=FusionCatalog.ColorOf(id);resultDescription.text="Coleccionar: guardarlo en tu inventario y colocarlo en una plaza libre de la bóveda.\n\nLiberar: descartarlo y cerrar la máquina.";status.text="Los repetidos también se guardan. Puedes elegir tus tres compañeros en la bóveda.";}
+            if(ready){int id=station.Progress.result;resultImage.sprite=CollectibleDisplay.CardPortrait(id);resultTitle.text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]];resultTitle.color=FusionCatalog.ColorOf(id);resultDescription.text="Coleccionar: guardarlo en tu inventario y colocarlo en una plaza libre de la bóveda.\n\nLiberar: descartarlo y cerrar la máquina.";status.text="Los repetidos también se guardan. Puedes elegir tus tres compañeros en la bóveda.";}
             else {ClearSelection();status.text="El combate se pausa mientras eliges. La fusión continúa al cerrar.";}
         }
         public void Hide(){if(modal!=null)modal.SetActive(false);}
@@ -181,3 +181,4 @@ namespace EchoScrap.Combat
             button.onClick.AddListener(action);Label(t,value,Vector2.zero,size,23,TextAnchor.MiddleCenter);return button;}
     }
 }
+
