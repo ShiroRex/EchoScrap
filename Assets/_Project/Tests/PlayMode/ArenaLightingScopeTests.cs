@@ -68,9 +68,9 @@ namespace EchoScrap.Tests
                 Assert.IsTrue(ArenaLightingController.IsWorldLightingActive);
                 foreach(var light in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
                     if(light.name=="ArenaDirectionalLight")Assert.AreEqual(0f,light.intensity,"Outdoor light must not enter the vault.");
-                Assert.IsTrue(game.GameplayCamera.orthographic);
-                Assert.AreEqual(travel.InteriorOrthographicSize,game.GameplayCamera.orthographicSize,.01f);
-                Assert.That(game.CameraRig.transform.eulerAngles.x,Is.InRange(travel.InteriorCameraPitch-.01f,travel.InteriorMaximumCameraPitch+.01f));
+                Assert.IsFalse(game.GameplayCamera.orthographic);
+                Assert.AreEqual(65f,game.CameraRig.Lens.FieldOfView,.01f);
+                Assert.AreEqual(32f,game.CameraRig.transform.eulerAngles.x,.01f);
                 Assert.IsTrue(ArenaLightingView.TryGetForCamera(game.GameplayCamera,out var view));
                 Assert.AreSame(game.Lighting,view,"Interior player visibility must use the same camera-scoped render pass.");
                 Assert.IsTrue(travel.PlaceInWarehouse(false));yield return null;

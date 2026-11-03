@@ -54,11 +54,10 @@ namespace EchoScrap.Tests
             if (viewportTarget != null) { viewportTarget.Release(); Object.DestroyImmediate(viewportTarget); }
             SceneTransitionState.Reset(); CombatTargetRegistry.Clear(); Time.timeScale = 1;
         }
-        [UnityTest] public IEnumerator FullViewStaysOverFloorAndPlayerStaysOnScreenAtWallsAndBalcony()
+        [UnityTest] public IEnumerator OriginalPerspectiveAndPlayerStayIntactAtWallsAndBalcony()
         {
             var guard = game.CameraRig.GetComponent<WarehouseCameraFraming>(); Assert.IsTrue(guard.IsConfining);
-            Assert.IsTrue(game.GameplayCamera.orthographic);
-            Bounds room = guard.RoomBounds;
+            Assert.IsFalse(game.GameplayCamera.orthographic);
             Bounds walkable = guard.WalkableBounds;
             Vector3[] points = {
                 walkable.center, new Vector3(walkable.min.x + .75f, 0, 0), new Vector3(walkable.max.x - .75f, 0, 0),
@@ -73,17 +72,11 @@ namespace EchoScrap.Tests
                 game.GameplayCamera.aspect = aspect; Place(point);
                 for (int frame = 0; frame < 5; frame++) yield return null;
                 var camera = game.GameplayCamera;
-                Assert.That(camera.transform.position.x, Is.InRange(room.min.x - .025f, room.max.x + .025f), "Camera outside the side walls at " + point);
-                Assert.That(camera.transform.position.z, Is.InRange(room.min.z - .025f, room.max.z + .025f), "Camera behind a foreground wall at " + point);
-                var floor = new Plane(Vector3.up, new Vector3(0, room.max.y, 0));
-                for (int corner = 0; corner < 4; corner++)
-                {
-                    Ray ray = camera.ViewportPointToRay(new Vector3(corner % 2, corner / 2, 0));
-                    Assert.IsTrue(floor.Raycast(ray, out float distance), "The vault view cannot look above the horizon.");
-                    Vector3 hit = ray.GetPoint(distance);
-                    Assert.That(hit.x, Is.InRange(room.min.x - .025f, room.max.x + .025f), point + " aspect=" + aspect);
-                    Assert.That(hit.z, Is.InRange(room.min.z - .025f, room.max.z + .025f), point + " aspect=" + aspect);
-                }
+                Assert.IsFalse(camera.orthographic);
+                Assert.AreEqual(65f,camera.fieldOfView,.01f,"Wall limits must not zoom the camera.");
+                Assert.Less(Quaternion.Angle(camera.transform.rotation,Quaternion.Euler(32,0,0)),.01f,"Wall limits must not tilt the camera.");
+                Assert.Less(Vector3.Distance(game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineFollow>().FollowOffset,
+                    Quaternion.Euler(32,0,0)*Vector3.back*10f),.01f,"Keep the original follow distance.");
                 Bounds body = game.Player.GetComponent<Collider>().bounds;
                 var character = game.Player.GetComponent<CollectorSpriteView>();
                 Bounds card = character.CharacterMesh.bounds;
@@ -99,7 +92,7 @@ namespace EchoScrap.Tests
                         + " pitch="+camera.transform.eulerAngles.x+" fov="+camera.fieldOfView
                         + " predicted="+camera.WorldToViewportPoint(character.GetFramingCorner(corner))
                         + " view pitch="+character.CharacterRenderer.transform.eulerAngles.x+" pixelHeight="+camera.pixelHeight
-                        + " scale="+character.CharacterRenderer.transform.lossyScale+" world="+p+" room="+room);
+                        + " scale="+character.CharacterRenderer.transform.lossyScale+" world="+p);
                 }
                 for (int corner = 0; corner < 8; corner++)
                 {
@@ -110,6 +103,47 @@ namespace EchoScrap.Tests
                     Assert.That(viewport.y, Is.InRange(.005f, .995f), "Player clipped at " + point + " aspect=" + aspect);
                 }
             }
+        }
+        [UnityTest] public IEnumerator CameraStopsAtTheWallsWhileTheCollectorContinuesMoving()
+        {
+            game.GameplayCamera.aspect = 16f / 9f;
+            Bounds room = game.CameraRig.GetComponent<WarehouseCameraFraming>().WalkableBounds;
+            foreach (Vector3 direction in new[] { Vector3.right, Vector3.left, Vector3.forward, Vector3.back })
+            {
+                Vector3 wall = room.center + Vector3.Scale(room.extents, direction); wall.y = 0;
+                Place(wall - direction * 3f); for (int i = 0; i < 6; i++) yield return null;
+                Vector3 before = game.GameplayCamera.transform.position, playerBefore = game.Player.transform.position;
+                Place(wall - direction * .75f); for (int i = 0; i < 6; i++) yield return null;
+                Assert.Greater(Vector3.Dot(game.Player.transform.position - playerBefore,direction),2f,"The camera boundary must not stop the player.");
+                Assert.Less(Mathf.Abs(Vector3.Dot(game.GameplayCamera.transform.position - before,direction)),.025f,
+                    "The camera must stay at the wall while the player continues: " + direction);
+            }
+        }
+        [UnityTest] public IEnumerator FloorBoundaryBlendsIntoTheBackgroundWithoutAVisibleCut()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) Assert.Ignore("Requires a rendering device.");
+            var guard = game.CameraRig.GetComponent<WarehouseCameraFraming>();
+            Assert.IsNotNull(guard.BoundaryFadeRenderer); Assert.IsTrue(guard.BoundaryFadeRenderer.sharedMaterial.shader.isSupported);
+            Assert.IsNull(guard.BoundaryFadeRenderer.GetComponent<Collider>(),"The backdrop must not extend the playable area.");
+            Bounds outer = guard.RoomBounds, inner = guard.WalkableBounds;
+            Assert.Greater(outer.max.x - inner.max.x,travel.InteriorBoundaryFadeWidth);
+            Assert.Greater(inner.min.x - outer.min.x,travel.InteriorBoundaryFadeWidth);
+            Assert.Greater(outer.max.z - inner.max.z,travel.InteriorBoundaryFadeWidth);
+            Assert.Greater(inner.min.z - outer.min.z,travel.InteriorBoundaryFadeWidth);
+            var probe = new GameObject("Vault boundary probe camera").AddComponent<Camera>();
+            try
+            {
+                probe.CopyFrom(game.GameplayCamera); probe.orthographic = true; probe.orthographicSize = .2f;
+                probe.GetUniversalAdditionalCameraData().SetRenderer(game.Lighting.Profile.RendererIndex);
+                probe.transform.SetPositionAndRotation(new Vector3(outer.max.x-.5f,10,outer.center.z),Quaternion.Euler(90,0,0));
+                Color edge = RenderCamera(probe)[256*512+256];
+                probe.transform.position += Vector3.right*2f;
+                Color background = RenderCamera(probe)[256*512+256];
+                Assert.Less(Mathf.Abs(edge.r-background.r)+Mathf.Abs(edge.g-background.g)+Mathf.Abs(edge.b-background.b),.02f,
+                    "The outer floor must meet the real rendered background without a hard edge.");
+            }
+            finally { Object.DestroyImmediate(probe.gameObject); }
+            yield return null;
         }
         [UnityTest] public IEnumerator OpaqueObstaclesRevealOnlyTheOccludedPlayerEvenWithoutDecoration()
         {

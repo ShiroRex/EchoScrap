@@ -1,29 +1,34 @@
 using EchoScrap.Core;
 using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace EchoScrap.Combat
 {
-    /// <summary>Confines the complete vault view and keeps the character card inside the frame.</summary>
+    /// <summary>Stops camera follow at the vault walls without changing its angle or lens.</summary>
     [DisallowMultipleComponent]
     public sealed class WarehouseCameraFraming : CinemachineExtension
     {
         private CombatGameBootstrap game;
         private WarehouseTravel travel;
-        private Collider floor, player;
+        private CinemachineFollow follow;
+        private Collider floor;
         private CollectorSpriteView collector;
-        private Renderer fallbackFloor;
+        private Renderer visibleFloor;
         private MeshFilter visualFloor;
-        private Mesh originalFloorMesh, presentationFloorMesh;
-        public bool HasRoomBounds => floor != null || fallbackFloor != null;
-        public Bounds RoomBounds => fallbackFloor != null ? fallbackFloor.bounds : floor != null ? floor.bounds : default;
+        private Mesh originalFloorMesh, presentationFloorMesh, fadeMesh;
+        private Material fadeMaterial;
+        private GameObject fadeObject;
+        public bool HasRoomBounds => floor != null || visibleFloor != null;
+        public Bounds RoomBounds => visibleFloor != null ? visibleFloor.bounds : floor != null ? floor.bounds : default;
         public Bounds WalkableBounds => floor != null ? floor.bounds : RoomBounds;
         public bool IsConfining => isActiveAndEnabled && HasRoomBounds && game != null && game.Session.IsInWarehouse;
+        public Renderer BoundaryFadeRenderer => fadeObject != null ? fadeObject.GetComponent<Renderer>() : null;
 
         public void Initialize(CombatGameBootstrap owner, WarehouseTravel connection)
         {
             game = owner; travel = connection;
-            player = game.Player.GetComponent<Collider>();
+            follow = game.CameraRig.GetComponent<CinemachineFollow>();
             collector = game.Player.GetComponent<CollectorSpriteView>();
             var surfaces = travel.GetComponentInChildren<VaultFloorSurface>();
             if (surfaces != null && surfaces.Surfaces != null)
@@ -34,18 +39,18 @@ namespace EchoScrap.Combat
                 foreach (var candidate in travel.GetComponentsInChildren<Collider>())
                     if (!candidate.isTrigger && candidate.name == "SueloInterior") { floor = candidate; break; }
             foreach (var candidate in travel.GetComponentsInChildren<MeshRenderer>())
-                if (candidate.name == "SueloContinuo") { fallbackFloor = candidate; break; }
+                if (candidate.name == "SueloContinuo") { visibleFloor = candidate; break; }
             PrepareFloorMargin();
         }
 
         private void PrepareFloorMargin()
         {
-            if (floor == null || fallbackFloor == null || travel.InteriorFloorMargin <= 0f) return;
-            Bounds current = fallbackFloor.bounds, walkable = floor.bounds;
-            float x = Mathf.Max(1f, (walkable.size.x + 2f * travel.InteriorFloorMargin) / current.size.x);
-            float z = Mathf.Max(1f, (walkable.size.z + 2f * travel.InteriorFloorMargin) / current.size.z);
-            if (x < 1.001f && z < 1.001f) return;
-            visualFloor = fallbackFloor.GetComponent<MeshFilter>();
+            if (floor == null || visibleFloor == null || travel.InteriorFloorMargin <= 0f) return;
+            Bounds current = visibleFloor.bounds, walkable = floor.bounds;
+            float margin = Mathf.Max(travel.InteriorFloorMargin, travel.InteriorBoundaryFadeWidth + 1f);
+            float x = Mathf.Max(1f, (walkable.size.x + 2f * margin) / current.size.x);
+            float z = Mathf.Max(1f, (walkable.size.z + 2f * margin) / current.size.z);
+            visualFloor = visibleFloor.GetComponent<MeshFilter>();
             originalFloorMesh = visualFloor.sharedMesh;
             presentationFloorMesh = Instantiate(originalFloorMesh);
             presentationFloorMesh.name = "Vault floor presentation margin";
@@ -54,23 +59,65 @@ namespace EchoScrap.Combat
             Vector3 right = t.TransformVector(Vector3.right), forward = t.TransformVector(Vector3.forward);
             float uScale = new Vector3(right.x * x, right.y, right.z * z).magnitude / right.magnitude;
             float vScale = new Vector3(forward.x * x, forward.y, forward.z * z).magnitude / forward.magnitude;
+            Vector2 uvMin = uv[0], uvMax = uv[0];
+            foreach (Vector2 point in uv) { uvMin = Vector2.Min(uvMin, point); uvMax = Vector2.Max(uvMax, point); }
+            Vector2 uvCenter = (uvMin + uvMax) * .5f;
             for (int i = 0; i < vertices.Length; i++)
             {
                 Vector3 p = t.TransformPoint(vertices[i]);
                 p.x = current.center.x + (p.x - current.center.x) * x;
                 p.z = current.center.z + (p.z - current.center.z) * z;
                 vertices[i] = t.InverseTransformPoint(p);
-                uv[i] = Vector2.Scale(uv[i], new Vector2(uScale, vScale));
+                uv[i] = uvCenter + Vector2.Scale(uv[i] - uvCenter, new Vector2(uScale, vScale));
             }
             presentationFloorMesh.vertices = vertices; presentationFloorMesh.uv = uv;
             presentationFloorMesh.RecalculateBounds(); presentationFloorMesh.RecalculateNormals(); presentationFloorMesh.RecalculateTangents();
             visualFloor.sharedMesh = presentationFloorMesh;
+            PrepareBoundaryFade(walkable, visibleFloor.bounds);
+        }
+
+        private void PrepareBoundaryFade(Bounds inner, Bounds outer)
+        {
+            var shader = Resources.Load<Shader>("Lighting/WarehouseBoundary");
+            if (shader == null) return;
+            fadeObject = new GameObject("Vault boundary backdrop");
+            fadeObject.transform.SetParent(visualFloor.transform, false);
+            fadeObject.layer = visibleFloor.gameObject.layer;
+            var vertices = new Vector3[16]; var triangles = new int[24];
+            AddQuad(0, outer.min.x, inner.min.x, outer.min.z, outer.max.z);
+            AddQuad(1, inner.max.x, outer.max.x, outer.min.z, outer.max.z);
+            AddQuad(2, inner.min.x, inner.max.x, outer.min.z, inner.min.z);
+            AddQuad(3, inner.min.x, inner.max.x, inner.max.z, outer.max.z);
+            fadeMesh = new Mesh { name = "Vault boundary apron", vertices = vertices, triangles = triangles };
+            fadeMesh.RecalculateBounds();
+            fadeObject.AddComponent<MeshFilter>().sharedMesh = fadeMesh;
+            var renderer = fadeObject.AddComponent<MeshRenderer>();
+            renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
+            fadeMaterial = new Material(shader) { name = "Vault boundary backdrop" };
+            fadeMaterial.SetVector("_RoomBounds", new Vector4(inner.min.x, inner.min.z, inner.max.x, inner.max.z));
+            fadeMaterial.SetFloat("_FadeWidth", travel.InteriorBoundaryFadeWidth);
+            fadeMaterial.SetColor("_BaseColor", game.Lighting != null ? game.Lighting.Profile.WarehouseBackground : game.GameplayCamera.backgroundColor);
+            renderer.sharedMaterial = fadeMaterial;
+
+            void AddQuad(int index, float minX, float maxX, float minZ, float maxZ)
+            {
+                int v = index * 4, t = index * 6; float y = outer.max.y + .003f;
+                vertices[v] = visualFloor.transform.InverseTransformPoint(new Vector3(minX, y, minZ));
+                vertices[v + 1] = visualFloor.transform.InverseTransformPoint(new Vector3(minX, y, maxZ));
+                vertices[v + 2] = visualFloor.transform.InverseTransformPoint(new Vector3(maxX, y, maxZ));
+                vertices[v + 3] = visualFloor.transform.InverseTransformPoint(new Vector3(maxX, y, minZ));
+                triangles[t] = v; triangles[t + 1] = v + 1; triangles[t + 2] = v + 2;
+                triangles[t + 3] = v; triangles[t + 4] = v + 2; triangles[t + 5] = v + 3;
+            }
         }
 
         protected override void OnDestroy()
         {
             if (visualFloor != null && visualFloor.sharedMesh == presentationFloorMesh) visualFloor.sharedMesh = originalFloorMesh;
             if (presentationFloorMesh != null) Destroy(presentationFloorMesh);
+            if (fadeObject != null) Destroy(fadeObject);
+            if (fadeMesh != null) Destroy(fadeMesh);
+            if (fadeMaterial != null) Destroy(fadeMaterial);
             base.OnDestroy();
         }
 
@@ -78,72 +125,32 @@ namespace EchoScrap.Combat
             CinemachineCore.Stage stage, ref CameraState state, float deltaTime)
         {
             if (stage != CinemachineCore.Stage.Finalize || !IsConfining) return;
-            Quaternion baseRotation = state.GetCorrectedOrientation(), rotation = baseRotation;
+            Quaternion rotation = state.GetCorrectedOrientation();
             Vector3 original = state.GetFinalPosition();
-            Vector3 focus = original + rotation * Vector3.forward * travel.InteriorCameraDistance;
-            Bounds room = RoomBounds;
-            float size = travel.InteriorOrthographicSize;
-            float aspect = Mathf.Max(.1f, game.GameplayCamera.aspect);
-            Vector3 position = original;
-            bool fitted = false;
-            float extraPitch = Mathf.Max(0, travel.InteriorMaximumCameraPitch - travel.InteriorCameraPitch);
-            Vector3 center = player != null ? player.bounds.center : focus;
-            float edge = Mathf.Min(Mathf.Min(center.x - room.min.x, room.max.x - center.x),
-                Mathf.Min(center.z - room.min.z, room.max.z - center.z));
-            float edgeBlend = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(travel.InteriorCameraDistance * .75f, 1.5f, edge));
-            for (int elevation = 0; elevation < 5 && !fitted; elevation++)
-            {
-                // Elevated displays can put the player's head above the far wall's
-                // ground projection. A steeper view keeps both the head and room in frame.
-                float pitchBlend = Mathf.Lerp(edgeBlend, 1f, elevation / 4f);
-                rotation = Quaternion.AngleAxis(extraPitch * pitchBlend, baseRotation * Vector3.right) * baseRotation;
-                position = focus - rotation * Vector3.forward * travel.InteriorCameraDistance;
-                bool confined = ConfineFrame(room, rotation, size, aspect, ref position);
-                bool insideWalls = position.x >= room.min.x && position.x <= room.max.x && position.z >= room.min.z && position.z <= room.max.z;
-                fitted = confined && insideWalls && (player == null || ContainsPlayer(player.bounds, position, rotation, size, aspect));
-            }
-            state.PositionCorrection += position - original;
-            state.RawOrientation = rotation; state.OrientationCorrection = Quaternion.identity;
-            state.Lens.Dutch = 0;
-            state.Lens.ModeOverride = LensSettings.OverrideModes.Orthographic;
-            state.Lens.OrthographicSize = size;
-        }
+            Vector3 focus = original + rotation * Vector3.forward * follow.FollowOffset.magnitude;
+            Bounds room = WalkableBounds;
+            float padding = travel.InteriorCameraWallPadding;
+            float x = Mathf.Min(padding, room.extents.x * .5f), z = Mathf.Min(padding, room.extents.z * .5f);
+            Vector3 position = original + new Vector3(
+                Mathf.Clamp(focus.x, room.min.x + x, room.max.x - x) - focus.x, 0,
+                Mathf.Clamp(focus.z, room.min.z + z, room.max.z - z) - focus.z);
 
-        public static bool ConfineFrame(Bounds room, Quaternion rotation, float size, float aspect, ref Vector3 position)
-        {
-            Vector3 ray = rotation * Vector3.forward;
-            if (ray.y >= -.0001f) return false;
-            Vector3 min = new Vector3(float.MaxValue, 0, float.MaxValue), max = -min;
-            for (int corner = 0; corner < 4; corner++)
-            {
-                Vector3 origin = position + rotation * new Vector3((corner % 2 == 0 ? -1 : 1) * size * aspect,
-                    (corner < 2 ? -1 : 1) * size, 0);
-                Vector3 hit = origin + ray * ((room.max.y - origin.y) / ray.y);
-                min = Vector3.Min(min, hit); max = Vector3.Max(max, hit);
-            }
-            if (max.x - min.x > room.size.x || max.z - min.z > room.size.z) return false;
-            position.x += Mathf.Clamp(0, room.min.x - min.x, room.max.x - max.x);
-            position.z += Mathf.Clamp(0, room.min.z - min.z, room.max.z - max.z);
-            return true;
-        }
-
-        private bool ContainsPlayer(Bounds bounds, Vector3 position, Quaternion rotation, float size, float aspect)
-        {
-            Quaternion inverse = Quaternion.Inverse(rotation);
-            for (int corner = 0; corner < 8; corner++)
-            {
-                Vector3 point = bounds.center + Vector3.Scale(bounds.extents, new Vector3(
-                    (corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
-                Vector3 view = inverse * (point - position);
-                if (view.z <= .1f || Mathf.Abs(view.x) > size * aspect * .98f || Mathf.Abs(view.y) > size * .98f) return false;
-            }
+            // A narrow viewport can need less side padding to keep the collector visible.
+            // Correct translation only; the authored perspective, pitch and zoom stay intact.
             if (collector != null)
+            {
+                Quaternion inverse = Quaternion.Inverse(rotation);
+                float tangent = Mathf.Tan(state.Lens.FieldOfView * .5f * Mathf.Deg2Rad);
+                float lower = float.NegativeInfinity, upper = float.PositiveInfinity;
                 for (int corner = 0; corner < 4; corner++)
                 {
                     Vector3 view = inverse * (collector.GetFramingCorner(corner) - position);
-                    if (view.z <= .1f || Mathf.Abs(view.x) > size * aspect * .99f || Mathf.Abs(view.y) > size * .99f) return false;
+                    float halfWidth = Mathf.Max(.01f, view.z) * tangent * game.GameplayCamera.aspect * .96f;
+                    lower = Mathf.Max(lower, view.x - halfWidth); upper = Mathf.Min(upper, view.x + halfWidth);
                 }
-            return true;
+                if (lower <= upper) position += rotation * Vector3.right * Mathf.Clamp(0, lower, upper);
+            }
+            state.PositionCorrection += position - original;
         }
     }
 }
