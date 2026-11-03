@@ -17,6 +17,10 @@ namespace EchoScrap.Combat
         [SerializeField, Min(0.1f)] private float transferFadeDuration = 0.3f;
         [SerializeField, Min(0.5f)] private float reinforcementWarning = 0.9f;
         [SerializeField, Range(1, 12)] private int minionLimit = 8;
+        [SerializeField] private Vector3 bossCameraBoundsSize = new Vector3(6f, 6f, 6f);
+        [SerializeField, Min(0.1f)] private float cameraZoomSmoothTime = 0.4f;
+        [SerializeField, Min(1f)] private float cameraZoomMaxSpeed = 24f;
+        [SerializeField, Min(0f)] private float cameraZoomDeadZone = 0.5f;
 
         private struct Reinforcement
         {
@@ -47,7 +51,7 @@ namespace EchoScrap.Combat
         private float transferAge;
         private bool transferred, initialized, cameraOwned;
         private int nextVent;
-        private Renderer[] bodyRenderers;
+        private float cameraTargetDistance, cameraZoomVelocity;
 
         public Vector3 Center => center;
         public float Radius => radius;
@@ -77,12 +81,12 @@ namespace EchoScrap.Combat
             if (!initialized) return;
             RestoreCamera();
             boss = actor;
-            var rig = actor.GetComponentInChildren<Animator>();
-            bodyRenderers = rig != null ? rig.GetComponentsInChildren<Renderer>() : null;
             originalFollow = game.CameraRig.Follow;
             originalOffset = follow != null ? follow.FollowOffset : Vector3.zero;
             originalRotation = game.CameraRig.transform.rotation;
             originalFov = game.CameraRig.Lens.FieldOfView;
+            cameraTargetDistance = originalOffset.magnitude;
+            cameraZoomVelocity = 0f;
             cameraOwned = true;
             IsClosed = IsTransferring = true;
             transferred = false;
@@ -159,6 +163,8 @@ namespace EchoScrap.Combat
             game.CameraRig.OnTargetObjectWarped(game.Player.transform, position - before);
             cameraAnchor.position = position;
             game.CameraRig.Follow = cameraAnchor;
+            // Establish the initial framing under the transfer fade. All visible zoom changes are damped.
+            UpdateCamera(0f, true);
             game.CameraRig.PreviousStateIsValid = false;
             Physics.SyncTransforms();
         }
@@ -172,11 +178,16 @@ namespace EchoScrap.Combat
 
         private void LateUpdate()
         {
-            if (!cameraOwned || !IsClosed || !transferred || boss == null || game.Session.IsPaused) return;
+            if (!cameraOwned || !IsClosed || !transferred || boss == null || game.Session.IsPaused || Time.deltaTime <= 0f) return;
+            UpdateCamera(Time.deltaTime, false);
+        }
+
+        private void UpdateCamera(float deltaTime, bool snap)
+        {
             Vector3 target = Vector3.Lerp(game.Player.WorldCenter, boss.WorldCenter, 0.4f);
             target.y = game.Player.WorldCenter.y + 0.6f;
-            float blend = 1f - Mathf.Exp(-Time.deltaTime * 5f);
-            cameraAnchor.position = Vector3.Lerp(cameraAnchor.position, target, blend);
+            float blend = 1f - Mathf.Exp(-deltaTime * 5f);
+            cameraAnchor.position = snap ? target : Vector3.Lerp(cameraAnchor.position, target, blend);
             Vector3 right = originalRotation * Vector3.right;
             Vector3 up = originalRotation * Vector3.up;
             Vector3 forward = originalRotation * Vector3.forward;
@@ -186,25 +197,23 @@ namespace EchoScrap.Combat
             Vector3 playerHead = game.Player.WorldCenter + Vector3.up;
             required = Mathf.Max(required, RequiredCameraDistance(playerFeet, cameraAnchor.position, right, up, forward, originalFov, aspect));
             required = Mathf.Max(required, RequiredCameraDistance(playerHead, cameraAnchor.position, right, up, forward, originalFov, aspect));
-            Bounds bounds = new Bounds(boss.WorldCenter + Vector3.up * 2f, new Vector3(boss.HitRadius * 2f, 6f, boss.HitRadius * 2f));
-            if (bodyRenderers != null && !boss.IsAirborne)
-                for (int i = 0; i < bodyRenderers.Length; i++)
-                    if (bodyRenderers[i] != null && bodyRenderers[i].enabled && bodyRenderers[i].gameObject.activeInHierarchy &&
-                        (bodyRenderers[i] is MeshRenderer || bodyRenderers[i] is SkinnedMeshRenderer))
-                        bounds.Encapsulate(bodyRenderers[i].bounds);
+            // A stable grounded envelope keeps animation, weapon swings and skinned-mesh culling
+            // from pumping the zoom. The cerco jump deliberately leaves this ground-level frame.
+            Vector3 size = Vector3.Max(bossCameraBoundsSize, new Vector3(boss.HitRadius * 2f, 6f, boss.HitRadius * 2f));
+            Bounds bounds = new Bounds(boss.WorldCenter + Vector3.up * (size.y * .5f - 1f), size);
             for (int corner = 0; corner < 8; corner++)
             {
                 Vector3 point = bounds.center + Vector3.Scale(bounds.extents,
                     new Vector3((corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
                 required = Mathf.Max(required, RequiredCameraDistance(point, cameraAnchor.position, right, up, forward, originalFov, aspect));
             }
-            float zoom = required / Mathf.Max(1f, originalOffset.magnitude);
             if (follow != null)
             {
-                // Expand immediately when necessary to keep the player visible; return gently after closing distance.
-                float current = follow.FollowOffset.magnitude / Mathf.Max(1f, originalOffset.magnitude);
-                float fitted = zoom > current ? zoom : Mathf.Lerp(current, zoom, blend);
-                follow.FollowOffset = originalOffset * fitted;
+                if (snap || Mathf.Abs(required - cameraTargetDistance) > cameraZoomDeadZone)
+                    cameraTargetDistance = required;
+                float distance = snap ? cameraTargetDistance : Mathf.SmoothDamp(follow.FollowOffset.magnitude,
+                    cameraTargetDistance, ref cameraZoomVelocity, cameraZoomSmoothTime, cameraZoomMaxSpeed, deltaTime);
+                follow.FollowOffset = originalOffset.normalized * Mathf.Max(originalOffset.magnitude, distance);
             }
             game.CameraRig.transform.rotation = originalRotation;
         }
@@ -307,7 +316,6 @@ namespace EchoScrap.Combat
             if (game != null && game.Player != null) game.Player.IsEncounterTransferProtected = false;
             RestoreCamera();
             boss = null;
-            bodyRenderers = null;
         }
 
         private void RestoreCamera()
@@ -320,6 +328,7 @@ namespace EchoScrap.Combat
             lens.FieldOfView = originalFov;
             game.CameraRig.Lens = lens;
             game.CameraRig.PreviousStateIsValid = false;
+            cameraTargetDistance = cameraZoomVelocity = 0f;
             cameraOwned = false;
         }
 
