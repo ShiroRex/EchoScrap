@@ -161,6 +161,7 @@ namespace EchoScrap.Tests
             Quaternion baseRotation=view.BaseRenderer.transform.rotation;int firstFrame=view.DirectionFrame;
             Assert.AreEqual("EchoScrap/Character Pixel Lit",view.CannonRenderer.sharedMaterial.shader.name);
             Assert.IsNotNull(view.BaseRenderer.sharedMaterial.GetTexture("_BumpMap"));
+            Assert.AreEqual(new Vector4(0,0,1,1),view.BaseRenderer.sharedMaterial.GetVector("_FrameRect"));
             Assert.IsNotNull(view.CannonRenderer.sharedMaterial.GetTexture("_BumpMap"));
             Assert.Greater(Vector3.Dot(view.AimDirection,new Vector3(1,0,1).normalized),.999f);
             target.Body.position=target.transform.position=new Vector3(-3,1,-3);upgrades.Step(.01f);
