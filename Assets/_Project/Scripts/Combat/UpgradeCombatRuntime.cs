@@ -433,7 +433,7 @@ namespace EchoScrap.Combat
                 var d=devices[i];if(d.Active) continue;
                 d.Active=true;d.Fresh=true;d.Kind=kind;d.Position=position;d.Life=life;d.Damage=damage;d.BurstTimer=d.ShotTimer=0;d.Shots=0;
                 var shape=kind==DeviceKind.Mine?UpgradeEffectPool.Shape.Mine:kind==DeviceKind.Decoy?UpgradeEffectPool.Shape.Decoy:UpgradeEffectPool.Shape.Turret;
-                var p=position;if(kind!=DeviceKind.Decoy)p.y=ArenaSurface.Height(position)+.15f;
+                var p=position;if(kind!=DeviceKind.Decoy)p.y=ArenaSurface.Height(position)+(kind==DeviceKind.Turret?.025f:.15f);
                 d.View=effects.Acquire(shape,p,kind==DeviceKind.Decoy?Plasma:Amber,kind==DeviceKind.Mine?.65f:1f);
                 if(kind==DeviceKind.Decoy)activeDecoys++;
                 ActiveDeviceCount++;return;
@@ -484,6 +484,8 @@ namespace EchoScrap.Combat
                     d.Active=false;effects.Release(d.View);d.View=null;ActiveDeviceCount--;continue;
                 }
                 if(d.Kind!=DeviceKind.Turret) continue;
+                var tracked=Nearest(d.Position,tuning.turretRange);
+                if(tracked!=null && d.View!=null)d.View.Turret?.AimAt(tracked.WorldCenter);
                 d.BurstTimer-=elapsed; d.ShotTimer-=elapsed;
                 if(d.Shots==0 && d.BurstTimer<=0) {d.Shots=tuning.turretBurstCount;d.BurstTimer=tuning.turretBurstInterval;d.ShotTimer=0;}
                 while(d.Shots>0&&d.ShotTimer<=0)
@@ -491,10 +493,12 @@ namespace EchoScrap.Combat
                     var target=Nearest(d.Position,tuning.turretRange);
                     if(target!=null)
                     {
-                        var direction=target.WorldCenter-d.Position;
-                        Fire(d.Position,direction,d.Damage,tuning.plasmaSpeed,1,DamageSourceType.UpgradeTurret,target);
-                        effects.Impact(d.Position+Vector3.up*.55f,Amber);
-                        if(d.View!=null)d.View.Root.rotation=Quaternion.LookRotation(Flat(direction));
+                        var turret=d.View!=null?d.View.Turret:null;
+                        turret?.AimAt(target.WorldCenter);
+                        Vector3 muzzle=turret!=null?turret.MuzzleWorldPosition:d.Position+Vector3.up*.8f;
+                        Fire(muzzle,target.WorldCenter-muzzle,d.Damage,tuning.plasmaSpeed,1,DamageSourceType.UpgradeTurret,target);
+                        effects.Impact(muzzle,Amber);
+                        turret?.Fire();
                     }
                     d.Shots--;d.ShotTimer+=tuning.turretShotInterval;
                 }

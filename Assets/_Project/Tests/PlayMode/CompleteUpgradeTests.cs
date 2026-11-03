@@ -154,6 +154,27 @@ namespace EchoScrap.Tests
             Assert.That(e.CurrentHealth,Is.LessThan(840));
         }
         [Test]
+        public void TurretTracksWithItsCannonKeepsItsBaseFixedAndReusesItsLitParts()
+        {
+            tuning.turretInterval=.1f;var target=Enemy(3,3);Set("SCRAP_04");upgrades.Step(.1f);
+            var view=upgrades.GetComponentInChildren<ScrapTurretView>();Assert.IsNotNull(view);
+            Quaternion baseRotation=view.BaseRenderer.transform.rotation;int firstFrame=view.DirectionFrame;
+            Assert.AreEqual("EchoScrap/Character Pixel Lit",view.CannonRenderer.sharedMaterial.shader.name);
+            Assert.IsNotNull(view.BaseRenderer.sharedMaterial.GetTexture("_BumpMap"));
+            Assert.IsNotNull(view.CannonRenderer.sharedMaterial.GetTexture("_BumpMap"));
+            Assert.Greater(Vector3.Dot(view.AimDirection,new Vector3(1,0,1).normalized),.999f);
+            target.Body.position=target.transform.position=new Vector3(-3,1,-3);upgrades.Step(.01f);
+            Assert.AreNotEqual(firstFrame,view.DirectionFrame);
+            Assert.Greater(Vector3.Dot(view.AimDirection,new Vector3(-1,0,-1).normalized),.999f);
+            Assert.Less(Quaternion.Angle(baseRotation,view.BaseRenderer.transform.rotation),.01f);
+            view.Step(1);Vector3 muzzle=view.MuzzleWorldPosition;view.Fire();view.Step(.01f);
+            Assert.Greater(Vector3.Distance(muzzle,view.MuzzleWorldPosition),.02f,"Recoil must move the cannon and its muzzle together.");
+            view.Step(1);Assert.Less(Vector3.Distance(muzzle,view.MuzzleWorldPosition),.001f);
+            Assert.AreEqual(.025f,view.transform.position.y,.001f);
+            int partCount=upgrades.GetComponentsInChildren<ScrapTurretView>(true).Length;
+            Assert.AreEqual(8,partCount,"Turret parts must be prewarmed instead of allocated on each shot.");
+        }
+        [Test]
         public void AssemblerCountsOriginalMergedGemsAndXpKeepsFractionalBonus()
         {
             Set("SCRAP_02",2);Set("GREED_02",1);Enemy();
