@@ -87,10 +87,15 @@ namespace EchoScrap.Combat
             RefreshDisplays();UpdateResult();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
 
-        public void RefreshDisplays(){if(displays==null)return;var gallery=Enumerable.Range(0,FusionCatalog.Count).Where(id=>Progress.owned[id]>0&&!Progress.equipped.Contains(id)).OrderByDescending(id=>FusionCatalog.Rarities[id]).ToArray();for(int i=0;i<displays.Length;i++){
+        public void RefreshDisplays(){if(displays==null)return;var gallery=Enumerable.Range(0,FusionCatalog.Count).SelectMany(id=>Enumerable.Repeat(id,Progress.Available(id))).OrderByDescending(id=>FusionCatalog.Rarities[id]).ToArray();for(int i=0;i<displays.Length;i++){
             int id=i<3?Progress.equipped[i]:i-3<gallery.Length?gallery[i-3]:-1;
             displays[i].Configure(FusionCatalog.Valid(id)&&Progress.owned[id]>0?id:-1,DisplayHeight,true);
         }}
+        public bool ReleaseCollectible(int id)
+        {
+            if(!FusionCatalog.Valid(id)||Progress.Available(id)<=0)return false;
+            Progress.owned[id]--;RefreshDisplays();Save();return true;
+        }
         public bool CollectFromArena(int id)
         {
             if(!FusionCatalog.CanSpawn(id))return false;

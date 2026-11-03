@@ -78,7 +78,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(10,station.DisplaySlots.Length);station.ResetCollection();station.CollectFromArena(0);station.CollectFromArena(6);
             Approach(1);Assert.IsTrue(system.TryOpen());Assert.AreEqual(1,system.SelectedSlot);
             var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
-            for(int id=0;id<FusionCatalog.Count;id++)Assert.AreEqual(id==0||id==6,panel.Find("Elegir_"+id).gameObject.activeSelf);
+            var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(2,grid.VisibleUnits);Assert.AreEqual(0,grid.UnitId(0));Assert.AreEqual(6,grid.UnitId(1));
             Assert.AreEqual(0,panel.GetComponentsInChildren<Button>().Count(b=>b.name.StartsWith("Puesto_")));
             Assert.IsFalse(system.Equip(0,0));Assert.IsTrue(system.Equip(1,6));system.Close();
             Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(6,station.Progress.equipped[1]);
@@ -108,12 +108,24 @@ namespace EchoScrap.Tests
             var ids=new[]{13,14,4};
             for(int slot=0;slot<3;slot++){Approach(slot);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(slot,ids[slot]));
                 var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
-                for(int id=0;id<FusionCatalog.Count;id++){var art=panel.Find("Elegir_"+id+"/Cara/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(id),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}
+                for(int id=0;id<FusionCatalog.Count;id++){var art=panel.Find("Unidades/Unidad_"+id+"/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(id),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}
                 if(slot==2)yield return Capture("MarcosSelector");system.Close();}
             game.ResetRun(false);game.Session.ResumeAllUserPauses();yield return null;
             var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
             for(int slot=0;slot<3;slot++){var art=hud.Find("Retrato_"+slot+"/Cara").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(ids[slot]),art.sprite);Assert.IsTrue(art.enabled);Assert.AreEqual(Vector2.one*60,art.rectTransform.sizeDelta);}
             yield return Capture("MarcosCombate");
+        }
+        [UnityTest] public IEnumerator DuplicateUnitsHaveSeparateCardsAndReleaseRequiresNamedConfirmation()
+        {
+            station.ResetCollection();station.Progress.owned[0]=3;station.Progress.owned[6]=17;station.RefreshDisplays();
+            Assert.AreEqual(7,station.DisplaySlots.Skip(3).Count(t=>t.GetComponentInChildren<CollectibleDisplay>().CollectibleId==6));
+            Approach();Assert.IsTrue(system.TryOpen());var grid=station.GetComponentInChildren<CollectibleUnitGrid>();
+            Assert.AreEqual(16,grid.VisibleUnits);Assert.AreEqual(0,grid.UnitId(0));Assert.AreEqual(0,grid.UnitId(1));Assert.AreEqual(0,grid.UnitId(2));
+            grid.RequestRelease(1);Assert.IsTrue(grid.ConfirmationOpen);StringAssert.Contains("Lobito",grid.ConfirmationText);Assert.AreEqual(3,station.Progress.owned[0]);yield return Capture("ConfirmarLiberacion");
+            grid.CancelRelease();Assert.AreEqual(3,station.Progress.owned[0]);grid.RequestRelease(1);Assert.IsTrue(grid.ConfirmRelease());Assert.AreEqual(2,station.Progress.owned[0]);Assert.IsFalse(grid.ConfirmRelease());
+            grid.ChangePage(1);Assert.AreEqual(3,grid.VisibleUnits);Assert.AreEqual(6,grid.UnitId(0));grid.ChangePage(-1);
+            Assert.IsTrue(system.Equip(0,0));grid.Refresh(true);grid.RequestRelease(1);Assert.IsFalse(grid.ConfirmationOpen);Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsFalse(station.ReleaseCollectible(0));
+            yield return Capture("InventarioUnidades");
         }
         private IEnumerator Capture(string name){
             yield return null;yield return null;

@@ -6,6 +6,7 @@ namespace EchoScrap.Combat
     public sealed class FusionStationUI : MonoBehaviour
     {
         private Font strongFont;
+        private CollectibleUnitGrid unitGrid;
         private FusionStation station;private Font font;private Canvas canvas;private RectTransform canvasRect,prompt,header;
         private Text headerTitle,headerTime;
         public string HeaderTitle=>headerTitle.text;
@@ -15,7 +16,6 @@ namespace EchoScrap.Combat
         public int SelectedCount=>ingredients.Count(id=>id>=0);
         public bool PickerIsOpen=>picker!=null&&picker.activeSelf;
         private GameObject modal,inventory,result;private Text promptText,selection,odds,status,resultTitle,resultDescription;
-        private readonly Text[] stock=new Text[FusionCatalog.Count];
         private Button start;private Image resultImage;private readonly int[] ingredients={-1,-1,-1,-1};
         public bool IsOpen=>modal!=null&&modal.activeSelf;
         private static readonly Color Ink=new Color(.045f,.055f,.08f,1f),Pale=new Color(.9f,.94f,1);
@@ -62,15 +62,9 @@ namespace EchoScrap.Combat
             start=ButtonAt(inventory.transform,"FUSIONAR",new Vector2(620,602),new Vector2(210,48),()=>station.StartFusion((int[])ingredients.Clone()));
             picker=Panel("MiGaraje",panel,new Vector2(20,90),new Vector2(1080,660),Ink).gameObject;
             Label(picker.transform,"TU GARAJE · ELIGE UN COLECCIONABLE",new Vector2(28,15),new Vector2(1024,46),27,TextAnchor.MiddleCenter);
-            var empty=Label(picker.transform,"Todavía no tienes coleccionables. Encuéntralos en la arena.",new Vector2(70,190),new Vector2(940,100),24,TextAnchor.MiddleCenter);empty.name="SinColeccionables";
-            for(int i=0;i<FusionCatalog.Count;i++){
-                int id=i;var card=ButtonAt(picker.transform,"",new Vector2(28+(i%7)*146,75+(i/7)*215),new Vector2(122,200),()=>AddIngredient(id));
-                card.name="Garaje_"+i;Frame(card.GetComponent<Image>(),false);card.interactable=false;
-                var art=Portrait(card.transform,new Vector2(29,8),new Vector2(64,78));art.sprite=CollectibleDisplay.CardPortrait(i);
-                Label(card.transform,FusionCatalog.Names[i],new Vector2(4,89),new Vector2(114,40),14,TextAnchor.MiddleCenter);
-                var rarity=Label(card.transform,FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[i]],new Vector2(4,130),new Vector2(114,25),14,TextAnchor.MiddleCenter);rarity.color=FusionCatalog.ColorOf(i);
-                stock[i]=Label(card.transform,"",new Vector2(4,155),new Vector2(114,42),14,TextAnchor.MiddleCenter);
-            }
+            var gridRoot=Panel("Unidades",picker.transform,new Vector2(0,60),new Vector2(1080,465),Color.clear);
+            unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
+            unitGrid.Build(station,id=>id==4?0:AvailableIngredient(id,selectedSlot),id=>Mathf.Max(0,station.Progress.Available(id)-ingredients.Count(value=>value==id)),AddIngredient,id=>RefreshSelection());
             Label(picker.transform,"Se consumen cuatro copias disponibles. Los equipados y Yanikua están protegidos.",new Vector2(28,501),new Vector2(1024,40),18,TextAnchor.MiddleCenter);
             ButtonAt(picker.transform,"QUITAR DEL ESPACIO",new Vector2(60,558),new Vector2(430,48),()=>{if(selectedSlot>=0)ingredients[selectedSlot]=-1;ClosePicker();RefreshSelection();});
             ButtonAt(picker.transform,"VOLVER",new Vector2(610,558),new Vector2(340,48),ClosePicker);
@@ -88,15 +82,7 @@ namespace EchoScrap.Combat
         {
             if(slot<0||slot>=4||station.Progress.phase!=FusionPhase.Idle)return;
             selectedSlot=slot;
-            int visible=0,totalOwned=station.Progress.owned.Count(count=>count>0);
-            for(int i=0;i<FusionCatalog.Count;i++){
-                var card=picker.transform.Find("Garaje_"+i).GetComponent<Button>();bool owned=station.Progress.owned[i]>0;
-                card.gameObject.SetActive(owned);if(!owned)continue;
-                int rowCount=Mathf.Min(8,totalOwned-(visible/8)*8);
-                Rect(card.GetComponent<RectTransform>(),new Vector2(479+(visible%8-(rowCount-1)*.5f)*128,75+(visible/8)*215),new Vector2(122,200));visible++;
-                stock[i].text=i==4?"PROTEGIDO":"DISPONIBLES: "+AvailableIngredient(i,slot);card.interactable=i!=4&&AvailableIngredient(i,slot)>0;
-            }
-            picker.transform.Find("SinColeccionables").gameObject.SetActive(visible==0);
+            unitGrid.Refresh(true);
             inventory.SetActive(false);picker.SetActive(true);picker.transform.SetAsLastSibling();
         }
         private void ClosePicker(){picker.SetActive(false);inventory.SetActive(true);}
@@ -120,11 +106,12 @@ namespace EchoScrap.Combat
             bool valid=FusionRecipe.TryCreate(ingredients,out var final);if(valid)recipe=final;start.interactable=valid&&station.Progress.CanBegin(ingredients);
             float[] chance=Enumerable.Range(0,FusionCatalog.Count).Select(recipe.ResultPercent).ToArray();
             int visibleCount=preview?chance.Count(value=>value>0):0,index=0;
-            for(int i=0;i<FusionCatalog.Count;i++){
+            foreach(int i in Enumerable.Range(0,FusionCatalog.Count).OrderByDescending(id=>chance[id]).ThenBy(id=>id)){
                 bool visible=preview&&chance[i]>0;
                 possibleArt[i].gameObject.SetActive(visible);possibleText[i].gameObject.SetActive(visible);
-                possibleText[i].text=visible?FusionCatalog.Names[i]+"\n"+chance[i].ToString("0.##")+"%":"";
-                if(visible){float x=517+(index++-(visibleCount-1)*.5f)*Mathf.Min(202,1000f/visibleCount);Rect(possibleArt[i].rectTransform,new Vector2(x-50,8),new Vector2(100,90));Rect(possibleText[i].rectTransform,new Vector2(x-80,100),new Vector2(160,48));}
+                possibleText[i].color=FusionCatalog.ColorOf(i);
+                possibleText[i].text=visible?FusionCatalog.Names[i]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[i]]+"\n"+chance[i].ToString("0.##")+"%":"";
+                if(visible){float x=517+(index++-(visibleCount-1)*.5f)*Mathf.Min(202,1000f/visibleCount);Rect(possibleArt[i].rectTransform,new Vector2(x-40,4),new Vector2(80,76));Rect(possibleText[i].rectTransform,new Vector2(x-85,80),new Vector2(170,72));}
             }
             odds.text=preview?"TIEMPO DE FUSIÓN  "+recipe.Seconds/60+":00"+(valid?"":" · ESTIMADO"):"TIEMPO DE FUSIÓN  —";
             selection.text=valid?"4 / 4 · Listo para fusionar":chosen.Length+" / 4 · Vista previa según la calidad actual; completa los cuatro espacios.";
@@ -147,7 +134,6 @@ namespace EchoScrap.Combat
         public void Show()
         {
             bool ready=station.Progress.phase==FusionPhase.AwaitingDecision;
-            for(int i=0;i<stock.Length;i++)stock[i].text="GUARDADOS: "+station.Progress.owned[i];
             picker.SetActive(false);modal.SetActive(true);inventory.SetActive(!ready);result.SetActive(ready);
             if(ready){int id=station.Progress.result;resultImage.sprite=CollectibleDisplay.CardPortrait(id);resultTitle.text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]];resultTitle.color=FusionCatalog.ColorOf(id);resultDescription.text="Coleccionar: guardarlo en tu inventario y colocarlo en una plaza libre de la bóveda.\n\nLiberar: descartarlo y cerrar la máquina.";status.text="Los repetidos también se guardan. Puedes elegir tus tres compañeros en la bóveda.";}
             else {ClearSelection();status.text="El combate se pausa mientras eliges. La fusión continúa al cerrar.";}

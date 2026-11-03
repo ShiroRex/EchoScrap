@@ -189,12 +189,12 @@ namespace EchoScrap.Tests
             yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();
             var possible=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel/Ingredientes/PosiblesFusiones");
             Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
-            ui.OpenPicker(0);var picker=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel/MiGaraje");for(int id=0;id<FusionCatalog.Count;id++)Assert.AreEqual(id==0||id==6,picker.Find("Garaje_"+id).gameObject.activeSelf);ui.AddIngredient(0);ui.AddIngredient(0);Assert.AreEqual(1,ui.SelectedCount);
+            ui.OpenPicker(0);var picker=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel/MiGaraje");var grid=picker.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(5,grid.VisibleUnits);Assert.AreEqual(0,grid.UnitId(0));Assert.AreEqual(6,grid.UnitId(1));ui.AddIngredient(0);ui.AddIngredient(0);Assert.AreEqual(1,ui.SelectedCount);
             var values=possible.GetComponentsInChildren<UnityEngine.UI.Text>().Select(t=>t.text).ToArray();
-            CollectionAssert.AreEquivalent(new[]{"Reaper\n60%","Chico Emo\n40%"},values);
+            CollectionAssert.AreEquivalent(new[]{"Reaper\nCOMÚN\n60%","Chico Emo\nRARO\n40%"},values);
             ui.ClearSelection();for(int i=0;i<4;i++)ui.AddIngredient(6);
             values=possible.GetComponentsInChildren<UnityEngine.UI.Text>().Select(t=>t.text).ToArray();
-            CollectionAssert.AreEquivalent(new[]{"Murciélago Cristal\n59.4%","Sirena\n39.6%","Yanikua\n1%"},values);
+            CollectionAssert.AreEquivalent(new[]{"Murciélago Cristal\nÉPICO\n59.4%","Sirena\nLEGENDARIO\n39.6%","Yanikua\nMÍTICO\n1%"},values);
             yield return Capture("RecetaEpica",true);
             ui.ClearSelection();Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
         }
@@ -223,6 +223,15 @@ namespace EchoScrap.Tests
             Assert.AreEqual(2,images.Length);foreach(var art in images)Assert.That(art.sprite.name,Is.EqualTo("CardPortrait"));
             for(int i=0;i<images.Length;i++){Assert.AreEqual(Vector2.one*.5f,images[i].rectTransform.pivot);Assert.AreEqual(images[i].rectTransform.TransformPoint(images[i].rectTransform.rect.center).x,names[i].rectTransform.TransformPoint(names[i].rectTransform.rect.center).x,.01f);}
             yield return Capture("ResultadosCentrados",true);
+        }
+        [UnityTest] public IEnumerator ResultProbabilitiesAreDescendingAndReservedUnitsCannotBeReleased()
+        {
+            station.ResetCollection();station.Progress.owned[0]=2;station.Progress.owned[7]=1;station.Progress.owned[2]=1;
+            yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();foreach(int id in new[]{0,7,2,0})ui.AddIngredient(id);
+            var panel=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel");
+            var labels=panel.Find("Ingredientes/PosiblesFusiones").GetComponentsInChildren<UnityEngine.UI.Text>().OrderBy(t=>t.rectTransform.anchoredPosition.x).Select(t=>t.text).ToArray();
+            StringAssert.StartsWith("Chico Emo\nRARO\n44.55%",labels[0]);StringAssert.StartsWith("Conde Alucard\nESPECIAL",labels[1]);StringAssert.StartsWith("Yanikua\nMÍTICO\n1%",labels[3]);yield return Capture("ProbabilidadesOrdenadas",true);
+            ui.OpenPicker(0);var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();grid.RequestRelease(0);Assert.IsFalse(grid.ConfirmationOpen);Assert.AreEqual(2,station.Progress.owned[0]);
         }
         private IEnumerator VaultCapture()
         {

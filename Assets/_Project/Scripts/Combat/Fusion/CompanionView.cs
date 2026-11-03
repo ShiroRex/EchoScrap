@@ -7,16 +7,16 @@ namespace EchoScrap.Combat
     public sealed class CompanionView : MonoBehaviour
     {
         private CompanionSystem system;
+        private CollectibleUnitGrid unitGrid;
         private FusionStation station;
         private CombatGameBootstrap game;
         private Font font, strong;
         private GameObject modal, prompt, hud;
         private readonly Image[] portraits=new Image[3], backgrounds=new Image[3];
-        private readonly Text[] slots=new Text[3], choices=new Text[FusionCatalog.Count];
-        private readonly Button[] chooseButtons=new Button[FusionCatalog.Count];
+        private readonly Text[] slots=new Text[3];
         private readonly Sprite[] faces=new Sprite[FusionCatalog.Count];
         private int selected=>system.SelectedSlot;
-        private Text title,hintText,emptyText;
+        private Text title,hintText;
         private GameObject collectPrompt;
         private CanvasGroup announcement;
         private RectTransform announcementText;
@@ -67,16 +67,14 @@ namespace EchoScrap.Combat
             var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1160,740),new Color(.045f,.06f,.09f));
             title=Label(panel,"Titulo","",new Vector2(0,325),new Vector2(990,60),30);title.font=strong;
             for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);}
-            emptyText=Label(panel,"SinColeccionables","Todavía no tienes coleccionables. Encuéntralos en la arena.",new Vector2(0,-30),new Vector2(930,90),24);
-            for(int i=0;i<FusionCatalog.Count;i++){int id=i;var b=Button(panel,"Elegir_"+i,new Vector2((i%7-3)*142,15-(i/7)*180),new Vector2(132,190),()=>system.Equip(selected,id));chooseButtons[i]=b;
-                var face=Panel("Cara",b.transform,new Vector2(0,44),new Vector2(84,84),Color.clear);
-                var image=Panel("Retrato",face,Vector2.zero,new Vector2(84,84),Color.white).GetComponent<Image>();image.sprite=faces[i];image.preserveAspect=true;
-                choices[i]=Label(b.transform,"Detalle","",new Vector2(0,-47),new Vector2(126,90),14);
-            }
+            var gridRoot=Panel("Unidades",panel,new Vector2(0,-60),new Vector2(1080,470),Color.clear);
+            unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
+            unitGrid.Build(station,AvailableForSlot,id=>station.Progress.Available(id),id=>system.Equip(selected,id),id=>system.RefreshEquipment());
             var remove=Button(panel,"Quitar",new Vector2(-180,-330),new Vector2(250,45),()=>system.Equip(selected,-1));Label(remove.transform,"Texto","QUITAR DEL PUESTO",Vector2.zero,new Vector2(240,45),20);
             var close=Button(panel,"Cerrar",new Vector2(180,-330),new Vector2(250,45),system.Close);Label(close.transform,"Texto","CERRAR · E / ESC",Vector2.zero,new Vector2(240,45),20);
             modal.SetActive(false);Refresh();
         }
+        private int AvailableForSlot(int id){int count=station.Progress.owned[id];for(int i=0;i<3;i++)if(i!=selected&&station.Progress.equipped[i]==id)count--;return Mathf.Max(0,count);}
         public void Show(bool value){modal.SetActive(value);Refresh();}
         public void Refresh()
         {
@@ -98,16 +96,8 @@ namespace EchoScrap.Combat
                 slots[i].transform.parent.gameObject.SetActive(i==selected);
             }
             if(!IsOpen)return;
-            title.text="PUESTO "+(selected+1)+" · ELIGE UN COMPAÑERO";int visible=0,totalOwned=0;foreach(int count in station.Progress.owned)if(count>0)totalOwned++;
-            for(int id=0;id<FusionCatalog.Count;id++){
-                bool owned=station.Progress.owned[id]>0;chooseButtons[id].gameObject.SetActive(owned);if(!owned)continue;
-                int rowCount=Mathf.Min(8,totalOwned-(visible/8)*8);
-                chooseButtons[id].GetComponent<RectTransform>().anchoredPosition=new Vector2((visible%8-(rowCount-1)*.5f)*140,40-(visible/8)*200);visible++;
-                int used=0;for(int i=0;i<3;i++)if(i!=selected&&station.Progress.equipped[i]==id)used++;
-                choices[id].text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]+"\n"+CompanionSystem.PowerNames[id]+"\nDisponibles: "+Mathf.Max(0,station.Progress.owned[id]-used);
-                chooseButtons[id].interactable=station.Progress.owned[id]>used;
-            }
-            emptyText.gameObject.SetActive(visible==0);
+            title.text="PUESTO "+(selected+1)+" · ELIGE UN COMPAÑERO";
+            unitGrid.Refresh();
         }
 
     }
