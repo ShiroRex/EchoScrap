@@ -25,7 +25,7 @@ namespace EchoScrap.Combat
         public static bool TryGetForCamera(Camera camera, out IArenaLightingView view)
         {
             var runtime=ArenaLightingController.Active;
-            if(ArenaLightingController.IsExteriorActive && runtime!=null && runtime.GameplayCamera==camera && camera.cameraType==CameraType.Game)
+            if(runtime!=null && runtime.isActiveAndEnabled && runtime.GameplayCamera==camera && camera.cameraType==CameraType.Game)
             {view=runtime;return true;}
 #if UNITY_EDITOR
             if(!Application.isPlaying && EditorPreview!=null && EditorPreview.GameplayCamera==camera)

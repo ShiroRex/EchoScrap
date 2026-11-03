@@ -59,9 +59,11 @@ namespace EchoScrap.Combat
                 switch (actor.State)
                 {
                     case GolgoraState.Intro: Play(0, .8f); break;
-                    case GolgoraState.StompWindup: Play(1, .75f); break;
+                    case GolgoraState.StompWindup:
+                    case GolgoraState.FissureWindup: Play(1, .75f); break;
                     case GolgoraState.SweepWindup: Play(3, .7f); break;
-                    case GolgoraState.BarrageWindup: Play(5, .65f); break;
+                    case GolgoraState.BarrageWindup:
+                    case GolgoraState.RainWindup: Play(5, .65f); break;
                     case GolgoraState.CercoWindup: Play(6, .8f); break;
                     case GolgoraState.CercoReposition: Play(6,.8f);break;
                     case GolgoraState.PhaseTransition: Play(8, .85f); break;
@@ -74,7 +76,7 @@ namespace EchoScrap.Combat
         }
         public void Impact(GolgoraAttackKind kind)
         {
-            if (kind == GolgoraAttackKind.Hammer || kind == GolgoraAttackKind.Cerco) Play(2, 1f);
+            if (kind == GolgoraAttackKind.Hammer || kind == GolgoraAttackKind.Cerco || kind==GolgoraAttackKind.Fissure) Play(2, 1f);
             else if (kind == GolgoraAttackKind.Sweep) Play(4, .85f);
         }
         public void StepSound() => Play(7, .35f);

@@ -40,6 +40,7 @@ namespace EchoScrap.Combat
         internal sealed class Flight
         {
             internal readonly GameObject Root;
+            private readonly EnemyEffectVisual pixelFlight;
             private readonly Transform rock;
             private readonly Renderer rockRenderer;
             private readonly DynamicMesh flame, whiteFlame, smoke, sparks;
@@ -47,6 +48,12 @@ namespace EchoScrap.Combat
             internal Flight(Transform parent, Shared art)
             {
                 Root = Child(parent, "GolgoraFallingSlag");
+                var sprites = EnemyEffectLibrary.Load();
+                if (sprites != null && sprites.IsReady)
+                {
+                    pixelFlight = new EnemyEffectVisual(Root.transform, sprites);
+                    pixelFlight.Select(EnemyEffectId.MagmaMeteor); return;
+                }
                 rockRenderer = Visual(Root.transform, "FracturedBasalt", art.Rock, art.Slag);
                 rock = rockRenderer.transform;
                 flame = new DynamicMesh(Root.transform, "TornOuterFlame", art.Fire, 9, true);
@@ -61,6 +68,11 @@ namespace EchoScrap.Combat
                 Vector3 head = Path(spec, age);
                 Vector3 velocity = spec.TargetPosition - spec.LaunchOrigin;
                 velocity.y += 4f * spec.ArcPeakHeight * (1f - 2f * Mathf.Clamp01(age / Mathf.Max(.05f, spec.FlightDuration)));
+                if (pixelFlight != null)
+                {
+                    pixelFlight.Pose(head, velocity, default, camera);
+                    pixelFlight.Draw(age, 1f, ornament); return;
+                }
                 Vector3 backward = velocity.sqrMagnitude > .001f ? -velocity.normalized : Vector3.up;
                 Quaternion view = camera != null ? camera.transform.rotation : Quaternion.Euler(45f, 0f, 0f);
                 Vector3 right = view * Vector3.right, up = view * Vector3.up;
@@ -106,18 +118,25 @@ namespace EchoScrap.Combat
                 }
                 sparks.Apply(age, spec.SourceId);
             }
-            internal void Dispose() { flame.Dispose(); whiteFlame.Dispose(); smoke.Dispose(); sparks.Dispose(); }
+            internal void Dispose() { pixelFlight?.Dispose(); flame?.Dispose(); whiteFlame?.Dispose(); smoke?.Dispose(); sparks?.Dispose(); }
         }
 
         internal sealed class Impact
         {
             internal readonly GameObject Root;
+            private readonly EnemyEffectVisual pixelImpact;
             private readonly Renderer crown;
             private readonly DynamicMesh fragments, smoke, embers;
             private readonly MaterialPropertyBlock properties = new MaterialPropertyBlock();
             internal Impact(Transform parent, Shared art)
             {
                 Root = Child(parent, "GolgoraForgeImpact");
+                var sprites = EnemyEffectLibrary.Load();
+                if (sprites != null && sprites.IsReady)
+                {
+                    pixelImpact = new EnemyEffectVisual(Root.transform, sprites);
+                    pixelImpact.Select(EnemyEffectId.MagmaImpact); return;
+                }
                 crown = Visual(Root.transform, "MoltenSplashCrown", art.Crown, art.Fire);
                 fragments = new DynamicMesh(Root.transform, "BallisticSlag", art.Slag, 12, false, true);
                 smoke = new DynamicMesh(Root.transform, "RisingCooledAsh", art.Smoke, 7, false);
@@ -127,6 +146,17 @@ namespace EchoScrap.Combat
             {
                 Root.transform.position = Vector3.zero;
                 Root.transform.rotation = Quaternion.identity;
+                if (pixelImpact != null)
+                {
+                    bool visible = age < pixelImpact.Duration && ornament > .001f;
+                    pixelImpact.Root.SetActive(visible);
+                    if (visible)
+                    {
+                        pixelImpact.Pose(center + Vector3.up * radius * .35f, Vector3.zero, Vector2.one * radius * 2.5f, camera);
+                        pixelImpact.Draw(age, Mathf.Clamp01((pixelImpact.Duration - age) / .15f) * ornament, ornament);
+                    }
+                    return;
+                }
                 bool burst = age < .55f && ornament > .001f;
                 crown.enabled = burst;
                 fragments.Renderer.enabled = age < 1.05f && ornament > .001f;
@@ -185,7 +215,7 @@ namespace EchoScrap.Combat
                 }
                 embers.Apply(age, seed);
             }
-            internal void Dispose() { fragments.Dispose(); smoke.Dispose(); embers.Dispose(); }
+            internal void Dispose() { pixelImpact?.Dispose(); fragments?.Dispose(); smoke?.Dispose(); embers?.Dispose(); }
         }
 
         private sealed class DynamicMesh

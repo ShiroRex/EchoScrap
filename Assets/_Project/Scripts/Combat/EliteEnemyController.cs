@@ -14,6 +14,7 @@ namespace EchoScrap.Combat
         private EnemyActor actor;
         private EliteEnemyPresentation presentation;
         private EliteProjectilePool projectiles;
+        private EnemyEffectPool effects;
         private float phaseTime;
         public EliteEnemyState State { get; private set; }
         public Vector3 LockedDirection { get; private set; } = Vector3.forward;
@@ -31,6 +32,7 @@ namespace EchoScrap.Combat
         public void Bind(EnemyActor owner)
         {
             actor = owner;
+            effects = EnemyEffectPool.GetOrCreate(owner.Session);
             presentation = GetComponent<EliteEnemyPresentation>() ?? gameObject.AddComponent<EliteEnemyPresentation>();
             presentation.Bind(actor, this);
             if (IsCopper) projectiles = EliteProjectilePool.GetOrCreate(actor.Session, actor.TargetPlayer);
@@ -84,8 +86,13 @@ namespace EchoScrap.Combat
                     {
                         if (projectiles == null || !projectiles.FireFan(actor.TargetId, WarningOrigin, LockedDirection, Settings))
                             return true;
+                        effects?.Play(EnemyEffectId.CopperMuzzle, WarningOrigin + LockedDirection * .6f, LockedDirection);
                     }
-                    else ResolveSweep();
+                    else
+                    {
+                        ResolveSweep();
+                        effects?.Play(EnemyEffectId.SpectralSweep, WarningOrigin, LockedDirection, Vector2.one * Settings.Range * 2.5f);
+                    }
                     AttacksResolved++;
                     State = EliteEnemyState.Recovery; phaseTime = 0f;
                 }

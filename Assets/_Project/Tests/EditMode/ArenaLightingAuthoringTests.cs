@@ -66,6 +66,8 @@ namespace EchoScrap.Tests
                 {
                     Assert.That(item.Source,Is.Not.Null);
                     Assert.That(item.Source.type,Is.EqualTo(kind==ArenaLightingItemKind.Point?LightType.Point:LightType.Spot));
+                    Assert.That(item.Source.shadows,Is.EqualTo(kind==ArenaLightingItemKind.Point?LightShadows.None:LightShadows.Soft));
+                    Assert.That(item.Source.GetUniversalAdditionalLightData().usePipelineSettings,Is.False);
                     if(kind!=ArenaLightingItemKind.Point)Assert.That(rig.ShaftLights,Does.Contain(item.Source));
                 }
                 if(kind==ArenaLightingItemKind.WallReflector||kind==ArenaLightingItemKind.StandingReflector)

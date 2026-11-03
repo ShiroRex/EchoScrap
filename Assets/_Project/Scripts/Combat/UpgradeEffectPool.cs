@@ -17,6 +17,7 @@ namespace EchoScrap.Combat
             public Transform Root;
             public MeshFilter Filter;
             public MeshRenderer Renderer;
+            public ScrapTurretView Turret;
             public bool Used, Transient, Inward;
             public float Age, Life, Radius, Reaction;
             public Color Color;
@@ -95,11 +96,12 @@ namespace EchoScrap.Combat
             }
             shieldMaterial = new Material(energyShader != null ? energyShader : spriteShader) { name = "Nanobot energy envelope" };
             shieldMaterial.SetTexture("_MainTex", Resources.Load<Texture2D>("Upgrades/Vfx/Shield"));
-            views = new View[Mathf.Max(16, capacity)];
+            views = new View[Mathf.Max(16, capacity)+8];
             for (int i = 0; i < views.Length; i++)
             {
                 var go = new GameObject("UpgradeEffect"); go.transform.SetParent(parent, false);
                 var v = new View { Root = go.transform, Filter = go.AddComponent<MeshFilter>(), Renderer = go.AddComponent<MeshRenderer>() };
+                if(i<8){v.Turret=go.AddComponent<ScrapTurretView>();v.Turret.Initialize(turretQuad);v.Turret.enabled=false;}
                 v.Renderer.shadowCastingMode = ShadowCastingMode.Off; v.Renderer.receiveShadows = false; go.SetActive(false); views[i] = v;
             }
             reserveRoot = new GameObject("Authored upgrade VFX reserve").transform; reserveRoot.SetParent(parent, false);
@@ -147,6 +149,7 @@ namespace EchoScrap.Combat
             for (int i = 0; i < views.Length; i++)
             {
                 View v = views[i]; if (v.Used) continue;
+                if((shape==Shape.Turret)!=(v.Turret!=null))continue;
                 v.Used = true; v.Transient = false; v.Inward = false; v.Age = 0; v.Color = color; v.Shape = shape; v.Kind = BurstKind.Auto; v.Rig = null; v.Reaction = 0; v.ReactionDirection = Vector3.forward;
                 v.Root.SetPositionAndRotation(position, Quaternion.identity); v.Root.localScale = Vector3.one * scale;
                 v.Renderer.SetPropertyBlock(null); ConfigureRenderer(v);
@@ -164,6 +167,10 @@ namespace EchoScrap.Combat
         }
         private void ConfigureRenderer(View v)
         {
+            if(v.Turret!=null)
+            {
+                v.Renderer.enabled=false;v.Turret.enabled=true;v.Turret.ResetPose();return;
+            }
             v.Renderer.enabled = true; v.Filter.sharedMesh = groundQuad; int material = 6;
             switch (v.Shape)
             {
@@ -242,6 +249,7 @@ namespace EchoScrap.Combat
             {
                 View v = views[i]; if (!v.Used) continue;
                 v.Age += dt; v.Reaction = Mathf.Max(0f, v.Reaction - dt * 4.5f);
+                if(v.Turret!=null)v.Turret.Step(dt);
                 if (!Decorative && v.Rig != null) { ReleaseRig(v.Rig); v.Rig = null; }
                 if (Decorative && !v.Transient && v.Rig == null && WantsLoop(v)) v.Rig = AcquireRig(v, LoopProfile(v));
                 if (v.Transient)
@@ -345,7 +353,7 @@ namespace EchoScrap.Combat
         }
         private static Mesh Quad(bool upright, bool bottomPivot)
         {
-            float low = bottomPivot ? -.24f : -1f, high = bottomPivot ? 1.76f : 1f;
+            float low = bottomPivot ? -.0625f : -1f, high = bottomPivot ? 1.9375f : 1f;
             var vertices = upright ? new[] { new Vector3(-1, low, 0), new Vector3(1, low, 0), new Vector3(1, high, 0), new Vector3(-1, high, 0) } : new[] { new Vector3(-1, 0, -1), new Vector3(1, 0, -1), new Vector3(1, 0, 1), new Vector3(-1, 0, 1) };
             var mesh = new Mesh { name = upright ? "Upgrade upright sprite" : "Upgrade ground sprite", vertices = vertices, triangles = new[] { 0, 2, 1, 0, 3, 2 }, uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) }, colors = new[] { Color.white, Color.white, Color.white, Color.white } };
             mesh.RecalculateNormals(); mesh.RecalculateTangents(); return mesh;

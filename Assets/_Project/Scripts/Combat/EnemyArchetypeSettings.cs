@@ -227,7 +227,7 @@ namespace EchoScrap.Combat
                     {
                         ArchetypeId = EnemyArchetypeId.GolgoraBoss,
                         DisplayName = "Gólgora",
-                        MaxHealth = 1500f,
+                        MaxHealth = 3600f,
                         BaseMoveSpeed = 1.6f,
                         SpeedVarianceFraction = 0f,
                         ContactDamage = 30f,

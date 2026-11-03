@@ -23,6 +23,7 @@ namespace EchoScrap.Combat
 
         private CombatSession session;
         private PlayerHealth player;
+        private EnemyEffectPool effects;
         private int sessionKey;
         private bool initialized;
         private bool flushing;
@@ -62,6 +63,7 @@ namespace EchoScrap.Combat
             if (pools.TryGetValue(sessionKey, out MothExplosionPool previous) && previous == this)
                 pools.Remove(sessionKey);
             session = owner;
+            effects = EnemyEffectPool.GetOrCreate(owner);
             player = target;
             sessionKey = owner != null ? owner.GetHashCode() : 0;
             pools[sessionKey] = this;
@@ -150,6 +152,7 @@ namespace EchoScrap.Combat
         private void PlayWave(Vector3 position)
         {
             if (!initialized || (session != null && session.Effects.DecorativeIntensity <= 0f)) return;
+            effects?.Play(EnemyEffectId.MothSmoke, ArenaSurface.OnGround(position, .8f));
             for (int i = 0; i < prototypeEffects.Length; i++)
             {
                 if (prototypeEffects[i].gameObject.activeSelf) continue;
@@ -244,12 +247,14 @@ namespace EchoScrap.Combat
             ring.gameObject.SetActive(true);
             Vector3 scale = transform.lossyScale;
             ring.transform.localScale = new Vector3(3f / Mathf.Max(0.01f, scale.x), 1f, 3f / Mathf.Max(0.01f, scale.z));
-            ring.transform.position = new Vector3(position.x, 0.045f, position.z);
+            ring.transform.position = ArenaSurface.OnGround(position, .06f);
+            ring.transform.rotation = Quaternion.FromToRotation(Vector3.up, ArenaSurface.Normal(position));
             Color color = Color.Lerp(new Color(1f, 0.76f, 0.16f), new Color(1f, 0.18f, 0.3f), Mathf.Clamp01(progress));
             color.a = 0.8f + 0.2f * Mathf.Clamp01(progress);
             block.SetColor("_BaseColor", color); ring.SetPropertyBlock(block);
             progressArc.gameObject.SetActive(progress > 0f);
             progressArc.transform.position = ring.transform.position + Vector3.up * 0.01f;
+            progressArc.transform.rotation = ring.transform.rotation;
             progressArc.transform.localScale = ring.transform.localScale * 0.91f;
             int indexCount = Mathf.Clamp(Mathf.CeilToInt(progress * 64f), 0, 64) * 6;
             progressMesh.SetSubMesh(0, new SubMeshDescriptor(0, indexCount, MeshTopology.Triangles),

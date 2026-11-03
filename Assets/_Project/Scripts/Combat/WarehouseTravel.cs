@@ -12,6 +12,10 @@ namespace EchoScrap.Combat
         public Transform WarehouseArrival;
         public Transform CombatArrival;
         public Collider InteriorCameraBounds;
+        [Header("Interior boundaries")]
+        [Min(0f)] public float InteriorCameraWallPadding = 5f;
+        [Min(0f)] public float InteriorFloorMargin = 16f;
+        [Min(.1f)] public float InteriorBoundaryFadeWidth = 8f;
         private WarehouseCameraDirector cameraDirector;
         private CombatGameBootstrap game;
         private float nextTravel;

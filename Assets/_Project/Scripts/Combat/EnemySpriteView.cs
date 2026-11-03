@@ -19,6 +19,7 @@ namespace EchoScrap.Combat
         private MaterialPropertyBlock block;
         private readonly List<Renderer> renderers = new List<Renderer>(8);
         private EnemySpriteDeathPool deaths;
+        private EnemyEffectPool effects;
         private float clipTime, attackRemaining, attackDuration, hitRemaining;
         private Vector3 contactDirection;
         public EnemySpriteMotion Motion { get; private set; }
@@ -33,6 +34,7 @@ namespace EchoScrap.Combat
         public void Bind(EnemyActor owner)
         {
             actor = owner;
+            effects = EnemyEffectPool.GetOrCreate(owner.Session);
             sprites = EnemySpriteSet.Load(owner.ArchetypeId);
             if (sprites == null) return;
             enabled = true;
@@ -105,8 +107,10 @@ namespace EchoScrap.Combat
 
         public void NotifyContact()
         {
-            if (!IsReady || actor.ArchetypeId != EnemyArchetypeId.Residual) return;
+            if (!IsReady || (actor.ArchetypeId != EnemyArchetypeId.Residual && actor.ArchetypeId != EnemyArchetypeId.Interceptor)) return;
             contactDirection = actor.FacingDirection;
+            effects?.Play(actor.ArchetypeId == EnemyArchetypeId.Residual ? EnemyEffectId.ResidualSlash : EnemyEffectId.InterceptorSlash,
+                actor.WorldCenter + contactDirection * .45f, contactDirection);
             Facing = ResolveFacing(contactDirection);
             hitRemaining = 0f;
             attackDuration = Mathf.Max(.05f, actor.Archetype.ContactCooldown);
@@ -119,6 +123,7 @@ namespace EchoScrap.Combat
         public void NotifyHit()
         {
             if (!IsReady || (actor.Charge != null && actor.Charge.State != ColossusChargeState.Pursuit)) return;
+            if (actor.ArchetypeId == EnemyArchetypeId.Residual) effects?.Play(EnemyEffectId.BoneChips, actor.WorldCenter);
             Facing = ResolveFacing();
             hitRemaining = sprites.GetClip(EnemySpriteMotion.Hit, Facing).Duration;
             attackRemaining = 0f;

@@ -13,18 +13,22 @@ namespace EchoScrap.Combat
         private EnemyActor enemy;
         private ParticleSystem dust;
         private TrailRenderer trail;
+        private EnemyEffectPool effects;
+        private float nextWakeTime;
+        private bool spriteWakeActive;
         private Action<Vector3, int> dustHandler;
         private Action resetHandler;
         private Action preferenceHandler;
         private bool subscribed;
         public int DustParticleCount => dust != null ? dust.particleCount : 0;
-        public bool IsTrailEmitting => trail != null && trail.emitting;
+        public bool IsTrailEmitting => spriteWakeActive || (trail != null && trail.emitting);
 
         public void Bind(CombatSession owner, ActorVisualComposer visual, EnemyActor actor = null)
         {
             if (session == owner && composer == visual && enemy == actor) { Clear(); return; }
             Unsubscribe();
             session = owner; composer = visual; enemy = actor;
+            effects = actor != null ? EnemyEffectPool.GetOrCreate(owner) : null;
             dustHandler ??= EmitDust;
             resetHandler ??= Clear;
             preferenceHandler ??= Refresh;
@@ -116,12 +120,23 @@ namespace EchoScrap.Combat
             {
                 bool emitting = isActiveAndEnabled && enemy != null && enemy.IsAlive
                     && enemy.Velocity.sqrMagnitude > 9f && (session == null || !session.IsPaused);
-                if (emitting && !trail.emitting) trail.Clear();
-                trail.emitting = emitting;
+                spriteWakeActive = emitting && effects != null && effects.IsReady;
+                trail.enabled = effects == null || !effects.IsReady;
+                float now = session != null ? session.GameplayTime : Time.time;
+                if (spriteWakeActive && now >= nextWakeTime)
+                {
+                    nextWakeTime = now + .12f;
+                    effects.Play(EnemyEffectId.InterceptorWake, ArenaSurface.OnGround(enemy.WorldCenter, .22f)
+                        - enemy.FacingDirection * .45f, enemy.FacingDirection, lifetime: .24f);
+                }
+                bool useTrail = emitting && !spriteWakeActive;
+                if (useTrail && !trail.emitting) trail.Clear();
+                trail.emitting = useTrail;
             }
         }
         public void Clear()
         {
+            spriteWakeActive = false; nextWakeTime = 0f;
             if (dust != null) dust.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             if (trail != null) { trail.emitting = false; trail.Clear(); }
         }

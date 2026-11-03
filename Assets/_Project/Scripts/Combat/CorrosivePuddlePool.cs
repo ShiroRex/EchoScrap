@@ -142,6 +142,7 @@ namespace EchoScrap.Combat
         private Mesh discMesh;
         private Mesh shellMesh;
         private MortarAcidSet acidArt;
+        private EnemyEffectLibrary enemyArt;
         private Camera presentationCamera;
         private MaterialPropertyBlock block;
         private CombatSession subscribedSession;
@@ -384,7 +385,7 @@ namespace EchoScrap.Combat
                 if (slot.MagmaVisual == null) slot.MagmaVisual = new GolgoraMeteorVfx.Impact(slot.Root.transform, magmaArt);
             }
             if (slot.MagmaVisual != null) slot.MagmaVisual.Root.SetActive(magma);
-            slot.CoreRenderer.sharedMaterial = magma ? magmaGroundMaterial : acidArt != null ? acidArt.puddleMaterial : acidMaterial;
+            slot.CoreRenderer.sharedMaterial = magma ? enemyArt != null ? enemyArt.material : magmaGroundMaterial : acidArt != null ? acidArt.puddleMaterial : acidMaterial;
             slot.ImpactRenderer.sharedMaterial = magma ? magmaGroundMaterial : acidArt != null ? acidArt.impactMaterial : acidMaterial;
             slot.BorderRenderer.sharedMaterial = magma ? magmaGroundMaterial : acidMaterial;
             slot.Root.transform.position = slot.Center + Vector3.up * 0.03f;
@@ -506,7 +507,16 @@ namespace EchoScrap.Combat
             if (slot.Style == HazardStyle.BossMagma)
             {
                 ApplyMagma(slot.BorderRenderer, new Color(1f, .43f, .035f, 1f), slot.Elapsed, slot.SequenceId, true);
-                ApplyMagma(slot.CoreRenderer, new Color(1f, .38f, .025f, .9f * slot.FadeAlpha), slot.Elapsed, slot.SequenceId, false);
+                if (enemyArt != null)
+                {
+                    var clip = enemyArt.Get(EnemyEffectId.MagmaPuddle);
+                    block.Clear();
+                    block.SetVector(FrameRectId, clip.animation.frames[clip.animation.FrameAt(slot.Elapsed + slot.SequenceId * .08f)].uvRect);
+                    block.SetColor(BaseColorId, new Color(1f, 1f, 1f, .9f * slot.FadeAlpha));
+                    block.SetFloat(GlowStrengthId, clip.glow * DecorativeIntensity * slot.FadeAlpha);
+                    slot.CoreRenderer.SetPropertyBlock(block);
+                }
+                else ApplyMagma(slot.CoreRenderer, new Color(1f, .38f, .025f, .9f * slot.FadeAlpha), slot.Elapsed, slot.SequenceId, false);
                 slot.ImpactRing.gameObject.SetActive(false);
                 slot.MagmaVisual.Draw(slot.Center, slot.Radius, slot.Elapsed, slot.SequenceId,
                     DecorativeIntensity * slot.FadeAlpha, presentationCamera);
@@ -628,6 +638,8 @@ namespace EchoScrap.Combat
         private void EnsureMagmaArt()
         {
             if (magmaArt != null) return;
+            enemyArt = EnemyEffectLibrary.Load();
+            if (enemyArt != null && !enemyArt.IsReady) enemyArt = null;
             magmaArt = new GolgoraMeteorVfx.Shared();
             var asset = Resources.Load<Material>("Golgora/Magma");
             magmaGroundMaterial = asset != null ? new Material(asset) : new Material(acidMaterial);
