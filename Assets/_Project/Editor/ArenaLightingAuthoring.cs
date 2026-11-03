@@ -27,6 +27,7 @@ namespace EchoScrap.Editor
                 kind==ArenaLightingItemKind.GodRay?5f:kind==ArenaLightingItemKind.Dust?2f:kind==ArenaLightingItemKind.Mist ? .75f : 0f;
             Color=kind==ArenaLightingItemKind.Point?new Color(1,.64f,.3f):new Color(.82f,.84f,1);
             Intensity=kind==ArenaLightingItemKind.Point?5.5f:65f;Range=kind==ArenaLightingItemKind.Point?12:20;
+            Shadows=kind!=ArenaLightingItemKind.Point;
             Size=kind==ArenaLightingItemKind.Mist?new Vector3(11,1.6f,7):new Vector3(6,4,6);
         }
     }
@@ -97,6 +98,9 @@ namespace EchoScrap.Editor
                 source.color=settings.Color;source.intensity=Mathf.Max(0,settings.Intensity);source.range=Mathf.Max(.1f,settings.Range);
                 source.spotAngle=Mathf.Clamp(settings.Angle,1,179);source.innerSpotAngle=source.spotAngle*.7f;
                 source.shadows=settings.Shadows?LightShadows.Soft:LightShadows.None;
+                source.shadowBias=.025f;source.shadowNormalBias=.08f;
+                var lightData=source.GetUniversalAdditionalLightData();
+                lightData.usePipelineSettings=false;lightData.softShadowQuality=SoftShadowQuality.Medium;
                 item.Source=source;item.GodRays=source.type==LightType.Spot&&settings.GodRays;
                 if(!reflector)source.transform.rotation=Quaternion.Euler(settings.Pitch,settings.Yaw,0);
                 if(settings.AddDust && source.type==LightType.Spot)

@@ -7,13 +7,14 @@ using UnityEngine.Rendering.Universal;
 
 namespace EchoScrap.Combat
 {
-    /// <summary>Scopes the exterior look to its camera; restores the warehouse and menu presentation.</summary>
+    /// <summary>Scopes exterior atmosphere and interior lighting to the gameplay camera.</summary>
     [DefaultExecutionOrder(500)]
     [DisallowMultipleComponent]
     public sealed class ArenaLightingController : MonoBehaviour, IArenaLightingView
     {
         public static ArenaLightingController Active { get; private set; }
         public static bool IsExteriorActive => Active != null && Active.LightingEnabled && !Active.inside;
+        public static bool IsWorldLightingActive => Active != null && Active.isActiveAndEnabled && Active.LightingEnabled;
         public ArenaLightingProfile Profile { get; private set; }
         public Camera GameplayCamera => game != null ? game.GameplayCamera : null;
         public Vector3 PlayerPosition => game != null && game.Player != null ? game.Player.transform.position : Vector3.zero;
@@ -172,7 +173,21 @@ namespace EchoScrap.Combat
                 RenderSettings.fog = false;
                 if (key != null) { key.color = Profile.KeyColor; key.intensity = Profile.KeyIntensity; key.transform.rotation = Quaternion.Euler(Profile.KeyRotation); }
             }
-            else RestoreEnvironment();
+            else
+            {
+                RestoreEnvironment();
+                if (inside && isActiveAndEnabled && LightingEnabled)
+                {
+                    RenderSettings.ambientMode = AmbientMode.Trilight;
+                    RenderSettings.ambientSkyColor = Profile.WarehouseAmbientSky;
+                    RenderSettings.ambientEquatorColor = Profile.WarehouseAmbientEquator;
+                    RenderSettings.ambientGroundColor = Profile.WarehouseAmbientGround;
+                    RenderSettings.ambientIntensity = 1f;
+                    RenderSettings.fog = false;
+                    // Outdoor moonlight must not shine through the open diorama roof.
+                    if (key != null) key.intensity = 0f;
+                }
+            }
             RefreshDecoration();
             PushGlobals();
         }

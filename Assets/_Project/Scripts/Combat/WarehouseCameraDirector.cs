@@ -36,7 +36,7 @@ namespace EchoScrap.Combat
             if(!initialized) return;
             inside=value;
             game.Lighting?.SetWarehouse(value);
-            if(inside) {RenderSettings.ambientMode=UnityEngine.Rendering.AmbientMode.Flat;RenderSettings.ambientLight=new Color(.48f,.53f,.6f);RenderSettings.ambientIntensity=1;}
+            if(inside && game.Lighting==null) {RenderSettings.ambientMode=UnityEngine.Rendering.AmbientMode.Flat;RenderSettings.ambientLight=new Color(.48f,.53f,.6f);RenderSettings.ambientIntensity=1;}
             else if(game.Lighting==null) RestoreAmbient();
             confiner.BoundingVolume=travel.InteriorCameraBounds;
             confiner.enabled=inside && travel.InteriorCameraBounds!=null;

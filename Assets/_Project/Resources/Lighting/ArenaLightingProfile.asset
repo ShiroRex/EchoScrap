@@ -28,6 +28,9 @@ MonoBehaviour:
   SkyColor: {r: 0.026, g: 0.009, b: 0.048, a: 1}
   AmbientIntensity: 1
   BloomIntensity: 0.38
+  WarehouseAmbientSky: {r: 0.16, g: 0.2, b: 0.29, a: 1}
+  WarehouseAmbientEquator: {r: 0.075, g: 0.09, b: 0.14, a: 1}
+  WarehouseAmbientGround: {r: 0.035, g: 0.028, b: 0.045, a: 1}
   AirColor: {r: 0.44, g: 0.3, b: 0.62, a: 1}
   AirDensity: 0.0045
   AmbientScattering: 0.5
@@ -40,8 +43,8 @@ MonoBehaviour:
   FarMistBase: 2
   FarMistTop: 14
   WindVelocity: {x: 0.26, y: 0.1}
-  ShaftDensity: 0.085
-  ShaftScattering: 0.08
+  ShaftDensity: 0.025
+  ShaftScattering: 0.022
   MinimumProtectedRadius: 12
   ProtectedRadiusMargin: 2
   PeripheralBlurPixels: 6

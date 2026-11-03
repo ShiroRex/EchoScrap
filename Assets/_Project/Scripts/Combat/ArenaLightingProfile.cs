@@ -25,6 +25,10 @@ namespace EchoScrap.Combat
         public Color SkyColor = new Color(.026f, .009f, .048f);
         [Range(0f, 2f)] public float AmbientIntensity = 1f;
         [Range(0f, 1f)] public float BloomIntensity = .38f;
+        [Header("Vault interior (local lamps provide the direct light)")]
+        public Color WarehouseAmbientSky = new Color(.16f, .20f, .29f);
+        public Color WarehouseAmbientEquator = new Color(.075f, .09f, .14f);
+        public Color WarehouseAmbientGround = new Color(.035f, .028f, .045f);
         [Header("Air in world space")]
         public Color AirColor = new Color(.44f, .3f, .62f);
         [Min(0f)] public float AirDensity = .0045f;
@@ -39,8 +43,8 @@ namespace EchoScrap.Combat
         public float FarMistTop = 14f;
         public Vector2 WindVelocity = new Vector2(.26f, .1f);
         [Header("Industrial light shafts")]
-        [Min(0f)] public float ShaftDensity = .085f;
-        [Min(0f)] public float ShaftScattering = .08f;
+        [Min(0f)] public float ShaftDensity = .025f;
+        [Min(0f)] public float ShaftScattering = .022f;
         [Header("Readability")]
         [Min(0f)] public float MinimumProtectedRadius = 12f;
         [Min(0f)] public float ProtectedRadiusMargin = 2f;

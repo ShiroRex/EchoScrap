@@ -62,7 +62,11 @@ namespace EchoScrap.Tests
                 Assert.IsFalse(ArenaLightingController.IsExteriorActive);Assert.IsFalse(camera.renderPostProcessing);
                 Assert.AreEqual(1,camera.volumeLayerMask.value);Assert.IsFalse(game.Lighting.Rig.gameObject.activeSelf);
                 Assert.AreEqual(CameraClearFlags.Skybox,game.GameplayCamera.clearFlags);
-                Assert.AreEqual(AmbientMode.Flat,RenderSettings.ambientMode);Assert.AreEqual(new Color(.48f,.53f,.6f),RenderSettings.ambientLight);
+                Assert.AreEqual(AmbientMode.Trilight,RenderSettings.ambientMode);
+                Assert.AreEqual(game.Lighting.Profile.WarehouseAmbientSky,RenderSettings.ambientSkyColor);
+                Assert.IsTrue(ArenaLightingController.IsWorldLightingActive);
+                foreach(var light in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+                    if(light.name=="ArenaDirectionalLight")Assert.AreEqual(0f,light.intensity,"Outdoor light must not enter the vault.");
                 Assert.AreEqual(65f,game.CameraRig.Lens.FieldOfView,.01f);
                 Assert.AreEqual(32f,game.CameraRig.transform.eulerAngles.x,.01f);
                 Assert.IsTrue(travel.PlaceInWarehouse(false));yield return null;
@@ -123,6 +127,43 @@ namespace EchoScrap.Tests
             AssertExteriorLens();
             Assert.IsTrue(lighting.FocusEnabled);
         }
+        [UnityTest]public IEnumerator VaultKeyLightsAndRealSpriteShadowsWorkInEveryArenaVariant()
+        {
+            foreach(string scene in new[]{"CombatArena","CombatArena_3Min","CombatArena_8Min"})
+            {
+                if(game.gameObject.scene.name!=scene)
+                {
+#if UNITY_EDITOR
+                    // The reference variants are intentionally excluded from the player build.
+                    yield return UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(
+                        "Assets/_Project/Scenes/"+scene+".unity",new LoadSceneParameters(LoadSceneMode.Single));
+#else
+                    if(!Application.CanStreamedLevelBeLoaded(scene))continue;
+                    yield return SceneManager.LoadSceneAsync(scene);
+#endif
+                    yield return null;
+                    game=Object.FindAnyObjectByType<CombatGameBootstrap>();
+                    game.Director.AutoTick=game.Encounter.AutoTick=false;
+                }
+                var travel=Object.FindAnyObjectByType<WarehouseTravel>();Assert.IsTrue(travel.PlaceInWarehouse(true));yield return null;
+                Assert.IsFalse(game.Lighting.AtmosphereEnabled,scene);
+                Assert.AreEqual(game.Lighting.Profile.WarehouseAmbientEquator,RenderSettings.ambientEquatorColor,scene);
+                int keyLights=0;
+                foreach(var light in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+                {
+                    if(!light.name.StartsWith("LuzAmbienteBoveda") && light.name!="LuzInterior")continue;
+                    keyLights++;Assert.AreEqual(LightType.Spot,light.type,scene);Assert.AreEqual(LightShadows.Soft,light.shadows,scene);
+                    Assert.IsFalse(light.GetUniversalAdditionalLightData().usePipelineSettings,scene);
+                    Assert.Less(light.transform.forward.y,-.3f,scene);
+                }
+                Assert.GreaterOrEqual(keyLights,3,scene);
+                var view=game.Motor.GetComponent<CollectorSpriteView>();view.Advance(0);
+                Assert.AreEqual(ShadowCastingMode.On,view.CharacterRenderer.shadowCastingMode,scene);
+                Assert.IsFalse(view.ProjectedShadowRenderer.enabled,scene);
+                Assert.IsTrue(travel.PlaceInWarehouse(false));yield return null;
+                Assert.IsTrue(game.Lighting.AtmosphereEnabled,scene);
+            }
+        }
         [Test]public void VisibleShaftsHaveRealElevatedSourcesAndMotesDoNotMultiplyTwoNearZeroAlphas()
         {
             var rig=game.Lighting.Rig;
@@ -130,6 +171,9 @@ namespace EchoScrap.Tests
             foreach(var source in rig.ShaftLights)
             {
                 Assert.AreEqual(LightType.Spot,source.type);
+                Assert.AreEqual(LightShadows.Soft,source.shadows,"A visible projector must also cast shadows onto the floor.");
+                Assert.LessOrEqual(source.shadowNormalBias,.1f,"Large normal bias detaches a pixel sprite's shadow from its feet.");
+                Assert.IsFalse(source.GetUniversalAdditionalLightData().usePipelineSettings,"The configured sprite shadow bias must actually be used.");
                 // Authored supports have different heights and terrain slopes.
                 Assert.That(source.transform.forward.y,Is.LessThan(-.15f),"The mounted projector must aim down toward the ground.");
                 Assert.That(source.transform.localPosition.z,Is.GreaterThan(0),"The light must sit ahead of the projector lens.");

@@ -216,14 +216,14 @@ namespace EchoScrap.Combat
         private void RefreshShadowMode()
         {
             if (characterRenderer == null) return;
-            bool exterior = isActiveAndEnabled && ArenaLightingController.IsExteriorActive;
-            if (exterior && !arenaShadowOverride)
+            bool worldLighting = isActiveAndEnabled && ArenaLightingController.IsWorldLightingActive;
+            if (worldLighting && !arenaShadowOverride)
             {
                 previousShadowCastingMode = characterRenderer.shadowCastingMode;
                 if (projectedShadowRenderer != null) projectedShadowVisible = projectedShadowRenderer.enabled;
                 arenaShadowOverride = true;
             }
-            else if (!exterior) RestoreShadowMode();
+            else if (!worldLighting) RestoreShadowMode();
             if (!arenaShadowOverride) return;
             characterRenderer.shadowCastingMode = DeathComplete ? ShadowCastingMode.Off : ShadowCastingMode.On;
             if (projectedShadowRenderer != null) projectedShadowRenderer.enabled = false;
