@@ -23,6 +23,7 @@ namespace EchoScrap.Combat
 
         private CombatSession session;
         private PlayerHealth player;
+        private EnemyEffectPool effects;
         private int sessionKey;
         private bool initialized;
         private bool flushing;
@@ -62,6 +63,7 @@ namespace EchoScrap.Combat
             if (pools.TryGetValue(sessionKey, out MothExplosionPool previous) && previous == this)
                 pools.Remove(sessionKey);
             session = owner;
+            effects = EnemyEffectPool.GetOrCreate(owner);
             player = target;
             sessionKey = owner != null ? owner.GetHashCode() : 0;
             pools[sessionKey] = this;
@@ -150,6 +152,7 @@ namespace EchoScrap.Combat
         private void PlayWave(Vector3 position)
         {
             if (!initialized || (session != null && session.Effects.DecorativeIntensity <= 0f)) return;
+            effects?.Play(EnemyEffectId.MothSmoke, ArenaSurface.OnGround(position, .8f));
             for (int i = 0; i < prototypeEffects.Length; i++)
             {
                 if (prototypeEffects[i].gameObject.activeSelf) continue;

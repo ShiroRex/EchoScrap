@@ -23,6 +23,7 @@ namespace EchoScrap.Combat
         private MataColeccionistaView importedView;
         private GolgoraAudio audioView;
         private GolgoraImpactVfx impactVfx;
+        private EnemyEffectPool effects;
         private TrailRenderer weaponTrail;
         private float age, introProgress;
         private bool initialized;
@@ -43,6 +44,7 @@ namespace EchoScrap.Combat
         {
             if (actor != null) actor.AttackExecuted -= HandleImpact;
             actor = boss; EnsureInitialized();
+            effects = EnemyEffectPool.GetOrCreate(boss.Session);
             importedView = GetComponent<MataColeccionistaView>() ?? gameObject.AddComponent<MataColeccionistaView>();
             importedView.Footstep -= HandleFootstep; importedView.Bind(boss); importedView.Footstep += HandleFootstep;
             audioView = GetComponent<GolgoraAudio>() ?? gameObject.AddComponent<GolgoraAudio>(); audioView.Bind(boss);
@@ -157,13 +159,19 @@ namespace EchoScrap.Combat
         {
             audioView?.Impact(kind);
             if (kind == GolgoraAttackKind.Hammer || kind == GolgoraAttackKind.Cerco) TriggerStomp(origin);
-            else if (kind == GolgoraAttackKind.Sweep) impactVfx.Sweep(origin, direction, actor.Settings.SweepRadius, Intensity);
+            else if (kind == GolgoraAttackKind.Sweep)
+            {
+                impactVfx.Sweep(origin, direction, actor.Settings.SweepRadius, Intensity);
+                effects?.Play(EnemyEffectId.MagmaSweep, origin, direction, Vector2.one * actor.Settings.SweepRadius * 2.5f);
+            }
             // Barrage landing effects belong to the magma pool, at each actual landing point.
         }
         public void TriggerStomp(Vector3 position)
         {
             if (!initialized) return;
             impactVfx.Hammer(position, actor.AttackDirection, actor.Settings.HammerRadius, Intensity);
+            effects?.Play(EnemyEffectId.MagmaImpact, ArenaSurface.OnGround(position, 1f),
+                size: Vector2.one * actor.Settings.HammerRadius * 1.5f);
             float distance = actor.TargetPlayer != null ? Vector3.Distance(actor.TargetPlayer.WorldCenter, position) : 0f;
             float attenuation = 1f - Mathf.Clamp01((distance - actor.Settings.HammerRadius) / 20f);
             cameraFeedback?.RequestShake(ShakePriority.High, .18f * attenuation, .22f, 12f);
