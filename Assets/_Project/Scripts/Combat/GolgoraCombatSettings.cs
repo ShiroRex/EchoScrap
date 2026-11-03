@@ -40,7 +40,8 @@ namespace EchoScrap.Combat
         [Min(.5f)] public float CercoJumpDuration = 1.4f;
         [Min(12f)] public float CercoJumpHeight = 28f;
         [Min(.1f)] public float CercoWindup = 1.2f;
-        [Min(.1f)] public float CercoRecovery = 1.2f;
+        [Min(.1f)] public float CercoRecovery = .8f;
+        [Range(0f, .8f)] public float CercoDamageReduction = .35f;
         [Min(.1f)] public float CercoCooldown = 18f;
         [Min(.1f)] public float CercoPulseInterval = 1.3f;
         [Min(.1f)] public float RingStartRadius = 3f;
@@ -52,5 +53,14 @@ namespace EchoScrap.Combat
         [Header("Segunda fase")]
         [Range(.05f, .95f)] public float PhaseTwoHealthFraction = .5f;
         [Min(.1f)] public float TransitionDuration = 1.8f;
+        [Min(1f)] public float PhaseTwoSpeedMultiplier = 1.3f;
+        [Range(.5f, 1f)] public float PhaseTwoWindupMultiplier = .85f;
+        [Range(.5f, 1f)] public float PhaseTwoRecoveryMultiplier = .75f;
+        [Range(.5f, 1f)] public float PhaseTwoCooldownMultiplier = .75f;
+        [Header("Resistencia al control")]
+        [Range(0f, 1f)] public float MaximumSlow = .25f;
+        [Range(.1f, 1f)] public float ControlDurationMultiplier = .35f;
+        [Min(.1f)] public float MaximumControlDuration = .6f;
+        [Min(0f)] public float ControlImmunityDuration = 1.5f;
     }
 }

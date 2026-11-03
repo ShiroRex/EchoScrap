@@ -31,6 +31,7 @@ namespace EchoScrap.Combat
         private readonly Collider[] overlap = new Collider[32];
         private readonly BoxCollider[] barriers = new BoxCollider[48];
         private readonly Renderer[] rimRenderers = new Renderer[48];
+        private readonly Renderer[] plateRenderers = new Renderer[48];
         private readonly Renderer[] fieldRenderers = new Renderer[48];
         private CombatGameBootstrap game;
         private GolgoraActor boss;
@@ -327,7 +328,12 @@ namespace EchoScrap.Combat
             for (int i = 0; i < barriers.Length; i++)
             {
                 if (barriers[i] != null) barriers[i].enabled = closed;
-                if (rimRenderers[i] != null) rimRenderers[i].sharedMaterial = closed ? hot : dormant;
+                if (plateRenderers[i] != null) plateRenderers[i].enabled = closed;
+                if (rimRenderers[i] != null)
+                {
+                    rimRenderers[i].enabled = closed;
+                    rimRenderers[i].sharedMaterial = closed ? hot : dormant;
+                }
                 if (fieldRenderers[i] != null) fieldRenderers[i].enabled = closed;
             }
         }
@@ -363,8 +369,10 @@ namespace EchoScrap.Combat
                 box.size = new Vector3((radius + 0.4f) * Mathf.PI * 2f / barriers.Length + 0.1f, 6f, 0.9f);
                 box.enabled = false;
                 barriers[i] = box;
-                Primitive("BuriedPlate", segment.transform, new Vector3(0, 0.025f, 0), new Vector3(2.9f, 0.05f, 1.4f), steel);
+                plateRenderers[i] = Primitive("BuriedPlate", segment.transform, new Vector3(0, 0.025f, 0), new Vector3(2.9f, 0.05f, 1.4f), steel);
+                plateRenderers[i].enabled = false;
                 rimRenderers[i] = Primitive("HeatedSeam", segment.transform, new Vector3(0, 0.08f, -0.15f), new Vector3(2.8f, 0.08f, 0.24f), dormant);
+                rimRenderers[i].enabled = false;
                 // A visible raised shutter represents the same solid volume as the collider.
                 fieldRenderers[i] = Primitive("ContainmentField", segment.transform, Vector3.up * 1.2f, new Vector3(2.85f, 2.4f, 0.12f), field);
                 fieldRenderers[i].enabled = false;

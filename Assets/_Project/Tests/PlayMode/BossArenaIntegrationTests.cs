@@ -59,6 +59,26 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void BossUsesTheSelectedRoundsHealthAndUpgradesWaitThroughItsCinematic()
+        {
+            var entry = Resources.Load<ExpeditionEntrySettings>("UI/ExpeditionEntrySettings");
+            foreach (var variant in new[] { (entry.DemoRound, 1200f), (entry.CompleteRound, 4200f) })
+            {
+                game.SelectWaveSettings(variant.Item1); game.ResetRun(false);
+                var boundary = game.BossArena.transform.Find("FoundryBoundary_0");
+                foreach (var renderer in boundary.GetComponentsInChildren<Renderer>()) Assert.IsFalse(renderer.enabled);
+                game.Stats.SetUpgradeTier("SCRAP_04", 1);
+                Begin(); Assert.AreEqual(variant.Item2, game.Encounter.Boss.MaxHealth);
+                foreach (var renderer in boundary.GetComponentsInChildren<Renderer>()) Assert.IsTrue(renderer.enabled);
+                game.Upgrades.Step(20f); Assert.AreEqual(0, game.Upgrades.ActiveDeviceCount);
+                game.Encounter.Step(.31f); game.Encounter.Step(.31f); game.Encounter.Step(BossEncounter.IntroDuration);
+                game.Upgrades.Step(20f); Assert.Greater(game.Upgrades.ActiveDeviceCount, 0);
+                game.ResetRun(false);
+                foreach (var renderer in boundary.GetComponentsInChildren<Renderer>()) Assert.IsFalse(renderer.enabled);
+            }
+        }
+
+        [Test]
         public void EntranceAnnouncesNameThenRoarsAndLocksBothActorsUntilSoundEnds()
         {
             Begin();game.Encounter.Step(.31f);game.Encounter.Step(.31f);

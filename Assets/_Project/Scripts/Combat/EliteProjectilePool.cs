@@ -8,6 +8,8 @@ namespace EchoScrap.Combat
     {
         public const int Capacity = 48;
         public const float Radius = .16f;
+        public const float GroundClearance = 1f;
+        private const float MaximumStepDistance = .4f;
         private sealed class Bolt
         {
             public Transform View;
@@ -60,11 +62,12 @@ namespace EchoScrap.Combat
             for (int i = 0; i < Capacity && number < 3; i++)
             {
                 Bolt bolt = bolts[i]; if (bolt.Active) continue;
-                bolt.Active = true; bolt.Source = source; bolt.Position = origin;
-                bolt.Direction = Quaternion.Euler(0, (number - 1) * data.ArcDegrees * .5f, 0) * direction;
+                bolt.Active = true; bolt.Source = source; bolt.Position = ArenaSurface.OnGround(origin, GroundClearance);
+                direction.y = 0f;
+                bolt.Direction = Quaternion.Euler(0, (number - 1) * data.ArcDegrees * .5f, 0) * direction.normalized;
                 bolt.Damage = Mathf.Max(0f, data.Damage); bolt.Speed = Mathf.Max(.1f, data.ProjectileSpeed);
                 bolt.Remaining = Mathf.Min(Mathf.Max(.1f, data.ProjectileLifetime), Mathf.Max(.1f, data.Range) / bolt.Speed);
-                bolt.View.position = origin; bolt.View.gameObject.SetActive(true);
+                bolt.View.position = bolt.Position; bolt.View.gameObject.SetActive(true);
                 number++; ActiveCount++; TotalFired++;
             }
             return true;
@@ -78,31 +81,40 @@ namespace EchoScrap.Combat
             for (int i = 0; i < Capacity; i++)
             {
                 Bolt bolt = bolts[i]; if (bolt == null || !bolt.Active) continue;
-                float travel = Mathf.Min(dt, bolt.Remaining) * bolt.Speed;
-                int mask = (1 << PhysicsLayers.DefaultLayer) | (1 << PhysicsLayers.PlayerLayer) | (1 << PhysicsLayers.PlayerDashLayer);
-                int overlapping = Physics.OverlapSphereNonAlloc(bolt.Position, Radius, overlaps, mask, QueryTriggerInteraction.Ignore);
-                int count = overlapping > 0 ? 0 : Physics.SphereCastNonAlloc(bolt.Position, Radius, bolt.Direction, hits, travel, mask, QueryTriggerInteraction.Ignore);
-                // A saturated query is conservatively blocked, never allowed to tunnel through a wall.
-                float nearest = float.PositiveInfinity;
-                Collider first = null;
-                for (int h = 0; h < overlapping; h++)
-                    if (first == null || overlaps[h].gameObject.layer == PhysicsLayers.DefaultLayer) first = overlaps[h];
-                for (int h = 0; h < count; h++)
-                    if (hits[h].distance < nearest) { nearest = hits[h].distance; first = hits[h].collider; }
-                if (first != null || count == hits.Length || overlapping == overlaps.Length)
+                float remainingTravel = Mathf.Min(dt, bolt.Remaining) * bolt.Speed;
+                // Sweep short terrain-following segments so slopes cannot hide a live bolt, and
+                // a long frame still tests walls and the player's actual three-dimensional capsule.
+                while (bolt.Active && remainingTravel > .00001f)
                 {
-                    if (count < hits.Length && overlapping < overlaps.Length && player != null && player.IsAlive && first == player.HurtboxCollider)
+                    float travel = Mathf.Min(remainingTravel, MaximumStepDistance);
+                    Vector3 next = ArenaSurface.OnGround(bolt.Position + bolt.Direction * travel, GroundClearance);
+                    Vector3 displacement = next - bolt.Position;
+                    int mask = (1 << PhysicsLayers.DefaultLayer) | (1 << PhysicsLayers.PlayerLayer) | (1 << PhysicsLayers.PlayerDashLayer);
+                    int overlapping = Physics.OverlapSphereNonAlloc(bolt.Position, Radius, overlaps, mask, QueryTriggerInteraction.Ignore);
+                    int count = overlapping > 0 ? 0 : Physics.SphereCastNonAlloc(bolt.Position, Radius, displacement.normalized, hits, displacement.magnitude, mask, QueryTriggerInteraction.Ignore);
+                    // A saturated query is conservatively blocked, never allowed to tunnel through a wall.
+                    float nearest = float.PositiveInfinity;
+                    Collider first = null;
+                    for (int h = 0; h < overlapping; h++)
+                        if (first == null || overlaps[h].gameObject.layer == PhysicsLayers.DefaultLayer) first = overlaps[h];
+                    for (int h = 0; h < count; h++)
+                        if (hits[h].distance < nearest) { nearest = hits[h].distance; first = hits[h].collider; }
+                    if (first != null || count == hits.Length || overlapping == overlaps.Length)
                     {
-                        PlayerHitAttempts++;
-                        var request = new DamageRequest(bolt.Source, DamageSourceType.CopperBolt, bolt.Position,
-                            bolt.Direction, bolt.Damage, damageType: DamageType.Physical);
-                        player.ReceiveDamage(in request);
+                        if (count < hits.Length && overlapping < overlaps.Length && player != null && player.IsAlive && first == player.HurtboxCollider)
+                        {
+                            PlayerHitAttempts++;
+                            var request = new DamageRequest(bolt.Source, DamageSourceType.CopperBolt, bolt.Position,
+                                bolt.Direction, bolt.Damage, damageType: DamageType.Physical);
+                            player.ReceiveDamage(in request);
+                        }
+                        Hide(bolt); break;
                     }
-                    Hide(bolt); continue;
+                    bolt.Position = next; bolt.View.position = bolt.Position;
+                    remainingTravel -= travel;
                 }
-                bolt.Position += bolt.Direction * travel; bolt.View.position = bolt.Position;
                 bolt.Remaining -= dt;
-                if (bolt.Remaining <= 0f) Hide(bolt);
+                if (bolt.Active && bolt.Remaining <= 0f) Hide(bolt);
             }
         }
 

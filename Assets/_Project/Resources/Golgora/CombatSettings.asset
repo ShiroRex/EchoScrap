@@ -43,7 +43,8 @@ MonoBehaviour:
   CercoJumpDuration: 1.4
   CercoJumpHeight: 28
   CercoWindup: 1.2
-  CercoRecovery: 1.2
+  CercoRecovery: 0.8
+  CercoDamageReduction: 0.35
   CercoCooldown: 18
   CercoPulseInterval: 1.3
   RingStartRadius: 3
@@ -54,3 +55,11 @@ MonoBehaviour:
   RingDamage: 30
   PhaseTwoHealthFraction: 0.5
   TransitionDuration: 1.8
+  PhaseTwoSpeedMultiplier: 1.3
+  PhaseTwoWindupMultiplier: 0.85
+  PhaseTwoRecoveryMultiplier: 0.75
+  PhaseTwoCooldownMultiplier: 0.75
+  MaximumSlow: 0.25
+  ControlDurationMultiplier: 0.35
+  MaximumControlDuration: 0.6
+  ControlImmunityDuration: 1.5

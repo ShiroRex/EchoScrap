@@ -202,6 +202,57 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void MothCountdownProjectsItsWholeAreaWhenReusedOnAHill()
+        {
+            var surface = new GameObject("Uneven ground").AddComponent<ArenaSurface>();
+            Vector3 hill = ArenaSurface.ReferenceToWorld(new Vector3(-30f, 0f, 3f));
+            var telegraph = EchoScrap.Combat.Prototype.ExplosionTelegraph.Create(Vector3.zero, 3f);
+            telegraph.SetCenter(hill); telegraph.SetProgress(.65f, true);
+            var ring = telegraph.GetComponentInChildren<LineRenderer>();
+            for (int i = 0; i < ring.positionCount; i++)
+            {
+                Vector3 point = ring.GetPosition(i);
+                Assert.AreEqual(ArenaSurface.Height(point) + .08f, point.y, .001f);
+            }
+            var fill = telegraph.transform.Find("Fill");
+            foreach (var vertex in fill.GetComponent<MeshFilter>().sharedMesh.vertices)
+            {
+                Vector3 point = fill.TransformPoint(vertex);
+                Assert.AreEqual(ArenaSurface.Height(point) + .06f, point.y, .001f);
+            }
+            Assert.Greater(telegraph.transform.position.y, .5f);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CopperWarningAndSweptBoltsRemainVisibleAndHittableAcrossSlopes(bool downhill)
+        {
+            new GameObject("Uneven ground").AddComponent<ArenaSurface>();
+            Vector3 low = ArenaSurface.ReferenceToWorld(new Vector3(-38f, 0f, 3f)), high = low + Vector3.right * 10f;
+            Vector3 start = ArenaSurface.OnGround(downhill ? high : low, 1f), end = ArenaSurface.OnGround(downhill ? low : high, 1f);
+            player.transform.position = end; player.GetComponent<Rigidbody>().position = end;
+            var actor = Spawn(EnemyArchetypeId.CopperSentinel, start); var elite = actor.Elite;
+            var projectiles = session.GetComponent<EliteProjectilePool>(); projectiles.AutoTick = false;
+            Physics.SyncTransforms(); elite.TryOverrideLocomotion(.8f, out _);
+            Assert.AreEqual(EliteEnemyState.Windup, elite.State);
+            var warning = actor.GetComponentInChildren<LineRenderer>();
+            for (int i = 0; i < warning.positionCount; i++)
+            {
+                Vector3 point = warning.GetPosition(i);
+                Assert.GreaterOrEqual(point.y, ArenaSurface.Height(point) + .07f);
+            }
+            elite.TryOverrideLocomotion(elite.Settings.Windup, out _);
+            projectiles.Step(.5f);
+            Vector3 middle = projectiles.PositionAt(1);
+            Assert.AreEqual(ArenaSurface.Height(middle) + 1f, middle.y, .001f);
+            Assert.Greater(Mathf.Abs(middle.y - start.y), .1f);
+            session.SetManualPause(true); projectiles.Step(1f); Assert.AreEqual(middle, projectiles.PositionAt(1));
+            session.SetManualPause(false); projectiles.Step(1f);
+            Assert.AreEqual(1, projectiles.PlayerHitAttempts);
+            Assert.AreEqual(84f, player.CurrentHealth);
+        }
+
+        [Test]
         public void CopperBoltsStopAtWallsInsteadOfTunnellingIntoThePlayer()
         {
             var actor = Spawn(EnemyArchetypeId.CopperSentinel,new Vector3(0,1,8)); var elite = actor.Elite;

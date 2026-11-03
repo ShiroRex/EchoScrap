@@ -225,9 +225,12 @@ namespace EchoScrap.Tests
             boss.Step(boss.Settings.CercoJumpDuration); Assert.AreEqual(1, boss.CercoPulsesEmitted); Assert.AreEqual(1, boss.RingPool.ActiveCount);
             session.SetManualPause(true); float time = boss.BossTime; boss.Step(10f);
             Assert.AreEqual(time, boss.BossTime); Assert.AreEqual(1, boss.RingPool.ActiveCount);
-            session.SetManualPause(false); boss.Step(4f);
+            session.SetManualPause(false); boss.Step(boss.CurrentPhaseDuration);
+            Assert.AreEqual(GolgoraState.Pursuing, boss.State);
+            Assert.Greater(boss.RingPool.ActiveCount, 0, "Pursuit resumes while the wave is still expanding.");
+            boss.RingPool.Step(4f);
             Assert.AreEqual(100f, player.CurrentHealth, "The geometrical opening must be safe through the entire wave.");
-            Assert.AreEqual(GolgoraState.Recovery, boss.State); boss.Step(1.2f); Assert.AreEqual(1, completes);
+            Assert.AreEqual(1, completes);
             var half = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, 750f); boss.ReceiveDamage(in half);
             boss.Step(.01f); Assert.AreEqual(GolgoraState.PhaseTransition, boss.State);
             boss.Step(boss.CurrentPhaseDuration); Assert.AreEqual(GolgoraState.CercoReposition, boss.State);
@@ -235,10 +238,68 @@ namespace EchoScrap.Tests
             boss.Step(1.29f); Assert.AreEqual(1, boss.CercoPulsesEmitted);
             boss.Step(.01f); Assert.AreEqual(2, boss.CercoPulsesEmitted);
             boss.Step(1.3f); Assert.AreEqual(3, boss.CercoPulsesEmitted); Assert.AreEqual(3, boss.RingPool.ActiveCount);
+            Assert.AreEqual(GolgoraState.Recovery, boss.State);
+            boss.Step(boss.CurrentPhaseDuration);
+            Assert.AreEqual(GolgoraState.Pursuing, boss.State);
+            Assert.Greater(boss.RingPool.ActiveCount, 0);
             enemies.ReturnToPool(boss); Assert.AreEqual(0, boss.RingPool.ActiveCount);
             GolgoraActor reused = SpawnBoss(); Assert.AreSame(boss, reused);
             Assert.IsFalse(reused.IsPhaseTwo); Assert.IsFalse(reused.IsCercoSequence);
             Assert.AreEqual(0, reused.RingPool.ActiveCount); Assert.AreEqual(0, reused.CercoPulsesEmitted);
+        }
+
+        [Test]
+        public void CrowdControlHasShortWindowsAndCannotLockThePhaseCinematic()
+        {
+            GolgoraActor boss = SpawnBoss(); boss.ActivateCombat();
+            boss.ApplySlow(.8f, 4f); Assert.AreEqual(.25f, boss.SlowFraction);
+            boss.ApplyStun(4f); Assert.AreEqual(.6f, boss.StunRemaining, .001f);
+            boss.ApplyFreeze(4f); Assert.IsFalse(boss.IsFrozen, "The same control window cannot stack freeze and stun.");
+            boss.StepUpgradeStatus(.6f); boss.ApplyFreeze(1f); Assert.IsFalse(boss.IsFrozen);
+            boss.StepUpgradeStatus(1.5f); boss.ApplyFreeze(1f); Assert.AreEqual(.35f, boss.FrozenRemaining, .001f);
+            var half = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, boss.MaxHealth * .5f);
+            boss.ReceiveDamage(in half);
+            Assert.AreEqual(GolgoraState.PhaseTransition, boss.State); Assert.IsFalse(boss.IsControlLocked);
+            boss.ApplyStun(10f); boss.ApplyFreeze(10f); Assert.IsFalse(boss.IsControlLocked);
+            boss.Step(boss.CurrentPhaseDuration); Assert.IsTrue(boss.IsAirborne);
+            boss.ApplyFreeze(10f); boss.Step(boss.Settings.CercoJumpDuration);
+            Assert.AreEqual(GolgoraState.CercoActive, boss.State);
+            var shot = new DamageRequest(1, DamageSourceType.FlashlightPulse, Vector3.zero, Vector3.forward, 100f);
+            var result = boss.ReceiveDamage(in shot);
+            Assert.AreEqual(65f, result.HealthLost, .001f); Assert.IsTrue(result.WasResisted);
+            boss.Step(2.6f); boss.Step(boss.CurrentPhaseDuration);
+            Assert.AreEqual(GolgoraState.Pursuing, boss.State);
+            Assert.AreEqual(100f, boss.ReceiveDamage(in shot).HealthLost, .001f);
+            boss.BindHazards(null); MovePlayer(new Vector3(0, 1, 15)); boss.Step(.02f);
+            Assert.AreEqual(2.08f, boss.Velocity.magnitude, .001f, "Phase two must increase actual pursuit speed.");
+            MovePlayer(new Vector3(0, 1, 4)); boss.Step(.02f);
+            Assert.AreEqual(GolgoraState.StompWindup, boss.State);
+            Assert.Less(boss.CurrentPhaseDuration, boss.Settings.HammerWindup);
+            enemies.ReturnToPool(boss); boss = SpawnBoss(); boss.ActivateCombat(); boss.ApplyFreeze(1f);
+            Assert.AreEqual(.35f, boss.FrozenRemaining, .001f, "A pooled boss starts with a fresh control window.");
+        }
+
+        [TestCase(false, 1200f, 32f, 55f)]
+        [TestCase(true, 4200f, 45f, 75f)]
+        public void AuthoredRoundsSurviveARepresentativeSustainedDamageBuild(bool complete, float health, float minimum, float maximum)
+        {
+            var entry = Resources.Load<ExpeditionEntrySettings>("UI/ExpeditionEntrySettings");
+            var waves = complete ? entry.CompleteRound : entry.DemoRound;
+            var boss = enemies.Spawn(waves.GetArchetype(EnemyArchetypeId.GolgoraBoss), new Vector3(0, 1, 10)) as GolgoraActor;
+            boss.AutoTick = false; boss.BindHazards(hazards); boss.ActivateCombat();
+            player.IgnoreIncomingDamage = true;
+            Assert.AreEqual(health, boss.MaxHealth);
+            const float dt = .1f;
+            float elapsed = 0f, dps = complete ? 100f : 35f;
+            while (boss.IsAlive && elapsed < maximum)
+            {
+                boss.Step(dt);
+                var hit = new DamageRequest(1, DamageSourceType.FlashlightPulse, Vector3.zero, Vector3.forward, dps * dt);
+                boss.ReceiveDamage(in hit); elapsed += dt;
+            }
+            Assert.IsFalse(boss.IsAlive);
+            Assert.That(elapsed, Is.InRange(minimum, maximum));
+            Debug.Log($"[EnemyFeedback] {(complete ? "Complete" : "Demo")} boss at {dps} sustained DPS: {elapsed:F1}s, excluding entrance.");
         }
 
         [Test]

@@ -13,6 +13,7 @@ namespace EchoScrap.Combat
         private LineRenderer warning;
         private GameObject status;
         private Camera camera;
+        private const int RaySegments = 32;
         public bool VulnerableVisible => status != null && status.activeInHierarchy;
         public bool WarningVisible => warning != null && warning.enabled;
         public Text VulnerableLabel { get; private set; }
@@ -27,7 +28,7 @@ namespace EchoScrap.Combat
             warning.sharedMaterial = Prototype.VfxRuntimeUtils.FlatMaterial;
             warning.useWorldSpace = true; warning.widthMultiplier = .065f;
             warning.shadowCastingMode = ShadowCastingMode.Off; warning.receiveShadows = false;
-            warning.positionCount = elite.IsCopper ? 6 : 35;
+            warning.positionCount = elite.IsCopper ? 3 * (RaySegments * 2 + 1) : 35;
             status = new GameObject("Vulnerable status", typeof(RectTransform), typeof(Canvas));
             status.transform.SetParent(transform, false);
             status.transform.localScale = Vector3.one * .012f;
@@ -63,15 +64,21 @@ namespace EchoScrap.Combat
             {
                 for (int i = 0; i < 3; i++)
                 {
-                    warning.SetPosition(i * 2, origin);
-                    warning.SetPosition(i * 2 + 1, origin + Quaternion.Euler(0, (i - 1) * half, 0) * elite.LockedDirection * elite.Settings.Range);
+                    Vector3 direction = Quaternion.Euler(0, (i - 1) * half, 0) * elite.LockedDirection;
+                    // Trace each spoke out and back; a single long return segment cuts through hills.
+                    for (int j = 0; j <= RaySegments * 2; j++)
+                    {
+                        int sample = j <= RaySegments ? j : RaySegments * 2 - j;
+                        Vector3 point = origin + direction * (elite.Settings.Range * sample / RaySegments);
+                        warning.SetPosition(i * (RaySegments * 2 + 1) + j, ArenaSurface.OnGround(point, .08f));
+                    }
                 }
             }
             else
             {
                 warning.SetPosition(0, origin);
                 for (int i = 0; i <= 32; i++)
-                    warning.SetPosition(i + 1, origin + Quaternion.Euler(0, Mathf.Lerp(-half, half, i / 32f), 0) * elite.LockedDirection * elite.Settings.Range);
+                    warning.SetPosition(i + 1, ArenaSurface.OnGround(origin + Quaternion.Euler(0, Mathf.Lerp(-half, half, i / 32f), 0) * elite.LockedDirection * elite.Settings.Range, .08f));
                 warning.SetPosition(34, origin);
             }
         }

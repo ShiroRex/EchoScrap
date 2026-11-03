@@ -465,17 +465,17 @@ namespace EchoScrap.Combat
         public float FrozenVisualCoverage { get; private set; }
         private int coldHits;
         public Vector3 PursuitGoal => session != null && session.Upgrades != null ? session.Upgrades.PursuitGoal(transform.position, targetPlayer != null ? targetPlayer.WorldCenter : transform.position) : (targetPlayer != null ? targetPlayer.WorldCenter : transform.position);
-        public void ApplySlow(float fraction, float duration) { SlowFraction = Mathf.Max(SlowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); RefreshColdTint(); }
-        public void ApplyFreeze(float duration)
+        public virtual void ApplySlow(float fraction, float duration) { SlowFraction = Mathf.Max(SlowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); RefreshColdTint(); }
+        public virtual void ApplyFreeze(float duration)
         {
             FrozenRemaining = Mathf.Max(FrozenRemaining, duration);
             if (FrozenRemaining > 0f) FrozenVisualCoverage = Mathf.Max(.12f, FrozenVisualCoverage);
             coldHits = 0;
             RefreshColdTint();
         }
-        public void ApplyStun(float duration) => StunRemaining = Mathf.Max(StunRemaining, duration);
+        public virtual void ApplyStun(float duration) => StunRemaining = Mathf.Max(StunRemaining, duration);
         public void RegisterColdHit(int required, float duration) { if (SlowRemaining > 0f && !IsFrozen && ++coldHits >= required) ApplyFreeze(duration); }
-        public void StepUpgradeStatus(float dt)
+        public virtual void StepUpgradeStatus(float dt)
         {
             SlowRemaining = Mathf.Max(0f, SlowRemaining - dt);
             FrozenRemaining = Mathf.Max(0f, FrozenRemaining - dt);
@@ -489,6 +489,13 @@ namespace EchoScrap.Combat
             Color baseTint = SlowRemaining > 0f ? new Color(.38f, .78f, 1f) : Color.white;
             visualComposer?.SetStatusTint(Color.Lerp(baseTint, new Color(.65f, .88f, 1f), FrozenVisualCoverage));
         }
+        protected void ClearCrowdControl()
+        {
+            SlowRemaining = FrozenRemaining = StunRemaining = SlowFraction = FrozenVisualCoverage = 0f;
+            coldHits = 0;
+            RefreshColdTint();
+        }
+        protected virtual float IncomingDamageMultiplier(DamageType type) => elite != null ? elite.DamageMultiplier(type) : 1f;
         public void PushDistance(Vector3 direction, float distance) => ApplyKnockback(direction.normalized * Mathf.Sqrt(2f * Mathf.Max(1f, runtimeArchetype.KnockbackBraking) * distance));
 
         public virtual void ResetForSpawn(Vector3 spawnPosition)
@@ -1067,7 +1074,7 @@ namespace EchoScrap.Combat
                 if (isCritical && upgradeStats.GetUpgradeTier(UpgradeId.CRIT_05) > 0 && currentHealth / MaxHealth < upgradeStats.Upgrades.eyeHealthThreshold)
                     resolvedDamage *= upgradeStats.Upgrades.eyeCritMultiplier;
             }
-            float resistance = elite != null ? elite.DamageMultiplier(request.DamageType) : 1f;
+            float resistance = IncomingDamageMultiplier(request.DamageType);
             resolvedDamage *= resistance;
             if (playerAttack && upgradeStats != null)
             {

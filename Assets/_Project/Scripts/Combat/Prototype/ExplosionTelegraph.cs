@@ -1,4 +1,5 @@
 using UnityEngine;
+using EchoScrap.Core;
 
 /// <summary>
 /// Indicador de área de explosión en el suelo.
@@ -13,8 +14,9 @@ public class ExplosionTelegraph : MonoBehaviour
 {
     private const int RingSegments = 64;
     private const int DiscSegments = 48;
-    private const float RingHeightOffset = 0.04f;
-    private const float FillHeightOffset = 0.03f;
+    private const int DiscRings = 6;
+    private const float RingHeightOffset = 0.08f;
+    private const float FillHeightOffset = 0.06f;
     private const float RingBaseWidth = 0.12f;
     private const float DangerPhaseStart = 0.7f;
 
@@ -25,6 +27,8 @@ public class ExplosionTelegraph : MonoBehaviour
     private Transform fillTransform;
     private Mesh fillMesh;
     private Color[] fillColors;
+    private Vector3[] fillVertices, fillDirections;
+    private readonly Vector3[] ringDirections = new Vector3[RingSegments];
     private float radius;
     private float groundY;
 
@@ -40,20 +44,22 @@ public class ExplosionTelegraph : MonoBehaviour
     private void Build(Vector3 center, float explosionRadius)
     {
         radius = explosionRadius;
-        groundY = VfxRuntimeUtils.FindGroundY(center, 0f);
         SetCenter(center);
 
         // Anillo exterior: radio exacto de daño
         ring = VfxRuntimeUtils.CreateGroundRing(transform, "Ring", radius, RingBaseWidth, RingSegments, AmberColor);
-        ring.transform.localPosition = new Vector3(0f, RingHeightOffset, 0f);
+        ring.useWorldSpace = true;
+        for (int i = 0; i < RingSegments; i++)
+        {
+            float angle = i * Mathf.PI * 2f / RingSegments;
+            ringDirections[i] = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+        }
 
         // Disco de relleno: crece con el progreso de la mecha
         var fillGo = new GameObject("Fill");
         fillTransform = fillGo.transform;
         fillTransform.SetParent(transform, false);
-        fillTransform.localPosition = new Vector3(0f, FillHeightOffset, 0f);
-
-        fillMesh = VfxRuntimeUtils.BuildDiscMesh(DiscSegments);
+        fillMesh = BuildTerrainDisc();
         fillColors = new Color[fillMesh.vertexCount];
 
         fillGo.AddComponent<MeshFilter>().sharedMesh = fillMesh;
@@ -65,11 +71,40 @@ public class ExplosionTelegraph : MonoBehaviour
         SetProgress(0f);
     }
 
-    /// <summary>Sigue al enemigo en XZ manteniendo la altura del suelo calculada al crear.</summary>
+    /// <summary>Sigue al enemigo y vuelve a muestrear el suelo al reutilizarse o moverse.</summary>
     public void SetCenter(Vector3 worldPosition)
     {
+        groundY = ArenaSurface.Active != null ? ArenaSurface.Height(worldPosition)
+            : VfxRuntimeUtils.FindGroundY(worldPosition, 0f);
         transform.position = new Vector3(worldPosition.x, groundY, worldPosition.z);
     }
+
+    private Mesh BuildTerrainDisc()
+    {
+        fillDirections = new Vector3[1 + DiscSegments * DiscRings];
+        fillVertices = new Vector3[fillDirections.Length];
+        var indices = new int[DiscSegments * 3 + (DiscRings - 1) * DiscSegments * 6];
+        int t = 0;
+        for (int row = 0; row < DiscRings; row++)
+        for (int i = 0; i < DiscSegments; i++)
+        {
+            float angle = i * Mathf.PI * 2f / DiscSegments;
+            int index = 1 + row * DiscSegments + i, next = 1 + row * DiscSegments + (i + 1) % DiscSegments;
+            fillDirections[index] = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * ((row + 1f) / DiscRings);
+            if (row == 0) { indices[t++] = 0; indices[t++] = next; indices[t++] = index; }
+            else
+            {
+                int inner = index - DiscSegments, innerNext = next - DiscSegments;
+                indices[t++] = inner; indices[t++] = next; indices[t++] = index;
+                indices[t++] = inner; indices[t++] = innerNext; indices[t++] = next;
+            }
+        }
+        var mesh = new Mesh { name = "Terrain explosion countdown" };
+        mesh.MarkDynamic(); mesh.vertices = fillVertices; mesh.triangles = indices;
+        return mesh;
+    }
+
+    private float SurfaceHeight(Vector3 position) => ArenaSurface.Active != null ? ArenaSurface.Height(position) : groundY;
 
     /// <summary>Actualiza el indicador. progress = 0 (recién cebada) a 1 (detonación).</summary>
     public void SetProgress(float progress, bool reducedEffects = false)
@@ -86,6 +121,12 @@ public class ExplosionTelegraph : MonoBehaviour
 
         if (ring != null)
         {
+            for (int i = 0; i < RingSegments; i++)
+            {
+                Vector3 point = transform.position + ringDirections[i] * radius;
+                point.y = SurfaceHeight(point) + RingHeightOffset;
+                ring.SetPosition(i, point);
+            }
             ring.widthMultiplier = RingBaseWidth * (1f + 0.6f * pulse);
             Color ringColor = baseColor;
             ringColor.a = Mathf.Lerp(0.65f, 1f, pulse);
@@ -96,7 +137,14 @@ public class ExplosionTelegraph : MonoBehaviour
         if (fillTransform != null)
         {
             float fillRadius = Mathf.Lerp(0.05f, 1f, progress) * radius;
-            fillTransform.localScale = new Vector3(fillRadius, 1f, fillRadius);
+            for (int i = 0; i < fillVertices.Length; i++)
+            {
+                Vector3 offset = fillDirections[i] * fillRadius;
+                offset.y = SurfaceHeight(transform.position + offset) + FillHeightOffset - groundY;
+                fillVertices[i] = offset;
+            }
+            fillMesh.vertices = fillVertices;
+            fillMesh.RecalculateBounds();
 
             // Centro más transparente y borde más denso, ganando opacidad con el progreso
             float edgeAlpha = Mathf.Lerp(0.35f, 0.6f, progress);
@@ -110,7 +158,7 @@ public class ExplosionTelegraph : MonoBehaviour
             fillColors[0] = center;
             for (int i = 1; i < fillColors.Length; i++)
             {
-                fillColors[i] = edge;
+                fillColors[i] = Color.Lerp(center, edge, fillDirections[i].magnitude);
             }
             fillMesh.colors = fillColors;
         }

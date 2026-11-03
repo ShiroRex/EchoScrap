@@ -441,7 +441,7 @@ namespace EchoScrap.Combat
         }
         public void Step(float dt)
         {
-            if(!bound || dt<=0 || session.IsPaused || !session.IsGameplayFlowActive() || !player.IsAlive || !isActiveAndEnabled) return;
+            if(!bound || dt<=0 || session.IsPaused || session.State == SessionState.BossIntro || !session.IsGameplayFlowActive() || !player.IsAlive || !isActiveAndEnabled) return;
             time+=dt; effects.Step(dt);lightning.Step(dt);
             Gather();
             for(int i=0;i<targets.Count;i++) targets[i].StepUpgradeStatus(dt);
