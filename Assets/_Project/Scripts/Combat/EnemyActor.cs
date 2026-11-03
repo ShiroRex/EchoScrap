@@ -25,6 +25,18 @@ namespace EchoScrap.Combat
         public const float MothArmDistance = 2f;
 
         private static readonly List<EnemyActor> activeEnemies = new List<EnemyActor>(256);
+        private static readonly EnemyNeighborIndex neighborIndex=new EnemyNeighborIndex();
+        private static readonly List<int> neighborCandidates=new List<int>(64);
+        private static double neighborStep=double.NaN;
+        private static void InvalidateNeighbors(){neighborStep=double.NaN;}
+        private static void RefreshNeighborIndex()
+        {
+            if(neighborStep==Time.fixedTimeAsDouble)return;
+            neighborIndex.Clear();
+            for(int i=0;i<activeEnemies.Count;i++)neighborIndex.Add(activeEnemies[i]!=null?activeEnemies[i].transform.position:Vector3.zero);
+            neighborStep=Time.fixedTimeAsDouble;
+        }
+
         private static readonly Dictionary<int, Material> sharedPrimaryMaterials = new Dictionary<int, Material>();
         private static readonly Dictionary<int, Material> sharedSecondaryMaterials = new Dictionary<int, Material>();
         public static IReadOnlyList<EnemyActor> ActiveEnemies => activeEnemies;
@@ -330,6 +342,7 @@ namespace EchoScrap.Combat
             EnsureInitialized();
             if (!activeEnemies.Contains(this))
                 activeEnemies.Add(this);
+            InvalidateNeighbors();
             if (IsAlive)
                 CombatTargetRegistry.Register(this);
         }
@@ -345,6 +358,7 @@ namespace EchoScrap.Combat
         internal void UnregisterFromCombat()
         {
             activeEnemies.Remove(this);
+            InvalidateNeighbors();
             CombatTargetRegistry.Unregister(this);
         }
 
@@ -623,6 +637,7 @@ namespace EchoScrap.Combat
 
             if (!activeEnemies.Contains(this))
                 activeEnemies.Add(this);
+            InvalidateNeighbors();
             CombatTargetRegistry.Register(this);
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
                 GetComponent<MothSpriteView>()?.Advance(0f);
@@ -877,10 +892,13 @@ namespace EchoScrap.Combat
             float minSepDist = separationRadius * Mathf.Max(1f, transform.localScale.x);
             float minSepSqr = minSepDist * minSepDist;
 
+            RefreshNeighborIndex();
+            bool indexed=!neighborIndex.IsDense(myPos);
+            if(indexed)neighborIndex.Query(myPos,minSepDist,neighborCandidates);
             int checkedNeighbors = 0;
-            for (int i = 0; i < activeEnemies.Count && checkedNeighbors < 16; i++)
+            for (int i = 0; i < (indexed?neighborCandidates.Count:activeEnemies.Count) && checkedNeighbors < 16; i++)
             {
-                EnemyActor other = activeEnemies[i];
+                EnemyActor other = activeEnemies[indexed?neighborCandidates[i]:i];
                 if (other == null || other == this || !other.IsAlive)
                     continue;
 
@@ -1150,6 +1168,7 @@ namespace EchoScrap.Combat
             isDead = true;
             CombatTargetRegistry.Unregister(this);
             activeEnemies.Remove(this);
+            InvalidateNeighbors();
 
             // Desactivar inmediatamente daño, selección y colisión del actor
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
