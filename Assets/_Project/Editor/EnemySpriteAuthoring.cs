@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace EchoScrap.Editor
 {
-    /// <summary>Reimport the two approved native atlases without changing their pixels or timing.</summary>
+    /// <summary>Reimport approved native enemy atlases without changing their pixels or timing.</summary>
     public static class EnemySpriteAuthoring
     {
         [Serializable] private sealed class Manifest { public ExportedFrame[] frames; public Meta meta; }
@@ -23,6 +23,14 @@ namespace EchoScrap.Editor
             Build("Wendigo", 200);
             AssetDatabase.SaveAssets();
             Debug.Log("[EchoScrap] Skeleton and Wendigo connected with native frame durations and four directions.");
+        }
+
+        [MenuItem("EchoScrap/Art/Connect Interceptor Galgo")]
+        public static void PrepareInterceptor()
+        {
+            Build("Interceptor", 152);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[EchoScrap] Interceptor Galgo connected with 20 clips and four directions.");
         }
 
         private static void Build(string name, int expectedFrames)
@@ -73,7 +81,7 @@ namespace EchoScrap.Editor
                 set.clips[(int)facing * 8 + (int)motion] = clip;
             }
             for (int i = 0; i < 4; i++)
-                foreach (var motion in name == "Esqueleto" ? new[] { EnemySpriteMotion.Idle, EnemySpriteMotion.Walk, EnemySpriteMotion.Attack, EnemySpriteMotion.Hit, EnemySpriteMotion.Death }
+                foreach (var motion in name != "Wendigo" ? new[] { EnemySpriteMotion.Idle, EnemySpriteMotion.Walk, EnemySpriteMotion.Attack, EnemySpriteMotion.Hit, EnemySpriteMotion.Death }
                     : new[] { EnemySpriteMotion.Idle, EnemySpriteMotion.Walk, EnemySpriteMotion.Windup, EnemySpriteMotion.Charge, EnemySpriteMotion.Recovery, EnemySpriteMotion.Hit, EnemySpriteMotion.Death })
                     if (set.clips[i * 8 + (int)motion] == null) throw new BuildFailedException("Missing " + motion + " for " + name);
             set.pixelsPerUnit = 30f;
@@ -86,10 +94,35 @@ namespace EchoScrap.Editor
             set.material.SetColor("_EmissionColor", Color.clear);
             set.material.SetFloat("_NormalStrength", 0f);
             set.material.SetFloat("_GlowStrength", 0f);
+            if (name == "Interceptor")
+            {
+                set.material.SetTexture("_BumpMap", ImportCompanionTexture(art + name + "_Normal.png", true));
+                set.material.SetFloat("_NormalStrength", .55f);
+                set.material.SetTexture("_GlowMap", ImportCompanionTexture(art + name + "_Emission.png", false));
+                set.material.SetColor("_GlowColor", new Color(1.2f, .56f, .12f));
+                set.material.SetFloat("_GlowStrength", .55f);
+            }
             set.material.SetVector("_FrameRect", set.GetClip(EnemySpriteMotion.Idle, CharacterFacing.Down).frames[0].uvRect);
             set.shadowMaterial = Material(dataPath + name + "_Shadow.mat", "EchoScrap/Character Contact Shadow");
             set.shadowMaterial.SetColor("_BaseColor", new Color(.005f, .006f, .009f, .6f));
             EditorUtility.SetDirty(set); EditorUtility.SetDirty(set.material); EditorUtility.SetDirty(set.shadowMaterial);
+        }
+
+        private static Texture2D ImportCompanionTexture(string path, bool normal)
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+            importer.textureShape = TextureImporterShape.Texture2D;
+            importer.sRGBTexture = false;
+            importer.filterMode = FilterMode.Point;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.mipmapEnabled = false;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.maxTextureSize = 4096;
+            if (normal) importer.flipGreenChannel = false;
+            importer.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
         private static Material Material(string path, string shader)

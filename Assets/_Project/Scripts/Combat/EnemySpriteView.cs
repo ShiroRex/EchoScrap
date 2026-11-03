@@ -105,7 +105,7 @@ namespace EchoScrap.Combat
 
         public void NotifyContact()
         {
-            if (!IsReady || actor.ArchetypeId != EnemyArchetypeId.Residual) return;
+            if (!IsReady || (actor.ArchetypeId != EnemyArchetypeId.Residual && actor.ArchetypeId != EnemyArchetypeId.Interceptor)) return;
             contactDirection = actor.FacingDirection;
             Facing = ResolveFacing(contactDirection);
             hitRemaining = 0f;
