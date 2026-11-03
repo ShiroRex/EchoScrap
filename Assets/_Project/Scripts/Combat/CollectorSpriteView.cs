@@ -35,6 +35,7 @@ namespace EchoScrap.Combat
         private MaterialPropertyBlock properties;
         private MaterialPropertyBlock shadowProperties;
         private MaterialPropertyBlock projectedShadowProperties;
+        private Mesh characterMesh;
         private float clipTime;
         private bool initialized;
         private Vector4 frameRect;
@@ -60,7 +61,7 @@ namespace EchoScrap.Combat
         public MeshRenderer ProjectedShadowRenderer => projectedShadowRenderer;
         public bool IsUsingArenaShadow => arenaShadowOverride;
         public Material AfterimageMaterial => afterimageMaterial;
-        public Mesh CharacterMesh => characterRenderer.GetComponent<MeshFilter>().sharedMesh;
+        public Mesh CharacterMesh => characterMesh != null ? characterMesh : characterRenderer.GetComponent<MeshFilter>().sharedMesh;
         public bool DeathComplete => Motion == CharacterMotion.Death && clipTime >= sprites.GetClip(Motion, Facing).Duration;
 
         private void Awake() => Initialize();
@@ -76,6 +77,7 @@ namespace EchoScrap.Combat
             if (composer == null) composer = GetComponent<ActorVisualComposer>();
             flashlight = GetComponent<FlashlightPresentation>();
             viewCamera = Camera.main;
+            if (characterRenderer != null) characterMesh = characterRenderer.GetComponent<MeshFilter>().sharedMesh;
             properties = new MaterialPropertyBlock();
             shadowProperties = new MaterialPropertyBlock();
             projectedShadowProperties = new MaterialPropertyBlock();
@@ -263,11 +265,7 @@ namespace EchoScrap.Combat
                     if (floor.Raycast(snappedRay, out float distance)) position = snappedRay.GetPoint(distance);
                 }
             }
-            // Follow camera yaw through the warehouse orbit, while keeping the sprite upright
-            // and its world proportions fixed instead of tilting it with camera pitch.
-            Vector3 horizontalForward = Vector3.ProjectOnPlane(viewCamera.transform.forward, Vector3.up);
-            Quaternion upright = horizontalForward.sqrMagnitude > .0001f
-                ? Quaternion.LookRotation(horizontalForward, Vector3.up) : Quaternion.identity;
+            Quaternion upright = RotationForCamera(viewCamera.transform.rotation);
             characterRenderer.transform.SetPositionAndRotation(position, upright);
             characterRenderer.transform.localScale = new Vector3(scale * entranceScale.x, scale * standingHeight * entranceScale.y, scale);
             if (shadowRenderer != null)
@@ -293,6 +291,24 @@ namespace EchoScrap.Combat
                 if (TryGetLanternWorldPosition(out Vector3 lantern))
                     flashlight.OilLantern.OilGlow.transform.position = lantern;
             }
+        }
+
+        private Quaternion RotationForCamera(Quaternion cameraRotation)
+        {
+            // Only yaw follows the view. The card remains upright with its feet on the floor.
+            Vector3 forward = cameraRotation * Vector3.forward;
+            Vector3 horizontalForward = Vector3.ProjectOnPlane(forward, Vector3.up);
+            Quaternion upright = horizontalForward.sqrMagnitude > .0001f
+                ? Quaternion.LookRotation(horizontalForward, Vector3.up) : Quaternion.identity;
+            return upright;
+        }
+
+        public Vector3 GetFramingCorner(int corner, Quaternion cameraRotation)
+        {
+            Bounds bounds = CharacterMesh.bounds;
+            Vector3 local = new Vector3((corner & 1) == 0 ? bounds.min.x : bounds.max.x,
+                (corner & 2) == 0 ? bounds.min.y : bounds.max.y, bounds.center.z);
+            return characterRenderer.transform.position + RotationForCamera(cameraRotation) * Vector3.Scale(local, characterRenderer.transform.lossyScale);
         }
 
         public bool TryGetLanternWorldPosition(out Vector3 position)

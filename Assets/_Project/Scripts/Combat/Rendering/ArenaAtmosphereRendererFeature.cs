@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace EchoScrap.Combat
 {
-    /// <summary>Exterior-only atmosphere and a masked miniature lens with a sharp gameplay plane.</summary>
+    /// <summary>Camera-scoped player visibility, exterior atmosphere and a masked miniature lens.</summary>
     public sealed class ArenaAtmosphereRendererFeature : ScriptableRendererFeature
     {
         [SerializeField] private Shader atmosphereShader;
@@ -210,7 +210,7 @@ namespace EchoScrap.Combat
             {
                 var camera=frameData.Get<UniversalCameraData>();
                 var owner=ArenaLightingController.Active;
-                if(!ArenaLightingController.IsExteriorActive || owner==null || owner.GameplayCamera!=camera.camera) return;
+                if(owner==null || !owner.isActiveAndEnabled || owner.GameplayCamera!=camera.camera) return;
                 var resources=frameData.Get<UniversalResourceData>();
                 if(resources.isActiveTargetBackBuffer) return;
                 var rendering=frameData.Get<UniversalRenderingData>();

@@ -61,14 +61,18 @@ namespace EchoScrap.Tests
                 Assert.IsTrue(travel.PlaceInWarehouse(true));yield return null;
                 Assert.IsFalse(ArenaLightingController.IsExteriorActive);Assert.IsFalse(camera.renderPostProcessing);
                 Assert.AreEqual(1,camera.volumeLayerMask.value);Assert.IsFalse(game.Lighting.Rig.gameObject.activeSelf);
-                Assert.AreEqual(CameraClearFlags.Skybox,game.GameplayCamera.clearFlags);
+                Assert.AreEqual(CameraClearFlags.SolidColor,game.GameplayCamera.clearFlags);
+                Assert.AreEqual(game.Lighting.Profile.WarehouseBackground,game.GameplayCamera.backgroundColor);
                 Assert.AreEqual(AmbientMode.Trilight,RenderSettings.ambientMode);
                 Assert.AreEqual(game.Lighting.Profile.WarehouseAmbientSky,RenderSettings.ambientSkyColor);
                 Assert.IsTrue(ArenaLightingController.IsWorldLightingActive);
                 foreach(var light in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
                     if(light.name=="ArenaDirectionalLight")Assert.AreEqual(0f,light.intensity,"Outdoor light must not enter the vault.");
-                Assert.AreEqual(65f,game.CameraRig.Lens.FieldOfView,.01f);
-                Assert.AreEqual(32f,game.CameraRig.transform.eulerAngles.x,.01f);
+                Assert.IsTrue(game.GameplayCamera.orthographic);
+                Assert.AreEqual(travel.InteriorOrthographicSize,game.GameplayCamera.orthographicSize,.01f);
+                Assert.That(game.CameraRig.transform.eulerAngles.x,Is.InRange(travel.InteriorCameraPitch-.01f,travel.InteriorMaximumCameraPitch+.01f));
+                Assert.IsTrue(ArenaLightingView.TryGetForCamera(game.GameplayCamera,out var view));
+                Assert.AreSame(game.Lighting,view,"Interior player visibility must use the same camera-scoped render pass.");
                 Assert.IsTrue(travel.PlaceInWarehouse(false));yield return null;
                 Assert.IsTrue(ArenaLightingController.IsExteriorActive);Assert.IsTrue(camera.renderPostProcessing);
                 Assert.AreSame(exterior,camera.scriptableRenderer);Assert.IsTrue(game.Lighting.Rig.gameObject.activeSelf);
@@ -117,9 +121,14 @@ namespace EchoScrap.Tests
         [UnityTest]public IEnumerator LensRestoresOnDisableAndSurvivesRunReset()
         {
             var lighting=game.Lighting;
+            // The authored camera can be adjusted in the scene. Both disable paths
+            // must restore that lens rather than a historical fixed FOV and pitch.
+            lighting.SetLightingEnabled(false);
+            float authoredFov=game.CameraRig.Lens.FieldOfView, authoredPitch=game.CameraRig.transform.eulerAngles.x;
+            lighting.SetLightingEnabled(true);
             lighting.enabled=false;yield return null;
-            Assert.AreEqual(60f,game.CameraRig.Lens.FieldOfView,.01f);
-            Assert.AreEqual(50f,game.CameraRig.transform.eulerAngles.x,.01f);
+            Assert.AreEqual(authoredFov,game.CameraRig.Lens.FieldOfView,.01f);
+            Assert.AreEqual(authoredPitch,game.CameraRig.transform.eulerAngles.x,.01f);
             lighting.enabled=true;yield return null;AssertExteriorLens();
             var travel=Object.FindAnyObjectByType<WarehouseTravel>();
             Assert.IsTrue(travel.PlaceInWarehouse(true));yield return null;

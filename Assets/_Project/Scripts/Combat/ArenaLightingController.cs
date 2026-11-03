@@ -155,10 +155,11 @@ namespace EchoScrap.Combat
         {
             bool exterior = isActiveAndEnabled && LightingEnabled && !inside;
             if (!inside) ApplyExteriorCamera();
-            cameraData.SetRenderer(exterior ? Profile.RendererIndex : originalRendererIndex);
+            bool interior = isActiveAndEnabled && inside;
+            cameraData.SetRenderer(exterior || interior ? Profile.RendererIndex : originalRendererIndex);
             cameraData.renderPostProcessing = exterior || originalPost;
-            game.GameplayCamera.clearFlags = exterior ? CameraClearFlags.SolidColor : originalClearFlags;
-            game.GameplayCamera.backgroundColor = exterior ? Profile.SkyColor : originalBackground;
+            game.GameplayCamera.clearFlags = exterior || interior ? CameraClearFlags.SolidColor : originalClearFlags;
+            game.GameplayCamera.backgroundColor = interior ? Profile.WarehouseBackground : exterior ? Profile.SkyColor : originalBackground;
             cameraData.volumeLayerMask = exterior ? originalVolumeMask.value | (1 << Profile.AtmosphereLayer) : originalVolumeMask.value;
             game.GameplayCamera.cullingMask = exterior ? originalCullingMask | (1 << Profile.AtmosphereLayer) : originalCullingMask & ~(1 << Profile.AtmosphereLayer);
             if (volume != null) volume.weight = exterior ? 1f : 0f;

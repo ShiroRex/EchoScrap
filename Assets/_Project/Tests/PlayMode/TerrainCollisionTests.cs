@@ -495,7 +495,8 @@ namespace EchoScrap.Tests
             int slots=Object.FindAnyObjectByType<FusionStation>().DisplaySlots.Length;
             Assert.AreEqual(10,slots);
             var confiner=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineConfiner3D>();
-            Assert.IsTrue(confiner.enabled); Assert.AreSame(travel.InteriorCameraBounds,confiner.BoundingVolume);
+            Assert.AreSame(travel.InteriorCameraBounds,confiner.BoundingVolume);
+            Assert.IsTrue(game.CameraRig.GetComponent<WarehouseCameraFraming>().IsConfining,"The entire interior view must stay in the room.");
             float clock=game.Session.GameplayTime;
             Vector3 enemyPosition=enemy.transform.position;
             Assert.IsFalse(travel.TryTravel(true,game.Player),"Prevent an immediate portal bounce.");

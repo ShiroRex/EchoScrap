@@ -31,6 +31,7 @@ MonoBehaviour:
   WarehouseAmbientSky: {r: 0.16, g: 0.2, b: 0.29, a: 1}
   WarehouseAmbientEquator: {r: 0.075, g: 0.09, b: 0.14, a: 1}
   WarehouseAmbientGround: {r: 0.035, g: 0.028, b: 0.045, a: 1}
+  WarehouseBackground: {r: 0.008, g: 0.009, b: 0.014, a: 1}
   AirColor: {r: 0.44, g: 0.3, b: 0.62, a: 1}
   AirDensity: 0.0045
   AmbientScattering: 0.5

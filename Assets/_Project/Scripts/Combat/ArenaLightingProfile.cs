@@ -29,6 +29,7 @@ namespace EchoScrap.Combat
         public Color WarehouseAmbientSky = new Color(.16f, .20f, .29f);
         public Color WarehouseAmbientEquator = new Color(.075f, .09f, .14f);
         public Color WarehouseAmbientGround = new Color(.035f, .028f, .045f);
+        public Color WarehouseBackground = new Color(.008f, .009f, .014f);
         [Header("Air in world space")]
         public Color AirColor = new Color(.44f, .3f, .62f);
         [Min(0f)] public float AirDensity = .0045f;
