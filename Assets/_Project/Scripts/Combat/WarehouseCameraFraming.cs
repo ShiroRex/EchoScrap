@@ -140,7 +140,7 @@ namespace EchoScrap.Combat
             if (collector != null)
                 for (int corner = 0; corner < 4; corner++)
                 {
-                    Vector3 view = inverse * (collector.GetFramingCorner(corner, rotation) - position);
+                    Vector3 view = inverse * (collector.GetFramingCorner(corner) - position);
                     if (view.z <= .1f || Mathf.Abs(view.x) > size * aspect * .99f || Mathf.Abs(view.y) > size * .99f) return false;
                 }
             return true;

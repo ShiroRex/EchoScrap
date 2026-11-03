@@ -192,45 +192,51 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator CameraYawTurnsTheStandingPlaneWithoutTiltingOrReshapingIt()
+        public IEnumerator CameraRotationKeepsTheStandingPlaneFixedAndItsFeetOnTheFloor()
         {
+            game.Session.SetManualPause(true);
+            Quaternion standingRotation = view.CharacterRenderer.transform.rotation;
             var camera = new GameObject("Collector angle validation camera").AddComponent<Camera>();
             camera.CopyFrom(game.GameplayCamera);
-            camera.transform.SetPositionAndRotation(game.GameplayCamera.transform.position, Quaternion.Euler(30, 20, 0));
+            camera.transform.SetPositionAndRotation(game.GameplayCamera.transform.position, Quaternion.Euler(30, 20, 12));
             view.Bind(camera, game.Session);
             view.AlignToCamera();
-            Quaternion rotation = view.CharacterRenderer.transform.rotation;
-            Assert.That(Quaternion.Angle(rotation, Quaternion.Euler(0, 20, 0)), Is.LessThan(.01f));
+            Assert.That(Quaternion.Angle(view.CharacterRenderer.transform.rotation, standingRotation), Is.LessThan(.01f));
+            float floorHeight = game.Motor.transform.position.y - 1f + .025f;
+            // The quad includes two transparent rows below the authored foot pivot.
+            Assert.That(view.CharacterRenderer.transform.position.y, Is.EqualTo(floorHeight).Within(.001f));
             Vector3 scale = view.CharacterRenderer.transform.localScale;
             float aspect = scale.y / scale.x;
-            camera.transform.rotation = Quaternion.Euler(65, -15, 0);
+            camera.transform.rotation = Quaternion.Euler(65, -15, -8);
             view.AlignToCamera();
-            Assert.That(Quaternion.Angle(view.CharacterRenderer.transform.rotation, Quaternion.Euler(0, -15, 0)), Is.LessThan(.01f));
+            Assert.That(Quaternion.Angle(view.CharacterRenderer.transform.rotation, standingRotation), Is.LessThan(.01f));
+            Assert.That(view.CharacterRenderer.transform.position.y, Is.EqualTo(floorHeight).Within(.001f));
             scale = view.CharacterRenderer.transform.localScale;
             Assert.That(scale.y / scale.x, Is.EqualTo(aspect).Within(0.001f),
                 "World proportions must stay fixed when the camera pitch changes.");
-            Assert.That(Quaternion.Angle(rotation, camera.transform.rotation), Is.GreaterThan(30f));
+            Assert.That(Quaternion.Angle(standingRotation, camera.transform.rotation), Is.GreaterThan(30f));
             view.Bind(game.GameplayCamera, game.Session);
             Object.Destroy(camera.gameObject);
             yield return null;
         }
 
         [UnityTest]
-        public IEnumerator IdleFacingReprojectsThroughCameraOrbitWithoutAdvancingTheAnimation()
+        public IEnumerator CameraOrbitKeepsTheWorldPlaneAndIdleDirectionFixed()
         {
+            game.Session.SetManualPause(true);
             var camera = new GameObject("Collector orbit validation camera").AddComponent<Camera>();
             camera.CopyFrom(game.GameplayCamera);
             view.Bind(camera, game.Session);
             view.ResetPresentation();
             float clipTime = view.ClipTime;
-            CharacterFacing[] expected = { CharacterFacing.Down, CharacterFacing.Right, CharacterFacing.Up, CharacterFacing.Left, CharacterFacing.Down };
-            for (int step = 0; step < expected.Length; step++)
+            Quaternion standingRotation = view.CharacterRenderer.transform.rotation;
+            for (int step = 0; step < 5; step++)
             {
                 camera.transform.rotation = Quaternion.Euler(50, step * 90, 0);
                 view.AlignToCamera();
-                Assert.That(view.Facing, Is.EqualTo(expected[step]), "Idle pose must preserve its world facing as the camera orbits.");
+                Assert.That(view.Facing, Is.EqualTo(CharacterFacing.Down), "Orbiting the camera must not change the fixed plane's animation direction.");
                 Assert.That(view.ClipTime, Is.EqualTo(clipTime));
-                Assert.That(Vector3.Dot(view.CharacterRenderer.transform.right, camera.transform.right), Is.GreaterThan(.999f), "The sprite must not be mirrored or edge-on.");
+                Assert.That(Quaternion.Angle(view.CharacterRenderer.transform.rotation, standingRotation), Is.LessThan(.01f), "The sprite must not turn to face the camera.");
                 Assert.That(Vector3.Dot(view.CharacterRenderer.transform.up, Vector3.up), Is.GreaterThan(.999f));
                 Assert.That(Quaternion.Angle(view.CharacterRenderer.transform.rotation, view.ProjectedShadowRenderer.transform.rotation), Is.LessThan(.01f));
             }

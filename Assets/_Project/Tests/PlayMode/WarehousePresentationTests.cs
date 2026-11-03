@@ -97,7 +97,7 @@ namespace EchoScrap.Tests
                     Assert.That(viewport.y, Is.InRange(0f, 1f), "Sprite card clipped at " + point + " aspect=" + aspect
                         + " body="+body.center+" sprite="+character.CharacterRenderer.transform.position
                         + " pitch="+camera.transform.eulerAngles.x+" fov="+camera.fieldOfView
-                        + " predicted="+camera.WorldToViewportPoint(character.GetFramingCorner(corner,camera.transform.rotation))
+                        + " predicted="+camera.WorldToViewportPoint(character.GetFramingCorner(corner))
                         + " view pitch="+character.CharacterRenderer.transform.eulerAngles.x+" pixelHeight="+camera.pixelHeight
                         + " scale="+character.CharacterRenderer.transform.lossyScale+" world="+p+" room="+room);
                 }

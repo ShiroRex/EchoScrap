@@ -461,7 +461,7 @@ namespace EchoScrap.Tests
                 Assert.Greater(Vector3.Dot(body.position-start,expected),.25f,key+" must follow screen direction.");
                 CharacterFacing facing=key==Key.W?CharacterFacing.Up:key==Key.S?CharacterFacing.Down:key==Key.A?CharacterFacing.Left:CharacterFacing.Right;
                 Assert.AreEqual(facing,collector.Facing,key+" must use the matching screen-facing walk animation.");
-                Assert.Greater(Vector3.Dot(collector.CharacterRenderer.transform.right,camera.right),.99f,"The sprite must face the orbiting camera without mirroring.");
+                Assert.Less(Quaternion.Angle(collector.CharacterRenderer.transform.rotation,Quaternion.identity),.01f,"The sprite must keep its fixed world plane.");
             }
             body.position=ArenaSurface.OnGround(new Vector3(0,0,63),1);body.linearVelocity=Vector3.zero;
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W,Key.Space));yield return null;yield return new WaitForFixedUpdate();yield return new WaitForFixedUpdate();
