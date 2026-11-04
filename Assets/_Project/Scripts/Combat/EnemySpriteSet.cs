@@ -30,14 +30,16 @@ namespace EchoScrap.Combat
             return time;
         }
 
-        private static EnemySpriteSet skeleton, wendigo;
-        public static bool Supports(EnemyArchetypeId id) => id == EnemyArchetypeId.Residual || id == EnemyArchetypeId.Colossus;
+        private static EnemySpriteSet skeleton, wendigo, interceptor;
+        public static bool Supports(EnemyArchetypeId id) => id == EnemyArchetypeId.Residual || id == EnemyArchetypeId.Colossus || id == EnemyArchetypeId.Interceptor;
         public static EnemySpriteSet Load(EnemyArchetypeId id)
         {
             if (id == EnemyArchetypeId.Residual)
                 return skeleton != null ? skeleton : skeleton = Resources.Load<EnemySpriteSet>("Characters/Esqueleto");
             if (id == EnemyArchetypeId.Colossus)
                 return wendigo != null ? wendigo : wendigo = Resources.Load<EnemySpriteSet>("Characters/Wendigo");
+            if (id == EnemyArchetypeId.Interceptor)
+                return interceptor != null ? interceptor : interceptor = Resources.Load<EnemySpriteSet>("Characters/Interceptor");
             return null;
         }
     }

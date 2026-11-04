@@ -8,25 +8,36 @@ namespace EchoScrap.Combat
     {
         public const int Capacity = 48;
         public const float Radius = .16f;
+        public const float GroundClearance = 1f;
+        private const float MaximumStepDistance = .4f;
         private sealed class Bolt
         {
             public Transform View;
+            public EnemyEffectVisual Sprite;
+            public Light Light;
             public bool Active;
             public Vector3 Position, Direction;
             public int Source;
-            public float Damage, Speed, Remaining;
+            public float Damage, Speed, Remaining, Age;
         }
         private readonly Bolt[] bolts = new Bolt[Capacity];
         private readonly RaycastHit[] hits = new RaycastHit[16];
         private readonly Collider[] overlaps = new Collider[16];
         private CombatSession session;
         private PlayerHealth player;
+        private EnemyEffectLibrary art;
+        private EnemyEffectPool effects;
+        private Camera camera;
+        private readonly bool[] selectedLights = new bool[Capacity];
         public bool AutoTick { get; set; } = true;
+        public int ActiveLightCount { get; private set; }
         public int ActiveCount { get; private set; }
         public int TotalFired { get; private set; }
         public int PlayerHitAttempts { get; private set; }
         public Vector3 PositionAt(int index) => bolts[index].Position;
         public Vector3 DirectionAt(int index) => bolts[index].Direction;
+        public Light LightAt(int index) => bolts[index].Light;
+        public EnemyEffectVisual SpriteAt(int index) => bolts[index].Sprite;
 
         public static EliteProjectilePool GetOrCreate(CombatSession owner, PlayerHealth target)
         {
@@ -35,20 +46,25 @@ namespace EchoScrap.Combat
             if (pool != null) return pool;
             pool = owner.gameObject.AddComponent<EliteProjectilePool>();
             pool.session = owner; pool.player = target;
+            pool.art = EnemyEffectLibrary.Load(); pool.camera = Camera.main;
+            pool.effects = EnemyEffectPool.GetOrCreate(owner);
             owner.SessionReset += pool.ClearAll;
+            owner.Effects.OnPreferencesChanged += pool.RefreshLights;
             for (int i = 0; i < Capacity; i++)
             {
-                var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                sphere.name = "Copper bolt " + i; sphere.transform.SetParent(pool.transform, false);
-                DestroyImmediate(sphere.GetComponent<Collider>());
-                sphere.transform.localScale = Vector3.one * (Radius * 2f);
-                sphere.GetComponent<Renderer>().sharedMaterial = Prototype.VfxRuntimeUtils.FlatMaterial;
-                var properties = new MaterialPropertyBlock();
-                properties.SetColor("_BaseColor", new Color(1f, .65f, .2f));
-                properties.SetColor("_Color", new Color(1f, .65f, .2f));
-                sphere.GetComponent<Renderer>().SetPropertyBlock(properties);
-                sphere.SetActive(false);
-                pool.bolts[i] = new Bolt { View = sphere.transform };
+                var root = new GameObject("Copper missile " + i); root.transform.SetParent(pool.transform, false);
+                EnemyEffectVisual sprite = null;
+                if (pool.art != null && pool.art.IsReady)
+                {
+                    sprite = new EnemyEffectVisual(root.transform, pool.art); sprite.Select(EnemyEffectId.CopperMissile);
+                }
+                var light = root.AddComponent<Light>(); light.type = LightType.Point;
+                light.color = pool.art != null ? pool.art.missileLightColor : new Color(1f, .43f, .09f);
+                light.range = pool.art != null ? pool.art.missileLightRange : 3.8f;
+                light.intensity = 0f; light.shadows = LightShadows.None;
+                light.renderMode = LightRenderMode.ForcePixel; light.enabled = false;
+                root.SetActive(false);
+                pool.bolts[i] = new Bolt { View = root.transform, Sprite = sprite, Light = light };
             }
             return pool;
         }
@@ -60,13 +76,17 @@ namespace EchoScrap.Combat
             for (int i = 0; i < Capacity && number < 3; i++)
             {
                 Bolt bolt = bolts[i]; if (bolt.Active) continue;
-                bolt.Active = true; bolt.Source = source; bolt.Position = origin;
-                bolt.Direction = Quaternion.Euler(0, (number - 1) * data.ArcDegrees * .5f, 0) * direction;
+                bolt.Active = true; bolt.Source = source; bolt.Age = 0f;
+                bolt.Position = ArenaSurface.OnGround(origin, GroundClearance);
+                direction.y = 0f;
+                bolt.Direction = Quaternion.Euler(0, (number - 1) * data.ArcDegrees * .5f, 0) * direction.normalized;
                 bolt.Damage = Mathf.Max(0f, data.Damage); bolt.Speed = Mathf.Max(.1f, data.ProjectileSpeed);
                 bolt.Remaining = Mathf.Min(Mathf.Max(.1f, data.ProjectileLifetime), Mathf.Max(.1f, data.Range) / bolt.Speed);
-                bolt.View.position = origin; bolt.View.gameObject.SetActive(true);
+                bolt.View.position = bolt.Position; bolt.View.gameObject.SetActive(true);
+                Draw(bolt);
                 number++; ActiveCount++; TotalFired++;
             }
+            RefreshLights();
             return true;
         }
 
@@ -78,41 +98,96 @@ namespace EchoScrap.Combat
             for (int i = 0; i < Capacity; i++)
             {
                 Bolt bolt = bolts[i]; if (bolt == null || !bolt.Active) continue;
-                float travel = Mathf.Min(dt, bolt.Remaining) * bolt.Speed;
-                int mask = (1 << PhysicsLayers.DefaultLayer) | (1 << PhysicsLayers.PlayerLayer) | (1 << PhysicsLayers.PlayerDashLayer);
-                int overlapping = Physics.OverlapSphereNonAlloc(bolt.Position, Radius, overlaps, mask, QueryTriggerInteraction.Ignore);
-                int count = overlapping > 0 ? 0 : Physics.SphereCastNonAlloc(bolt.Position, Radius, bolt.Direction, hits, travel, mask, QueryTriggerInteraction.Ignore);
-                // A saturated query is conservatively blocked, never allowed to tunnel through a wall.
-                float nearest = float.PositiveInfinity;
-                Collider first = null;
-                for (int h = 0; h < overlapping; h++)
-                    if (first == null || overlaps[h].gameObject.layer == PhysicsLayers.DefaultLayer) first = overlaps[h];
-                for (int h = 0; h < count; h++)
-                    if (hits[h].distance < nearest) { nearest = hits[h].distance; first = hits[h].collider; }
-                if (first != null || count == hits.Length || overlapping == overlaps.Length)
+                bolt.Age += Mathf.Min(dt, bolt.Remaining);
+                float remainingTravel = Mathf.Min(dt, bolt.Remaining) * bolt.Speed;
+                // Sweep short terrain-following segments so slopes cannot hide a live bolt, and
+                // a long frame still tests walls and the player's actual three-dimensional capsule.
+                while (bolt.Active && remainingTravel > .00001f)
                 {
-                    if (count < hits.Length && overlapping < overlaps.Length && player != null && player.IsAlive && first == player.HurtboxCollider)
+                    float travel = Mathf.Min(remainingTravel, MaximumStepDistance);
+                    Vector3 next = ArenaSurface.OnGround(bolt.Position + bolt.Direction * travel, GroundClearance);
+                    Vector3 displacement = next - bolt.Position;
+                    int mask = (1 << PhysicsLayers.DefaultLayer) | (1 << PhysicsLayers.PlayerLayer) | (1 << PhysicsLayers.PlayerDashLayer);
+                    int overlapping = Physics.OverlapSphereNonAlloc(bolt.Position, Radius, overlaps, mask, QueryTriggerInteraction.Ignore);
+                    int count = overlapping > 0 ? 0 : Physics.SphereCastNonAlloc(bolt.Position, Radius, displacement.normalized, hits, displacement.magnitude, mask, QueryTriggerInteraction.Ignore);
+                    // A saturated query is conservatively blocked, never allowed to tunnel through a wall.
+                    float nearest = float.PositiveInfinity;
+                    Collider first = null;
+                    for (int h = 0; h < overlapping; h++)
+                        if (first == null || overlaps[h].gameObject.layer == PhysicsLayers.DefaultLayer) first = overlaps[h];
+                    for (int h = 0; h < count; h++)
+                        if (hits[h].distance < nearest) { nearest = hits[h].distance; first = hits[h].collider; }
+                    if (first != null || count == hits.Length || overlapping == overlaps.Length)
                     {
-                        PlayerHitAttempts++;
-                        var request = new DamageRequest(bolt.Source, DamageSourceType.CopperBolt, bolt.Position,
-                            bolt.Direction, bolt.Damage, damageType: DamageType.Physical);
-                        player.ReceiveDamage(in request);
+                        Vector3 impact = float.IsPositiveInfinity(nearest) ? bolt.Position : bolt.Position + displacement.normalized * nearest;
+                        effects?.Play(EnemyEffectId.CopperImpact, impact);
+                        if (count < hits.Length && overlapping < overlaps.Length && player != null && player.IsAlive && first == player.HurtboxCollider)
+                        {
+                            PlayerHitAttempts++;
+                            var request = new DamageRequest(bolt.Source, DamageSourceType.CopperBolt, bolt.Position,
+                                bolt.Direction, bolt.Damage, damageType: DamageType.Physical);
+                            player.ReceiveDamage(in request);
+                        }
+                        Hide(bolt); break;
                     }
-                    Hide(bolt); continue;
+                    bolt.Position = next; bolt.View.position = bolt.Position;
+                    remainingTravel -= travel;
                 }
-                bolt.Position += bolt.Direction * travel; bolt.View.position = bolt.Position;
                 bolt.Remaining -= dt;
-                if (bolt.Remaining <= 0f) Hide(bolt);
+                if (bolt.Active && bolt.Remaining <= 0f) Hide(bolt);
+                else if (bolt.Active) Draw(bolt);
             }
+            RefreshLights();
         }
 
-        private void Hide(Bolt bolt) { bolt.Active = false; bolt.View.gameObject.SetActive(false); ActiveCount--; }
+        private void Draw(Bolt bolt)
+        {
+            bolt.View.position = bolt.Position;
+            if (bolt.Sprite == null) return;
+            bolt.Sprite.Pose(bolt.Position, bolt.Direction, default, camera);
+            bolt.Sprite.Draw(bolt.Age, 1f, session.Effects.ReducedEffectsMode ? 0f : session.Effects.DecorativeIntensity);
+        }
+        private void LateUpdate()
+        {
+            if (camera == null) camera = Camera.main;
+            foreach (Bolt bolt in bolts) if (bolt != null && bolt.Active) Draw(bolt);
+            RefreshLights();
+        }
+        private void RefreshLights()
+        {
+            ActiveLightCount = 0;
+            for (int i = 0; i < Capacity; i++) selectedLights[i] = false;
+            bool illuminate = session != null && art != null && !session.Effects.ReducedEffectsMode
+                && session.Effects.DecorativeIntensity > 0f && isActiveAndEnabled;
+            Vector3 focus = player != null ? player.WorldCenter : transform.position;
+            // Every engine is emissive; the nearest missiles share a bounded set of scene lights.
+            for (int j = 0; j < (illuminate ? art.missileLightBudget : 0); j++)
+            {
+                int nearest = -1; float distance = float.PositiveInfinity;
+                for (int i = 0; i < Capacity; i++)
+                {
+                    Bolt bolt = bolts[i]; if (bolt == null || !bolt.Active || selectedLights[i]) continue;
+                    float d = (bolt.Position - focus).sqrMagnitude;
+                    if (d < distance) { distance = d; nearest = i; }
+                }
+                if (nearest < 0) break;
+                selectedLights[nearest] = true; Bolt selected = bolts[nearest];
+                selected.Light.intensity = art.missileLightIntensity * session.Effects.DecorativeIntensity * (1f + .06f * Mathf.Sin(selected.Age * 30f));
+                ActiveLightCount++;
+            }
+            for (int i = 0; i < Capacity; i++) if (bolts[i] != null) bolts[i].Light.enabled = selectedLights[i];
+        }
+        private void Hide(Bolt bolt) { bolt.Active = false; bolt.Light.enabled = false; bolt.View.gameObject.SetActive(false); ActiveCount--; }
         public void ClearAll()
         {
             foreach (Bolt bolt in bolts) if (bolt != null && bolt.Active) Hide(bolt);
             TotalFired = PlayerHitAttempts = 0;
+            ActiveLightCount = 0;
         }
         private void OnDisable() => ClearAll();
-        private void OnDestroy() { if (session != null) session.SessionReset -= ClearAll; }
+        private void OnDestroy()
+        {
+            if (session != null) { session.SessionReset -= ClearAll; session.Effects.OnPreferencesChanged -= RefreshLights; }
+        }
     }
 }

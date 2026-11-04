@@ -104,7 +104,10 @@ namespace EchoScrap.Combat
             session?.SetBossIntroState(true);
             if (player != null) player.IsBossCinematicProtected = true;
             Vector3 spawn = arena != null ? ArenaSurface.OnGround(arena.Center, 1f) : Vector3.up;
-            Boss = enemies.Spawn(EnemyArchetypeId.GolgoraBoss, spawn) as GolgoraActor;
+            var archetype = director != null && director.Settings != null
+                ? director.Settings.GetArchetype(EnemyArchetypeId.GolgoraBoss)
+                : EnemyArchetypeData.CreateDefault(EnemyArchetypeId.GolgoraBoss);
+            Boss = enemies.Spawn(archetype, spawn) as GolgoraActor;
             if (Boss == null) { ReleaseCinematic(); return; }
             Boss.BindHazards(hazards);
             Boss.PhaseTransitionStarted += BeginPhaseRoar;

@@ -49,6 +49,7 @@ namespace EchoScrap.Tests
 
         [TestCase(EnemyArchetypeId.Residual, 144, 20, 1728)]
         [TestCase(EnemyArchetypeId.Colossus, 200, 28, 2400)]
+        [TestCase(EnemyArchetypeId.Interceptor, 152, 20, 1824)]
         public void ApprovedAtlasesRetainTheirResolutionTimingsAndAllDirections(EnemyArchetypeId id, int frames, int clips, int height)
         {
             var set = EnemySpriteSet.Load(id); Assert.IsNotNull(set);
@@ -75,6 +76,10 @@ namespace EchoScrap.Tests
         [TestCase(EnemyArchetypeId.Colossus, -4, 0, CharacterFacing.Right)]
         [TestCase(EnemyArchetypeId.Colossus, 0, 4, CharacterFacing.Down)]
         [TestCase(EnemyArchetypeId.Colossus, 0, -4, CharacterFacing.Up)]
+        [TestCase(EnemyArchetypeId.Interceptor, 4, 0, CharacterFacing.Left)]
+        [TestCase(EnemyArchetypeId.Interceptor, -4, 0, CharacterFacing.Right)]
+        [TestCase(EnemyArchetypeId.Interceptor, 0, 4, CharacterFacing.Down)]
+        [TestCase(EnemyArchetypeId.Interceptor, 0, -4, CharacterFacing.Up)]
         public void SpawnUsesCorrectCameraRelativeViewAndHidesThePrimitiveModel(EnemyArchetypeId id, float x, float z, CharacterFacing expected)
         {
             var actor = enemies.Spawn(id, new Vector3(x, 1, z));
@@ -87,10 +92,11 @@ namespace EchoScrap.Tests
             Assert.That(actor.Archetype.IsHeavyMass, Is.EqualTo(id == EnemyArchetypeId.Colossus));
         }
 
-        [Test]
-        public void WalkingHitPauseAndPoolReuseDoNotLeakAnimationState()
+        [TestCase(EnemyArchetypeId.Residual)]
+        [TestCase(EnemyArchetypeId.Interceptor)]
+        public void WalkingHitPauseAndPoolReuseDoNotLeakAnimationState(EnemyArchetypeId id)
         {
-            var actor = enemies.Spawn(EnemyArchetypeId.Residual, new Vector3(4, 1, 0));
+            var actor = enemies.Spawn(id, new Vector3(4, 1, 0));
             var view = actor.GetComponent<EnemySpriteView>();
             actor.Body.linearVelocity = Vector3.left * actor.AssignedMoveSpeed; view.Advance(.2f);
             Assert.That(view.Motion, Is.EqualTo(EnemySpriteMotion.Walk)); Assert.That(view.FrameIndex, Is.GreaterThan(0));
@@ -104,22 +110,23 @@ namespace EchoScrap.Tests
             view.Advance(.2f); Assert.That(view.ClipTime, Is.Zero, "Local hit stop holds the hit pose.");
             actor.StepVisuals(.3f); view.Advance(.15f); Assert.That(view.ClipTime, Is.GreaterThan(0f));
             enemies.ReturnToPool(actor);
-            var reused = enemies.Spawn(EnemyArchetypeId.Residual, new Vector3(2, 1, 2));
+            var reused = enemies.Spawn(id, new Vector3(2, 1, 2));
             Assert.That(reused, Is.SameAs(actor)); Assert.That(view.Motion, Is.EqualTo(EnemySpriteMotion.Idle));
             Assert.That(view.ClipTime, Is.Zero);
         }
 
-        [Test]
-        public void SwordPoseFollowsRealContactWithoutChangingDamageOrCooldown()
+        [TestCase(EnemyArchetypeId.Residual, 10f)]
+        [TestCase(EnemyArchetypeId.Interceptor, 8f)]
+        public void ContactPoseFollowsRealContactWithoutChangingDamageOrCooldown(EnemyArchetypeId id, float damage)
         {
-            var actor = enemies.Spawn(EnemyArchetypeId.Residual, new Vector3(0, 1, .65f));
+            var actor = enemies.Spawn(id, new Vector3(0, 1, .65f));
             var view = actor.GetComponent<EnemySpriteView>(); Physics.SyncTransforms();
-            Assert.That(actor.TryDealContactDamage(), Is.True); Assert.That(player.CurrentHealth, Is.EqualTo(90f));
+            Assert.That(actor.TryDealContactDamage(), Is.True); Assert.That(player.CurrentHealth, Is.EqualTo(100f - damage));
             Assert.That(view.Motion, Is.EqualTo(EnemySpriteMotion.Attack)); Assert.That(view.FrameIndex, Is.EqualTo(3));
-            view.Advance(.2f); Assert.That(player.CurrentHealth, Is.EqualTo(90f), "Drawing an attack cannot inflict extra damage.");
+            view.Advance(.2f); Assert.That(player.CurrentHealth, Is.EqualTo(100f - damage), "Drawing an attack cannot inflict extra damage.");
             Assert.That(actor.TryDealContactDamage(), Is.False);
             session.Clock.AdvanceGameplayTime(.51f); player.StepTimers(.51f);
-            Assert.That(actor.TryDealContactDamage(), Is.True); Assert.That(player.CurrentHealth, Is.EqualTo(80f));
+            Assert.That(actor.TryDealContactDamage(), Is.True); Assert.That(player.CurrentHealth, Is.EqualTo(100f - damage * 2));
         }
 
         [Test]
@@ -141,6 +148,7 @@ namespace EchoScrap.Tests
 
         [TestCase(EnemyArchetypeId.Residual)]
         [TestCase(EnemyArchetypeId.Colossus)]
+        [TestCase(EnemyArchetypeId.Interceptor)]
         public void AuthoredDeathSurvivesActorReuseAndResetsWithTheSession(EnemyArchetypeId id)
         {
             var generic = new GameObject("Generic Deaths").AddComponent<EnemyDeathPresentationPool>(); generic.BindSession(session);
@@ -168,7 +176,7 @@ namespace EchoScrap.Tests
             var views = new EnemySpriteView[count];
             for (int i = 0; i < count; i++)
             {
-                var actor = enemies.Spawn(i % 5 == 0 ? EnemyArchetypeId.Colossus : EnemyArchetypeId.Residual,
+                var actor = enemies.Spawn(i % 5 == 0 ? EnemyArchetypeId.Colossus : i % 3 == 0 ? EnemyArchetypeId.Interceptor : EnemyArchetypeId.Residual,
                     new Vector3((i % 12 - 5.5f) * 1.8f, 1, (i / 12) * 2f + 4f));
                 actor.SimulationSuspended = true;
                 actor.Body.linearVelocity = actor.AssignedMoveSpeed * Vector3.back;

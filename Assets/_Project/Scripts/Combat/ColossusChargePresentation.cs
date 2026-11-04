@@ -21,6 +21,7 @@ namespace EchoScrap.Combat
         private ParticleSystem dust, chips;
         private MaterialPropertyBlock block;
         private CombatCameraFeedback cameraFeedback;
+        private EnemyEffectPool effects;
         private float impactAge = 1f, dustAge;
         private Vector3 impactPosition;
         private bool initialized;
@@ -36,6 +37,7 @@ namespace EchoScrap.Combat
         public void Bind(ColossusCharge source, EnemyActor owner)
         {
             charge = source; actor = owner;
+            effects = EnemyEffectPool.GetOrCreate(owner.Session);
             if (initialized) return;
             initialized = true;
             block = new MaterialPropertyBlock();
@@ -123,6 +125,7 @@ namespace EchoScrap.Combat
             impactAge = 0f; impactPosition = ArenaSurface.OnGround(position, 0.07f);
             shock.transform.position = impactPosition;
             Emit(impactPosition, normal, wall ? 12 : 8, true);
+            effects?.Play(EnemyEffectId.ColossusImpact, impactPosition);
             float distance = actor.TargetPlayer != null ? Vector3.Distance(actor.TargetPlayer.WorldCenter, position) : 30f;
             float attenuation = 1f - Mathf.Clamp01(distance / 16f);
             cameraFeedback?.RequestShake(ShakePriority.Medium, (wall ? 0.13f : 0.07f) * attenuation,
@@ -133,6 +136,7 @@ namespace EchoScrap.Combat
         {
             if (!Decorative) return;
             position.y = ArenaSurface.Height(position) + 0.12f;
+            effects?.Play(EnemyEffectId.ColossusDust, position + Vector3.up * .5f);
             for (int i = 0; i < count; i++)
             {
                 float a = i * 2.399963f;
@@ -175,7 +179,7 @@ namespace EchoScrap.Combat
                 dust.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
                 chips.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             }
-            shock.enabled = Decorative && impactAge < 0.28f;
+            shock.enabled = Decorative && impactAge < 0.28f && (effects == null || !effects.IsReady);
             if (shock.enabled)
             {
                 shock.transform.localScale = Vector3.one * Mathf.Lerp(0.3f, 1.8f, impactAge / 0.28f);

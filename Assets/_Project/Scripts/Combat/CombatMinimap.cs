@@ -19,6 +19,7 @@ namespace EchoScrap.Combat
         private float nextRender;
         private Texture2D fogTexture;
         private readonly float[] explored=new float[128*128];
+        private readonly Color32[] fogColors=new Color32[128*128];
         private Vector3 mapCenter, lastReveal;
         private Vector2 exploredMin, exploredMax;
         private float mapRadius=30;
@@ -38,7 +39,7 @@ namespace EchoScrap.Combat
                 var cell=new Vector2(((x+.5f)/128-.5f)*size,((z+.5f)/128-.5f)*size);
                 explored[z*128+x]=Mathf.Max(explored[z*128+x],Mathf.Clamp01((14-Vector2.Distance(cell,point))/2));
             }
-            var colors=new Color32[128*128];
+            var colors=fogColors;
             for(int z=0;z<128;z++)for(int x=0;x<128;x++){
                 float wx=mapCenter.x+((x+.5f)/128-.5f)*mapRadius*2,wz=mapCenter.z+((z+.5f)/128-.5f)*mapRadius*2;
                 int gx=Mathf.FloorToInt((wx/size+.5f)*128),gz=Mathf.FloorToInt((wz/size+.5f)*128);

@@ -286,7 +286,7 @@ public class PlayerFlashlightView : MonoBehaviour
         flashlightLight.shadowBias = Mathf.Max(0f, shadowBias);
         flashlightLight.shadowNormalBias = Mathf.Max(0f, shadowNormalBias);
         flashlightLight.shadowNearPlane = Mathf.Max(0.01f, shadowNearPlane);
-        flashlightLight.enabled = visible && useSpotLight;
+        flashlightLight.enabled = visible && useSpotLight && (weapon.Session == null || !weapon.Session.IsInWarehouse);
         // Se recupera la caché al recargar scripts o al reasignar la luz desde el Inspector.
         if (additionalLightData == null || additionalLightData.gameObject != flashlightLight.gameObject)
             additionalLightData = flashlightLight.GetUniversalAdditionalLightData();

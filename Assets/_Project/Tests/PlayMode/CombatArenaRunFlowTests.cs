@@ -59,7 +59,7 @@ namespace EchoScrap.Tests
                 station.PersistProgress = false;
                 Assert.That(station.gameObject.scene, Is.EqualTo(game.gameObject.scene));
                 Assert.That(station.gameObject.scene.name, Is.EqualTo("CombatArena"));
-                Assert.That(station.DisplaySlots, Has.Length.EqualTo(8), "Both variants retain the expanded garage.");
+                Assert.That(station.DisplaySlots, Has.Length.EqualTo(10), "Both rounds retain the expanded vault.");
                 Assert.That(station.Door, Is.Not.Null);
                 Assert.That(station.InteractionPoint, Is.Not.Null);
                 Assert.That(station.ResultPoint, Is.Not.Null);
@@ -451,8 +451,17 @@ namespace EchoScrap.Tests
             Button resume = pause.Find("Resume").GetComponent<Button>();
             Button restart = pause.Find("Restart").GetComponent<Button>();
             Assert.That(frame.sprite, Is.SameAs(skin.frame));
-            Assert.That(frame.preserveAspect, Is.True, "The skulls and frame ornaments keep their original proportions.");
-            Assert.That(frame.rectTransform.sizeDelta, Is.EqualTo(skin.frame.rect.size * 8f));
+            Assert.That(frame.type, Is.EqualTo(Image.Type.Sliced), "The integrated pause frame stretches its center, not its corners.");
+            Assert.That(frame.sprite.border.x, Is.GreaterThan(0));
+            Assert.That(frame.sprite.border.y, Is.GreaterThan(0));
+            Assert.That(frame.rectTransform.sizeDelta, Is.EqualTo(((RectTransform)pause).sizeDelta));
+            foreach (string ornament in new[] { "TopCrest", "BottomCrest", "SideOrnament" })
+            {
+                Image decoration = pause.Find(ornament).GetComponent<Image>();
+                Assert.AreEqual(decoration.sprite.rect.width / decoration.sprite.rect.height,
+                    decoration.rectTransform.rect.width / decoration.rectTransform.rect.height, .001f,
+                    ornament + " must keep the original art proportions.");
+            }
             Assert.That(resume.image.sprite, Is.SameAs(skin.greenButton));
             Assert.That(restart.image.sprite, Is.SameAs(skin.redButton));
             EventSystem.current.SetSelectedGameObject(null);

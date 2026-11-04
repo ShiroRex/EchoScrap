@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using EchoScrap.Core;
 
 namespace EchoScrap.Combat
 {
@@ -81,8 +82,8 @@ namespace EchoScrap.Combat
             float scale = actor.Archetype.VisualScale.x;
             pixels.transform.SetPositionAndRotation(actor.VisualComposer.PresentationPivot.position + Vector3.up * 0.65f, Quaternion.identity);
             pixels.transform.localScale = new Vector3(scale / parentScale.x, scale / parentScale.y, scale / parentScale.z);
-            shadow.transform.position = new Vector3(transform.position.x, 0.035f, transform.position.z);
-            shadow.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            shadow.transform.position = ArenaSurface.OnGround(transform.position, .035f);
+            shadow.transform.rotation = Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(transform.position));
             glow.Intensity = (IsPrimed ? 2.1f : 1.25f) * pulse;
             glow.Priority = IsPrimed ? 2f : 1f;
         }

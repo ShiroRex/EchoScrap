@@ -32,6 +32,18 @@ namespace EchoScrap.Combat
             toTarget.y = 0f;
             hitDirection = toTarget.sqrMagnitude > 0.0001f ? toTarget.normalized : sourceTransform.forward;
 
+            // A conservative broad phase avoids narrow-phase PhysX calls for distant
+            // enemies. Keep the vertical tolerance used by the planar contact rule.
+            Bounds sourceBounds = sourceCollider.bounds;
+            Bounds targetBounds = targetCollider.bounds;
+            float tolerance = Mathf.Abs(skinTolerance);
+            Vector3 gap = sourceBounds.center - targetBounds.center;
+            Vector3 extent = sourceBounds.extents + targetBounds.extents;
+            if (Mathf.Abs(gap.x) > extent.x + tolerance ||
+                Mathf.Abs(gap.z) > extent.z + tolerance ||
+                Mathf.Abs(gap.y) > extent.y + Mathf.Max(1.25f, tolerance))
+                return false;
+
             // 1. Solapamiento directo entre volúmenes de colisión
             if (Physics.ComputePenetration(
                 sourceCollider, sourceTransform.position, sourceTransform.rotation,

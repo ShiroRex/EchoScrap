@@ -59,6 +59,26 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void BossUsesTheSelectedRoundsHealthAndUpgradesWaitThroughItsCinematic()
+        {
+            var entry = Resources.Load<ExpeditionEntrySettings>("UI/ExpeditionEntrySettings");
+            foreach (var variant in new[] { (entry.DemoRound, 3600f), (entry.CompleteRound, 9000f) })
+            {
+                game.SelectWaveSettings(variant.Item1); game.ResetRun(false);
+                var boundary = game.BossArena.transform.Find("FoundryBoundary_0");
+                foreach (var renderer in boundary.GetComponentsInChildren<Renderer>()) Assert.IsFalse(renderer.enabled);
+                game.Stats.SetUpgradeTier("SCRAP_04", 1);
+                Begin(); Assert.AreEqual(variant.Item2, game.Encounter.Boss.MaxHealth);
+                foreach (var renderer in boundary.GetComponentsInChildren<Renderer>()) Assert.IsTrue(renderer.enabled);
+                game.Upgrades.Step(20f); Assert.AreEqual(0, game.Upgrades.ActiveDeviceCount);
+                game.Encounter.Step(.31f); game.Encounter.Step(.31f); game.Encounter.Step(BossEncounter.IntroDuration);
+                game.Upgrades.Step(20f); Assert.Greater(game.Upgrades.ActiveDeviceCount, 0);
+                game.ResetRun(false);
+                foreach (var renderer in boundary.GetComponentsInChildren<Renderer>()) Assert.IsFalse(renderer.enabled);
+            }
+        }
+
+        [Test]
         public void EntranceAnnouncesNameThenRoarsAndLocksBothActorsUntilSoundEnds()
         {
             Begin();game.Encounter.Step(.31f);game.Encounter.Step(.31f);
@@ -264,21 +284,98 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator AnimatedMeshBoundsDoNotPumpBossCameraZoom()
+        {
+            int previousCaptureRate = Time.captureFramerate;
+            Time.captureFramerate = 60;
+            var renderers = System.Array.Empty<Renderer>();
+            try
+            {
+                Activate();
+                for (int i = 0; i < 240; i++) yield return null;
+                var follow = game.CameraRig.GetComponent<CinemachineFollow>();
+                float distance = follow.FollowOffset.magnitude;
+                renderers = game.Encounter.Boss.GetComponentInChildren<Animator>().GetComponentsInChildren<Renderer>();
+                for (int frame = 0; frame < 60; frame++)
+                {
+                    // Animated skinned meshes can report very different bounds across poses or culling updates.
+                    foreach (var renderer in renderers)
+                        renderer.bounds = new Bounds(game.Encounter.Boss.WorldCenter + Vector3.up * (frame % 2 == 0 ? 25f : 2f),
+                            Vector3.one * (frame % 2 == 0 ? 50f : 6f));
+                    yield return null;
+                    Assert.That(follow.FollowOffset.magnitude, Is.EqualTo(distance).Within(.05f),
+                        "Visual mesh bounds must not change the tactical zoom while both actors stand still.");
+                }
+            }
+            finally
+            {
+                foreach (var renderer in renderers) if (renderer != null) renderer.ResetBounds();
+                Time.captureFramerate = previousCaptureRate;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator BossZoomMovesGraduallyInBothDirectionsAndFreezesDuringPause()
+        {
+            int previousCaptureRate = Time.captureFramerate;
+            Time.captureFramerate = 60;
+            try
+            {
+                Activate();
+                for (int i = 0; i < 180; i++) yield return null;
+                var follow = game.CameraRig.GetComponent<CinemachineFollow>();
+                float initial = follow.FollowOffset.magnitude;
+                float previous = initial;
+                foreach (float separation in new[] { 20f, 2f })
+                {
+                    var player = ArenaSurface.OnGround(game.BossArena.Center + Vector3.back * separation, 1f);
+                    var boss = ArenaSurface.OnGround(game.BossArena.Center + Vector3.forward * separation, 1f);
+                    game.Player.GetComponent<Rigidbody>().position = game.Player.transform.position = player;
+                    game.Encounter.Boss.Body.position = game.Encounter.Boss.transform.position = boss;
+                    for (int frame = 0; frame < 300; frame++)
+                    {
+                        yield return null;
+                        float current = follow.FollowOffset.magnitude;
+                        Assert.That(Mathf.Abs(current - previous), Is.LessThanOrEqualTo(.51f),
+                            "Boss zoom must never jump, including when more distance is needed.");
+                        previous = current;
+                    }
+                    if (separation > 10f)
+                    {
+                        Assert.That(previous, Is.GreaterThan(initial + 5f));
+                        game.Session.SetManualPause(true);
+                        for (int frame = 0; frame < 10; frame++) yield return null;
+                        Assert.That(follow.FollowOffset.magnitude, Is.EqualTo(previous).Within(.0001f));
+                        game.Session.SetManualPause(false);
+                    }
+                    else Assert.That(previous, Is.LessThan(initial + .1f));
+                }
+            }
+            finally { Time.captureFramerate = previousCaptureRate; }
+        }
+
+        [UnityTest]
         public IEnumerator FramingKeepsOppositeEdgesVisibleWithoutRotatingCamera()
         {
-            Activate();
-            Quaternion rotation = game.CameraRig.transform.rotation;
-            Vector3 playerPosition = new Vector3(0f, 1f, -21.4f);
-            Vector3 bossPosition = new Vector3(0f, 1f, 20f);
-            game.Player.GetComponent<Rigidbody>().position = game.Player.transform.position = playerPosition;
-            game.Encounter.Boss.Body.position = game.Encounter.Boss.transform.position = bossPosition;
-            for (int i = 0; i < 45; i++) yield return null;
-            Vector3 playerViewport = game.GameplayCamera.WorldToViewportPoint(playerPosition - Vector3.up);
-            Vector3 bossViewport = game.GameplayCamera.WorldToViewportPoint(bossPosition + Vector3.up * 5f);
-            Assert.That(playerViewport.y, Is.InRange(0.1f, 0.9f));
-            Assert.That(bossViewport.y, Is.InRange(0.1f, 0.9f));
-            Assert.Greater(playerViewport.z, 0f);
-            Assert.Less(Quaternion.Angle(rotation, game.CameraRig.transform.rotation), 0.01f);
+            int previousCaptureRate = Time.captureFramerate;
+            Time.captureFramerate = 60;
+            try
+            {
+                Activate();
+                Quaternion rotation = game.CameraRig.transform.rotation;
+                Vector3 playerPosition = new Vector3(0f, 1f, -21.4f);
+                Vector3 bossPosition = new Vector3(0f, 1f, 20f);
+                game.Player.GetComponent<Rigidbody>().position = game.Player.transform.position = playerPosition;
+                game.Encounter.Boss.Body.position = game.Encounter.Boss.transform.position = bossPosition;
+                for (int i = 0; i < 300; i++) yield return null;
+                Vector3 playerViewport = game.GameplayCamera.WorldToViewportPoint(playerPosition - Vector3.up);
+                Vector3 bossViewport = game.GameplayCamera.WorldToViewportPoint(bossPosition + Vector3.up * 5f);
+                Assert.That(playerViewport.y, Is.InRange(0.1f, 0.9f));
+                Assert.That(bossViewport.y, Is.InRange(0.1f, 0.9f));
+                Assert.Greater(playerViewport.z, 0f);
+                Assert.Less(Quaternion.Angle(rotation, game.CameraRig.transform.rotation), 0.01f);
+            }
+            finally { Time.captureFramerate = previousCaptureRate; }
         }
 
         [Test]

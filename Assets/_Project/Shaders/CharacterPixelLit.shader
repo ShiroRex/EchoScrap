@@ -56,6 +56,41 @@ Shader "EchoScrap/Character Pixel Lit"
                 o.vertexLighting=VertexLighting(p.positionWS,n.normalWS);
                 o.uv=input.uv; return o;
             }
+            half3 SpriteDiffuse(Light light, half3 reliefNormal, half3 cardNormal)
+            {
+                // The upright quad represents a volume, not an opaque sheet of paper.
+                // Mirror only the light's depth component for the back hemisphere:
+                // side/top lighting still follows the authored normal-map relief.
+                half depth=dot(light.direction,cardNormal);
+                half3 direction=light.direction+cardNormal*(abs(depth)-depth);
+                half diffuse=saturate((dot(reliefNormal,direction)+.2h)/1.2h);
+                return light.color*(light.distanceAttenuation*light.shadowAttenuation*diffuse);
+            }
+            half4 SpriteLighting(InputData inputData, SurfaceData surface, half3 cardNormal)
+            {
+                half4 shadowMask=CalculateShadowMask(inputData);
+                AmbientOcclusionFactor ao=CreateAmbientOcclusionFactor(inputData,surface);
+                Light main=GetMainLight(inputData,shadowMask,ao);
+                half3 direct=SpriteDiffuse(main,inputData.normalWS,cardNormal);
+                uint count=GetAdditionalLightsCount();
+            #if USE_CLUSTER_LIGHT_LOOP
+                [loop] for(uint lightIndex=0;lightIndex<min(URP_FP_DIRECTIONAL_LIGHTS_COUNT,MAX_VISIBLE_LIGHTS);lightIndex++)
+                {
+                    CLUSTER_LIGHT_LOOP_SUBTRACTIVE_LIGHT_CHECK
+                    Light light=GetAdditionalLight(lightIndex,inputData,shadowMask,ao);
+                    direct+=SpriteDiffuse(light,inputData.normalWS,cardNormal);
+                }
+            #endif
+                LIGHT_LOOP_BEGIN(count)
+                    Light light=GetAdditionalLight(lightIndex,inputData,shadowMask,ao);
+                    direct+=SpriteDiffuse(light,inputData.normalWS,cardNormal);
+                LIGHT_LOOP_END
+                half3 ambient=inputData.bakedGI*ao.indirectAmbientOcclusion;
+            #if defined(_ADDITIONAL_LIGHTS_VERTEX)
+                direct+=inputData.vertexLighting;
+            #endif
+                return half4(surface.albedo*(ambient+direct)+surface.emission,surface.alpha);
+            }
             half4 Frag(Varyings input, FRONT_FACE_TYPE face:FRONT_FACE_SEMANTIC):SV_Target
             {
                 float2 uv=SpriteAtlasUv(input.uv);
@@ -85,9 +120,8 @@ Shader "EchoScrap/Character Pixel Lit"
                 half3 reactor=lerp(_GlowColor.rgb,_StatusTint.rgb,saturate(_StatusAmount));
                 surface.emission=saturate(_EmissionColor.rgb)*flash*.16h
                     + SAMPLE_TEXTURE2D(_GlowMap,sampler_GlowMap,uv).r * reactor * _GlowStrength * (1.0h-.6h*_StatusAmount);
-                // URP Simple Lit: scene ambient/probes, directional and local lights, shadows and AO.
-                // No permanent color fill, light clamp or specular sheen on the cloth.
-                half4 result=UniversalFragmentBlinnPhong(inputData,surface);
+                half3 cardNormal=normalize(input.normalWS)*IS_FRONT_VFACE(face,1,-1);
+                half4 result=SpriteLighting(inputData,surface,cardNormal);
                 result.rgb=MixFog(result.rgb,ComputeFogFactor(TransformWorldToHClip(input.positionWS).z));
                 return result;
             }

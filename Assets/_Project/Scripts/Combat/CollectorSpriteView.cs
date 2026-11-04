@@ -35,6 +35,8 @@ namespace EchoScrap.Combat
         private MaterialPropertyBlock properties;
         private MaterialPropertyBlock shadowProperties;
         private MaterialPropertyBlock projectedShadowProperties;
+        private Mesh characterMesh;
+        private Quaternion standingRotation = Quaternion.identity;
         private float clipTime;
         private bool initialized;
         private Vector4 frameRect;
@@ -60,7 +62,7 @@ namespace EchoScrap.Combat
         public MeshRenderer ProjectedShadowRenderer => projectedShadowRenderer;
         public bool IsUsingArenaShadow => arenaShadowOverride;
         public Material AfterimageMaterial => afterimageMaterial;
-        public Mesh CharacterMesh => characterRenderer.GetComponent<MeshFilter>().sharedMesh;
+        public Mesh CharacterMesh => characterMesh != null ? characterMesh : characterRenderer.GetComponent<MeshFilter>().sharedMesh;
         public bool DeathComplete => Motion == CharacterMotion.Death && clipTime >= sprites.GetClip(Motion, Facing).Duration;
 
         private void Awake() => Initialize();
@@ -76,6 +78,12 @@ namespace EchoScrap.Combat
             if (composer == null) composer = GetComponent<ActorVisualComposer>();
             flashlight = GetComponent<FlashlightPresentation>();
             viewCamera = Camera.main;
+            if (characterRenderer != null)
+            {
+                characterMesh = characterRenderer.GetComponent<MeshFilter>().sharedMesh;
+                // Keep the authored world heading, independent of camera and actor turns.
+                standingRotation = Quaternion.Euler(0f, characterRenderer.transform.eulerAngles.y, 0f);
+            }
             properties = new MaterialPropertyBlock();
             shadowProperties = new MaterialPropertyBlock();
             projectedShadowProperties = new MaterialPropertyBlock();
@@ -184,8 +192,9 @@ namespace EchoScrap.Combat
 
         private void RefreshFacing()
         {
-            if (viewCamera == null || sprites == null || (health != null && health.IsDead)) return;
-            Facing = ResolveFacing(worldFacing, viewCamera.transform.rotation, Facing, sprites.directionHysteresis);
+            if (sprites == null || (health != null && health.IsDead)) return;
+            // Animation directions belong to the fixed standing plane as well.
+            Facing = ResolveFacing(worldFacing, standingRotation * Quaternion.Euler(90f, 0f, 0f), Facing, sprites.directionHysteresis);
         }
 
         private void ApplyFrame()
@@ -216,14 +225,14 @@ namespace EchoScrap.Combat
         private void RefreshShadowMode()
         {
             if (characterRenderer == null) return;
-            bool exterior = isActiveAndEnabled && ArenaLightingController.IsExteriorActive;
-            if (exterior && !arenaShadowOverride)
+            bool worldLighting = isActiveAndEnabled && ArenaLightingController.IsWorldLightingActive;
+            if (worldLighting && !arenaShadowOverride)
             {
                 previousShadowCastingMode = characterRenderer.shadowCastingMode;
                 if (projectedShadowRenderer != null) projectedShadowVisible = projectedShadowRenderer.enabled;
                 arenaShadowOverride = true;
             }
-            else if (!exterior) RestoreShadowMode();
+            else if (!worldLighting) RestoreShadowMode();
             if (!arenaShadowOverride) return;
             characterRenderer.shadowCastingMode = DeathComplete ? ShadowCastingMode.Off : ShadowCastingMode.On;
             if (projectedShadowRenderer != null) projectedShadowRenderer.enabled = false;
@@ -263,12 +272,7 @@ namespace EchoScrap.Combat
                     if (floor.Raycast(snappedRay, out float distance)) position = snappedRay.GetPoint(distance);
                 }
             }
-            // Follow camera yaw through the warehouse orbit, while keeping the sprite upright
-            // and its world proportions fixed instead of tilting it with camera pitch.
-            Vector3 horizontalForward = Vector3.ProjectOnPlane(viewCamera.transform.forward, Vector3.up);
-            Quaternion upright = horizontalForward.sqrMagnitude > .0001f
-                ? Quaternion.LookRotation(horizontalForward, Vector3.up) : Quaternion.identity;
-            characterRenderer.transform.SetPositionAndRotation(position, upright);
+            characterRenderer.transform.SetPositionAndRotation(position, standingRotation);
             characterRenderer.transform.localScale = new Vector3(scale * entranceScale.x, scale * standingHeight * entranceScale.y, scale);
             if (shadowRenderer != null)
             {
@@ -277,7 +281,7 @@ namespace EchoScrap.Combat
             }
             if (projectedShadowRenderer != null)
             {
-                projectedShadowRenderer.transform.SetPositionAndRotation(position, upright);
+                projectedShadowRenderer.transform.SetPositionAndRotation(position, standingRotation);
                 projectedShadowRenderer.transform.localScale = characterRenderer.transform.localScale;
                 projectedShadowProperties.SetFloat(GroundHeightId, foot.y - 0.01f);
                 projectedShadowRenderer.SetPropertyBlock(projectedShadowProperties);
@@ -293,6 +297,14 @@ namespace EchoScrap.Combat
                 if (TryGetLanternWorldPosition(out Vector3 lantern))
                     flashlight.OilLantern.OilGlow.transform.position = lantern;
             }
+        }
+
+        public Vector3 GetFramingCorner(int corner)
+        {
+            Bounds bounds = CharacterMesh.bounds;
+            Vector3 local = new Vector3((corner & 1) == 0 ? bounds.min.x : bounds.max.x,
+                (corner & 2) == 0 ? bounds.min.y : bounds.max.y, bounds.center.z);
+            return characterRenderer.transform.TransformPoint(local);
         }
 
         public bool TryGetLanternWorldPosition(out Vector3 position)
