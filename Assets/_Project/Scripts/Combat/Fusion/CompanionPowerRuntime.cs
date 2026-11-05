@@ -19,6 +19,13 @@ namespace EchoScrap.Combat
             "Onda cada 15 s: empuja y cura 5% de vida máxima", "+15 de vida máxima · −15% daño recibido",
             "+15% velocidad de ataque"
         };
+        public static readonly string[] HudDescriptions = {
+            "+10 VIDA MÁXIMA", "PROYECTIL CADA 10 S", "+15% DAÑO · QUEMADURA",
+            "CURA 2 / 5 S", "VIDA ×2 · SALVACIÓN", "+10% VELOCIDAD",
+            "BLOQUEA 1 GOLPE / 20 S", "+20% ATAQUE · CONGELA", "+8% DAÑO",
+            "DASH: VELOCIDAD ×2", "CURA 1 / 5 BAJAS", "ONDA: DAÑO Y LENTITUD",
+            "ONDA: EMPUJA Y CURA", "+15 VIDA · −15% DAÑO", "+15% VELOCIDAD DE ATAQUE"
+        };
         private readonly bool[] equipped = new bool[FusionCatalog.Count];
         private readonly float[] cooldowns = new float[FusionCatalog.Count];
         private readonly List<EnemyActor> targets = new List<EnemyActor>(256);

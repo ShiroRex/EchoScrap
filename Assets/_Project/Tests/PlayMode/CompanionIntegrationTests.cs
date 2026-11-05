@@ -55,10 +55,9 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.IsTrue(system.Abilities.Has(3));
             for(int i=0;i<3;i++)Assert.AreEqual(station.Progress.equipped[i],station.DisplaySlots[i].GetComponentInChildren<CollectibleDisplay>().CollectibleId);
             yield return null;var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
-            Assert.AreEqual("PODERES DE COLECCIONABLES",hud.Find("PoderesTitulo").GetComponent<Text>().text);
             Assert.AreEqual(Color.clear,hud.Find("Retrato_0").GetComponent<Image>().color);Assert.IsNotNull(hud.Find("Retrato_0/Cara").GetComponent<Image>().sprite);
-            Assert.AreEqual(FusionCatalog.Names[3],hud.Find("Retrato_0/Nombre").GetComponent<Text>().text);
-            StringAssert.Contains(CompanionSystem.PowerNames[3],hud.Find("Retrato_0/Poder").GetComponent<Text>().text);
+            StringAssert.Contains(FusionCatalog.Names[3],hud.Find("PoderesActivos").GetComponent<Text>().text);
+            StringAssert.Contains(CompanionPowerRuntime.HudDescriptions[3],hud.Find("PoderesActivos").GetComponent<Text>().text);
             yield return Capture("Retratos");game.Session.SetManualPause(true);yield return null;Assert.IsFalse(hud.gameObject.activeSelf);
         }
         [UnityTest] public IEnumerator EquipmentRoundTripsAndMalformedSaveIsRepaired(){
