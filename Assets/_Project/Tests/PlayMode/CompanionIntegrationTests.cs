@@ -30,10 +30,33 @@ namespace EchoScrap.Tests
             game.ResetRun();Assert.AreEqual(0,system.ActivePickups);yield return null;
         }
         [UnityTest] public IEnumerator ArenaPickupAddsCopyOnlyOnce(){
+            var feedback=station.GetComponentInChildren<CollectiblePickupFeedback>();
+            Assert.AreEqual(0,feedback.SoundsPlayed);Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(0,feedback.NotificationsPlayed);
             Assert.IsTrue(system.TrySpawn(2));var pickup=Object.FindObjectsByType<CollectibleDisplay>(FindObjectsSortMode.None).Single(v=>v.name=="ColeccionableArena_Demonio");
             int before=station.Progress.owned[2];game.Player.GetComponent<Rigidbody>().position=pickup.transform.position+Vector3.up;
             game.Player.transform.position=pickup.transform.position+Vector3.up;Physics.SyncTransforms();system.Advance(.1f);Assert.AreEqual(before,station.Progress.owned[2]);Assert.IsTrue(system.TryCollectNearest());Assert.AreEqual(before+1,station.Progress.owned[2]);
-            system.Advance(.1f);Assert.AreEqual(before+1,station.Progress.owned[2]);Assert.AreEqual(0,system.ActivePickups);yield return null;
+            system.Advance(.1f);Assert.AreEqual(before+1,station.Progress.owned[2]);Assert.AreEqual(0,system.ActivePickups);
+            Assert.AreEqual(1,feedback.NotificationsPlayed);Assert.AreEqual(1,feedback.SoundsPlayed);Assert.AreEqual(2,feedback.DisplayedId);
+            Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(1,feedback.SoundsPlayed);
+            yield return new WaitForSeconds(.15f);Assert.IsTrue(feedback.IsVisible);
+            game.Session.SetManualPause(true);Assert.IsFalse(feedback.IsVisible);yield return null;
+            Assert.IsFalse(feedback.GetComponent<AudioSource>().isPlaying);
+            game.Session.SetManualPause(false);yield return null;Assert.IsTrue(feedback.IsVisible);
+            yield return Capture("ColeccionableRecogido");
+            yield return new WaitForSeconds(2);Assert.IsFalse(feedback.IsVisible);
+            feedback.Show(0);feedback.Show(2);game.ResetRun(false);yield return null;
+            Assert.IsFalse(feedback.IsVisible);Assert.AreEqual(-1,feedback.DisplayedId);
+        }
+        [UnityTest] public IEnumerator PickupFeedbackQueuesCopiesAndClearsOnVaultTravel()
+        {
+            var feedback=station.GetComponentInChildren<CollectiblePickupFeedback>();
+            var audio=feedback.GetComponent<AudioSource>();Assert.IsNotNull(audio.clip);Assert.That(audio.clip.length,Is.InRange(.5f,1f));
+            var random=Random.state;Random.InitState(734);var expected=Random.value;Random.InitState(734);
+            feedback.Show(0);feedback.Show(0);Assert.AreEqual(expected,Random.value);Random.state=random;
+            Assert.AreEqual(1,feedback.NotificationsPlayed);Assert.AreEqual(2,feedback.SoundsPlayed);
+            yield return new WaitForSeconds(1.9f);Assert.AreEqual(2,feedback.NotificationsPlayed);Assert.IsTrue(feedback.IsVisible);
+            game.Session.SetWarehouseVisit(true);yield return null;Assert.IsFalse(feedback.IsVisible);Assert.IsFalse(audio.isPlaying);
+            game.Session.SetWarehouseVisit(false);yield return null;Assert.IsFalse(feedback.IsVisible);
         }
         [UnityTest] public IEnumerator NewCharactersSpawnWithFrontSpritesAndCanBeCollected()
         {
@@ -114,6 +137,10 @@ namespace EchoScrap.Tests
                 system.Close();}
             game.ResetRun(false);game.Session.ResumeAllUserPauses();yield return null;
             var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
+            var powers=hud.Find("PoderesActivos").GetComponent<Text>();
+            Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,powers.font);
+            Assert.AreEqual(Color.clear,hud.GetComponent<Image>().color);
+            Assert.Less(powers.rectTransform.anchoredPosition.y+powers.rectTransform.sizeDelta.y*.5f,-30);
             for(int slot=0;slot<3;slot++){var art=hud.Find("Retrato_"+slot+"/Cara").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(ids[slot]),art.sprite);Assert.IsTrue(art.enabled);Assert.AreEqual(Vector2.one*60,art.rectTransform.sizeDelta);}
             yield return Capture("MarcosCombate");
         }

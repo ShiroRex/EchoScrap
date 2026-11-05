@@ -24,9 +24,11 @@ namespace EchoScrap.Combat
         private GameObject collectPrompt;
         private CanvasGroup announcement;
         private RectTransform announcementText;
+        private CollectiblePickupFeedback pickupFeedback;
         private float announcementAge=2f;
         public void AnnounceSpawn(){announcementAge=0;}
-        public void ClearAnnouncement(){announcementAge=2f;if(announcement!=null)announcement.gameObject.SetActive(false);}
+        public void ClearAnnouncement(){announcementAge=2f;if(announcement!=null)announcement.gameObject.SetActive(false);pickupFeedback?.Clear();}
+        public void AnnounceCollected(int id) => pickupFeedback.Show(id);
         public bool IsOpen => modal!=null&&modal.activeSelf;
         private RectTransform Panel(string name,Transform parent,Vector2 position,Vector2 size,Color color)
         {
@@ -54,6 +56,7 @@ namespace EchoScrap.Combat
             var canvas=new GameObject("CompanionCanvas",typeof(RectTransform),typeof(Canvas),typeof(CanvasScaler),typeof(GraphicRaycaster));canvas.transform.SetParent(transform,false);
             canvas.GetComponent<Canvas>().renderMode=RenderMode.ScreenSpaceOverlay;canvas.GetComponent<Canvas>().sortingOrder=115;
             var scaler=canvas.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;
+            pickupFeedback=canvas.AddComponent<CollectiblePickupFeedback>();pickupFeedback.Build(game,strong);
             var notice=Panel("AvisoColeccionables",canvas.transform,new Vector2(0,-165),new Vector2(660,68),new Color(.018f,.012f,.028f,.86f));notice.anchorMin=notice.anchorMax=new Vector2(.5f,1);
             announcement=notice.gameObject.AddComponent<CanvasGroup>();announcement.blocksRaycasts=announcement.interactable=false;
             var message=Label(notice,"Mensaje","¡NUEVOS COLECCIONABLES!",Vector2.zero,new Vector2(640,64),34);
@@ -69,7 +72,10 @@ namespace EchoScrap.Combat
                 var box=Panel("Retrato_"+i,bar,new Vector2((i-1)*68,0),new Vector2(60,60),Color.gray);backgrounds[i]=box.GetComponent<Image>();
                 var picture=Panel("Cara",box,Vector2.zero,new Vector2(60,60),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
             }
-            equippedPowers=Label(bar,"PoderesActivos","",new Vector2(150,-86),new Vector2(600,126),17);equippedPowers.alignment=TextAnchor.UpperLeft;equippedPowers.font=font;equippedPowers.color=new Color(.78f,.83f,.82f);
+            equippedPowers=Label(bar,"PoderesActivos","",new Vector2(177,-117),new Vector2(550,150),18);
+            equippedPowers.alignment=TextAnchor.UpperLeft;equippedPowers.font=strong;equippedPowers.color=new Color(.91f,.92f,.94f);
+            equippedPowers.lineSpacing=1.35f;
+            var powerShadow=equippedPowers.gameObject.AddComponent<Shadow>();powerShadow.effectColor=new Color(.025f,.018f,.04f,.95f);powerShadow.effectDistance=new Vector2(1,-2);
             var shade=Panel("EquipoBoveda",canvas.transform,Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;shade.GetComponent<Image>().raycastTarget=true;modal=shade.gameObject;
             var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1160,740),new Color(.045f,.06f,.09f));
             CollectionMenuStyle.Frame(panel);
@@ -110,8 +116,12 @@ namespace EchoScrap.Combat
                 slots[i].transform.parent.gameObject.SetActive(i==selected);
             }
             if(powersHash!=displayedPowersHash){displayedPowersHash=powersHash;powersBuilder.Clear();
-                for(int i=0;i<3;i++){int id=station.Progress.equipped[i];if(id<0)continue;if(powersBuilder.Length>0)powersBuilder.Append('\n');powersBuilder.Append(FusionCatalog.Names[id]).Append(" · ").Append(CompanionPowerRuntime.HudDescriptions[id]);}
-                equippedPowers.text=powersBuilder.Length==0?"Sin poderes equipados.":powersBuilder.ToString();}
+                for(int i=0;i<3;i++){int id=station.Progress.equipped[i];if(id<0)continue;
+                    bool duplicate=false;for(int previous=0;previous<i;previous++)if(station.Progress.equipped[previous]==id)duplicate=true;
+                    if(duplicate)continue;
+                    if(powersBuilder.Length>0)powersBuilder.Append('\n');
+                    powersBuilder.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(FusionCatalog.ColorOf(id))).Append('>').Append(FusionCatalog.Names[id]).Append("</color>  ").Append(CompanionPowerRuntime.HudDescriptions[id]);}
+                equippedPowers.text=powersBuilder.ToString();}
             if(!IsOpen)return;
             title.text="PUESTO "+(selected+1)+" · ELIGE UN COMPAÑERO";
             unitGrid.Refresh();
