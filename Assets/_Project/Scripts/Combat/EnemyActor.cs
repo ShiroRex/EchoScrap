@@ -1088,6 +1088,7 @@ namespace EchoScrap.Combat
             var upgradeStats = session != null ? session.PlayerStats : null;
             if (playerAttack && upgradeStats != null)
             {
+                resolvedDamage *= upgradeStats.CompanionDamageMultiplier;
                 if (IsFrozen) resolvedDamage *= 1f + upgradeStats.Upgrades.frozenDamageBonus;
                 if (isCritical && upgradeStats.GetUpgradeTier(UpgradeId.CRIT_05) > 0 && currentHealth / MaxHealth < upgradeStats.Upgrades.eyeHealthThreshold)
                     resolvedDamage *= upgradeStats.Upgrades.eyeCritMultiplier;

@@ -9,8 +9,8 @@ namespace EchoScrap.Combat
     public sealed class CompanionSystem : MonoBehaviour
     {
         public const float SpawnInterval = 30f;
-        public static readonly UpgradeId[] Powers = { UpgradeId.DASH_01, UpgradeId.CRYO_01, UpgradeId.DEMO_02, UpgradeId.BIO_02, UpgradeId.FLASH_05, UpgradeId.FLASH_02, UpgradeId.BIO_03, UpgradeId.CRYO_03, UpgradeId.CRIT_01, UpgradeId.DASH_02, UpgradeId.BIO_02, UpgradeId.FLASH_03, UpgradeId.CRYO_02, UpgradeId.DEMO_02, UpgradeId.CRIT_01 };
-        public static readonly string[] PowerNames = { "Dash ágil", "Freón residual", "Reacción en cadena", "Sifón", "Rayo solar", "Pulso rápido", "Nanobots", "Ventisca", "Óptica precisa", "Onda sísmica", "Sifón", "Prisma voltaico", "Cero absoluto", "Reacción en cadena", "Óptica precisa" };
+        public static readonly string[] PowerNames = CompanionPowerRuntime.Descriptions;
+        public CompanionPowerRuntime Abilities { get; private set; }
         public const float PickupLifetime = 10f;
         private sealed class Pickup { public int Id; public GameObject Object; public Vector3 Ground; public float Life = PickupLifetime; }
         private readonly List<Pickup> pickups = new List<Pickup>();
@@ -39,7 +39,9 @@ namespace EchoScrap.Combat
 
         public void Initialize(FusionStation owner, CombatGameBootstrap bootstrap)
         {
-            station=owner;game=bootstrap;view=gameObject.AddComponent<CompanionView>();view.Build(this,station,game);
+            station=owner;game=bootstrap;
+            Abilities=game.Player.gameObject.AddComponent<CompanionPowerRuntime>();Abilities.Initialize(game);
+            view=gameObject.AddComponent<CompanionView>();view.Build(this,station,game);
             game.Session.SessionReset+=ResetRun;RefreshEquipment();
         }
         private void Update()
@@ -65,7 +67,8 @@ namespace EchoScrap.Combat
         }
         public void RefreshEquipment()
         {
-            game.Stats.SetCompanionUpgrades(station.Progress.equipped.Where(FusionCatalog.Valid).Select(id=>Powers[id]).ToArray());
+            game.Stats.SetCompanionUpgrades(System.Array.Empty<UpgradeId>());
+            Abilities.SetEquipment(station.Progress.equipped);
             station.RefreshDisplays();if(view!=null)view.Refresh();
         }
         private void ResetRun() { elapsed=0;ClearPickups();view.ClearAnnouncement();Close();RefreshEquipment(); }

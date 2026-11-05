@@ -18,6 +18,18 @@ namespace EchoScrap.Core
         private float bonusBlockChance;
         private float bonusCritChance;
         private float bonusMoveSpeed;
+        private float companionHealth, companionHealthMultiplier = 1f;
+        public float CompanionDamageMultiplier { get; private set; } = 1f;
+        public float CompanionMoveMultiplier { get; private set; } = 1f;
+        public float CompanionDamageReduction { get; private set; }
+        private float companionAttackSpeed;
+        public void SetCompanionBonuses(float health, float healthMultiplier, float damage, float speed, float attackSpeed, float reduction)
+        {
+            companionHealth = health; companionHealthMultiplier = healthMultiplier;
+            CompanionDamageMultiplier = 1f + damage; CompanionMoveMultiplier = speed;
+            companionAttackSpeed = attackSpeed; CompanionDamageReduction = Mathf.Clamp01(reduction);
+            OnStatsChanged?.Invoke();
+        }
 
         private readonly int[] tiers = new int[UpgradeRules.Count];
         private readonly int[] companionTiers = new int[UpgradeRules.Count];
@@ -50,7 +62,7 @@ namespace EchoScrap.Core
             }
         }
 
-        public float MaxHealth => Settings.MaxHealth + bonusMaxHealth + (bioAlloyTier * 20f) + GetUpgradeTier(UpgradeId.SCRAP_01) * Upgrades.armorHealthPerTier;
+        public float MaxHealth => (Settings.MaxHealth + bonusMaxHealth + (bioAlloyTier * 20f) + GetUpgradeTier(UpgradeId.SCRAP_01) * Upgrades.armorHealthPerTier + companionHealth) * companionHealthMultiplier;
         public float DamageProtectionDuration => Settings.DamageProtectionDuration;
 
         public float Armor => Mathf.Clamp(Settings.InitialArmor + bonusArmor + GetUpgradeTier(UpgradeId.SCRAP_01) * Upgrades.armorPerTier, 0f, Settings.MaxArmor);
@@ -69,7 +81,7 @@ namespace EchoScrap.Core
         public bool HasExplosionSource => GetUpgradeTier(UpgradeId.DASH_02) > 0 || GetUpgradeTier(UpgradeId.DASH_03) > 0 || GetUpgradeTier(UpgradeId.DASH_04) > 0 || GetUpgradeTier(UpgradeId.DEMO_02) > 0 || GetUpgradeTier(UpgradeId.DEMO_03) > 0 || GetUpgradeTier(UpgradeId.BIO_04) > 0;
 
         public bool IsSolarActive => solarTier > 0;
-        public float AttackSpeedMultiplier => 1f + 0.15f * ballastTier;
+        public float AttackSpeedMultiplier => 1f + 0.15f * ballastTier + companionAttackSpeed;
 
         public float FlashlightRange
         {
@@ -209,13 +221,13 @@ namespace EchoScrap.Core
                 BlockDamageReduction,
                 CritChance,
                 CritMultiplier,
-                moveSpeed + bonusMoveSpeed,
+                (moveSpeed + bonusMoveSpeed) * CompanionMoveMultiplier,
                 DashSpeed,
                 DashDuration,
                 DashCooldown,
                 FlashlightRange,
                 FlashlightAngle,
-                FlashlightDamagePerPulse,
+                FlashlightDamagePerPulse * CompanionDamageMultiplier,
                 AttackSpeedMultiplier,
                 FlashlightKnockback,
                 IsSolarActive,

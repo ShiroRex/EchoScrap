@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace EchoScrap.Combat
 {
@@ -21,7 +22,7 @@ namespace EchoScrap.Combat
         private int page,hash=int.MinValue;
         public int VisibleUnits {get;private set;}
         public int UnitId(int slot)=>ids[slot];
-        public void Build(FusionStation owner,Func<int,int> availableCopies,Action<int,int> choose)
+        public void Build(FusionStation owner,Func<int,int> availableCopies,Action<int,int> choose,Action<int> preview=null)
         {
             station=owner;available=availableCopies;select=choose;
             font=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;
@@ -35,6 +36,12 @@ namespace EchoScrap.Combat
             next=MakeButton(transform,"›",new Vector2(170,-190),new Vector2(60,30),()=>ChangePage(1));
             pageLabel=Label(transform,"Pagina",new Vector2(0,-190),new Vector2(270,30),18);
             empty=Label(transform,"SinColeccionables",Vector2.zero,new Vector2(940,100),24);empty.text="Todavía no tienes coleccionables. Encuéntralos en la arena.";
+            if(preview!=null)for(int i=0;i<PageSize;i++){
+                int slot=i;var trigger=cards[i].gameObject.AddComponent<EventTrigger>();
+                foreach(var type in new[]{EventTriggerType.PointerEnter,EventTriggerType.Select}){
+                    var entry=new EventTrigger.Entry{eventID=type};entry.callback.AddListener(_=>{if(slot<VisibleUnits)preview(ids[slot]);});trigger.triggers.Add(entry);
+                }
+            }
             Refresh(true);
         }
         public void SelectUnit(int slot){if(slot>=0&&slot<VisibleUnits&&cards[slot].interactable)select(ids[slot],copies[slot]);}

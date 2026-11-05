@@ -30,6 +30,7 @@ namespace EchoScrap.Combat
         public void GrantUpgradeProtection(float duration) => upgradeProtection = Mathf.Max(upgradeProtection, duration);
         private bool isDead;
         private bool initialized;
+        public CompanionPowerRuntime CompanionPowers { get; internal set; }
 
         public int TargetId => gameObject.GetHashCode();
         public float CurrentHealth => EnsureInitialized() ? currentHealth : 0f;
@@ -164,7 +165,7 @@ namespace EchoScrap.Combat
             Vector3 worldPos = transform.position;
             float maxHp = stats.MaxHealth;
 
-            if (isDead || currentHealth <= 0f || request.BaseDamage <= 0f || float.IsNaN(request.BaseDamage) || IsInvulnerable)
+            if (isDead || currentHealth <= 0f || request.BaseDamage <= 0f || float.IsNaN(request.BaseDamage) || IsInvulnerable || (CompanionPowers != null && CompanionPowers.TryBlockHit()))
             {
                 var immuneResult = new DamageResult(
                     request.SourceId,
@@ -224,7 +225,7 @@ namespace EchoScrap.Combat
                 return dodgedResult;
             }
 
-            float workingDamage = request.BaseDamage;
+            float workingDamage = request.BaseDamage * (1f - stats.CompanionDamageReduction);
 
             // 3. Bloqueo
             bool wasBlocked = false;
@@ -245,7 +246,9 @@ namespace EchoScrap.Combat
             // 5. Pérdida de salud
             float previousHp = currentHealth;
             currentHealth = Mathf.Max(0f, currentHealth - workingDamage);
-            float hpLost = previousHp - currentHealth;
+            if (currentHealth <= 0f && CompanionPowers != null && CompanionPowers.TrySaveLife())
+                currentHealth = maxHp * .3f;
+            float hpLost = Mathf.Max(0f, previousHp - currentHealth);
             bool causedDeath = currentHealth <= 0f;
 
             if (hpLost > 0f)

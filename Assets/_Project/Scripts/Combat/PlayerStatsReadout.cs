@@ -142,13 +142,13 @@ namespace EchoScrap.Combat
             UpgradeTuning upgrades = stats.Upgrades;
             int slowTier = stats.GetUpgradeTier(UpgradeId.CRYO_01);
             float regeneration = UpgradeTuning.At(upgrades.regeneration, stats.GetUpgradeTier(UpgradeId.BIO_03));
-            SetValue(0, stats.FlashlightDamagePerPulse);
+            SetValue(0, stats.FlashlightDamagePerPulse * stats.CompanionDamageMultiplier);
             SetValue(1, stats.AttackSpeedMultiplier);
             SetValue(2, stats.FlashlightRange);
             SetValue(3, stats.FlashlightAngle);
             SetValue(4, stats.CritChance * 100f);
             SetValue(5, stats.CritMultiplier);
-            SetValue(6, game.Motor != null && game.Motor.Settings != null ? game.Motor.Settings.MoveSpeed : 0f);
+            SetValue(6, game.Motor != null && game.Motor.Settings != null ? game.Motor.Settings.MoveSpeed * stats.CompanionMoveMultiplier : 0f);
             SetValue(7, stats.Armor * 100f);
             SetValue(8, stats.Evasion * 100f);
             SetValue(9, stats.BlockChance * 100f);

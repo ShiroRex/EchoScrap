@@ -48,14 +48,17 @@ namespace EchoScrap.Tests
             Assert.IsFalse(system.TryOpen());Approach();Assert.IsTrue(system.TryOpen());
             Assert.IsTrue(system.Equip(0,0));Assert.IsFalse(system.Equip(1,0));Assert.IsFalse(system.Equip(1,4));Assert.IsFalse(system.Equip(3,1));
             Assert.IsFalse(system.Equip(1,1));system.Close();Approach(1);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(1,1));system.Close();Approach(2);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(2,2));
-            Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.CRYO_01));Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.DEMO_02));
+            Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.IsTrue(system.Abilities.Has(0));Assert.IsTrue(system.Abilities.Has(1));Assert.IsTrue(system.Abilities.Has(2));
             game.Stats.SetUpgradeTier("DASH_01",3);system.Close();Approach(0);Assert.IsTrue(station.GetComponent<VaultReleaseInteraction>().TryUnequip());Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(0,3));Assert.AreEqual(3,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
-            Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.BIO_02));
+            Assert.IsTrue(system.Abilities.Has(3));
             yield return Capture("Equipo");system.Close();yield return Capture("BovedaEquipo");game.ResetRun();game.ResetRun();
-            Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.BIO_02));
+            Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.IsTrue(system.Abilities.Has(3));
             for(int i=0;i<3;i++)Assert.AreEqual(station.Progress.equipped[i],station.DisplaySlots[i].GetComponentInChildren<CollectibleDisplay>().CollectibleId);
             yield return null;var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
-            Assert.AreEqual(Color.clear,hud.GetChild(0).GetComponent<Image>().color);Assert.IsNotNull(hud.GetChild(0).GetChild(0).GetComponent<Image>().sprite);
+            Assert.AreEqual("PODERES DE COLECCIONABLES",hud.Find("PoderesTitulo").GetComponent<Text>().text);
+            Assert.AreEqual(Color.clear,hud.Find("Retrato_0").GetComponent<Image>().color);Assert.IsNotNull(hud.Find("Retrato_0/Cara").GetComponent<Image>().sprite);
+            Assert.AreEqual(FusionCatalog.Names[3],hud.Find("Retrato_0/Nombre").GetComponent<Text>().text);
+            StringAssert.Contains(CompanionSystem.PowerNames[3],hud.Find("Retrato_0/Poder").GetComponent<Text>().text);
             yield return Capture("Retratos");game.Session.SetManualPause(true);yield return null;Assert.IsFalse(hud.gameObject.activeSelf);
         }
         [UnityTest] public IEnumerator EquipmentRoundTripsAndMalformedSaveIsRepaired(){

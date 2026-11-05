@@ -12,7 +12,9 @@ namespace EchoScrap.Combat
         private CombatGameBootstrap game;
         private Font font, strong;
         private GameObject modal, prompt, hud;
-        private readonly Image[] portraits=new Image[3], backgrounds=new Image[3];
+        private readonly Image[] portraits=new Image[3], backgrounds=new Image[3], frameAccents=new Image[3];
+        private readonly Text[] companionNames=new Text[3], companionRarities=new Text[3], companionPowers=new Text[3];
+        private GameObject emptyPowers;
         private readonly Text[] slots=new Text[3];
         private readonly Sprite[] faces=new Sprite[FusionCatalog.Count];
         private int selected=>system.SelectedSlot;
@@ -58,10 +60,25 @@ namespace EchoScrap.Combat
             hintText=Label(hint,"Texto","",Vector2.zero,new Vector2(290,40),20);hintText.font=strong;
             var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(260,48),new Color(.05f,.07f,.11f,.94f));collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
             Label(collect,"Texto","E · COLECCIONAR",Vector2.zero,new Vector2(248,46),22).font=strong;
-            var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(155,-190),new Vector2(206,64),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,1);hud=bar.gameObject;
+            // This mirrors the upgrade ledger on the right without covering the health and dash HUD.
+            // The cards remain transparent around their frames, so the arena is still readable.
+            var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(265,320),new Vector2(500,238),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,0);hud=bar.gameObject;
+            var powerTitle=Label(bar,"PoderesTitulo","PODERES DE COLECCIONABLES",new Vector2(0,100),new Vector2(480,34),22);powerTitle.font=strong;powerTitle.color=new Color(.91f,.76f,.44f);
+            Panel("LineaSuperior",bar,new Vector2(0,80),new Vector2(470,3),new Color(.42f,.31f,.62f,.95f));
+            var subtitle=Label(bar,"PoderesSubtitulo","COMPAÑEROS EQUIPADOS",new Vector2(0,63),new Vector2(480,22),14);subtitle.color=new Color(.67f,.72f,.76f);subtitle.font=font;
+            emptyPowers=Label(bar,"SinPoderes","EQUIPA HASTA 3 COMPAÑEROS EN LA BÓVEDA",new Vector2(0,-7),new Vector2(470,68),16).gameObject;
+            emptyPowers.GetComponent<Text>().color=new Color(.62f,.67f,.67f);emptyPowers.GetComponent<Text>().font=font;
             for(int i=0;i<3;i++){
-                var box=Panel("Retrato_"+i,bar,new Vector2((i-1)*68,0),new Vector2(60,60),Color.gray);backgrounds[i]=box.GetComponent<Image>();
-                var picture=Panel("Cara",box,Vector2.zero,new Vector2(60,60),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
+                var box=Panel("Retrato_"+i,bar,new Vector2((i-1)*158,-9),new Vector2(148,112),Color.clear);
+                var plate=Panel("Placa",box,Vector2.zero,new Vector2(148,112),new Color(.025f,.038f,.065f,.92f));backgrounds[i]=plate.GetComponent<Image>();
+                frameAccents[i]=Panel("Acento",box,new Vector2(0,53),new Vector2(140,3),new Color(.45f,.3f,.67f)).GetComponent<Image>();
+                Panel("EsquinaIzquierda",box,new Vector2(-68,-45),new Vector2(10,10),new Color(.45f,.3f,.67f));
+                Panel("EsquinaDerecha",box,new Vector2(68,-45),new Vector2(10,10),new Color(.45f,.3f,.67f));
+                Panel("Marco",box,new Vector2(-39,8),new Vector2(68,68),new Color(.72f,.74f,.72f));
+                var picture=Panel("Cara",box,new Vector2(-39,8),new Vector2(60,60),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
+                companionNames[i]=Label(box,"Nombre","",new Vector2(22,27),new Vector2(102,28),15);companionNames[i].font=strong;companionNames[i].alignment=TextAnchor.MiddleLeft;
+                companionRarities[i]=Label(box,"Rareza","",new Vector2(22,7),new Vector2(102,22),13);companionRarities[i].font=strong;companionRarities[i].alignment=TextAnchor.MiddleLeft;
+                companionPowers[i]=Label(box,"Poder","",new Vector2(0,-32),new Vector2(132,42),12);companionPowers[i].alignment=TextAnchor.UpperCenter;companionPowers[i].horizontalOverflow=HorizontalWrapMode.Wrap;companionPowers[i].verticalOverflow=VerticalWrapMode.Truncate;
             }
             var shade=Panel("EquipoBoveda",canvas.transform,Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;shade.GetComponent<Image>().raycastTarget=true;modal=shade.gameObject;
             var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1160,740),new Color(.045f,.06f,.09f));
@@ -70,7 +87,11 @@ namespace EchoScrap.Combat
             for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);}
             var gridRoot=Panel("Unidades",panel,new Vector2(0,-60),new Vector2(1080,470),Color.clear);
             unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
-            unitGrid.Build(station,AvailableForSlot,(id,copy)=>system.Equip(selected,id));
+            var powerPreview=Label(panel,"PoderDelCompanero","Señala un compañero para ver su poder. Los poderes repetidos no se acumulan.",new Vector2(0,155),new Vector2(1060,46),18);
+            powerPreview.font=strong;
+            unitGrid.Build(station,AvailableForSlot,(id,copy)=>system.Equip(selected,id),id=>{
+                powerPreview.text=FusionCatalog.Names[id]+" · "+CompanionSystem.PowerNames[id];powerPreview.color=FusionCatalog.ColorOf(id);
+            });
             var remove=Button(panel,"Quitar",new Vector2(-180,-330),new Vector2(250,45),()=>system.Equip(selected,-1));Label(remove.transform,"Texto","QUITAR DEL PUESTO",Vector2.zero,new Vector2(240,45),20);
             var close=Button(panel,"Cerrar",new Vector2(180,-330),new Vector2(250,45),system.Close);Label(close.transform,"Texto","CERRAR · E / ESC",Vector2.zero,new Vector2(240,45),20);
             modal.SetActive(false);Refresh();
@@ -90,12 +111,21 @@ namespace EchoScrap.Combat
             hintText.text="E · EQUIPAR PUESTO "+(system.NearestSlot+1);
             collectPrompt.SetActive(!IsOpen&&playing&&system.CanCollect);
             hud.SetActive(playing&&!game.Session.IsInWarehouse);
+            int equippedCount=0;
             for(int i=0;i<3;i++){
                 int id=station.Progress.equipped[i];portraits[i].enabled=id>=0;portraits[i].sprite=id>=0?faces[id]:null;
-                backgrounds[i].color=id>=0?Color.clear:new Color(.1f,.12f,.16f,.6f);
+                bool active=id>=0;equippedCount+=active?1:0;
+                Color rarity=active?FusionCatalog.ColorOf(id):new Color(.2f,.23f,.29f);
+                backgrounds[i].color=active?new Color(rarity.r*.18f,rarity.g*.18f,rarity.b*.18f,.92f):Color.clear;
+                frameAccents[i].color=rarity;
+                companionNames[i].text=active?FusionCatalog.Names[id]:"";companionNames[i].color=rarity;
+                companionRarities[i].text=active?FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]:"";companionRarities[i].color=rarity;
+                companionPowers[i].text=active?CompanionSystem.PowerNames[id]:"";companionPowers[i].color=new Color(.82f,.86f,.88f);
+                portraits[i].transform.parent.gameObject.SetActive(active);
                 slots[i].text=(selected==i?"▸ ":"")+"PUESTO "+(i+1)+"\n"+(id>=0?FusionCatalog.Names[id]+" · "+CompanionSystem.PowerNames[id]:"VACÍO");
                 slots[i].transform.parent.gameObject.SetActive(i==selected);
             }
+            emptyPowers.SetActive(equippedCount==0);
             if(!IsOpen)return;
             title.text="PUESTO "+(selected+1)+" · ELIGE UN COMPAÑERO";
             unitGrid.Refresh();

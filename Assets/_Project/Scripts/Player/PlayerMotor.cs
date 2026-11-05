@@ -168,7 +168,7 @@ namespace EchoScrap.Player
             if (moveDirection.sqrMagnitude > 0.0001f)
                 FacingDirection = moveDirection.normalized;
 
-            Vector3 target = moveDirection * settings.MoveSpeed;
+            Vector3 target = moveDirection * settings.MoveSpeed * (ResolveRuntimeStats()?.CompanionMoveMultiplier ?? 1f);
             float rate = moveDirection.sqrMagnitude > 0.0001f
                 ? settings.Acceleration : settings.Deceleration;
 
