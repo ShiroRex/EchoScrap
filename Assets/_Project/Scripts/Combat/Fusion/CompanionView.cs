@@ -22,13 +22,18 @@ namespace EchoScrap.Combat
         private int selected=>system.SelectedSlot;
         private Text title,hintText;
         private GameObject collectPrompt;
+        private PixelInteractionPrompt equipPrompt, pickupPrompt;
+        private RectTransform announcementRoot;
         private CanvasGroup announcement;
         private RectTransform announcementText;
         private CollectiblePickupFeedback pickupFeedback;
         private float announcementAge=2f;
         public void AnnounceSpawn(){announcementAge=0;}
         public void ClearAnnouncement(){announcementAge=2f;if(announcement!=null)announcement.gameObject.SetActive(false);pickupFeedback?.Clear();}
-        public void AnnounceCollected(int id) => pickupFeedback.Show(id);
+        public void AnnounceCollected(int id)
+        {
+            announcementAge=2f;announcement.gameObject.SetActive(false);pickupFeedback.Show(id);
+        }
         public bool IsOpen => modal!=null&&modal.activeSelf;
         private RectTransform Panel(string name,Transform parent,Vector2 position,Vector2 size,Color color)
         {
@@ -57,16 +62,16 @@ namespace EchoScrap.Combat
             canvas.GetComponent<Canvas>().renderMode=RenderMode.ScreenSpaceOverlay;canvas.GetComponent<Canvas>().sortingOrder=115;
             var scaler=canvas.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;
             pickupFeedback=canvas.AddComponent<CollectiblePickupFeedback>();pickupFeedback.Build(game,strong);
-            var notice=Panel("AvisoColeccionables",canvas.transform,new Vector2(0,-165),new Vector2(660,68),new Color(.018f,.012f,.028f,.86f));notice.anchorMin=notice.anchorMax=new Vector2(.5f,1);
+            var notice=Panel("AvisoColeccionables",canvas.transform,new Vector2(0,-184),new Vector2(420,44),new Color(.018f,.012f,.028f,.86f));notice.anchorMin=notice.anchorMax=new Vector2(.5f,1);announcementRoot=notice;
             announcement=notice.gameObject.AddComponent<CanvasGroup>();announcement.blocksRaycasts=announcement.interactable=false;
-            var message=Label(notice,"Mensaje","¡NUEVOS COLECCIONABLES!",Vector2.zero,new Vector2(640,64),34);
+            var message=Label(notice,"Mensaje","¡NUEVOS COLECCIONABLES!",Vector2.zero,new Vector2(400,40),22);
             message.font=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;message.color=new Color(.91f,.76f,.44f);announcementText=message.rectTransform;notice.gameObject.SetActive(false);
             var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(480,56),Color.white);hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
             hintText=Label(hint,"Texto","",Vector2.zero,new Vector2(290,40),20);hintText.font=strong;
-            PixelInteractionPrompt.Attach(hint,hintText);
+            equipPrompt=PixelInteractionPrompt.Attach(hint,hintText);
             var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(360,56),Color.white);collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
             var collectLabel=Label(collect,"Texto","COLECCIONAR",Vector2.zero,new Vector2(248,46),22);collectLabel.font=strong;
-            PixelInteractionPrompt.Attach(collect,collectLabel);
+            pickupPrompt=PixelInteractionPrompt.Attach(collect,collectLabel);
             // Keep the original three compact frames at the upper left. The text below is deliberately
             // plain: it communicates only the powers currently equipped and never overlaps the portraits.
             var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(155,-190),new Vector2(700,220),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,1);hud=bar.gameObject;
@@ -101,6 +106,8 @@ namespace EchoScrap.Combat
             if(station==null||station.Progress==null||modal==null)return;
             bool playing=!game.Session.IsPaused && game.Session.State==SessionState.Running && game.Player.IsAlive;
             bool showNotice=playing&&!game.Session.IsInWarehouse&&announcementAge<2f;
+            bool bossVisible=game.Encounter!=null&&game.Encounter.IsEncounterActive&&game.Encounter.Boss!=null&&game.Encounter.Boss.IsAlive;
+            announcementRoot.anchoredPosition=new Vector2(0,bossVisible?-252:-184);
             announcement.gameObject.SetActive(showNotice);
             if(showNotice){announcementAge+=Time.deltaTime;float enter=Mathf.Clamp01(announcementAge/.26f),leave=Mathf.Clamp01((announcementAge-1.68f)/.32f);float decoration=game.Session.Effects.ReducedEffectsMode?0:game.Session.Effects.DecorativeIntensity;
                 announcement.alpha=Mathf.SmoothStep(0,1,enter)*(1-leave);float pop=1+2.7f*Mathf.Pow(enter-1,3)+1.7f*Mathf.Pow(enter-1,2);
@@ -108,6 +115,8 @@ namespace EchoScrap.Combat
             prompt.SetActive(!IsOpen&&playing&&system.CanEquip);
             hintText.text="EQUIPAR PUESTO "+(system.NearestSlot+1);
             collectPrompt.SetActive(!IsOpen&&playing&&system.CanCollect);
+            if(prompt.activeSelf)equipPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
+            if(collectPrompt.activeSelf)pickupPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
             hud.SetActive(playing&&!game.Session.IsInWarehouse);
             int powersHash=17;
             for(int i=0;i<3;i++){

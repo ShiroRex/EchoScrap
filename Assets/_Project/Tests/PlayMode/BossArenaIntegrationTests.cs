@@ -165,12 +165,17 @@ namespace EchoScrap.Tests
             Assert.That(fill.fillAmount,Is.EqualTo(1f));Assert.That(fill.color,Is.EqualTo(Color.white));
             Assert.That(fill.sprite.texture.filterMode,Is.EqualTo(FilterMode.Point));
             Canvas.ForceUpdateCanvases();
-            Assert.That(panel.Find("BossName").GetComponent<Text>().cachedTextGenerator.characterCountVisible,Is.GreaterThan(0),"The boss name and health values must fit their text rectangle.");
+            var name=panel.Find("BossName").GetComponent<Text>();
+            Assert.That(name.cachedTextGenerator.characterCountVisible,Is.GreaterThan(0),"The compact boss name must fit above the bar.");
+            Assert.That(name.text,Is.EqualTo("GÓLGORA"));
+            Assert.That(game.Hud.CanvasRoot.transform.Find("Phase").gameObject.activeSelf,Is.False,"The encounter must not repeat the boss heading under the clock.");
             var hit=new DamageRequest(1,DamageSourceType.FlashlightPulse,Vector3.zero,Vector3.forward,game.Encounter.Boss.MaxHealth*.55f);
             game.Encounter.Boss.ReceiveDamage(in hit);game.Hud.RefreshNow();
             Assert.That(fill.fillAmount,Is.EqualTo(game.Encounter.Boss.CurrentHealth/game.Encounter.Boss.MaxHealth).Within(.001f));
             Assert.That(fill.fillAmount,Is.InRange(.01f,.99f));
+            Assert.That(name.text,Is.EqualTo("GÓLGORA · FASE II"));
             game.ResetRun(false);game.Hud.RefreshNow();Assert.That(panel.gameObject.activeSelf,Is.False);
+            Assert.That(game.Hud.CanvasRoot.transform.Find("Phase").gameObject.activeSelf,Is.True);
         }
 
         [UnityTest]

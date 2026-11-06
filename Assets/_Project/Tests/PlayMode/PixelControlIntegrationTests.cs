@@ -60,6 +60,34 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator InteractionPromptsFollowTheTargetAndStayInsideTheHudSafeArea()
+        {
+            var station = Object.FindAnyObjectByType<FusionStation>();
+            var prompt = station.transform.Find("CompanionCanvas/ColeccionarIndicador").GetComponent<PixelInteractionPrompt>();
+            var root = (RectTransform)prompt.transform;
+            var canvas = root.GetComponentInParent<Canvas>();
+            Canvas.ForceUpdateCanvases();
+            var bounds = ((RectTransform)canvas.transform).rect;
+            var corners = new Vector3[4];
+            foreach (var viewport in new[] { new Vector3(0, 0, 20), new Vector3(1, 1, 20), new Vector3(.5f, .5f, 20) })
+            {
+                prompt.gameObject.SetActive(true);
+                prompt.PlaceNear(game.GameplayCamera, game.GameplayCamera.ViewportToWorldPoint(viewport));
+                root.GetWorldCorners(corners);
+                foreach (var corner in corners)
+                {
+                    var local = canvas.transform.InverseTransformPoint(corner);
+                    Assert.That(local.x, Is.InRange(bounds.xMin + 23.9f, bounds.xMax - 23.9f));
+                    Assert.That(local.y, Is.InRange(bounds.yMin + 163.9f, bounds.yMax - 215.9f));
+                }
+            }
+            Assert.That(root.anchoredPosition.y, Is.EqualTo(-128f).Within(1f), "The prompt should follow a centered target below its feet.");
+            prompt.PlaceNear(game.GameplayCamera, game.GameplayCamera.transform.position - game.GameplayCamera.transform.forward);
+            Assert.IsFalse(prompt.gameObject.activeSelf, "Targets behind the camera must not leave a floating hint on screen.");
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator HudUsesTheNativeClockMinimapAndInteractionArt()
         {
             var hud = game.Hud.CanvasRoot.transform;

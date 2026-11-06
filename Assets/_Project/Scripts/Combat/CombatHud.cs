@@ -291,7 +291,8 @@ namespace EchoScrap.Combat
             var boss = game.Encounter != null ? game.Encounter.Boss : null;
             bool visible = !hubMode && boss != null && boss.IsAlive && game.Encounter.IsEncounterActive;
             bossPanel.SetActive(visible);
-            string phase = visible ? boss.IsPhaseTwo ? "GÓLGORA  /  FUNDICIÓN ABIERTA" : "GÓLGORA  /  EL GUARDIÁN DEL VERTEDERO" : "VERTEDERO  /  SOBREVIVE";
+            phaseText.gameObject.SetActive(!hubMode && !visible);
+            const string phase = "VERTEDERO  /  SOBREVIVE";
             if (phaseText.text != phase) phaseText.text = phase;
             if (!visible) { previousBossHealth = -1; return; }
             bossFill.fillAmount = Mathf.Clamp01(boss.CurrentHealth / Mathf.Max(1f, boss.MaxHealth));
@@ -300,7 +301,7 @@ namespace EchoScrap.Combat
             {
                 previousBossHealth = hp;
                 previousBossPhaseTwo = boss.IsPhaseTwo;
-                bossHealthText.text = $"GÓLGORA · {(boss.IsPhaseTwo ? "FUNDICIÓN ABIERTA" : "EL GUARDIÁN")}   {hp} / {Mathf.CeilToInt(boss.MaxHealth)}";
+                bossHealthText.text = boss.IsPhaseTwo ? "GÓLGORA · FASE II" : "GÓLGORA";
             }
         }
 
@@ -519,8 +520,8 @@ namespace EchoScrap.Combat
             cardsText = AnchorLabel(canvasRect, "AcquiredCards", new Vector2(1f, 0f), new Vector2(-275f, 182f), new Vector2(470f, 250f), "Sin mejoras", 22, TextAnchor.UpperRight, new Color(0.73f, 0.78f, 0.77f));
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));
 
-            bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -228f), new Vector2(640f, 128f)).gameObject;
-            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 60f), new Vector2(640f, 40f), "GÓLGORA · EL GUARDIÁN", 24, TextAnchor.MiddleCenter, Apollo);
+            bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -180f), new Vector2(512f, 96f)).gameObject;
+            bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 42f), new Vector2(360f, 36f), "GÓLGORA", 20, TextAnchor.MiddleCenter, Apollo);
             bossFill = Fill(ImageRect(bossPanel.transform, "BossTrack", new Vector2(0f, -15f), new Vector2(720f, 12f), new Color(0.15f, 0.13f, 0.16f)).transform, "BossFill", new Color(0.91f, 0.42f, 0.22f));
             bossPanel.transform.Find("BossTrack").GetComponent<Image>().color=Color.clear;
             BossBarArtwork.Attach(bossPanel.transform,bossFill);
