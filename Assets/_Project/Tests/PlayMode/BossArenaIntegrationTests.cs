@@ -194,6 +194,8 @@ namespace EchoScrap.Tests
         {
             var root=game.Hud.CanvasRoot.transform;var icon=root.Find("KillsIcon").GetComponent<Image>();
             var text=root.Find("Kills").GetComponent<Text>();Assert.That(icon.sprite,Is.Not.Null);
+            Assert.That(text.text,Is.EqualTo("0"));
+            Assert.That(text.font,Is.SameAs(root.Find("Clock").GetComponent<Text>().font));
             Assert.That(icon.sprite.texture.filterMode,Is.EqualTo(FilterMode.Point));Assert.That(icon.raycastTarget,Is.False);
             float initial=icon.rectTransform.anchoredPosition.x;
             for(int i=0;i<123;i++)
@@ -201,9 +203,9 @@ namespace EchoScrap.Tests
                 var death=new ActorDeathEvent(i,0,false,false,Vector3.zero,Vector3.zero,DamageSourceType.FlashlightPulse,0,false,false);
                 game.Session.Events.PublishDeath(in death);
             }
-            Assert.That(game.Hud.KillCount,Is.EqualTo(123));Assert.That(text.text,Does.Contain("123"));
+            Assert.That(game.Hud.KillCount,Is.EqualTo(123));Assert.That(text.text,Is.EqualTo("123"));
             Assert.That(icon.rectTransform.anchoredPosition.x,Is.LessThan(initial));
-            game.ResetRun(false);Assert.That(game.Hud.KillCount,Is.Zero);Assert.That(icon.sprite,Is.Not.Null);
+            game.ResetRun(false);Assert.That(game.Hud.KillCount,Is.Zero);Assert.That(icon.sprite,Is.Not.Null);Assert.That(text.text,Is.EqualTo("0"));
             Assert.That(icon.rectTransform.anchoredPosition.x,Is.EqualTo(initial).Within(.01f));
         }
 

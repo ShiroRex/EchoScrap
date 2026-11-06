@@ -184,7 +184,7 @@ namespace EchoScrap.Combat
         private void RefreshKills()
         {
             if(killsText==null)return;
-            killsText.text=$"BAJAS  {kills}";
+            killsText.text=kills.ToString();
             if(killsIcon!=null)
                 killsIcon.rectTransform.anchoredPosition=killsText.rectTransform.anchoredPosition+
                     new Vector2(-killsText.preferredWidth*.5f-27.5f,0);
@@ -480,7 +480,7 @@ namespace EchoScrap.Combat
             timerText.verticalOverflow = VerticalWrapMode.Overflow;
             phaseText = AnchorLabel(canvasRect, "Phase", new Vector2(0.5f, 1f), new Vector2(0f, -128f), new Vector2(600f, 34f), "VERTEDERO  /  SOBREVIVE", 22, TextAnchor.MiddleCenter, Apollo);
 
-            killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), new Vector2(-168f, -338f), new Vector2(180f, 36f), "BAJAS  0", 27, TextAnchor.MiddleCenter, Pale);
+            killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), new Vector2(-168f, -338f), new Vector2(180f, 36f), "0", 27, TextAnchor.MiddleCenter, Pale);
             AnchorLabel(canvasRect, "PauseHint", new Vector2(1f, 1f), new Vector2(-168f, -371f), new Vector2(250f, 28f), "ESC / START   PAUSA", 18, TextAnchor.MiddleCenter, new Color(0.62f, 0.67f, 0.67f));
 
             gameObject.AddComponent<CombatMinimap>().Build(game, canvasRect, font);
