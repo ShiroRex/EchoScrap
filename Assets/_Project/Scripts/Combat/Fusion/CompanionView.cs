@@ -74,17 +74,17 @@ namespace EchoScrap.Combat
             }
             equippedPowers=Label(bar,"PoderesActivos","",new Vector2(177,-117),new Vector2(550,150),18);
             equippedPowers.alignment=TextAnchor.UpperLeft;equippedPowers.font=strong;equippedPowers.color=new Color(.91f,.92f,.94f);
-            equippedPowers.lineSpacing=1.35f;
+            equippedPowers.lineSpacing=1.35f;ReadablePowerNumbers.Attach(equippedPowers);
             var powerShadow=equippedPowers.gameObject.AddComponent<Shadow>();powerShadow.effectColor=new Color(.025f,.018f,.04f,.95f);powerShadow.effectDistance=new Vector2(1,-2);
             var shade=Panel("EquipoBoveda",canvas.transform,Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;shade.GetComponent<Image>().raycastTarget=true;modal=shade.gameObject;
             var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1160,740),new Color(.045f,.06f,.09f));
             CollectionMenuStyle.Frame(panel);
             title=Label(panel,"Titulo","",new Vector2(0,325),new Vector2(990,60),30);title.font=strong;
-            for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);}
+            for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);slots[i].font=strong;ReadablePowerNumbers.Attach(slots[i]);}
             var gridRoot=Panel("Unidades",panel,new Vector2(0,-60),new Vector2(1080,470),Color.clear);
             unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
             var powerPreview=Label(panel,"PoderDelCompanero","Señala un compañero para ver su poder. Los poderes repetidos no se acumulan.",new Vector2(0,155),new Vector2(1060,46),18);
-            powerPreview.font=strong;
+            powerPreview.font=strong;ReadablePowerNumbers.Attach(powerPreview);
             unitGrid.Build(station,AvailableForSlot,(id,copy)=>system.Equip(selected,id),id=>{
                 powerPreview.text=FusionCatalog.Names[id]+" · "+CompanionSystem.PowerNames[id];powerPreview.color=FusionCatalog.ColorOf(id);
             });

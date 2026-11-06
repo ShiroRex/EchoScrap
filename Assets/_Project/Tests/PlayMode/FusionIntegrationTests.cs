@@ -27,7 +27,7 @@ namespace EchoScrap.Tests
             keyboard=InputSystem.AddDevice<Keyboard>();Time.timeScale=1;SceneManager.sceneLoaded+=Loaded;
             yield return SceneManager.LoadSceneAsync("CombatArena");yield return null;SceneManager.sceneLoaded-=Loaded;
             game=Object.FindAnyObjectByType<CombatGameBootstrap>();station=Object.FindAnyObjectByType<FusionStation>();
-            for(int id=0;id<4;id++)station.Progress.owned[id]=20;station.RefreshDisplays(); // Isolated test fixture, never runtime starting inventory.
+            for(int id=0;id<4;id++)station.Progress.owned[id]=id==0?4:2;station.RefreshDisplays(); // Ten units, including four common fusion ingredients.
             game.Director.AutoTick=false;game.Encounter.AutoTick=false;game.ResetRun(false);game.Weapon.enabled=false;
             game.Motor.GetComponent<PlayerInputReader>().SendMessage("OnApplicationFocus",true);game.Session.ResumeFromFocusLoss();
         }
@@ -57,6 +57,17 @@ namespace EchoScrap.Tests
             yield return Capture("ResultadoFusion",true);
             Assert.IsTrue(station.Resolve(true));Assert.AreEqual(before+1,station.Progress.owned[id]);Assert.IsFalse(station.Resolve(true));
             Assert.IsFalse(game.Session.IsPaused);Assert.IsTrue(game.Motor.GetComponent<PlayerInputReader>().CanRead);
+        }
+        [UnityTest] public IEnumerator FullCollectionKeepsRevealedFusionUntilPlayerFreesSpace()
+        {
+            yield return Approach();Assert.IsTrue(station.Progress.Begin(new[]{0,0,0,0},9999,0));
+            while(station.Progress.HasSpace)Assert.IsTrue(station.CollectFromArena(0));
+            station.Advance(180);Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);
+            int resultId=station.Progress.result;Assert.IsFalse(station.Resolve(true));
+            Assert.AreEqual(FusionPhase.AwaitingDecision,station.Progress.phase);Assert.AreEqual(resultId,station.Progress.result);
+            Assert.AreEqual(10,station.Progress.OwnedCount);Assert.IsTrue(station.IsMenuOpen);StringAssert.Contains("INVENTARIO LLENO",station.Notice);
+            Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsTrue(station.Resolve(true));Assert.AreEqual(10,station.Progress.OwnedCount);
+            Assert.AreEqual(1,station.Progress.owned[resultId]);Assert.IsFalse(station.Resolve(true));
         }
         [UnityTest] public IEnumerator LegendaryRevealOpensDoorAndReleaseRemovesIt()
         {
@@ -236,8 +247,8 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator FusionCanSelectEquippedCopyAndImmediatelyRemovesItsPowerAndDisplay()
         {
             station.ResetCollection();station.Progress.owned[0]=2;station.Progress.owned[1]=2;station.Progress.equipped[0]=0;station.GetComponent<CompanionSystem>().RefreshEquipment();
-            Assert.AreEqual(1,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();ui.OpenPicker(0);
-            var grid=station.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(4,grid.VisibleUnits);grid.SelectUnit(1);Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(-1,station.DisplayedId(0));Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.AreEqual(2,station.Progress.owned[0]);
+            Assert.IsTrue(station.GetComponent<CompanionSystem>().Abilities.Has(0));yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();ui.OpenPicker(0);
+            var grid=station.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(4,grid.VisibleUnits);grid.SelectUnit(1);Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(-1,station.DisplayedId(0));Assert.IsFalse(station.GetComponent<CompanionSystem>().Abilities.Has(0));Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.AreEqual(2,station.Progress.owned[0]);
             ui.OpenPicker(1);Assert.AreEqual(3,grid.VisibleUnits);grid.SelectUnit(0);ui.AddIngredient(1);ui.AddIngredient(1);Assert.AreEqual(4,ui.SelectedCount);Assert.IsTrue(station.StartFusion(new[]{0,0,1,1}));Assert.AreEqual(0,station.Progress.owned[0]);Assert.AreEqual(0,station.Progress.owned[1]);
             yield return null;
         }

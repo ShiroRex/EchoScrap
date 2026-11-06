@@ -75,7 +75,7 @@ namespace EchoScrap.Combat
             resultDescription=Label(result.transform,"",new Vector2(440,215),new Vector2(600,150),24);
             ButtonAt(result.transform,"COLECCIONAR",new Vector2(380,515),new Vector2(360,65),()=>station.Resolve(true));
             status=Label(panel,"El combate se pausa mientras eliges. La fusión continúa al cerrar.",new Vector2(36,766),new Vector2(1050,25),17,TextAnchor.MiddleCenter);
-            modal.SetActive(false);RefreshSelection();
+            modal.SetActive(false);RefreshSelection();gameObject.AddComponent<FusionMachineScreen>().Build(owner);
         }
         public void OpenPicker(int slot)
         {
@@ -146,6 +146,11 @@ namespace EchoScrap.Combat
             else {ClearSelection();status.text="El combate se pausa mientras eliges. La fusión continúa al cerrar.";}
         }
         public void Hide(){if(modal!=null)modal.SetActive(false);}
+        public void ShowInventoryFull()
+        {
+            status.text="INVENTARIO LLENO · LIBERA ESPACIO";
+            resultDescription.text="Tu colección tiene 10 unidades. Libera una en la bóveda y vuelve: el resultado de esta fusión seguirá aquí.";
+        }
         private void LateUpdate()
         {
             if(station==null||station.Progress==null||prompt==null)return;

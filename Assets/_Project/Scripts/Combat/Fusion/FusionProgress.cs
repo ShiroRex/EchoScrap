@@ -62,6 +62,15 @@ namespace EchoScrap.Combat
     [Serializable]
     public sealed class FusionProgress
     {
+        public const int Capacity=10;
+        // Equipped copies already belong to owned; count each unit once, including duplicates.
+        public int OwnedCount { get { long total=0;if(owned!=null)foreach(int count in owned)total+=Math.Max(0,count);return (int)Math.Min(int.MaxValue,total); } }
+        public bool HasSpace=>OwnedCount<Capacity;
+        public bool TryCollect(int id)
+        {
+            if(!FusionCatalog.Valid(id)||owned==null||id>=owned.Length||!HasSpace)return false;
+            owned[id]++;return true;
+        }
         public int version=4;
         public int[] equipped={-1,-1,-1};
         public FusionPhase phase;
@@ -88,7 +97,8 @@ namespace EchoScrap.Combat
         public bool Resolve(bool collect)
         {
             if(phase!=FusionPhase.AwaitingDecision||!FusionCatalog.Valid(result))return false;
-            if(collect)owned[result]++;result=-1;remaining=duration=opening=0;phase=FusionPhase.Idle;return true;
+            if(collect&&!TryCollect(result))return false;
+            result=-1;remaining=duration=opening=0;phase=FusionPhase.Idle;return true;
         }
         public void Validate()
         {

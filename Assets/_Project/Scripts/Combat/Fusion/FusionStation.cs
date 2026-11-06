@@ -74,6 +74,10 @@ namespace EchoScrap.Combat
         public bool Resolve(bool collect)
         {
             if(!IsMenuOpen||!CanInteract)return false;
+            if(collect&&Progress.phase==FusionPhase.AwaitingDecision&&!Progress.HasSpace){
+                Notice="INVENTARIO LLENO · LIBERA ESPACIO";
+                ui.ShowInventoryFull();GetComponentInChildren<CollectiblePickupFeedback>()?.Reject(false);return false;
+            }
             int id=Progress.result;if(!Progress.Resolve(collect))return false;
             Notice=collect?FusionCatalog.Names[id]+" coleccionado. Guardado en tu inventario.":"Coleccionable liberado.";
             RefreshDisplays();UpdateResult();Save();CloseMenu();return true;
@@ -105,8 +109,8 @@ namespace EchoScrap.Combat
         }
         public bool CollectFromArena(int id)
         {
-            if(!FusionCatalog.CanSpawn(id))return false;
-            Progress.owned[id]++;RefreshDisplays();Save();return true;
+            if(!FusionCatalog.CanSpawn(id)||!Progress.TryCollect(id))return false;
+            RefreshDisplays();Save();return true;
         }
         public bool EquipCompanion(int slot,int id)
         {

@@ -26568,6 +26568,7 @@ Transform:
   - {fileID: 2144946119}
   - {fileID: 183730670}
   - {fileID: 767147251}
+  - {fileID: 9200000011}
   m_Father: {fileID: 69462781}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!1001 &745003912
@@ -74906,3 +74907,56 @@ SceneRoots:
   - {fileID: 706015416}
   - {fileID: 69462781}
   - {fileID: 2109460569}
+--- !u!1 &9200000010
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9200000011}
+  - component: {fileID: 9200000012}
+  m_Layer: 0
+  m_Name: BarandaDerechaEscalera
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9200000011
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9200000010}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.22975292, y: 0, z: 0, w: 0.973249}
+  m_LocalPosition: {x: 65, y: -2.9, z: -53}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 744830459}
+  m_LocalEulerAnglesHint: {x: -26.565052, y: 0, z: 0}
+--- !u!65 &9200000012
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9200000010}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.6, y: 1.8, z: 17.888544}
+  m_Center: {x: 0, y: 0, z: 0}

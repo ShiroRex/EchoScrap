@@ -17,6 +17,7 @@ namespace EchoScrap.Combat
         private FusionStation station;
         private CombatGameBootstrap game;
         private CompanionView view;
+        private CollectiblePickupFeedback pickupFeedback;
         private float elapsed;
         public bool AutoTick = true;
         public int ActivePickups => pickups.Count;
@@ -42,6 +43,7 @@ namespace EchoScrap.Combat
             station=owner;game=bootstrap;
             Abilities=game.Player.gameObject.AddComponent<CompanionPowerRuntime>();Abilities.Initialize(game);
             view=gameObject.AddComponent<CompanionView>();view.Build(this,station,game);
+            pickupFeedback=GetComponentInChildren<CollectiblePickupFeedback>();
             game.Session.SessionReset+=ResetRun;RefreshEquipment();
         }
         private void Update()
@@ -119,7 +121,9 @@ namespace EchoScrap.Combat
         public bool TryCollectNearest()
         {
             int index=NearestPickup();if(index<0)return false;
-            var item=pickups[index];if(!station.CollectFromArena(item.Id))return false;
+            var item=pickups[index];
+            if(!station.Progress.HasSpace){pickupFeedback.Reject();return false;}
+            if(!station.CollectFromArena(item.Id))return false;
             Destroy(item.Object);pickups.RemoveAt(index);view.AnnounceCollected(item.Id);return true;
         }
         private void ClearPickups(){foreach(var p in pickups)if(p.Object!=null)Destroy(p.Object);pickups.Clear();}

@@ -17,6 +17,12 @@ namespace EchoScrap.Combat
         private Image face;
         private Text nameLabel, rarityLabel;
         private AudioSource voice;
+        private AudioSource rejectionVoice;
+        private RectTransform rejectionRoot;
+        private CanvasGroup rejectionGroup;
+        private float rejectionAge=2, lastRejection=-10;
+        public int RejectionsPlayed { get; private set; }
+        public bool IsRejectionVisible=>rejectionRoot!=null&&rejectionRoot.gameObject.activeSelf;
         private float age = Duration;
         public int NotificationsPlayed { get; private set; }
         public int SoundsPlayed { get; private set; }
@@ -39,6 +45,18 @@ namespace EchoScrap.Combat
                 sparks[i] = ImageAt("Pixel_" + i, Vector2.zero, Vector2.one * (i % 2 == 0 ? 6 : 4));
             voice = gameObject.AddComponent<AudioSource>();voice.playOnAwake = false;voice.loop = false;
             voice.spatialBlend = 0;voice.volume = .45f;voice.clip = Resources.Load<AudioClip>("Audio/CollectiblePickup");
+            rejectionRoot=new GameObject("InventarioLleno",typeof(RectTransform),typeof(CanvasGroup)).GetComponent<RectTransform>();
+            rejectionRoot.SetParent(transform,false);rejectionRoot.anchorMin=rejectionRoot.anchorMax=new Vector2(.5f,1);
+            rejectionRoot.sizeDelta=new Vector2(620,80);rejectionRoot.anchoredPosition=new Vector2(0,-340);
+            rejectionGroup=rejectionRoot.GetComponent<CanvasGroup>();rejectionGroup.blocksRaycasts=rejectionGroup.interactable=false;
+            var warning=Label("Rechazo","INVENTARIO LLENO",Vector2.up*16,27,font);
+            warning.transform.SetParent(rejectionRoot,false);warning.alignment=TextAnchor.MiddleCenter;
+            warning.rectTransform.sizeDelta=new Vector2(610,36);warning.color=new Color(1,.48f,.36f);
+            var instruction=Label("Ayuda","LIBERA ESPACIO",Vector2.down*18,21,font);
+            instruction.transform.SetParent(rejectionRoot,false);instruction.alignment=TextAnchor.MiddleCenter;
+            instruction.rectTransform.sizeDelta=new Vector2(600,30);
+            rejectionVoice=gameObject.AddComponent<AudioSource>();rejectionVoice.playOnAwake=false;rejectionVoice.loop=false;
+            rejectionVoice.spatialBlend=0;rejectionVoice.volume=.48f;rejectionVoice.clip=Resources.Load<AudioClip>("Audio/InventoryRejected");
             game.Session.SessionReset += Clear;
             game.Session.Clock.OnPauseStateChanged += PauseChanged;
             Clear();
@@ -65,12 +83,21 @@ namespace EchoScrap.Combat
         public void Show(int id)
         {
             if(!FusionCatalog.Valid(id) || !CanShow || game.Session.IsPaused) return;
+            rejectionAge=2;rejectionRoot.gameObject.SetActive(false);rejectionVoice.Stop();
             pending.Enqueue(id);
             if(age >= Duration) Next();
             if(voice.clip != null) { voice.Play();SoundsPlayed++; }
         }
 
         private bool CanShow => game != null && game.Player.IsAlive && !game.Session.IsInWarehouse && game.Session.State == SessionState.Running;
+        public void Reject(bool showBanner=true)
+        {
+            if(game==null||!game.Player.IsAlive||game.Session.State==SessionState.Victory||game.Session.State==SessionState.Defeat||
+                (game.Session.Clock.ActiveReasons & ~PauseReason.FusionMenu)!=PauseReason.None||Time.unscaledTime-lastRejection<.7f)return;
+            lastRejection=Time.unscaledTime;RejectionsPlayed++;
+            if(rejectionVoice.clip!=null)rejectionVoice.Play();
+            if(showBanner){rejectionAge=0;rejectionRoot.gameObject.SetActive(true);rejectionGroup.alpha=1;}
+        }
         private void Next()
         {
             if(pending.Count == 0) { root.gameObject.SetActive(false);DisplayedId = -1;return; }
@@ -85,11 +112,22 @@ namespace EchoScrap.Combat
 
         private void Update()
         {
+            if(game!=null&&!game.Session.IsPaused&&!game.Session.IsInWarehouse&&game.Player.IsAlive&&game.Session.State==SessionState.Running&&rejectionAge<2){
+                rejectionAge+=Time.deltaTime;rejectionRoot.gameObject.SetActive(rejectionAge<2);
+                float intensity=game.Session.Effects.ReducedEffectsMode?0:game.Session.Effects.DecorativeIntensity;
+                float shake=rejectionAge<.3f?Mathf.Sin(rejectionAge*65)*5*(1-rejectionAge/.3f)*intensity:0;
+                rejectionRoot.anchoredPosition=new Vector2(shake,-340);
+                rejectionGroup.alpha=Mathf.Clamp01((2-rejectionAge)/.35f);
+            }
             // Manual pause also changes Session.State; preserve the notification before testing Running.
             if(game != null && game.Session.IsPaused && game.Player.IsAlive && !game.Session.IsInWarehouse &&
                 game.Session.State != SessionState.Victory && game.Session.State != SessionState.Defeat)
-            { root.gameObject.SetActive(false);return; }
-            if(!CanShow) { Clear();return; }
+            { root.gameObject.SetActive(false);rejectionRoot.gameObject.SetActive(false);return; }
+            if(!CanShow) {
+                ClearSuccess();rejectionAge=2;rejectionRoot.gameObject.SetActive(false);
+                if(game==null||!game.Player.IsAlive||!game.Session.Clock.HasPauseReason(PauseReason.FusionMenu))rejectionVoice.Stop();
+                return;
+            }
             if(age >= Duration) return;
             root.gameObject.SetActive(true);age += Time.deltaTime;
             if(age >= Duration) { Next();return; }
@@ -114,10 +152,17 @@ namespace EchoScrap.Combat
 
         private void PauseChanged(PauseReason reasons, bool paused)
         {
-            if(paused) { voice.Stop();root.gameObject.SetActive(false); }
+            if(paused) { voice.Stop();rejectionVoice.Stop();root.gameObject.SetActive(false);rejectionRoot.gameObject.SetActive(false); }
             else if(CanShow && age < Duration) { root.gameObject.SetActive(true);ApplyPresentation(); }
         }
         public void Clear()
+        {
+            ClearSuccess();
+            rejectionAge=2;
+            if(rejectionRoot!=null)rejectionRoot.gameObject.SetActive(false);
+            if(rejectionVoice!=null)rejectionVoice.Stop();
+        }
+        private void ClearSuccess()
         {
             pending.Clear();age = Duration;DisplayedId = -1;
             if(root != null) root.gameObject.SetActive(false);

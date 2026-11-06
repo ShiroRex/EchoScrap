@@ -93,6 +93,34 @@ namespace EchoScrap.Core
             x /= scale;
             z /= scale;
 
+            float planarDistance = new Vector2(x, z).magnitude;
+
+            // Mantener una zona central más plana
+            // para facilitar los combates.
+
+            float center = Mathf.SmoothStep(
+                0f,
+                1f,
+                Mathf.InverseLerp(
+                    11f,
+                    19f,
+                    planarDistance
+                )
+            );
+
+            if (center == 0f)
+                return 0f;
+
+            // El encuentro final ocupa el disco central del mapa de 200 m.
+            // Su anillo transiciona suavemente al relieve sin bordes físicos.
+            float bossClearing = size >= 200f
+                ? Mathf.SmoothStep(0f, 1f,
+                    Mathf.InverseLerp(22f, 26f, planarDistance * scale))
+                : 1f;
+
+            if (bossClearing == 0f)
+                return 0f;
+
             // =================================================
             // RELIEVE NATURAL DEL VERTEDERO
             // =================================================
@@ -104,25 +132,6 @@ namespace EchoScrap.Core
                 Hill(x, z, -37f, 50f, 7f, 24f, 19f) +
                 Hill(x, z, 46f, -8f, 3.5f, 18f, 23f);
 
-            // Mantener una zona central más plana
-            // para facilitar los combates.
-
-            float center = Mathf.SmoothStep(
-                0f,
-                1f,
-                Mathf.InverseLerp(
-                    11f,
-                    19f,
-                    new Vector2(x, z).magnitude
-                )
-            );
-
-            // El encuentro final ocupa el disco central del mapa de 200 m.
-            // Su anillo transiciona suavemente al relieve sin bordes físicos.
-            float bossClearing = size >= 200f
-                ? Mathf.SmoothStep(0f, 1f,
-                    Mathf.InverseLerp(22f, 26f, new Vector2(x, z).magnitude * scale))
-                : 1f;
             return height * center * bossClearing;
         }
 

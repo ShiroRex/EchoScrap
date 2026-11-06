@@ -58,6 +58,21 @@ namespace EchoScrap.Tests
             game.Session.SetWarehouseVisit(true);yield return null;Assert.IsFalse(feedback.IsVisible);Assert.IsFalse(audio.isPlaying);
             game.Session.SetWarehouseVisit(false);yield return null;Assert.IsFalse(feedback.IsVisible);
         }
+        [UnityTest] public IEnumerator FullInventoryRejectsPickupWithoutLosingItAndAllowsAfterRelease()
+        {
+            station.ResetCollection();station.Progress.owned[0]=10;station.Progress.equipped=new[]{0,0,0};system.RefreshEquipment();
+            var feedback=station.GetComponentInChildren<CollectiblePickupFeedback>();
+            Assert.IsTrue(system.TrySpawn(2));var position=system.PickupPosition(0)+Vector3.up;
+            game.Player.transform.position=position;game.Player.GetComponent<Rigidbody>().position=position;Physics.SyncTransforms();
+            Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(10,station.Progress.OwnedCount);Assert.AreEqual(1,system.ActivePickups);
+            Assert.AreEqual(1,feedback.RejectionsPlayed);Assert.AreEqual(0,feedback.SoundsPlayed);Assert.IsTrue(feedback.IsRejectionVisible);
+            Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(1,feedback.RejectionsPlayed,"Repeated E does not spam rejection audio.");
+            var audio=feedback.GetComponents<AudioSource>().Single(source=>source.clip!=null&&source.clip.name=="InventoryRejected");Assert.Greater(audio.clip.length,0);Assert.IsTrue(audio.isPlaying);
+            yield return Capture("InventarioLleno");game.Session.SetManualPause(true);yield return null;Assert.IsFalse(feedback.IsRejectionVisible);Assert.IsFalse(audio.isPlaying);
+            game.Session.SetManualPause(false);yield return null;Assert.IsTrue(feedback.IsRejectionVisible);
+            Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsTrue(system.TryCollectNearest());Assert.AreEqual(10,station.Progress.OwnedCount);Assert.AreEqual(1,station.Progress.owned[2]);Assert.AreEqual(0,system.ActivePickups);Assert.IsFalse(feedback.IsRejectionVisible);
+            game.ResetRun(false);yield return null;Assert.IsFalse(feedback.IsRejectionVisible);
+        }
         [UnityTest] public IEnumerator NewCharactersSpawnWithFrontSpritesAndCanBeCollected()
         {
             foreach(int id in new[]{13,14}){

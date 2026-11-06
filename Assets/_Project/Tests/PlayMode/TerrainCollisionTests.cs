@@ -361,6 +361,36 @@ namespace EchoScrap.Tests
             foreach(var lava in Object.FindObjectsByType<LavaHazard>(FindObjectsSortMode.None))
                 Assert.IsFalse(lava.Contains(Vector3.zero,22f),"Existing lava must stay outside the caldera.");
         }
+        [Test] public void RightPortalRailStopsShotsAtTheSameInnerEdgeAsTheLeft()
+        {
+            foreach(float z in new[]{63f,66f,68f,70f,71f})
+            {
+                Assert.IsTrue(WalkableStairs.Active.TryHeight(new Vector3(0,0,z),out float tread));
+                var origin=new Vector3(0,tread+1,z);
+                Assert.IsTrue(Physics.Raycast(origin,Vector3.left,out var left,5.35f,1,QueryTriggerInteraction.Ignore),"Left rail at "+z);
+                Assert.IsTrue(Physics.Raycast(origin,Vector3.right,out var right,5.35f,1,QueryTriggerInteraction.Ignore),"Right rail at "+z);
+                Assert.AreEqual(Mathf.Abs(left.point.x),right.point.x,.5f,"Both rails must protect the visible inner edge.");
+            }
+        }
+        [UnityTest] public IEnumerator RightPortalRailBlocksWalkingAndDashWithoutBlockingRetreat()
+        {
+            foreach(var gate in Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None))gate.GetComponent<Collider>().enabled=false;
+            var body=game.Player.GetComponent<Rigidbody>();
+            foreach(float z in new[]{63f,68f,73f})foreach(bool dash in new[]{false,true})
+            {
+                var start=ArenaSurface.OnGround(new Vector3(3.7f,0,z),1);
+                body.position=start;game.Player.transform.position=start;body.linearVelocity=Vector3.zero;
+                game.Motor.ResetDashForSession();Physics.SyncTransforms();
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.D));yield return null;
+                if(dash){InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.D,Key.Space));yield return null;}
+                for(int tick=0;tick<25;tick++)yield return new WaitForFixedUpdate();
+                Assert.Less(body.position.x,4.4f,"Crossed the right visible rail: z="+z+" dash="+dash+" position="+body.position);
+                var contact=body.position;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.A));yield return null;
+                for(int tick=0;tick<20;tick++)yield return new WaitForFixedUpdate();
+                Assert.Less(body.position.x,contact.x-.8f,"Cannot retreat from the rail.");
+                InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;
+            }
+        }
         [UnityTest] public IEnumerator DashIntoPortalRailCanImmediatelyMoveAway()
         {
             foreach(var gate in Object.FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None))gate.GetComponent<Collider>().enabled=false;
