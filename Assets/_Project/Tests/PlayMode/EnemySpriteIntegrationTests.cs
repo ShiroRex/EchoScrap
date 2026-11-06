@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using EchoScrap.Combat;
 using EchoScrap.Core;
 using NUnit.Framework;
@@ -68,6 +69,23 @@ namespace EchoScrap.Tests
             foreach (var v in set.mesh.vertices) Assert.That(v.y, Is.GreaterThanOrEqualTo(0f), "Below-pivot sword pixels must not be buried under the ground.");
         }
 
+        [TestCase(EnemyArchetypeId.GhostKnight, 224, 28, 2688)]
+        [TestCase(EnemyArchetypeId.CopperSentinel, 288, 36, 3456)]
+        public void EliteAtlasesIncludeEveryNativeActionAndLightingMap(EnemyArchetypeId id, int frames, int clips, int height)
+        {
+            var set = EnemySpriteSet.Load(id); Assert.IsNotNull(set);
+            var actions = set.clips.Concat(set.eliteClips).Where(c => c != null && c.frames != null && c.frames.Length > 0).ToArray();
+            Assert.That(actions.Length, Is.EqualTo(clips));
+            Assert.That(actions.Sum(c => c.frames.Length), Is.EqualTo(frames));
+            Assert.That(actions.All(c => c.frames.All(f => f.duration > 0f)), Is.True);
+            var texture = (Texture2D)set.material.GetTexture("_BaseMap");
+            Assert.That(texture.width, Is.EqualTo(1152)); Assert.That(texture.height, Is.EqualTo(height));
+            Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point)); Assert.That(texture.mipmapCount, Is.EqualTo(1));
+            Assert.IsNotNull(set.material.GetTexture("_BumpMap")); Assert.IsNotNull(set.material.GetTexture("_GlowMap"));
+            Assert.That(set.material.GetFloat("_NormalStrength"), Is.GreaterThan(0f));
+            Assert.That(set.material.GetFloat("_GlowStrength"), Is.GreaterThan(0f));
+        }
+
         [TestCase(EnemyArchetypeId.Residual, 4, 0, CharacterFacing.Left)]
         [TestCase(EnemyArchetypeId.Residual, -4, 0, CharacterFacing.Right)]
         [TestCase(EnemyArchetypeId.Residual, 0, 4, CharacterFacing.Down)]
@@ -76,6 +94,14 @@ namespace EchoScrap.Tests
         [TestCase(EnemyArchetypeId.Colossus, -4, 0, CharacterFacing.Right)]
         [TestCase(EnemyArchetypeId.Colossus, 0, 4, CharacterFacing.Down)]
         [TestCase(EnemyArchetypeId.Colossus, 0, -4, CharacterFacing.Up)]
+        [TestCase(EnemyArchetypeId.GhostKnight, 4, 0, CharacterFacing.Left)]
+        [TestCase(EnemyArchetypeId.GhostKnight, -4, 0, CharacterFacing.Right)]
+        [TestCase(EnemyArchetypeId.GhostKnight, 0, 4, CharacterFacing.Down)]
+        [TestCase(EnemyArchetypeId.GhostKnight, 0, -4, CharacterFacing.Up)]
+        [TestCase(EnemyArchetypeId.CopperSentinel, 4, 0, CharacterFacing.Left)]
+        [TestCase(EnemyArchetypeId.CopperSentinel, -4, 0, CharacterFacing.Right)]
+        [TestCase(EnemyArchetypeId.CopperSentinel, 0, 4, CharacterFacing.Down)]
+        [TestCase(EnemyArchetypeId.CopperSentinel, 0, -4, CharacterFacing.Up)]
         [TestCase(EnemyArchetypeId.Interceptor, 4, 0, CharacterFacing.Left)]
         [TestCase(EnemyArchetypeId.Interceptor, -4, 0, CharacterFacing.Right)]
         [TestCase(EnemyArchetypeId.Interceptor, 0, 4, CharacterFacing.Down)]
@@ -89,11 +115,13 @@ namespace EchoScrap.Tests
             foreach (var r in actor.VisualComposer.PresentationPivot.GetComponentsInChildren<Renderer>(true))
                 Assert.That(r.enabled, Is.EqualTo(r == view.CharacterRenderer));
             Assert.That(actor.BodyCollider.enabled, Is.True);
-            Assert.That(actor.Archetype.IsHeavyMass, Is.EqualTo(id == EnemyArchetypeId.Colossus));
+            Assert.That(actor.Archetype.IsHeavyMass, Is.EqualTo(id == EnemyArchetypeId.Colossus || id == EnemyArchetypeId.CopperSentinel));
         }
 
         [TestCase(EnemyArchetypeId.Residual)]
         [TestCase(EnemyArchetypeId.Interceptor)]
+        [TestCase(EnemyArchetypeId.GhostKnight)]
+        [TestCase(EnemyArchetypeId.CopperSentinel)]
         public void WalkingHitPauseAndPoolReuseDoNotLeakAnimationState(EnemyArchetypeId id)
         {
             var actor = enemies.Spawn(id, new Vector3(4, 1, 0));
@@ -146,9 +174,46 @@ namespace EchoScrap.Tests
             Assert.That(view.ClipTime, Is.EqualTo(.3f).Within(.001f));
         }
 
+        [TestCase(EnemyArchetypeId.GhostKnight)]
+        [TestCase(EnemyArchetypeId.CopperSentinel)]
+        public void EliteAttackSpritesFollowCommittedPhasesWithoutAddingAttacks(EnemyArchetypeId id)
+        {
+            var actor = enemies.Spawn(id, new Vector3(0, 1, 3)); actor.enabled = false;
+            var elite = actor.Elite; var view = actor.GetComponent<EnemySpriteView>();
+            elite.TryOverrideLocomotion(.8f, out _); view.Advance(0f);
+            Assert.That(view.Motion, Is.EqualTo(elite.IsCopper ? EnemySpriteMotion.Open : EnemySpriteMotion.Windup));
+            elite.TryOverrideLocomotion(.35f, out _); view.Advance(0f);
+            Assert.That(view.Motion, Is.EqualTo(EnemySpriteMotion.Windup));
+            Assert.That(elite.AttacksResolved, Is.Zero, "Doors open before the real missiles are launched.");
+            session.SetManualPause(true); view.Advance(10f);
+            float held = view.ClipTime; elite.TryOverrideLocomotion(10f, out _); view.Advance(0f);
+            Assert.That(view.ClipTime, Is.EqualTo(held)); session.SetManualPause(false);
+            elite.TryOverrideLocomotion(elite.Settings.Windup - .35f, out _); view.Advance(0f);
+            Assert.That(elite.AttacksResolved, Is.EqualTo(1));
+            Assert.That(view.Motion, Is.EqualTo(elite.IsCopper ? EnemySpriteMotion.Fire : EnemySpriteMotion.Attack));
+            view.NotifyHit(); view.Advance(0f);
+            Assert.That(view.Motion, Is.EqualTo(elite.IsCopper ? EnemySpriteMotion.Fire : EnemySpriteMotion.Attack));
+            elite.TryOverrideLocomotion(.45f, out _); view.Advance(0f);
+            Assert.That(view.Motion, Is.EqualTo(elite.IsCopper ? EnemySpriteMotion.Vulnerable : EnemySpriteMotion.Recovery));
+            if (elite.IsCopper)
+            {
+                Assert.That(elite.IsVulnerable, Is.True);
+                elite.TryOverrideLocomotion(1.3f, out _); view.Advance(0f);
+                Assert.That(view.Motion, Is.EqualTo(EnemySpriteMotion.Close));
+                elite.TryOverrideLocomotion(.25f, out _);
+            }
+            else elite.TryOverrideLocomotion(.35f, out _);
+            view.Advance(0f);
+            Assert.That(elite.State, Is.EqualTo(EliteEnemyState.Pursuit));
+            Assert.That(view.Motion, Is.EqualTo(EnemySpriteMotion.Idle));
+            Assert.That(elite.AttacksResolved, Is.EqualTo(1));
+        }
+
         [TestCase(EnemyArchetypeId.Residual)]
         [TestCase(EnemyArchetypeId.Colossus)]
         [TestCase(EnemyArchetypeId.Interceptor)]
+        [TestCase(EnemyArchetypeId.GhostKnight)]
+        [TestCase(EnemyArchetypeId.CopperSentinel)]
         public void AuthoredDeathSurvivesActorReuseAndResetsWithTheSession(EnemyArchetypeId id)
         {
             var generic = new GameObject("Generic Deaths").AddComponent<EnemyDeathPresentationPool>(); generic.BindSession(session);
@@ -176,7 +241,8 @@ namespace EchoScrap.Tests
             var views = new EnemySpriteView[count];
             for (int i = 0; i < count; i++)
             {
-                var actor = enemies.Spawn(i % 5 == 0 ? EnemyArchetypeId.Colossus : i % 3 == 0 ? EnemyArchetypeId.Interceptor : EnemyArchetypeId.Residual,
+                var actor = enemies.Spawn(i == 0 ? EnemyArchetypeId.GhostKnight : i == 1 ? EnemyArchetypeId.CopperSentinel :
+                    i % 5 == 0 ? EnemyArchetypeId.Colossus : i % 3 == 0 ? EnemyArchetypeId.Interceptor : EnemyArchetypeId.Residual,
                     new Vector3((i % 12 - 5.5f) * 1.8f, 1, (i / 12) * 2f + 4f));
                 actor.SimulationSuspended = true;
                 actor.Body.linearVelocity = actor.AssignedMoveSpeed * Vector3.back;

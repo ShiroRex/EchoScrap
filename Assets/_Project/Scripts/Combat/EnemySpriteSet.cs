@@ -2,12 +2,14 @@ using UnityEngine;
 
 namespace EchoScrap.Combat
 {
-    public enum EnemySpriteMotion { Idle, Walk, Attack, Hit, Death, Windup, Charge, Recovery }
+    public enum EnemySpriteMotion { Idle, Walk, Attack, Hit, Death, Windup, Charge, Recovery, Open, Fire, Vulnerable, Close }
 
     [CreateAssetMenu(menuName = "EchoScrap/Art/Ground Enemy Sprite Set")]
     public sealed class EnemySpriteSet : ScriptableObject
     {
         public CharacterSpriteSet.Clip[] clips;
+        // Preserve the original eight slots per direction in existing horde assets.
+        public CharacterSpriteSet.Clip[] eliteClips;
         public Mesh mesh, shadowMesh;
         public Material material, shadowMaterial;
         [Min(1f)] public float pixelsPerUnit = 30f;
@@ -17,8 +19,9 @@ namespace EchoScrap.Combat
 
         public CharacterSpriteSet.Clip GetClip(EnemySpriteMotion motion, CharacterFacing facing)
         {
-            int index = (int)facing * 8 + (int)motion;
-            var clip = clips[index];
+            int index = (int)motion < 8 ? (int)facing * 8 + (int)motion : (int)facing * 4 + (int)motion - 8;
+            var source = (int)motion < 8 ? clips : eliteClips;
+            var clip = source != null && index < source.Length ? source[index] : null;
             return clip != null && clip.frames != null && clip.frames.Length > 0 ? clip : clips[(int)facing * 8];
         }
 
@@ -30,8 +33,9 @@ namespace EchoScrap.Combat
             return time;
         }
 
-        private static EnemySpriteSet skeleton, wendigo, interceptor;
-        public static bool Supports(EnemyArchetypeId id) => id == EnemyArchetypeId.Residual || id == EnemyArchetypeId.Colossus || id == EnemyArchetypeId.Interceptor;
+        private static EnemySpriteSet skeleton, wendigo, interceptor, ghost, copper;
+        public static bool Supports(EnemyArchetypeId id) => id == EnemyArchetypeId.Residual || id == EnemyArchetypeId.Colossus ||
+            id == EnemyArchetypeId.Interceptor || id == EnemyArchetypeId.GhostKnight || id == EnemyArchetypeId.CopperSentinel;
         public static EnemySpriteSet Load(EnemyArchetypeId id)
         {
             if (id == EnemyArchetypeId.Residual)
@@ -40,6 +44,10 @@ namespace EchoScrap.Combat
                 return wendigo != null ? wendigo : wendigo = Resources.Load<EnemySpriteSet>("Characters/Wendigo");
             if (id == EnemyArchetypeId.Interceptor)
                 return interceptor != null ? interceptor : interceptor = Resources.Load<EnemySpriteSet>("Characters/Interceptor");
+            if (id == EnemyArchetypeId.GhostKnight)
+                return ghost != null ? ghost : ghost = Resources.Load<EnemySpriteSet>("Characters/CaballeroFantasma");
+            if (id == EnemyArchetypeId.CopperSentinel)
+                return copper != null ? copper : copper = Resources.Load<EnemySpriteSet>("Characters/CentinelaCobre");
             return null;
         }
     }

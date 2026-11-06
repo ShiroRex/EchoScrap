@@ -74,7 +74,9 @@ namespace EchoScrap.Combat
             if (viewCamera == null) viewCamera = Camera.main;
             bool frozen = Paused || actor.VisualComposer.IsHitStopActive || actor.IsControlLocked;
             float dt = frozen ? 0f : Mathf.Max(0f, delta);
-            Facing = attackRemaining > 0f ? ResolveFacing(contactDirection) : ResolveFacing();
+            var elite = actor.Elite;
+            bool elitePhase = elite != null && elite.State != EliteEnemyState.Pursuit;
+            Facing = elitePhase ? ResolveFacing(elite.LockedDirection) : attackRemaining > 0f ? ResolveFacing(contactDirection) : ResolveFacing();
             if (!frozen)
             {
                 attackRemaining = Mathf.Max(0f, attackRemaining - dt);
@@ -89,9 +91,11 @@ namespace EchoScrap.Combat
                 velocity.y = 0f;
                 float speed = velocity.magnitude;
                 if (next == EnemySpriteMotion.Idle && speed > sprites.movingThreshold) next = EnemySpriteMotion.Walk;
-                if (next != Motion) { Motion = next; clipTime = 0f; }
+                if (elitePhase) SynchronizeElite(elite);
+                else if (next != Motion) { Motion = next; clipTime = 0f; }
                 var clip = sprites.GetClip(Motion, Facing);
-                if (phase) clipTime = Mathf.Min(clip.Duration - .00001f, charge.PhaseProgress * clip.Duration);
+                if (elitePhase) { /* The attack controller supplies the animation time. */ }
+                else if (phase) clipTime = Mathf.Min(clip.Duration - .00001f, charge.PhaseProgress * clip.Duration);
                 else if (Motion == EnemySpriteMotion.Attack)
                 {
                     // Contact already resolved in physics. Show the contact pose immediately, then recover
@@ -103,6 +107,37 @@ namespace EchoScrap.Combat
             }
             ApplyFrame();
             AlignToSurface();
+        }
+
+        private void SynchronizeElite(EliteEnemyController elite)
+        {
+            if (elite.State == EliteEnemyState.Windup)
+            {
+                if (elite.IsCopper)
+                    SampleSequence(elite.PhaseTime, elite.Settings.Windup, EnemySpriteMotion.Open, EnemySpriteMotion.Windup);
+                else
+                {
+                    Motion = EnemySpriteMotion.Windup;
+                    var clip = sprites.GetClip(Motion, Facing);
+                    clipTime = Mathf.Min(clip.Duration - .00001f, elite.PhaseTime / Mathf.Max(.1f, elite.Settings.Windup) * clip.Duration);
+                }
+            }
+            else if (elite.IsCopper)
+                SampleSequence(elite.PhaseTime, elite.Settings.Recovery, EnemySpriteMotion.Fire, EnemySpriteMotion.Vulnerable, EnemySpriteMotion.Close);
+            else
+                SampleSequence(elite.PhaseTime, elite.Settings.Recovery, EnemySpriteMotion.Attack, EnemySpriteMotion.Recovery);
+        }
+
+        private void SampleSequence(float elapsed, float phaseDuration, EnemySpriteMotion first,
+            EnemySpriteMotion second, EnemySpriteMotion? third = null)
+        {
+            float firstDuration = sprites.GetClip(first, Facing).Duration;
+            float secondDuration = sprites.GetClip(second, Facing).Duration;
+            float total = firstDuration + secondDuration + (third.HasValue ? sprites.GetClip(third.Value, Facing).Duration : 0f);
+            float time = Mathf.Min(total - .00001f, Mathf.Clamp01(elapsed / Mathf.Max(.1f, phaseDuration)) * total);
+            if (time < firstDuration) { Motion = first; clipTime = time; }
+            else if (!third.HasValue || time < firstDuration + secondDuration) { Motion = second; clipTime = time - firstDuration; }
+            else { Motion = third.Value; clipTime = time - firstDuration - secondDuration; }
         }
 
         public void NotifyContact()
@@ -122,7 +157,8 @@ namespace EchoScrap.Combat
 
         public void NotifyHit()
         {
-            if (!IsReady || (actor.Charge != null && actor.Charge.State != ColossusChargeState.Pursuit)) return;
+            if (!IsReady || (actor.Charge != null && actor.Charge.State != ColossusChargeState.Pursuit) ||
+                (actor.Elite != null && actor.Elite.State != EliteEnemyState.Pursuit)) return;
             if (actor.ArchetypeId == EnemyArchetypeId.Residual) effects?.Play(EnemyEffectId.BoneChips, actor.WorldCenter);
             Facing = ResolveFacing();
             hitRemaining = sprites.GetClip(EnemySpriteMotion.Hit, Facing).Duration;
