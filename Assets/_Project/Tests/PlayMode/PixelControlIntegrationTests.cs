@@ -63,6 +63,9 @@ namespace EchoScrap.Tests
         public IEnumerator HudUsesTheNativeClockMinimapAndInteractionArt()
         {
             var hud = game.Hud.CanvasRoot.transform;
+            var typography = Resources.Load<UpgradeCardSkin>("UI/PixelPortal/Typography");
+            foreach (var text in hud.GetComponentsInChildren<Text>(true))
+                Assert.IsTrue(text.font == typography.regular || text.font == typography.semibold, text.name + " must use the shared UI typography.");
             Assert.AreSame(PixelControlArtwork.Load("ClockFrame/ClockFrame"), hud.Find("ClockFrame").GetComponent<Image>().sprite);
             game.Session.Clock.SetGameplayTimeForTesting(123f); game.Hud.RefreshNow();
             Assert.AreEqual("02:03", hud.Find("Clock").GetComponent<Text>().text);

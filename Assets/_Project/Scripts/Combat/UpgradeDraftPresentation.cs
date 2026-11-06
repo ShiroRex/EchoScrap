@@ -338,7 +338,7 @@ namespace EchoScrap.Combat
                 SetFittedText(cards[i].Before, comparing ? "AHORA\n" + offer.PrimaryBefore : string.Empty, 26, 22);
                 SetFittedText(cards[i].After, "AL ELEGIR\n" + offer.PrimaryAfter, 26, 22);
                 cards[i].After.color = new Color(0.69f, 0.87f, 0.5f);
-                SetFittedText(cards[i].Detail, offer.Detail, 22, 20);
+                SetFittedText(cards[i].Detail, offer.Detail, 22, 18);
                 cards[i].Confirmation.color = new Color(color.r, color.g, color.b, 0f);
                 cards[i].Icon.sprite = skin.icons[(int)offer.Card.Icon];
                 cards[i].Icon.color = color;
@@ -429,7 +429,7 @@ namespace EchoScrap.Combat
             Image arrow = ImageRect(inner, "ComparisonArrow", new Vector2(0f, -142f), new Vector2(22f, 22f), Color.white).GetComponent<Image>();
             view.ComparisonArrow = arrow;
             arrow.sprite = skin.upgradeArrow; arrow.transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
-            view.Detail = TextRect(inner, "Detail", new Vector2(0f, -204f), new Vector2(312f, 84f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
+            view.Detail = TextRect(inner, "Detail", new Vector2(0f, -206f), new Vector2(340f, 88f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Detail.color = new Color(0.73f, 0.78f, 0.78f);
             view.Button = ImageRect(inner, "ChooseButton", new Vector2(0f, -272f), new Vector2(280f, 40f), Color.white).GetComponent<Image>();
             view.Button.sprite = skin.chooseButton;
@@ -479,7 +479,7 @@ namespace EchoScrap.Combat
                 SetFittedText(card.PrimaryLabel, card.PrimaryLabel.text, 18, 17);
                 SetFittedText(card.Before, card.Before.text, 26, 22);
                 SetFittedText(card.After, card.After.text, 26, 22);
-                SetFittedText(card.Detail, card.Detail.text, 22, 20);
+                SetFittedText(card.Detail, card.Detail.text, 22, 18);
             }
         }
         private static void NineSlice(Image image)

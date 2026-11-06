@@ -14,7 +14,7 @@ namespace EchoScrap.Editor
         public static void Prepare()
         {
             Directory.CreateDirectory("Assets/StreamingAssets/Licenses");
-            File.Copy("Assets/_Project/Art/UI/Fonts/ChakraPetch-OFL.txt", "Assets/StreamingAssets/Licenses/ChakraPetch-OFL.txt", true);
+            File.Copy("Assets/_Project/Art/UI/Fonts/OFL.txt", "Assets/StreamingAssets/Licenses/PixelifySans-OFL.txt", true);
             Directory.CreateDirectory(Path.GetDirectoryName(Resource)); AssetDatabase.Refresh();
             UpgradeCardSkin skin = AssetDatabase.LoadAssetAtPath<UpgradeCardSkin>(Resource);
             if (skin == null) { skin = ScriptableObject.CreateInstance<UpgradeCardSkin>(); AssetDatabase.CreateAsset(skin, Resource); }
@@ -45,9 +45,11 @@ namespace EchoScrap.Editor
             skin.chooseButton = Import("Grayscale/UpgradeButton", new Vector4(6f, 4f, 6f, 4f));
             skin.newBadge = Import("Labels/Badge_New");
             skin.upgradeBadge = Import("Labels/Badge_Upgrade");
-            skin.regular = AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/UI/Fonts/ChakraPetch-Regular.ttf");
-            skin.semibold = AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/UI/Fonts/ChakraPetch-SemiBold.ttf");
-            if (skin.regular == null || skin.semibold == null) throw new BuildFailedException("Chakra Petch font assets are required.");
+            var typography = AssetDatabase.LoadAssetAtPath<UpgradeCardSkin>("Assets/_Project/Resources/UI/PixelPortal/Typography.asset");
+            if (typography == null || typography.regular == null || typography.semibold == null)
+                throw new BuildFailedException("The shared UI typography is required.");
+            skin.regular = typography.regular;
+            skin.semibold = typography.semibold;
             const string sheenPath = "Assets/_Project/Resources/UI/UpgradeCardSheen.mat";
             Shader sheenShader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/_Project/Shaders/UpgradeCardSheen.shader");
             if (sheenShader == null) throw new BuildFailedException("Missing card surface sheen shader.");
@@ -60,7 +62,7 @@ namespace EchoScrap.Editor
             skin.surfaceSheen.shader = sheenShader;
             EditorUtility.SetDirty(skin.surfaceSheen);
             EditorUtility.SetDirty(skin); AssetDatabase.SaveAssets();
-            Debug.Log("[EchoScrap] Upgrade cards: four lit 9-sliced frames, ten grayscale icons and Chakra Petch ready.");
+            Debug.Log("[EchoScrap] Upgrade cards: four lit 9-sliced frames, ten grayscale icons and shared UI typography ready.");
         }
         private static Sprite Import(string name, int border = 0) => Import(name, Vector4.one * border);
 
