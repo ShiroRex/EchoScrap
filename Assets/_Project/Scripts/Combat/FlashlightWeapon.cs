@@ -399,7 +399,7 @@ namespace EchoScrap.Combat
             float critChance = pulseNumber <= guaranteedActive ? 1f : capturedCritChance;
             float critMultiplier = capturedCritMultiplier;
 
-            bool applyKnockback = pulseNumber == PulsesPerBurst;
+            bool applyKnockback = capturedSolarMode || pulseNumber == PulsesPerBurst;
             float knockbackImpulse = applyKnockback ? capturedKnockbackImpulse : 0f;
 
             hitTargetIdsThisPulse.Clear();
