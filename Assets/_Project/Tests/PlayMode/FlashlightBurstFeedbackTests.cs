@@ -188,6 +188,22 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void SolarPushesOnEveryPulseAcrossBurstBoundaries()
+        {
+            playerStats.SetUpgradeTier("FLASH_05", 1);
+            weapon.ResetWeaponCycle();
+            CombatDummy target = CreateDummy("SolarPushDummy", new Vector3(0f, 1f, 4f), hp: 1000f);
+            for (int pulse = 1; pulse <= 8; pulse++)
+            {
+                weapon.StepWeapon(.2f);
+                Assert.That(target.KnockbackAppliedCount, Is.EqualTo(pulse));
+                Assert.That(target.LastKnockbackImpulse.magnitude, Is.EqualTo(10f).Within(.05f));
+                Assert.That(weapon.IsInRestPhase, Is.False);
+            }
+            Assert.That(target.CurrentHealth, Is.EqualTo(925f).Within(.001f));
+        }
+
+        [Test]
         public void BurstParameterSnapshot_UpgradesMidBurstApplyOnlyToNextBurst_AndLowFpsDoesNotDuplicateOrDrift()
         {
             CombatDummy dummy = CreateDummy("SnapshotDummy", new Vector3(0f, 1f, 4f), hp: 200f);
