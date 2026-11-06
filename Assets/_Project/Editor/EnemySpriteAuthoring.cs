@@ -33,6 +33,15 @@ namespace EchoScrap.Editor
             Debug.Log("[EchoScrap] Interceptor Galgo connected with 20 clips and four directions.");
         }
 
+        [MenuItem("EchoScrap/Art/Connect Ghost Knight And Copper Sentinel")]
+        public static void PrepareElites()
+        {
+            Build("CaballeroFantasma", 224);
+            Build("CentinelaCobre", 288);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[EchoScrap] Elite sprites connected with native attack, door and recovery sequences.");
+        }
+
         private static void Build(string name, int expectedFrames)
         {
             string art = "Assets/_Project/Art/Characters/" + name + "/";
@@ -63,6 +72,8 @@ namespace EchoScrap.Editor
             var set = AssetDatabase.LoadAssetAtPath<EnemySpriteSet>(resource);
             if (set == null) { set = ScriptableObject.CreateInstance<EnemySpriteSet>(); AssetDatabase.CreateAsset(set, resource); }
             set.clips = new CharacterSpriteSet.Clip[32];
+            bool elite = name == "CaballeroFantasma" || name == "CentinelaCobre";
+            if (elite) set.eliteClips = new CharacterSpriteSet.Clip[16];
             foreach (var tag in manifest.meta.frameTags)
             {
                 string[] words = tag.name.Split('_');
@@ -78,12 +89,16 @@ namespace EchoScrap.Editor
                     clip.frames[i] = new CharacterSpriteSet.Frame { duration = frame.duration / 1000f,
                         uvRect = new Vector4(r.x / (float)width, 1f - (r.y + r.h) / (float)height, r.w / (float)width, r.h / (float)height) };
                 }
-                set.clips[(int)facing * 8 + (int)motion] = clip;
+                if ((int)motion < 8) set.clips[(int)facing * 8 + (int)motion] = clip;
+                else set.eliteClips[(int)facing * 4 + (int)motion - 8] = clip;
             }
             for (int i = 0; i < 4; i++)
-                foreach (var motion in name != "Wendigo" ? new[] { EnemySpriteMotion.Idle, EnemySpriteMotion.Walk, EnemySpriteMotion.Attack, EnemySpriteMotion.Hit, EnemySpriteMotion.Death }
+                foreach (var motion in name == "CentinelaCobre" ? new[] { EnemySpriteMotion.Idle, EnemySpriteMotion.Walk, EnemySpriteMotion.Open, EnemySpriteMotion.Windup, EnemySpriteMotion.Fire, EnemySpriteMotion.Vulnerable, EnemySpriteMotion.Close, EnemySpriteMotion.Hit, EnemySpriteMotion.Death }
+                    : name == "CaballeroFantasma" ? new[] { EnemySpriteMotion.Idle, EnemySpriteMotion.Walk, EnemySpriteMotion.Windup, EnemySpriteMotion.Attack, EnemySpriteMotion.Recovery, EnemySpriteMotion.Hit, EnemySpriteMotion.Death }
+                    : name != "Wendigo" ? new[] { EnemySpriteMotion.Idle, EnemySpriteMotion.Walk, EnemySpriteMotion.Attack, EnemySpriteMotion.Hit, EnemySpriteMotion.Death }
                     : new[] { EnemySpriteMotion.Idle, EnemySpriteMotion.Walk, EnemySpriteMotion.Windup, EnemySpriteMotion.Charge, EnemySpriteMotion.Recovery, EnemySpriteMotion.Hit, EnemySpriteMotion.Death })
-                    if (set.clips[i * 8 + (int)motion] == null) throw new BuildFailedException("Missing " + motion + " for " + name);
+                    if (set.GetClip(motion, (CharacterFacing)i).name != motion + "_" + (CharacterFacing)i)
+                        throw new BuildFailedException("Missing " + motion + " for " + name);
             set.pixelsPerUnit = 30f;
             set.contactFrame = 3;
             set.mesh = PixelCard(dataPath + name + "_Quad.asset", set.pixelsPerUnit);
@@ -94,12 +109,12 @@ namespace EchoScrap.Editor
             set.material.SetColor("_EmissionColor", Color.clear);
             set.material.SetFloat("_NormalStrength", 0f);
             set.material.SetFloat("_GlowStrength", 0f);
-            if (name == "Interceptor")
+            if (name == "Interceptor" || elite)
             {
                 set.material.SetTexture("_BumpMap", ImportCompanionTexture(art + name + "_Normal.png", true));
                 set.material.SetFloat("_NormalStrength", .55f);
                 set.material.SetTexture("_GlowMap", ImportCompanionTexture(art + name + "_Emission.png", false));
-                set.material.SetColor("_GlowColor", new Color(1.2f, .56f, .12f));
+                set.material.SetColor("_GlowColor", name == "CaballeroFantasma" ? new Color(.3f, .95f, 1.2f) : new Color(1.2f, .56f, .12f));
                 set.material.SetFloat("_GlowStrength", .55f);
             }
             set.material.SetVector("_FrameRect", set.GetClip(EnemySpriteMotion.Idle, CharacterFacing.Down).frames[0].uvRect);
