@@ -61,10 +61,12 @@ namespace EchoScrap.Combat
             announcement=notice.gameObject.AddComponent<CanvasGroup>();announcement.blocksRaycasts=announcement.interactable=false;
             var message=Label(notice,"Mensaje","¡NUEVOS COLECCIONABLES!",Vector2.zero,new Vector2(640,64),34);
             message.font=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;message.color=new Color(.91f,.76f,.44f);announcementText=message.rectTransform;notice.gameObject.SetActive(false);
-            var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(300,42),new Color(.05f,.07f,.11f,.94f));hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
+            var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(480,56),Color.white);hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
             hintText=Label(hint,"Texto","",Vector2.zero,new Vector2(290,40),20);hintText.font=strong;
-            var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(260,48),new Color(.05f,.07f,.11f,.94f));collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
-            Label(collect,"Texto","E · COLECCIONAR",Vector2.zero,new Vector2(248,46),22).font=strong;
+            PixelInteractionPrompt.Attach(hint,hintText);
+            var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(360,56),Color.white);collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
+            var collectLabel=Label(collect,"Texto","COLECCIONAR",Vector2.zero,new Vector2(248,46),22);collectLabel.font=strong;
+            PixelInteractionPrompt.Attach(collect,collectLabel);
             // Keep the original three compact frames at the upper left. The text below is deliberately
             // plain: it communicates only the powers currently equipped and never overlaps the portraits.
             var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(155,-190),new Vector2(700,220),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,1);hud=bar.gameObject;
@@ -104,7 +106,7 @@ namespace EchoScrap.Combat
                 announcement.alpha=Mathf.SmoothStep(0,1,enter)*(1-leave);float pop=1+2.7f*Mathf.Pow(enter-1,3)+1.7f*Mathf.Pow(enter-1,2);
                 announcementText.localScale=Vector3.one*(decoration>.01f?Mathf.Lerp(.72f,1,pop):1);announcementText.anchoredPosition=Vector2.up*(leave*32*decoration);}
             prompt.SetActive(!IsOpen&&playing&&system.CanEquip);
-            hintText.text="E · EQUIPAR PUESTO "+(system.NearestSlot+1);
+            hintText.text="EQUIPAR PUESTO "+(system.NearestSlot+1);
             collectPrompt.SetActive(!IsOpen&&playing&&system.CanCollect);
             hud.SetActive(playing&&!game.Session.IsInWarehouse);
             int powersHash=17;

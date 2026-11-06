@@ -15,6 +15,8 @@ namespace EchoScrap.Combat
         private Transform portal;
         private CompanionSystem companions;
         private readonly RectTransform[] collectibleMarkers=new RectTransform[12];
+        private readonly Image[] collectibleImages=new Image[12];
+        private readonly Sprite[] rarityMarkers=new Sprite[6];
         private readonly int[] collectibleIds=new int[12];
         private float nextRender;
         private Texture2D fogTexture;
@@ -48,8 +50,8 @@ namespace EchoScrap.Combat
             }
             fogTexture.SetPixels32(colors);fogTexture.Apply();nextRender=0;
         }
-        private const float MapPixels = 172f;
-        private Texture2D circleTexture;private Sprite circleSprite, portraitSprite;
+        private const float MapPixels = 156f;
+        private Sprite portraitSprite;
         public bool IsVisible => frame != null && frame.gameObject.activeInHierarchy;
         public RectTransform PlayerMarker => playerMarker;
         public RenderTexture MapTexture => texture;
@@ -58,14 +60,13 @@ namespace EchoScrap.Combat
         {
             if(frame!=null)return;
             game=owner;
-            circleTexture=new Texture2D(128,128,TextureFormat.RGBA32,false);circleTexture.filterMode=FilterMode.Bilinear;
-            for(int y=0;y<128;y++)for(int x=0;x<128;x++){float distance=Vector2.Distance(new Vector2(x+.5f,y+.5f),new Vector2(64,64));circleTexture.SetPixel(x,y,new Color(1,1,1,Mathf.Clamp01(63.5f-distance)));}
-            circleTexture.Apply();circleSprite=Sprite.Create(circleTexture,new Rect(0,0,128,128),Vector2.one*.5f,100);
-
-            frame=Box("Minimap",canvas,new Vector2(180,180),new Color(.60f,.47f,.27f));
-            frame.anchorMin=frame.anchorMax=new Vector2(1,1);frame.anchoredPosition=new Vector2(-122,-122);
-            var background=Box("Interior",frame,new Vector2(176,176),new Color(.035f,.045f,.06f));
-            frame.GetComponent<Image>().sprite=circleSprite;background.GetComponent<Image>().sprite=circleSprite;background.gameObject.AddComponent<Mask>().showMaskGraphic=true;
+            frame=Box("Minimap",canvas,new Vector2(288,288),Color.clear);
+            frame.anchorMin=frame.anchorMax=new Vector2(1,1);frame.anchoredPosition=new Vector2(-168,-168);
+            var background=Box("Interior",frame,new Vector2(150,156),new Color(.035f,.045f,.06f));
+            // Native aperture is x=38,y=40,w=50,h=52 in the 128px Aseprite source.
+            background.anchoredPosition=new Vector2(-3,-6);
+            background.GetComponent<Image>().sprite=PixelControlArtwork.Load("MinimapFrame/Mask");
+            background.gameObject.AddComponent<Mask>().showMaskGraphic=true;
             var picture=new GameObject("MapaArena",typeof(RectTransform),typeof(RawImage)).GetComponent<RawImage>();
             picture.transform.SetParent(background,false);picture.rectTransform.sizeDelta=Vector2.one*MapPixels;picture.raycastTarget=false;
             texture=new RenderTexture(256,256,16){name="ArenaMinimap",antiAliasing=1,filterMode=FilterMode.Bilinear};texture.Create();picture.texture=texture;
@@ -78,10 +79,13 @@ namespace EchoScrap.Combat
             fogTexture=new Texture2D(128,128,TextureFormat.RGBA32,false){filterMode=FilterMode.Bilinear};
             var fog=new GameObject("TerrenoSinExplorar",typeof(RectTransform),typeof(RawImage)).GetComponent<RawImage>();fog.transform.SetParent(picture.transform,false);fog.rectTransform.sizeDelta=Vector2.one*MapPixels;fog.texture=fogTexture;fog.raycastTarget=false;
             game.Session.SessionReset+=ResetExploration;
-            portalMarker=Marker("Portal",picture.transform,new Color(.8f,.3f,1),8);
+            portalMarker=Box("Portal",picture.transform,new Vector2(16,16),Color.white);
+            portalMarker.GetComponent<Image>().sprite=PixelControlArtwork.Load("MinimapMarkers/Portal");
+            string[] rarityNames={"Common","Rare","Special","Epic","Legendary","Mythic"};
+            for(int i=0;i<rarityMarkers.Length;i++)rarityMarkers[i]=PixelControlArtwork.Load("MinimapMarkers/"+rarityNames[i]);
             for(int i=0;i<collectibleMarkers.Length;i++){
-                collectibleMarkers[i]=Box("Coleccionable_"+i,picture.transform,Vector2.one*7,Color.white);
-                collectibleMarkers[i].GetComponent<Image>().sprite=circleSprite;collectibleIds[i]=-1;
+                collectibleMarkers[i]=Box("Coleccionable_"+i,picture.transform,Vector2.one*16,Color.white);
+                collectibleImages[i]=collectibleMarkers[i].GetComponent<Image>();collectibleIds[i]=-1;
                 collectibleMarkers[i].gameObject.SetActive(false);
             }
             playerMarker=Box("Jugador",picture.transform,new Vector2(26,26),Color.white);
@@ -89,21 +93,16 @@ namespace EchoScrap.Combat
             portraitSprite=Sprite.Create(atlas,new Rect(17,atlas.height-29,29,29),Vector2.one*.5f,100);
             playerMarker.GetComponent<Image>().sprite=portraitSprite;playerMarker.GetComponent<Image>().preserveAspect=true;
             foreach(var gateway in FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None))if(!gateway.FromWarehouse){portal=gateway.transform;break;}
-            var north=new GameObject("Norte",typeof(RectTransform),typeof(Text)).GetComponent<Text>();north.transform.SetParent(frame,false);
-            north.rectTransform.anchoredPosition=new Vector2(0,76);north.rectTransform.sizeDelta=new Vector2(32,26);
-            north.text="N";north.font=font;north.fontSize=16;north.alignment=TextAnchor.MiddleCenter;north.color=Color.white;north.raycastTarget=false;
-            var shadow=north.gameObject.AddComponent<Outline>();shadow.effectColor=Color.black;shadow.effectDistance=new Vector2(1,-1);
+            var artwork=Box("Artwork",frame,new Vector2(384,384),Color.white);
+            artwork.GetComponent<Image>().sprite=PixelControlArtwork.Load("MinimapFrame/Frame");
+            var north=Box("Norte",background,new Vector2(32,32),Color.white);
+            north.anchoredPosition=new Vector2(0,50);north.GetComponent<Image>().sprite=PixelControlArtwork.Load("MinimapMarkers/North");
             Refresh();
         }
         private static RectTransform Box(string name,Transform parent,Vector2 size,Color color)
         {
             var rect=new GameObject(name,typeof(RectTransform),typeof(Image)).GetComponent<RectTransform>();rect.SetParent(parent,false);
             rect.sizeDelta=size;rect.GetComponent<Image>().color=color;rect.GetComponent<Image>().raycastTarget=false;return rect;
-        }
-        private static RectTransform Marker(string name,Transform parent,Color color,float size)
-        {
-            var marker=Box(name,parent,Vector2.one*size,new Color(.02f,.025f,.03f));marker.localRotation=Quaternion.Euler(0,0,45);
-            Box("Color",marker,Vector2.one*(size-4),color);return marker;
         }
         public Vector2 MapPosition(Vector3 position)
         {
@@ -122,7 +121,7 @@ namespace EchoScrap.Combat
             for(int i=0;i<collectibleMarkers.Length;i++){
                 int id=companions!=null?companions.PickupId(i):-1;collectibleMarkers[i].gameObject.SetActive(id>=0);if(id<0)continue;
                 collectibleMarkers[i].anchoredPosition=MapPosition(companions.PickupPosition(i));
-                if(collectibleIds[i]!=id){collectibleIds[i]=id;collectibleMarkers[i].GetComponent<Image>().color=FusionCatalog.ColorOf(id);}
+                if(collectibleIds[i]!=id){collectibleIds[i]=id;collectibleImages[i].sprite=rarityMarkers[(int)FusionCatalog.Rarities[id]];}
             }
             portalMarker.gameObject.SetActive(portal!=null&&IsExplored(portal.position));if(portal!=null)portalMarker.anchoredPosition=MapPosition(portal.position);
             if(wasVisible&&Time.unscaledTime<nextRender)return;
@@ -135,7 +134,7 @@ namespace EchoScrap.Combat
         private void OnDestroy()
         {
             if(game!=null)game.Session.SessionReset-=ResetExploration;if(fogTexture!=null)Destroy(fogTexture);
-            if(circleSprite!=null)Destroy(circleSprite);if(circleTexture!=null)Destroy(circleTexture);if(portraitSprite!=null)Destroy(portraitSprite);
+            if(portraitSprite!=null)Destroy(portraitSprite);
             if(mapCamera!=null)mapCamera.targetTexture=null;
             if(texture!=null){texture.Release();Destroy(texture);}
             if(mapCamera!=null)Destroy(mapCamera.gameObject);

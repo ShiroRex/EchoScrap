@@ -418,8 +418,8 @@ namespace EchoScrap.Combat
                 Button button = statsModeButtons[i];
                 if (button == null) continue;
                 bool active = statsMode == mode;
-                button.image.color = active ? Apollo : new Color(.15f, .19f, .22f);
-                button.transform.Find("Label").GetComponent<Text>().color = active ? Ink : Pale;
+                PixelControlArtwork.SetChoiceActive(button, active);
+                button.transform.Find("Label").GetComponent<Text>().color = Pale;
             }
             Button selected = statsModeButtons[(int)statsMode];
             if (selected == null || resumeButton == null || pauseRestartButton == null) return;
@@ -438,6 +438,10 @@ namespace EchoScrap.Combat
             shakeSlider.SetValueWithoutNotify(preferences.RawShakeIntensity * 100f);
             decorativeSlider.SetValueWithoutNotify(preferences.RawDecorativeIntensity * 100f);
             reducedToggle.SetIsOnWithoutNotify(preferences.ReducedEffectsMode);
+            PixelControlArtwork.Refresh(volumeSlider);
+            PixelControlArtwork.Refresh(shakeSlider);
+            PixelControlArtwork.Refresh(decorativeSlider);
+            PixelControlArtwork.Refresh(reducedToggle);
             SyncStatsModeControls();
             shakeLabel.text = $"MOVIMIENTO DE CÁMARA   {Mathf.RoundToInt(preferences.RawShakeIntensity * 100f)}%";
             decorativeLabel.text = $"EFECTOS DECORATIVOS   {Mathf.RoundToInt(preferences.RawDecorativeIntensity * 100f)}%";
@@ -469,11 +473,15 @@ namespace EchoScrap.Combat
             Image bar = ImageRect(integrity, "HealthTrack", new Vector2(0f, -38f), new Vector2(340f, 13f), new Color(0.14f, 0.17f, 0.19f));
             recentHealthFill = Fill(bar.transform, "RecentDamage", Apollo);
             healthFill = Fill(bar.transform, "ImmediateHealth", new Color(0.66f, 0.84f, 0.69f));
-            timerText = AnchorLabel(canvasRect, "Clock", new Vector2(0.5f, 1f), new Vector2(0f, -49f), new Vector2(400f, 56f), "00:00", 42, TextAnchor.MiddleCenter, Pale);
-            phaseText = AnchorLabel(canvasRect, "Phase", new Vector2(0.5f, 1f), new Vector2(0f, -91f), new Vector2(600f, 34f), "VERTEDERO  /  SOBREVIVE", 22, TextAnchor.MiddleCenter, Apollo);
+            Image clockFrame = ImageRect(canvasRect, "ClockFrame", new Vector2(0f, -60f), new Vector2(384f, 108f), Color.white);
+            clockFrame.sprite = PixelControlArtwork.Load("ClockFrame/ClockFrame");
+            clockFrame.rectTransform.anchorMin = clockFrame.rectTransform.anchorMax = new Vector2(.5f, 1f);
+            timerText = AnchorLabel(canvasRect, "Clock", new Vector2(0.5f, 1f), new Vector2(0f, -61.5f), new Vector2(240f, 64f), "00:00", 36, TextAnchor.MiddleCenter, Pale);
+            timerText.verticalOverflow = VerticalWrapMode.Overflow;
+            phaseText = AnchorLabel(canvasRect, "Phase", new Vector2(0.5f, 1f), new Vector2(0f, -128f), new Vector2(600f, 34f), "VERTEDERO  /  SOBREVIVE", 22, TextAnchor.MiddleCenter, Apollo);
 
-            killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), new Vector2(-122f, -238f), new Vector2(180f, 36f), "BAJAS  0", 27, TextAnchor.MiddleCenter, Pale);
-            AnchorLabel(canvasRect, "PauseHint", new Vector2(1f, 1f), new Vector2(-122f, -269f), new Vector2(220f, 28f), "ESC / START   PAUSA", 18, TextAnchor.MiddleCenter, new Color(0.62f, 0.67f, 0.67f));
+            killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), new Vector2(-168f, -338f), new Vector2(180f, 36f), "BAJAS  0", 27, TextAnchor.MiddleCenter, Pale);
+            AnchorLabel(canvasRect, "PauseHint", new Vector2(1f, 1f), new Vector2(-168f, -371f), new Vector2(250f, 28f), "ESC / START   PAUSA", 18, TextAnchor.MiddleCenter, new Color(0.62f, 0.67f, 0.67f));
 
             gameObject.AddComponent<CombatMinimap>().Build(game, canvasRect, font);
             var killsTexture=Resources.Load<Texture2D>("Hud/Kills/Icono_Kills");
@@ -511,7 +519,7 @@ namespace EchoScrap.Combat
             cardsText = AnchorLabel(canvasRect, "AcquiredCards", new Vector2(1f, 0f), new Vector2(-275f, 182f), new Vector2(470f, 250f), "Sin mejoras", 22, TextAnchor.UpperRight, new Color(0.73f, 0.78f, 0.77f));
             controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));
 
-            bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(640f, 128f)).gameObject;
+            bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -228f), new Vector2(640f, 128f)).gameObject;
             bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 60f), new Vector2(640f, 40f), "GÓLGORA · EL GUARDIÁN", 24, TextAnchor.MiddleCenter, Apollo);
             bossFill = Fill(ImageRect(bossPanel.transform, "BossTrack", new Vector2(0f, -15f), new Vector2(720f, 12f), new Color(0.15f, 0.13f, 0.16f)).transform, "BossFill", new Color(0.91f, 0.42f, 0.22f));
             bossPanel.transform.Find("BossTrack").GetComponent<Image>().color=Color.clear;
@@ -519,8 +527,7 @@ namespace EchoScrap.Combat
             bossHealthText.transform.SetAsLastSibling();
             bossPanel.SetActive(false);
             bossArrow = Rect(canvasRect, "BossOffscreenArrow", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48f, 52f));
-            ImageRect(bossArrow, "LeftWing", new Vector2(-8f, 0f), new Vector2(8f, 30f), Apollo).rectTransform.localRotation = Quaternion.Euler(0f, 0f, -35f);
-            ImageRect(bossArrow, "RightWing", new Vector2(8f, 0f), new Vector2(8f, 30f), Apollo).rectTransform.localRotation = Quaternion.Euler(0f, 0f, 35f);
+            ImageRect(bossArrow, "Artwork", Vector2.zero, new Vector2(48f, 48f), Color.white).sprite = PixelControlArtwork.Load("BossPointer/Up");
             bossArrow.gameObject.SetActive(false);
 
             Image border = FullScreenImage(canvasRect, "HurtBorder", Color.clear);
@@ -565,7 +572,7 @@ namespace EchoScrap.Combat
             decorativeSlider.onValueChanged.AddListener(SetDecorativePercent);
             reducedToggle = CreateToggle(pauseContent.transform, "ReducedEffects", new Vector2(0f, -103f), "EFECTOS REDUCIDOS");
             reducedToggle.onValueChanged.AddListener(SetReducedEffects);
-            var statsModes = Rect(pauseContent.transform, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0f, -163f), new Vector2(640f, 48f));
+            var statsModes = Rect(pauseContent.transform, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0f, -163f), new Vector2(640f, 52f));
             Label(statsModes, "Label", new Vector2(-240f, 0f), new Vector2(160f, 44f), "ESTADÍSTICAS", 21, TextAnchor.MiddleLeft, Pale);
             CreateStatsModeButton(statsModes, StatsDisplayMode.Full, "Full", -72f, "COMPLETA");
             CreateStatsModeButton(statsModes, StatsDisplayMode.Reduced, "Reduced", 84f, "REDUCIDA");
@@ -669,10 +676,11 @@ namespace EchoScrap.Combat
         private void CreateStatsModeButton(Transform parent, StatsDisplayMode mode, string name, float x, string value)
         {
             Button button = CreateButton(parent, name, new Vector2(x, 0f), value, new Color(.15f, .19f, .22f));
-            button.image.rectTransform.sizeDelta = new Vector2(144f, 44f);
+            button.image.rectTransform.sizeDelta = new Vector2(144f, 48f);
             var label = button.transform.Find("Label").GetComponent<Text>();
-            label.rectTransform.sizeDelta = new Vector2(136f, 40f);
-            label.fontSize = 20;
+            label.rectTransform.sizeDelta = new Vector2(98f, 36f);
+            label.fontSize = 18;
+            PixelControlArtwork.StyleChoice(button);
             button.onClick.AddListener(() => SetStatsDisplayMode(mode));
             statsModeButtons[(int)mode] = button;
         }
@@ -708,6 +716,7 @@ namespace EchoScrap.Combat
             Image handle = ImageRect(handleArea, "Handle", Vector2.zero, new Vector2(20f, 30f), Pale);
             handle.raycastTarget = true;
             slider.fillRect = fill.rectTransform; slider.handleRect = handle.rectTransform; slider.targetGraphic = handle;
+            PixelControlArtwork.StyleSlider(slider);
             return slider;
         }
         private Toggle CreateToggle(Transform parent, string name, Vector2 position, string value)
@@ -719,6 +728,7 @@ namespace EchoScrap.Combat
             background.raycastTarget = true;
             Image check = ImageRect(background.transform, "Check", Vector2.zero, new Vector2(24f, 24f), Apollo);
             Toggle toggle = rect.gameObject.AddComponent<Toggle>(); toggle.targetGraphic = background; toggle.graphic = check;
+            PixelControlArtwork.StyleToggle(toggle);
             Label(rect, "Label", new Vector2(33f, 0f), new Vector2(560f, 48f), value, 23, TextAnchor.MiddleLeft, Pale);
             return toggle;
         }
