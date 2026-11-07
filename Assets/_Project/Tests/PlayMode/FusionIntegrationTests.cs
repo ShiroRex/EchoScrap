@@ -273,6 +273,42 @@ namespace EchoScrap.Tests
             var grid=station.GetComponentInChildren<CollectibleUnitGrid>();var card=grid.transform.Find("Unidad_0");Assert.AreEqual(0,card.GetComponent<UnityEngine.UI.Image>().color.a);Assert.AreEqual(0,card.GetComponent<RectTransform>().anchoredPosition.x);Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,card.Find("Detalle").GetComponent<UnityEngine.UI.Text>().font);yield return Capture("InventarioUnaUnidad",true);
             station.Progress.owned[10]=10;grid.Refresh(true);Assert.AreEqual(10,grid.VisibleUnits);yield return Capture("InventarioDiezUnidades",true);
         }
+        [UnityTest] public IEnumerator VaultMachineAgainstWallIndexByRarityAndWorldPropsGrounded()
+        {
+            Assert.That(station.transform.position.x,Is.EqualTo(189.0f).Within(0.05f));
+            Assert.That(station.transform.position.z,Is.EqualTo(28.88f).Within(0.05f));
+            Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
+            station.ResetCollection();
+            station.Progress.TryCollect(0);
+            station.Progress.TryCollect(0);
+            station.Progress.TryCollect(6);
+            station.RefreshDisplays();
+            Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true);
+            yield return null;
+            Assert.IsNotNull(station.Index);
+            station.Index.Open();
+            Assert.IsTrue(station.Index.IsOpen);
+            Assert.AreEqual(VaultCollectionIndex.IndexTab.ByRarity,station.Index.ActiveTab);
+            Assert.AreEqual(Color.white,station.Index.GetRarityCardPortrait(0).color);
+            Assert.AreEqual(Color.black,station.Index.GetRarityCardPortrait(1).color);
+            Assert.AreEqual("???",station.Index.GetRarityCardName(1).text);
+            Assert.AreEqual(FilterMode.Point,station.Index.GetRarityCardFrame(0).sprite.texture.filterMode);
+            station.Index.SelectTab(VaultCollectionIndex.IndexTab.InVault);
+            Assert.AreEqual(VaultCollectionIndex.IndexTab.InVault,station.Index.ActiveTab);
+            CollectionAssert.AreEqual(new[]{0,0,6},station.Index.GetDisplayedVaultUnitIds());
+            Assert.AreEqual(3,station.Index.VisibleVaultCardsCount);
+            station.Index.Close();
+            Assert.IsFalse(station.Index.IsOpen);
+            Transform mundo=GameObject.Find("Mundo3D_EchoScrap").transform;
+            int floating=0;
+            foreach(Transform cat in mundo)foreach(Transform prop in cat){
+                var renderers=prop.GetComponentsInChildren<Renderer>(true);if(renderers.Length==0)continue;
+                Bounds b=renderers[0].bounds;for(int i=1;i<renderers.Length;i++)b.Encapsulate(renderers[i].bounds);
+                float h=ArenaSurface.Profile(b.center.x,b.center.z);
+                if(b.min.y-h>0.35f)floating++;
+            }
+            Assert.AreEqual(0,floating);
+        }
         [UnityTest] public IEnumerator TAtOccupiedEquipmentRemovesPowerAndKeepsCollectible()
         {
             station.ResetCollection();station.Progress.owned[0]=1;station.Progress.equipped[0]=0;station.GetComponent<CompanionSystem>().RefreshEquipment();Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true);
@@ -282,6 +318,35 @@ namespace EchoScrap.Tests
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.T));yield return null;yield return null;
             Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(1,station.Progress.owned[0]);Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
         }
+        [UnityTest] public IEnumerator IndexSeparatesSixRaritiesAndDisplaysTenIndividualUnits()
+        {
+            station.ResetCollection();
+            foreach(int id in new[]{0,0,1,2,3,4,6,7,8,9}) Assert.IsTrue(station.Progress.TryCollect(id));
+            station.Progress.equipped[0]=0;
+            Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true);
+            yield return null;
+            var index=station.Index;index.Open();
+            var canvas=station.transform.Find("VaultIndexCanvas").GetComponent<Canvas>();
+            var hud=canvas.transform.Find("BotonIndiceBoveda").GetComponent<RectTransform>();
+            Assert.AreEqual(0,hud.anchorMin.x);Assert.Greater(hud.anchoredPosition.x,0);
+            for(int rarity=0;rarity<6;rarity++)
+            {
+                index.SetRarityFilter(rarity);
+                Assert.AreEqual(FusionCatalog.Rarities.Count(r=>(int)r==rarity),index.VisibleRarityCardsCount);
+                for(int id=0;id<FusionCatalog.Count;id++)
+                    Assert.AreEqual((int)FusionCatalog.Rarities[id]==rarity,index.GetRarityCardFrame(id).gameObject.activeSelf);
+            }
+            index.SetRarityFilter(1);
+            yield return Capture("IndiceRarezas",true,false,canvas);
+            index.SelectTab(VaultCollectionIndex.IndexTab.InVault);
+            Assert.AreEqual(10,index.VisibleVaultCardsCount);
+            Assert.AreEqual(2,index.GetDisplayedVaultUnitIds().Count(id=>id==0));
+            var cards=canvas.GetComponentsInChildren<RectTransform>().Where(t=>t.name.StartsWith("CartaBoveda_")).ToArray();
+            Assert.AreEqual(10,cards.Length);
+            foreach(var card in cards) Assert.That(-card.anchoredPosition.y+card.rect.height,Is.LessThanOrEqualTo(766));
+            yield return Capture("IndiceTuBoveda",true,false,canvas);
+            index.Close();
+        }
         private IEnumerator VaultCapture()
         {
             var camera=new GameObject("VaultAuditCamera").AddComponent<Camera>();camera.fieldOfView=52;
@@ -290,13 +355,13 @@ namespace EchoScrap.Tests
             var old=RenderTexture.active;RenderTexture.active=rt;var texture=new Texture2D(1600,1200,TextureFormat.RGB24,false);texture.ReadPixels(new Rect(0,0,1600,1200),0,0);texture.Apply();Directory.CreateDirectory("Logs/Fusion");File.WriteAllBytes("Logs/Fusion/BovedaModular.png",texture.EncodeToPNG());RenderTexture.active=old;
             Object.Destroy(texture);Object.Destroy(rt);Object.Destroy(camera.gameObject);
         }
-        private IEnumerator Capture(string name,bool showUi,bool garage=false)
+        private IEnumerator Capture(string name,bool showUi,bool garage=false,Canvas selectedCanvas=null)
         {
             var camera=new GameObject("FusionAuditCamera").AddComponent<Camera>();camera.fieldOfView=60;
             camera.transform.position=garage?new Vector3(180,7,-27):station.transform.position+new Vector3(9,8,-14);
             camera.transform.LookAt(garage?new Vector3(180,4,12):station.transform.position+Vector3.up*3);
             var rt=new RenderTexture(1400,900,24);camera.targetTexture=rt;
-            Canvas canvas=station.GetComponentInChildren<Canvas>();if(showUi){canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;}
+            Canvas canvas=selectedCanvas!=null?selectedCanvas:station.GetComponentInChildren<Canvas>();if(showUi){canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;}
             yield return null;yield return null;camera.Render();var old=RenderTexture.active;RenderTexture.active=rt;var texture=new Texture2D(1400,900,TextureFormat.RGB24,false);texture.ReadPixels(new Rect(0,0,1400,900),0,0);texture.Apply();Directory.CreateDirectory("Logs/Fusion");File.WriteAllBytes("Logs/Fusion/"+name+".png",texture.EncodeToPNG());RenderTexture.active=old;
             if(showUi){canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.worldCamera=null;}Object.Destroy(texture);Object.Destroy(rt);Object.Destroy(camera.gameObject);
         }

@@ -14,7 +14,8 @@ namespace EchoScrap.Combat
         public bool PersistProgress=true;
         public const string SaveKey="EchoScrap.Collection.Production.v1";
         public FusionProgress Progress {get;private set;}
-        public bool WorldLabelsAllowed=>game!=null&&!game.Session.IsPaused&&game.Player.IsAlive;
+        public VaultCollectionIndex Index {get;private set;}
+        public bool WorldLabelsAllowed=>game!=null&&!game.Session.IsPaused&&game.Player.IsAlive&&(Index==null||!Index.IsOpen);
         public bool IsMenuOpen=>ui!=null&&ui.IsOpen;
         public bool CanInteract=>game!=null&&game.Player.IsAlive&&Vector3.Distance(game.Player.transform.position,InteractionPoint.position+Vector3.up)<InteractionDistance;
         public string Notice {get;private set;}="";
@@ -22,8 +23,32 @@ namespace EchoScrap.Combat
         private AudioSource openingAudio;
         private CombatGameBootstrap game;private FusionStationUI ui;private CollectibleDisplay resultView;
         private CollectibleDisplay[] displays;private Transform[] slats;private Vector3[] closed;private float doorTop,doorAmount,saveClock;
+        private void Awake()
+        {
+            EnsureWallMountedLayout();
+        }
+        public void EnsureWallMountedLayout()
+        {
+            transform.position=new Vector3(189.00f,0.00f,28.88f);
+            transform.rotation=Quaternion.identity;
+            Transform boveda=transform.parent;
+            if(boveda!=null)
+            {
+                MoveCapsule(boveda,"Capsula_4","Expositor_4","LuzCapsula_3",new Vector3(200f,0f,-6f));
+                MoveCapsule(boveda,"Capsula_5","Expositor_5","LuzCapsula_4",new Vector3(193f,0f,-13f));
+                MoveCapsule(boveda,"Capsula_6","Expositor_6","LuzCapsula_5",new Vector3(200f,0f,23f));
+            }
+            Physics.SyncTransforms();
+        }
+        private static void MoveCapsule(Transform boveda,string capName,string expName,string lightName,Vector3 pos)
+        {
+            Transform cap=boveda.Find(capName);if(cap!=null)cap.position=pos;
+            Transform exp=boveda.Find(expName);if(exp!=null)exp.position=pos;
+            Transform light=boveda.Find(lightName);if(light!=null)light.position=new Vector3(pos.x,4.8f,pos.z);
+        }
         private void Start()
         {
+            EnsureWallMountedLayout();
             game=FindAnyObjectByType<CombatGameBootstrap>();
             PersistProgress = PersistProgress && SceneTransitionState.SaveProgress;
             Progress=new FusionProgress();
@@ -43,7 +68,9 @@ namespace EchoScrap.Combat
             openingAudio=new GameObject("FusionOpenAudio").AddComponent<AudioSource>();
             openingAudio.transform.SetParent(transform,false);openingAudio.playOnAwake=false;openingAudio.loop=false;
             openingAudio.spatialBlend=0;openingAudio.volume=.7f;openingAudio.clip=Resources.Load<AudioClip>("Audio/FusionOpen");
-            ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);RefreshDisplays();UpdateResult();
+            ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);
+            Index=gameObject.AddComponent<VaultCollectionIndex>();Index.Initialize(this,game);
+            RefreshDisplays();UpdateResult();
             if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);gameObject.AddComponent<VaultReleaseInteraction>().Initialize(this,game);}
         }
         private void Update()
@@ -68,7 +95,7 @@ namespace EchoScrap.Combat
             if(Progress.OpenReady()){openingAudio.Play();smoke.Play(ResultPoint.position);UpdateResult();Save();return true;}
             ui.Show();return true;
         }
-        public void CloseMenu(){if(ui!=null)ui.Hide();if(game!=null)game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}
+        public void CloseMenu(){if(ui!=null)ui.Hide();if(game!=null&&(Index==null||!Index.IsOpen))game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}
         public bool StartFusion(int[] ingredients)
         {
             if(!IsMenuOpen||!CanInteract)return false;
@@ -96,10 +123,10 @@ namespace EchoScrap.Combat
             RefreshDisplays();UpdateResult();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
 
-        public void RefreshDisplays(){if(displays==null)return;var gallery=Enumerable.Range(0,FusionCatalog.Count).SelectMany(id=>Enumerable.Repeat(id,Progress.Available(id))).OrderByDescending(id=>FusionCatalog.Rarities[id]).ToArray();for(int i=0;i<displays.Length;i++){
+        public void RefreshDisplays(){if(displays==null)return;Progress?.Validate();var gallery=Enumerable.Range(0,FusionCatalog.Count).SelectMany(id=>Enumerable.Repeat(id,Progress.Available(id))).OrderByDescending(id=>FusionCatalog.Rarities[id]).ToArray();for(int i=0;i<displays.Length;i++){
             int id=i<3?Progress.equipped[i]:i-3<gallery.Length?gallery[i-3]:-1;
             displays[i].Configure(FusionCatalog.Valid(id)&&Progress.owned[id]>0?id:-1,DisplayHeight,true);
-        }}
+        }if(Index!=null&&Index.IsOpen)Index.Refresh(true);}
         public int DisplayedId(int slot)=>displays!=null&&slot>=0&&slot<displays.Length?displays[slot].CollectibleId:-1;
         public bool UnequipForFusion(int id)
         {
@@ -129,14 +156,13 @@ namespace EchoScrap.Combat
         }
         public void ResetCollection()
         {
-            openingAudio.Stop();CloseMenu();Notice="";Progress=new FusionProgress();Progress.Validate();
+            openingAudio.Stop();CloseMenu();Index?.Close();Notice="";Progress=new FusionProgress();Progress.Validate();
             RefreshDisplays();UpdateResult();Save();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
-        private void OnSessionReset(){openingAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();}
+        private void OnSessionReset(){openingAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();Index?.Close();}
         private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}
         private void OnApplicationPause(bool paused){if(paused)Save();}
         private void OnApplicationQuit(){Save();}
         private void OnDestroy(){Save();if(game!=null){game.Session.SessionReset-=OnSessionReset;game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}}
     }
 }
-

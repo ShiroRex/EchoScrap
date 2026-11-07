@@ -70,11 +70,16 @@ namespace EchoScrap.Combat
         public const int Capacity=10;
         // Equipped copies already belong to owned; count each unit once, including duplicates.
         public int OwnedCount { get { long total=0;if(owned!=null)foreach(int count in owned)total+=Math.Max(0,count);return (int)Math.Min(int.MaxValue,total); } }
+        public int DiscoveredCount { get { int total=0;for(int i=0;i<FusionCatalog.Count;i++)if(IsDiscovered(i))total++;return total; } }
         public bool HasSpace=>OwnedCount<Capacity;
+        public bool IsDiscovered(int id)=>FusionCatalog.Valid(id)&&((discovered!=null&&id<discovered.Length&&discovered[id])||(owned!=null&&id<owned.Length&&owned[id]>0)||(equipped!=null&&Array.IndexOf(equipped,id)>=0));
         public bool TryCollect(int id)
         {
             if(!FusionCatalog.Valid(id)||owned==null||id>=owned.Length||!HasSpace)return false;
-            owned[id]++;return true;
+            owned[id]++;
+            if(discovered==null||discovered.Length!=FusionCatalog.Count)Array.Resize(ref discovered,FusionCatalog.Count);
+            discovered[id]=true;
+            return true;
         }
         public int version=4;
         public bool hasEquippedCompanion;
@@ -83,6 +88,7 @@ namespace EchoScrap.Combat
         public float remaining,duration,opening;
         public int result=-1;
         public int[] owned=new int[FusionCatalog.Count];
+        public bool[] discovered=new bool[FusionCatalog.Count];
         public int[] displays={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
         public int Available(int id)=>FusionCatalog.Valid(id)?Mathf.Max(0,owned[id]-equipped.Count(value=>value==id)):0;
         public bool CanBegin(int[] ingredients){if(phase!=FusionPhase.Idle||!FusionRecipe.TryCreate(ingredients,out _))return false;var used=new int[FusionCatalog.Count];foreach(int id in ingredients)if(++used[id]>Available(id))return false;return true;}
@@ -104,20 +110,23 @@ namespace EchoScrap.Combat
         {
             if(phase!=FusionPhase.AwaitingDecision||!FusionCatalog.Valid(result))return false;
             if(collect&&!TryCollect(result))return false;
+            if(discovered==null||discovered.Length!=FusionCatalog.Count)Array.Resize(ref discovered,FusionCatalog.Count);
+            discovered[result]=true;
             result=-1;remaining=duration=opening=0;phase=FusionPhase.Idle;return true;
         }
         public void Validate()
         {
             // Prototype collections are deliberately discarded once; production saves keep all counts.
-            if(version<4||owned==null){owned=new int[FusionCatalog.Count];equipped=new[]{-1,-1,-1};phase=FusionPhase.Idle;result=-1;hasEquippedCompanion=false;}
+            if(version<4||owned==null){owned=new int[FusionCatalog.Count];discovered=new bool[FusionCatalog.Count];equipped=new[]{-1,-1,-1};phase=FusionPhase.Idle;result=-1;hasEquippedCompanion=false;}
             if(owned.Length!=FusionCatalog.Count)Array.Resize(ref owned,FusionCatalog.Count);
-            for(int i=0;i<owned.Length;i++)owned[i]=Mathf.Max(0,owned[i]);
+            if(discovered==null||discovered.Length!=FusionCatalog.Count)Array.Resize(ref discovered,FusionCatalog.Count);
+            for(int i=0;i<owned.Length;i++){owned[i]=Mathf.Max(0,owned[i]);if(owned[i]>0)discovered[i]=true;}
             if(displays==null||displays.Length!=10)displays=Enumerable.Repeat(-1,10).ToArray();
             for(int i=0;i<displays.Length;i++)if(!FusionCatalog.Valid(displays[i])||owned[displays[i]]==0)displays[i]=-1;
             if(phase<FusionPhase.Idle||phase>FusionPhase.Ready||(phase!=FusionPhase.Idle&&!FusionCatalog.Valid(result))){phase=FusionPhase.Idle;result=-1;}
             if(phase==FusionPhase.Opening){phase=FusionPhase.Ready;opening=0;}
             if(equipped==null||equipped.Length!=3)equipped=new[]{-1,-1,-1};var used=new int[FusionCatalog.Count];
-            for(int i=0;i<3;i++){int id=equipped[i];if(!FusionCatalog.Valid(id)||++used[id]>owned[id])equipped[i]=-1;}
+            for(int i=0;i<3;i++){int id=equipped[i];if(!FusionCatalog.Valid(id)||++used[id]>owned[id])equipped[i]=-1;else discovered[id]=true;}
             hasEquippedCompanion |= Array.Exists(equipped, FusionCatalog.Valid);
             version = 4;
             duration = phase == FusionPhase.Idle ? 0f : FusionRecipe.FusionSeconds;
