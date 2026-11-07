@@ -78,6 +78,8 @@ namespace EchoScrap.Combat
             {
                 deathModel = Instantiate(prefab, transform, false).transform;
                 deathModel.name = "GolgoraCollapsedRig";
+                deathModel.localScale = Vector3.Scale(deathModel.localScale,
+                    EnemyArchetypeData.CreateDefault(EnemyArchetypeId.GolgoraBoss).VisualScale);
                 deathAnimator = deathModel.GetComponentInChildren<Animator>();
                 if (deathAnimator != null)
                 {
@@ -115,7 +117,6 @@ namespace EchoScrap.Combat
             {
                 deathModel.gameObject.SetActive(true);
                 deathModel.position = worldPosition - Vector3.up * .95f;
-                deathModel.localScale = Vector3.one * 3.5f;
                 Vector3 facing = targetPlayer != null ? targetPlayer.position - worldPosition : Vector3.forward;
                 facing.y = 0f;
                 deathModel.rotation = Quaternion.LookRotation(facing.sqrMagnitude > .001f ? facing : Vector3.forward, Vector3.up);

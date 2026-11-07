@@ -431,6 +431,7 @@ namespace EchoScrap.Tests
             encounter.Step(BossEncounter.IntroDuration);
             int awards = 0;
             encounter.ClosingXpAwarded += value => { awards++; Assert.AreEqual(500, value); };
+            Vector3 liveScale = encounter.Boss.GetComponent<MataColeccionistaView>().Model.lossyScale;
             var expectedRng = new DeterministicRandom(session.CurrentSeed);
             var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, encounter.Boss.MaxHealth*2f);
             encounter.Boss.ReceiveDamage(in lethal);
@@ -445,6 +446,8 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0, hazards.ActiveProjectileCount);
             Assert.AreEqual(0, director.ActiveEnemyCount);
             Assert.IsTrue(encounter.DeathPresentation.IsPlaying);
+            Vector3 collapseScale = encounter.DeathPresentation.transform.Find("GolgoraCollapsedRig").lossyScale;
+            Assert.That(Vector3.Distance(collapseScale, liveScale), Is.LessThan(.001f));
             encounter.DeathPresentation.AutoTick = false;
             Time.timeScale = 0f;
             encounter.DeathPresentation.StepUnscaled(0.65f);

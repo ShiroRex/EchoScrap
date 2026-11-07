@@ -43,6 +43,7 @@ namespace EchoScrap.Combat
         private CinemachineFollow follow;
         private Transform originalFollow;
         private Vector3 originalOffset;
+        private Vector3 bossFramingSize;
         private Quaternion originalRotation;
         private float originalFov;
         private Material steel, dormant, hot, warning, field;
@@ -81,6 +82,10 @@ namespace EchoScrap.Combat
             if (!initialized) return;
             RestoreCamera();
             boss = actor;
+            var view = actor != null ? actor.GetComponent<MataColeccionistaView>() : null;
+            bossFramingSize = view != null && view.Model != null
+                ? Vector3.Scale(bossCameraBoundsSize, view.Model.localScale)
+                : bossCameraBoundsSize;
             originalFollow = game.CameraRig.Follow;
             originalOffset = follow != null ? follow.FollowOffset : Vector3.zero;
             originalRotation = game.CameraRig.transform.rotation;
@@ -199,7 +204,7 @@ namespace EchoScrap.Combat
             required = Mathf.Max(required, RequiredCameraDistance(playerHead, cameraAnchor.position, right, up, forward, originalFov, aspect));
             // A stable grounded envelope keeps animation, weapon swings and skinned-mesh culling
             // from pumping the zoom. The cerco jump deliberately leaves this ground-level frame.
-            Vector3 size = Vector3.Max(bossCameraBoundsSize, new Vector3(boss.HitRadius * 2f, 6f, boss.HitRadius * 2f));
+            Vector3 size = Vector3.Max(bossFramingSize, new Vector3(boss.HitRadius * 2f, 6f, boss.HitRadius * 2f));
             Bounds bounds = new Bounds(boss.WorldCenter + Vector3.up * (size.y * .5f - 1f), size);
             for (int corner = 0; corner < 8; corner++)
             {

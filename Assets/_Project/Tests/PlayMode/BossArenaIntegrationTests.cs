@@ -369,10 +369,26 @@ namespace EchoScrap.Tests
                 game.Encounter.Boss.Body.position = game.Encounter.Boss.transform.position = bossPosition;
                 for (int i = 0; i < 300; i++) yield return null;
                 Vector3 playerViewport = game.GameplayCamera.WorldToViewportPoint(playerPosition - Vector3.up);
-                Vector3 bossViewport = game.GameplayCamera.WorldToViewportPoint(bossPosition + Vector3.up * 5f);
                 Assert.That(playerViewport.y, Is.InRange(0.1f, 0.9f));
-                Assert.That(bossViewport.y, Is.InRange(0.1f, 0.9f));
                 Assert.Greater(playerViewport.z, 0f);
+                Transform model = game.Encounter.Boss.GetComponent<MataColeccionistaView>().Model;
+                var bodyMesh = model.GetComponentInChildren<SkinnedMeshRenderer>();
+                var pose = new Mesh();
+                try
+                {
+                    bodyMesh.BakeMesh(pose);
+                    Bounds bounds = pose.bounds;
+                    for (int corner = 0; corner < 8; corner++)
+                    {
+                        Vector3 local = bounds.center + Vector3.Scale(bounds.extents, new Vector3(
+                            (corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f));
+                        Vector3 viewport = game.GameplayCamera.WorldToViewportPoint(bodyMesh.transform.TransformPoint(local));
+                        Assert.That(viewport.x, Is.InRange(0.05f, 0.95f));
+                        Assert.That(viewport.y, Is.InRange(0.05f, 0.95f));
+                        Assert.Greater(viewport.z, 0f);
+                    }
+                }
+                finally { Object.Destroy(pose); }
                 Assert.Less(Quaternion.Angle(rotation, game.CameraRig.transform.rotation), 0.01f);
             }
             finally { Time.captureFramerate = previousCaptureRate; }
