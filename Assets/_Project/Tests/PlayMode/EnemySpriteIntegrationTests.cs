@@ -120,6 +120,8 @@ namespace EchoScrap.Tests
 
         [TestCase(EnemyArchetypeId.Residual)]
         [TestCase(EnemyArchetypeId.Interceptor)]
+        [TestCase(EnemyArchetypeId.GhostKnight)]
+        [TestCase(EnemyArchetypeId.CopperSentinel)]
         public void EnlargedSpriteRetainsTheAuthoredCollider(EnemyArchetypeId id)
         {
             var actor = enemies.Spawn(id, new Vector3(4, 1, 0));

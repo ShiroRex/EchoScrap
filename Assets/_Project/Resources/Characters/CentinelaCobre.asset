@@ -739,6 +739,7 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: e026514403bd33442bf5347b80114d73, type: 2}
   shadowMaterial: {fileID: 2100000, guid: 3da88568647bc664fa32d1409df61a6e, type: 2}
   pixelsPerUnit: 30
+  presentationScale: 1.41
   movingThreshold: 0.15
   directionHysteresis: 0.12
   contactFrame: 3
