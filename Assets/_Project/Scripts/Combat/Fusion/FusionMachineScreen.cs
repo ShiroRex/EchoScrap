@@ -22,10 +22,11 @@ namespace EchoScrap.Combat
             var root = new GameObject("PantallaFrontalFusion", typeof(RectTransform), typeof(Canvas));
             root.transform.SetParent(owner.transform, false);
             // Inside the rectangular bezel baked into MaquinaFusion/CarcasaFusion.
-            root.transform.localPosition = new Vector3(-3.35f, 3.51f, -2.17f);
+            // Bezel opening: x -4.33..-2.51, y 3.11..3.65; recessed face at z -0.862 (lip at -0.97).
+            root.transform.localPosition = new Vector3(-3.42f, 3.38f, -0.87f);
             root.transform.localRotation = Quaternion.identity;
             root.transform.localScale = Vector3.one * .005f;
-            root.GetComponent<RectTransform>().sizeDelta = new Vector2(300, 94);
+            root.GetComponent<RectTransform>().sizeDelta = new Vector2(356, 102);
             screen = root.GetComponent<Canvas>();screen.renderMode = RenderMode.WorldSpace;
             var background = root.AddComponent<Image>();background.color = new Color(.012f,.035f,.025f);background.raycastTarget = false;
             var font = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
