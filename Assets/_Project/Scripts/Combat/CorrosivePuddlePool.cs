@@ -26,7 +26,6 @@ namespace EchoScrap.Combat
         private static readonly int GlowStrengthId = Shader.PropertyToID("_GlowStrength");
         private static readonly int EffectAgeId = Shader.PropertyToID("_EffectAge");
         private static readonly int SeedId = Shader.PropertyToID("_Seed");
-        private static readonly int BoundaryId = Shader.PropertyToID("_Boundary");
         private static readonly Color WarningColor = new Color(1f, 0.74f, 0.16f, 0.95f);
         private static readonly Color AcidBorderColor = new Color(0.68f, 1f, 0.22f, 0.95f);
         [SerializeField] private CombatSession session;
@@ -136,7 +135,7 @@ namespace EchoScrap.Combat
         private readonly ProjectileSlot[] projectiles = new ProjectileSlot[MaxInFlightProjectiles];
         private readonly PuddleSlot[] puddles = new PuddleSlot[MaxActivePuddles];
         private Material acidMaterial;
-        private Material magmaGroundMaterial;
+        private Material magmaGroundMaterial, magmaOutlineMaterial;
         private GolgoraMeteorVfx.Shared magmaArt;
         private Mesh ringMesh;
         private Mesh discMesh;
@@ -277,6 +276,7 @@ namespace EchoScrap.Combat
             UnsubscribeFromSession();
             if (acidMaterial != null) Destroy(acidMaterial);
             if (magmaGroundMaterial != null) Destroy(magmaGroundMaterial);
+            if (magmaOutlineMaterial != null) Destroy(magmaOutlineMaterial);
             magmaArt?.Dispose();
             if (ringMesh != null) Destroy(ringMesh);
             if (discMesh != null) Destroy(discMesh);
@@ -326,6 +326,7 @@ namespace EchoScrap.Combat
                 if (slot.MagmaVisual == null) slot.MagmaVisual = new GolgoraMeteorVfx.Flight(slot.Root.transform, magmaArt);
             }
             slot.ShellRenderer.enabled = !magma;
+            slot.ReticleRenderer.sharedMaterial = magma ? magmaOutlineMaterial : acidMaterial;
             if (slot.MagmaVisual != null) slot.MagmaVisual.Root.SetActive(magma);
             slot.ShellRenderer.sharedMaterial = acidArt != null ? acidArt.projectileMaterial : acidMaterial;
             slot.Shell.localScale = Vector3.one * (acidArt != null ? acidArt.projectileSize : .34f);
@@ -387,7 +388,7 @@ namespace EchoScrap.Combat
             if (slot.MagmaVisual != null) slot.MagmaVisual.Root.SetActive(magma);
             slot.CoreRenderer.sharedMaterial = magma ? enemyArt != null ? enemyArt.material : magmaGroundMaterial : acidArt != null ? acidArt.puddleMaterial : acidMaterial;
             slot.ImpactRenderer.sharedMaterial = magma ? magmaGroundMaterial : acidArt != null ? acidArt.impactMaterial : acidMaterial;
-            slot.BorderRenderer.sharedMaterial = magma ? magmaGroundMaterial : acidMaterial;
+            slot.BorderRenderer.sharedMaterial = magma ? magmaOutlineMaterial : acidMaterial;
             slot.Root.transform.position = slot.Center + Vector3.up * 0.03f;
             slot.Root.transform.up = ArenaSurface.Normal(position);
             slot.Root.SetActive(true);
@@ -506,7 +507,7 @@ namespace EchoScrap.Combat
             // Fade only the core; the damaging boundary stays fully readable until expiry.
             if (slot.Style == HazardStyle.BossMagma)
             {
-                ApplyMagma(slot.BorderRenderer, new Color(1f, .43f, .035f, 1f), slot.Elapsed, slot.SequenceId, true);
+                ApplyColor(slot.BorderRenderer, new Color(1f, .43f, .035f, 1f));
                 if (enemyArt != null)
                 {
                     var clip = enemyArt.Get(EnemyEffectId.MagmaPuddle);
@@ -516,7 +517,7 @@ namespace EchoScrap.Combat
                     block.SetFloat(GlowStrengthId, clip.glow * DecorativeIntensity * slot.FadeAlpha);
                     slot.CoreRenderer.SetPropertyBlock(block);
                 }
-                else ApplyMagma(slot.CoreRenderer, new Color(1f, .38f, .025f, .9f * slot.FadeAlpha), slot.Elapsed, slot.SequenceId, false);
+                else ApplyMagma(slot.CoreRenderer, new Color(1f, .38f, .025f, .9f * slot.FadeAlpha), slot.Elapsed, slot.SequenceId);
                 slot.ImpactRing.gameObject.SetActive(false);
                 slot.MagmaVisual.Draw(slot.Center, slot.Radius, slot.Elapsed, slot.SequenceId,
                     DecorativeIntensity * slot.FadeAlpha, presentationCamera);
@@ -644,11 +645,14 @@ namespace EchoScrap.Combat
             var asset = Resources.Load<Material>("Golgora/Magma");
             magmaGroundMaterial = asset != null ? new Material(asset) : new Material(acidMaterial);
             magmaGroundMaterial.name = "GolgoraFlowingForgeLava";
+            var outlineShader = Resources.Load<Shader>("Golgora/ForgeEnergy");
+            magmaOutlineMaterial = GolgoraPresentation.CreateOutlineMaterial(
+                outlineShader != null ? outlineShader : acidMaterial.shader, "Golgora magma hazard outlines");
         }
-        private void ApplyMagma(Renderer renderer, Color color, float age, int seed, bool boundary)
+        private void ApplyMagma(Renderer renderer, Color color, float age, int seed)
         {
             block.Clear(); block.SetColor(BaseColorId, color); block.SetFloat(EffectAgeId, age);
-            block.SetFloat(SeedId, seed * .731f); block.SetFloat(BoundaryId, boundary ? 1f : 0f);
+            block.SetFloat(SeedId, seed * .731f);
             renderer.SetPropertyBlock(block);
         }
         private void ApplySpriteFrame(Renderer renderer, int frame, int count, Color tint, float glow)

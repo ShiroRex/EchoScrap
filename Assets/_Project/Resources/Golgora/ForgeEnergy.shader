@@ -10,6 +10,7 @@ Shader "EchoScrap/GolgoraForgeEnergy"
         _EffectAge("Simulation clock (pause aware)", Float) = 0
         _Detail("Decorative detail", Float) = 1
         _Seed("Variation", Float) = 0
+        [Enum(UnityEngine.Rendering.CompareFunction)] _DepthTest("Depth test", Float) = 4
     }
     SubShader
     {
@@ -21,6 +22,7 @@ Shader "EchoScrap/GolgoraForgeEnergy"
             Blend SrcAlpha OneMinusSrcAlpha
             Cull Off
             ZWrite Off
+            ZTest [_DepthTest]
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag

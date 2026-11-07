@@ -110,11 +110,15 @@ namespace EchoScrap.Tests
             CollectionAssert.Contains(CombatTargetRegistry.ActiveTargets, boss);
             Assert.IsTrue(boss.BodyCollider.enabled);
             Assert.GreaterOrEqual(boss.BodyCollider.bounds.min.y, 0.045f, "Scaled boss collider remains above the ground.");
+            Assert.That(boss.HitRadius, Is.EqualTo(2.1f).Within(.001f));
+            Assert.That(boss.BodyCollider.bounds.size.y, Is.EqualTo(6.825f).Within(.001f));
             boss.Step(0.02f);
             Assert.AreEqual(1.6f, boss.Velocity.magnitude, 0.001f);
             boss.ApplyKnockback(Vector3.forward * 20f);
             Assert.AreEqual(Vector3.zero, boss.KnockbackVelocity);
-            MovePlayer(new Vector3(2f, 1f, 0f));
+            MovePlayer(boss.WorldCenter + Vector3.right * (boss.HitRadius + player.HitRadius + .1f));
+            Assert.IsFalse(boss.TryDealContactDamage());
+            MovePlayer(boss.WorldCenter + Vector3.right * (boss.HitRadius + player.HitRadius - .1f));
             Assert.IsTrue(boss.TryDealContactDamage(), "Large collider, not center distance, deals contact.");
             Assert.AreEqual(70f, player.CurrentHealth);
             Assert.IsFalse(boss.TryDealContactDamage());

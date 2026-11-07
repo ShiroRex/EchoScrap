@@ -376,7 +376,7 @@ namespace EchoScrap.Tests
                 var pose = new Mesh();
                 try
                 {
-                    bodyMesh.BakeMesh(pose);
+                    bodyMesh.BakeMesh(pose, useScale: true);
                     Bounds bounds = pose.bounds;
                     for (int corner = 0; corner < 8; corner++)
                     {
