@@ -94,6 +94,21 @@ namespace EchoScrap.Tests
 
         [TestCase(EnemyArchetypeId.Residual)]
         [TestCase(EnemyArchetypeId.Interceptor)]
+        public void EnlargedSpriteRetainsTheAuthoredCollider(EnemyArchetypeId id)
+        {
+            var actor = enemies.Spawn(id, new Vector3(4, 1, 0));
+            var view = actor.GetComponent<EnemySpriteView>();
+            view.Advance(0f);
+            float expected = actor.Archetype.VisualScale.x * view.Sprites.presentationScale;
+            Assert.That(view.CharacterRenderer.transform.lossyScale.x, Is.EqualTo(expected).Within(.001f));
+            Assert.That(view.CharacterRenderer.transform.lossyScale.y, Is.EqualTo(expected).Within(.001f));
+            Assert.That(expected, Is.GreaterThan(actor.Archetype.VisualScale.x));
+            Assert.That(actor.BodyCollider.radius, Is.EqualTo(actor.Archetype.ColliderRadius));
+            Assert.That(actor.BodyCollider.height, Is.EqualTo(actor.Archetype.ColliderHeight));
+        }
+
+        [TestCase(EnemyArchetypeId.Residual)]
+        [TestCase(EnemyArchetypeId.Interceptor)]
         public void WalkingHitPauseAndPoolReuseDoNotLeakAnimationState(EnemyArchetypeId id)
         {
             var actor = enemies.Spawn(id, new Vector3(4, 1, 0));

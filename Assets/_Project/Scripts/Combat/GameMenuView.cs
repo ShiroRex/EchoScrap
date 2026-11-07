@@ -21,6 +21,7 @@ namespace EchoScrap.Combat
         private Button cancelButton, acceptButton;
         private Text confirmTitle, confirmMessage;
         private bool vaultVisible;
+        private GameObject equipmentHint;
         private MenuBackdrop backdrop;
         private Text status;
         public Canvas Canvas { get; private set; }
@@ -82,6 +83,16 @@ namespace EchoScrap.Combat
                 var controls = Label(vault.transform, "WASD / STICK · MOVER     ESPACIO / SUR · DASH     ESC / START · PAUSA", new Vector2(0, 36), new Vector2(1400, 32), 20, Color.white);
                 controls.rectTransform.anchorMin = controls.rectTransform.anchorMax = new Vector2(.5f, 0);
                 Link(menuButton, startButton, startButton); Link(startButton, menuButton, menuButton);
+
+                var hint = Rect(root.transform, "EquipmentHint", new Vector2(0, 111), new Vector2(850, 60));
+                hint.anchorMin = hint.anchorMax = new Vector2(.5f, 0);
+                var hintBacking = hint.gameObject.AddComponent<Image>();
+                hintBacking.color = new Color(.035f, .045f, .065f, .9f);
+                hintBacking.raycastTarget = false;
+                Label(hint, "Equipa una entidad en el balcón con E para activar su poder.", Vector2.zero,
+                    new Vector2(815, 46), 23, new Color(1f, .81f, .47f));
+                equipmentHint = hint.gameObject;
+                equipmentHint.SetActive(false);
 
                 var worldFlow = (GameFlowController)flow;
                 expeditionSelection = Overlay(root.transform, "ExpeditionSelection", SelectionShade);
@@ -146,6 +157,9 @@ namespace EchoScrap.Combat
         {
             if (vault == null) return;
             bool visible = game != null && flow.State == GameFlowState.Vault && !game.Session.IsPaused && !flow.IsConfirming;
+            bool showHint = game.Session.IsInWarehouse && !game.Session.IsPaused && game.Player.IsAlive
+                && flow is GameFlowController world && !world.OwnsOverlay && world.ShowEquipmentHint;
+            if (equipmentHint.activeSelf != showHint) equipmentHint.SetActive(showHint);
             if (vaultVisible == visible && vault.activeSelf == visible) return;
             vaultVisible = visible; vault.SetActive(visible);
         }

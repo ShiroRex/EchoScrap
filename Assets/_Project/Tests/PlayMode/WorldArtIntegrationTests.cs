@@ -69,11 +69,9 @@ namespace EchoScrap.Tests
             {
                 foreach (var material in renderer.sharedMaterials)
                 {
-                    Assert.AreEqual(
-                        "Universal Render Pipeline/Lit",
-                        material.shader.name,
-                        renderer.name
-                    );
+                    string shader = renderer.transform.parent.name.StartsWith("casa_", System.StringComparison.Ordinal)
+                        ? "EchoScrap/Cabin Roof" : "Universal Render Pipeline/Lit";
+                    Assert.AreEqual(shader, material.shader.name, renderer.name);
 
                     Assert.IsNotNull(
                         material.GetTexture("_BaseMap"),

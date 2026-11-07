@@ -60,12 +60,14 @@ namespace EchoScrap.Combat
         private float fogDensity, fogStart, fogEnd;
         private bool inside, initialized, decorationEnabled = true, dustActive = true, atmosphereEnabled = true, focusEnabled = true;
         private readonly ArenaLightingShaderState shaderState = new ArenaLightingShaderState();
+        private static readonly int CabinReveal = Shader.PropertyToID("_EchoCabinReveal");
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
             Active = null;
             Shader.SetGlobalFloat("_EchoArenaAtmosphereActive", 0f);
+            Shader.SetGlobalVector(CabinReveal, Vector4.zero);
         }
 
         public void Initialize(CombatGameBootstrap owner, ArenaLightingProfile profile)
@@ -204,9 +206,26 @@ namespace EchoScrap.Combat
             dustActive = showDust;
         }
 
-        private void OnEnable() { if (initialized) { Active = this; ApplyEnvironment(); } }
+        private void OnEnable()
+        {
+            RenderPipelineManager.beginCameraRendering += ApplyCabinVisibility;
+            RenderPipelineManager.endCameraRendering += ClearCabinVisibility;
+            if (initialized) { Active = this; ApplyEnvironment(); }
+        }
         private void LateUpdate() { if (initialized) PushGlobals(); }
         private void PushGlobals() => shaderState.Apply(this, Time.time);
+
+        private void ApplyCabinVisibility(ScriptableRenderContext context, Camera camera)
+        {
+            if (!initialized || camera != GameplayCamera || game.Session.IsInWarehouse || !game.Player.IsAlive) return;
+            Vector3 target = PlayerPosition + Vector3.up * .6f;
+            Shader.SetGlobalVector(CabinReveal, new Vector4(target.x, target.y, target.z, 1f));
+        }
+
+        private void ClearCabinVisibility(ScriptableRenderContext context, Camera camera)
+        {
+            if (camera == GameplayCamera) Shader.SetGlobalVector(CabinReveal, Vector4.zero);
+        }
 
         private void RestoreEnvironment()
         {
@@ -219,6 +238,8 @@ namespace EchoScrap.Combat
         }
         private void OnDisable()
         {
+            RenderPipelineManager.beginCameraRendering -= ApplyCabinVisibility;
+            RenderPipelineManager.endCameraRendering -= ClearCabinVisibility;
             if (!initialized) return;
             if (!inside) ApplyExteriorCamera();
             if (UnityEngine.SceneManagement.SceneManager.GetActiveScene() == game.gameObject.scene) RestoreEnvironment();
@@ -241,6 +262,7 @@ namespace EchoScrap.Combat
             {
                 Active = null;
                 Shader.SetGlobalFloat("_EchoArenaAtmosphereActive", 0f);
+                Shader.SetGlobalVector(CabinReveal, Vector4.zero);
             }
         }
         private void OnDestroy()

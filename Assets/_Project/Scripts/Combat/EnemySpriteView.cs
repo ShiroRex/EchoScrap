@@ -151,13 +151,19 @@ namespace EchoScrap.Combat
             Vector3 feet = actor.VisualComposer.PresentationPivot.position + Vector3.down;
             Quaternion yaw = Quaternion.Euler(0f, viewCamera != null ? viewCamera.transform.eulerAngles.y : 0f, 0f);
             pixels.transform.SetPositionAndRotation(feet, yaw);
-            Vector3 parent = pixels.transform.parent.lossyScale;
-            float scale = actor.Archetype.VisualScale.x;
-            pixels.transform.localScale = new Vector3(scale / parent.x, scale / parent.y, scale / parent.z);
+            float scale = actor.Archetype.VisualScale.x * sprites.presentationScale;
+            ApplyWorldScale(pixels.transform, scale);
             shadow.transform.SetPositionAndRotation(ArenaSurface.OnGround(transform.position, .035f),
                 Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(transform.position)));
-            Vector3 root = transform.lossyScale;
-            shadow.transform.localScale = new Vector3(scale / root.x, scale / root.y, scale / root.z);
+            ApplyWorldScale(shadow.transform, scale);
+        }
+
+        private static void ApplyWorldScale(Transform visual, float scale)
+        {
+            // A camera-facing sprite can be rotated relative to the interceptor's stretched body.
+            Vector3 local = visual.localScale;
+            Vector3 world = visual.lossyScale;
+            visual.localScale = new Vector3(local.x * scale / world.x, local.y * scale / world.y, local.z * scale / world.z);
         }
 
         public void PlayDeath()

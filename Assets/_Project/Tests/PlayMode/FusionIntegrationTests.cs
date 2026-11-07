@@ -48,10 +48,11 @@ namespace EchoScrap.Tests
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;
             Assert.IsTrue(station.IsMenuOpen);Assert.IsTrue(game.Session.Clock.HasPauseReason(PauseReason.FusionMenu));
             var ui=station.GetComponent<FusionStationUI>();ui.AddIngredient(0);ui.AddIngredient(0);ui.AddIngredient(0);ui.AddIngredient(0);
+            Assert.IsTrue(ui.GetComponentsInChildren<UnityEngine.UI.Text>().Any(text=>text.text=="TIEMPO DE FUSIÓN  00:30"));
             yield return Capture("InventarioFusion",true);
-            Assert.IsTrue(station.StartFusion(new[]{0,0,0,0}));Assert.IsFalse(station.IsMenuOpen);Assert.IsFalse(game.Session.IsPaused);Assert.AreEqual(60,station.Progress.duration);
+            Assert.IsTrue(station.StartFusion(new[]{0,0,0,0}));Assert.IsFalse(station.IsMenuOpen);Assert.IsFalse(game.Session.IsPaused);Assert.AreEqual(30,station.Progress.duration);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;
-            Assert.IsFalse(station.TryOpenMenu(),"A running fusion cannot be restarted.");station.Advance(60);Assert.AreEqual(FusionPhase.Ready,station.Progress.phase);Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);
+            Assert.IsFalse(station.TryOpenMenu(),"A running fusion cannot be restarted.");station.Advance(30);Assert.AreEqual(FusionPhase.Ready,station.Progress.phase);Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);
             yield return new WaitForSecondsRealtime(.7f);
             int id=station.Progress.result;int before=station.Progress.owned[id];Assert.IsTrue(station.IsMenuOpen);
             yield return Capture("ResultadoFusion",true);
@@ -177,6 +178,11 @@ namespace EchoScrap.Tests
             Assert.IsTrue(travel.TryTravel(false,game.Player));yield return new WaitForFixedUpdate();
             Assert.IsTrue(game.Session.IsInWarehouse);Assert.Greater(station.transform.position.x,150);
             Assert.AreEqual(10,station.DisplaySlots.Length);
+            Bounds capsule=GameObject.Find("Capsula_7").GetComponent<Collider>().bounds;
+            Bounds stairEdge=GameObject.Find("BordeEscaleraDerecho").GetComponent<Collider>().bounds;
+            Assert.IsFalse(capsule.Intersects(stairEdge));
+            Assert.That(station.DisplaySlots[6].position.x,Is.EqualTo(capsule.center.x).Within(.01f));
+            Assert.That(station.DisplaySlots[6].position.z,Is.EqualTo(capsule.center.z).Within(.01f));
             Assert.AreEqual(5,ArenaSurface.Height(new Vector3(167,0,24)),.05f);
             Assert.That(ArenaSurface.Height(new Vector3(160,0,8)),Is.InRange(2.8f,3.8f));
             Assert.AreEqual(0,ArenaSurface.Height(new Vector3(180,0,-12)),.05f);

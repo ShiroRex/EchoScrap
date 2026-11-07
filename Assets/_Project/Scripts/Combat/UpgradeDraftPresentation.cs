@@ -48,6 +48,8 @@ namespace EchoScrap.Combat
         private Text rerollLabel;
         private Text title;
         private Text subtitle;
+        private Text countdown;
+        private int displayedSeconds = -1;
         private Text emptyMessage;
         private Font font;
         private UpgradeCardSkin skin;
@@ -105,8 +107,8 @@ namespace EchoScrap.Combat
         }
         private void Update()
         {
-            StepPresentation(Time.unscaledDeltaTime);
             if (Application.isFocused) StepInput(Time.unscaledDeltaTime);
+            StepPresentation(Time.unscaledDeltaTime);
         }
         private void OnApplicationFocus(bool hasFocus)
         {
@@ -123,7 +125,12 @@ namespace EchoScrap.Combat
             if (unscaledDeltaTime < 0f || canvasRoot == null || !canvasRoot.activeSelf ||
                 (session != null && session.Clock.HasPauseReason(PauseReason.FocusLost))) return;
             AnimateCards(unscaledDeltaTime);
-            if (!IsConfirming) return;
+            if (!IsConfirming)
+            {
+                if (Application.isFocused) controller.AdvanceSelectionTime(unscaledDeltaTime);
+                RefreshCountdown();
+                return;
+            }
             confirmationTime += unscaledDeltaTime;
             float duration = session != null && session.Effects.DecorativeIntensity <= 0f ? 0f : 0.16f;
             float t = duration > 0f ? Mathf.Clamp01(confirmationTime / duration) : 1f;
@@ -289,6 +296,8 @@ namespace EchoScrap.Combat
             rerollButton.gameObject.SetActive(controller.RerollsRemaining > 0);
             rerollLabel.text = "REINTENTAR [R / Y]  ·  " + controller.RerollsRemaining;
             bool empty = controller.Offers.Count == 0;
+            countdown.gameObject.SetActive(!empty);
+            RefreshCountdown();
             emptyMessage.gameObject.SetActive(empty);
             continueButton.gameObject.SetActive(empty);
             UpgradeRarity highest = UpgradeRarity.N;
@@ -346,6 +355,14 @@ namespace EchoScrap.Combat
             ApplySelection();
             AnimateCards(0f);
         }
+        private void RefreshCountdown()
+        {
+            int seconds = Mathf.CeilToInt(controller.SelectionTimeRemaining);
+            if (seconds == displayedSeconds) return;
+            displayedSeconds = seconds;
+            countdown.text = $"ELECCIÓN ALEATORIA EN {seconds} s";
+            countdown.color = seconds <= 3 ? new Color(1f, .62f, .37f) : new Color(.91f, .84f, .70f);
+        }
         private void ApplySelection()
         {
             if (controller == null) return;
@@ -385,6 +402,7 @@ namespace EchoScrap.Combat
             title.color = new Color(0.91f, 0.84f, 0.70f);
             subtitle = TextRect(canvasRect, "Subtitle", new Vector2(0f, 418f), new Vector2(1400f, 32f), 21, FontStyle.Normal, TextAnchor.MiddleCenter);
             subtitle.color = new Color(0.62f, 0.68f, 0.72f);
+            countdown = TextRect(canvasRect, "Countdown", new Vector2(0f, 342f), new Vector2(420f, 32f), 21, FontStyle.Bold, TextAnchor.MiddleCenter);
             rerollButton = ImageRect(canvasRect, "RerollButton", new Vector2(0f, 384f), new Vector2(340f, 34f), new Color(.55f,.72f,.8f));
             var rerollImage = rerollButton.GetComponent<Image>(); rerollImage.sprite=skin.chooseButton; rerollImage.type=Image.Type.Sliced;
             rerollLabel=TextRect(rerollButton,"RerollLabel",Vector2.zero,new Vector2(330f,44f),20,FontStyle.Bold,TextAnchor.MiddleCenter);

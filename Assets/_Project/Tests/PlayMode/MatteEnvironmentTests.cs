@@ -56,7 +56,9 @@ namespace EchoScrap.Tests
             {
                 var material = AssetDatabase.LoadAssetAtPath<Material>(path.Replace('\\', '/'));
                 Assert.That(material, Is.Not.Null, path);
-                Assert.That(material.shader.name, Is.EqualTo("Universal Render Pipeline/Lit"), path);
+                string shader = path.Replace('\\', '/').StartsWith(TextureRoot + "casa/")
+                    ? "EchoScrap/Cabin Roof" : "Universal Render Pipeline/Lit";
+                Assert.That(material.shader.name, Is.EqualTo(shader), path);
                 Assert.That(material.GetFloat("_SpecularHighlights"), Is.Zero, path);
                 Assert.That(material.GetFloat("_EnvironmentReflections"), Is.Zero, path);
                 Assert.That(material.IsKeywordEnabled("_SPECULARHIGHLIGHTS_OFF"), Is.True, path);

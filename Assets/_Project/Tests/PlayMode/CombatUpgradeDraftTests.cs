@@ -156,6 +156,30 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void TimeoutChoosesOneOfferedCardAndRestartsForTheNextLevel()
+        {
+            progression.AddExperience(500);
+            string offers = OfferIds();
+            string selected = null;
+            draft.OnCardChosen += card => selected = card.Id;
+
+            draft.AdvanceSelectionTime(11f);
+            Assert.That(draft.PendingChoices, Is.EqualTo(3));
+            Assert.That(draft.SelectionTimeRemaining, Is.EqualTo(1f));
+            session.SimulateFocusChange(false);
+            draft.AdvanceSelectionTime(10f);
+            Assert.That(draft.SelectionTimeRemaining, Is.EqualTo(1f));
+            session.SimulateFocusChange(true);
+            draft.AdvanceSelectionTime(1f);
+
+            Assert.That(selected, Is.Not.Null);
+            Assert.That(offers, Does.Contain(selected + ";"));
+            Assert.That(draft.PendingChoices, Is.EqualTo(2));
+            Assert.That(draft.SelectionTimeRemaining, Is.EqualTo(12f));
+            Assert.That(session.Clock.HasPauseReason(PauseReason.TacticalDraft), Is.True);
+        }
+
+        [Test]
         public void CappedCardsAreExcluded_RaritiesRenormalize_AndSolarNeedsNoPrerequisite()
         {
             // Leave only one rare and the SSR: empty N/SR weights must not produce an invalid offer.
@@ -1024,6 +1048,11 @@ namespace EchoScrap.Tests
             var rerollBounds=RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,view.CanvasRoot.transform.Find("RerollButton"));
             var labelBounds=RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform,middle.Find("NewBadge"));
             Assert.That(rerollBounds.Intersects(labelBounds),Is.False,"The larger confirmation must not collide with the header.");
+            var countdown = view.CanvasRoot.transform.Find("Countdown");
+            var countdownBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(view.CanvasRoot.transform, countdown);
+            Assert.That(countdown.GetComponent<Text>().text, Does.StartWith("ELECCIÓN ALEATORIA EN "));
+            Assert.IsFalse(countdownBounds.Intersects(rerollBounds));
+            Assert.IsFalse(countdownBounds.Intersects(labelBounds));
         }
 
         [UnityTest]

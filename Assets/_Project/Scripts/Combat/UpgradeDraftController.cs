@@ -21,6 +21,8 @@ namespace EchoScrap.Combat
         private CombatProgression subscribedProgression;
         private IReadOnlyList<UpgradeOffer> readOnlyOffers;
         private bool resolving;
+        public const float SelectionSeconds = 12f;
+        public float SelectionTimeRemaining { get; private set; }
         public bool IsOpen { get; private set; }
         public bool HasAvailableCards => offers.Count > 0;
         public IReadOnlyList<UpgradeOffer> Offers => readOnlyOffers ??= offers.AsReadOnly();
@@ -132,8 +134,19 @@ namespace EchoScrap.Combat
             if (IsOpen) return; // Input, paints and duplicate progression events cannot reroll.
             IsOpen = true;
             session.SetTacticalDraftPause(true);
+            SelectionTimeRemaining = SelectionSeconds;
             GenerateOffers();
             OnOffersChanged?.Invoke();
+        }
+        public void AdvanceSelectionTime(float unscaledDeltaTime)
+        {
+            if (!IsOpen || resolving || offers.Count == 0 || !(unscaledDeltaTime > 0f) ||
+                (session.Clock.ActiveReasons & (PauseReason.Manual | PauseReason.FocusLost)) != PauseReason.None)
+                return;
+
+            SelectionTimeRemaining = Mathf.Max(0f, SelectionTimeRemaining - unscaledDeltaTime);
+            if (SelectionTimeRemaining == 0f)
+                TryChoose(session.Rng.Combat.Range(0, offers.Count));
         }
         private void GenerateOffers()
         {
@@ -185,6 +198,7 @@ namespace EchoScrap.Combat
                 OnCardChosen?.Invoke(offer.Card);
                 if (progression.PendingChoices > 0)
                 {
+                    SelectionTimeRemaining = SelectionSeconds;
                     GenerateOffers();
                     OnOffersChanged?.Invoke();
                 }
@@ -215,6 +229,7 @@ namespace EchoScrap.Combat
         {
             bool changed = IsOpen || offers.Count > 0;
             IsOpen = false; offers.Clear();
+            SelectionTimeRemaining = 0f;
             if (session != null && session.Clock.HasPauseReason(PauseReason.TacticalDraft))
                 session.ConfirmDraftSelectionAndResume();
             if (changed) OnOffersChanged?.Invoke();
@@ -222,6 +237,7 @@ namespace EchoScrap.Combat
         private void ResetForSession()
         {
             IsOpen = false; offers.Clear(); candidates.Clear(); resolving = false; rerollsUsed = 0;
+            SelectionTimeRemaining = 0f;
             OnOffersChanged?.Invoke();
         }
     }

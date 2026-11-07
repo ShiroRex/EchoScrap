@@ -23,6 +23,7 @@ namespace EchoScrap.Combat
     }
     public readonly struct FusionRecipe
     {
+        public const int FusionSeconds = 30;
         public readonly int Seconds;
         private readonly int[] weights;
         public int Common=>ResultWeight(8)/100;
@@ -31,7 +32,11 @@ namespace EchoScrap.Combat
         public int Epic=>ResultWeight(11)/100;
         public int Legendary=>ResultWeight(12)/100;
         public int Mythic=>ResultWeight(4)/100;
-        private FusionRecipe(int seconds,int[] values){Seconds=seconds;weights=values;}
+        private FusionRecipe(int[] values)
+        {
+            Seconds = FusionSeconds;
+            weights = values;
+        }
         public string Odds { get { var recipe=this;return string.Join(" · ",FusionCatalog.FusionIds.Where(id=>recipe.ResultWeight(id)>0).Select(id=>FusionCatalog.Names[id]+" "+recipe.ResultPercent(id).ToString("0.##")+"%")); } }
         public static bool TryCreate(int[] ingredients,out FusionRecipe recipe){recipe=default;return ingredients!=null&&ingredients.Length==4&&TryPreview(ingredients,out recipe);}
         public static bool TryPreview(int[] ingredients,out FusionRecipe recipe)
@@ -47,7 +52,7 @@ namespace EchoScrap.Combat
             var w=new int[FusionCatalog.Count];float[] fractions=new float[5];int assigned=0;
             for(int i=0;i<5;i++){float exact=Mathf.Lerp(table[low,i],table[high,i],qualityMean-low)*remaining/100;int value=Mathf.FloorToInt(exact);w[FusionCatalog.FusionIds[i]]=value;fractions[i]=exact-value;assigned+=value;}
             while(assigned<remaining){int best=0;for(int i=1;i<5;i++)if(fractions[i]>fractions[best])best=i;w[FusionCatalog.FusionIds[best]]++;fractions[best]=-1;assigned++;}
-            w[4]=mythic*100;recipe=new FusionRecipe(total==0?60:qualityMean<2?120:180,w);return true;
+            w[4]=mythic*100;recipe=new FusionRecipe(w);return true;
         }
         public int ResultWeight(int id)=>weights!=null&&FusionCatalog.Valid(id)?weights[id]:0;
         public float ResultPercent(int id)=>ResultWeight(id)/100f;
@@ -72,6 +77,7 @@ namespace EchoScrap.Combat
             owned[id]++;return true;
         }
         public int version=4;
+        public bool hasEquippedCompanion;
         public int[] equipped={-1,-1,-1};
         public FusionPhase phase;
         public float remaining,duration,opening;
@@ -103,7 +109,7 @@ namespace EchoScrap.Combat
         public void Validate()
         {
             // Prototype collections are deliberately discarded once; production saves keep all counts.
-            if(version<4||owned==null){owned=new int[FusionCatalog.Count];equipped=new[]{-1,-1,-1};phase=FusionPhase.Idle;result=-1;}
+            if(version<4||owned==null){owned=new int[FusionCatalog.Count];equipped=new[]{-1,-1,-1};phase=FusionPhase.Idle;result=-1;hasEquippedCompanion=false;}
             if(owned.Length!=FusionCatalog.Count)Array.Resize(ref owned,FusionCatalog.Count);
             for(int i=0;i<owned.Length;i++)owned[i]=Mathf.Max(0,owned[i]);
             if(displays==null||displays.Length!=10)displays=Enumerable.Repeat(-1,10).ToArray();
@@ -112,7 +118,12 @@ namespace EchoScrap.Combat
             if(phase==FusionPhase.Opening){phase=FusionPhase.Ready;opening=0;}
             if(equipped==null||equipped.Length!=3)equipped=new[]{-1,-1,-1};var used=new int[FusionCatalog.Count];
             for(int i=0;i<3;i++){int id=equipped[i];if(!FusionCatalog.Valid(id)||++used[id]>owned[id])equipped[i]=-1;}
-            version=4;remaining=float.IsNaN(remaining)||float.IsInfinity(remaining)?180:Mathf.Clamp(remaining,0,180);duration=Mathf.Clamp(duration,60,180);opening=float.IsNaN(opening)?0:Mathf.Clamp01(opening);
+            hasEquippedCompanion |= Array.Exists(equipped, FusionCatalog.Valid);
+            version = 4;
+            duration = phase == FusionPhase.Idle ? 0f : FusionRecipe.FusionSeconds;
+            if (float.IsNaN(remaining) || float.IsInfinity(remaining)) remaining = duration;
+            remaining = phase == FusionPhase.Fusing ? Mathf.Clamp(remaining, 0f, duration) : 0f;
+            opening = float.IsNaN(opening) ? 0f : Mathf.Clamp01(opening);
         }
     }
 }

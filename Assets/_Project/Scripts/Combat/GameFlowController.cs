@@ -36,6 +36,8 @@ namespace EchoScrap.Combat
         public bool HasCollection => persist
             ? PlayerPrefs.HasKey(ProfileKey) || PlayerPrefs.HasKey(FusionStation.SaveKey) : transientProfile;
         public GameMenuView View => view;
+        public bool ShowEquipmentHint => station?.Progress is FusionProgress progress
+            && progress.OwnedCount > 0 && !progress.hasEquippedCompanion;
 
         public void Initialize(CombatGameBootstrap owner, bool saveProgress = true, bool useSeparateScenes = false)
         {

@@ -120,7 +120,8 @@ namespace EchoScrap.Combat
                 possibleText[i].text=visible?FusionCatalog.Names[i]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[i]]+"\n"+chance[i].ToString("0.##")+"%":"";
                 if(visible){float x=517+(index++-(visibleCount-1)*.5f)*Mathf.Min(202,1000f/visibleCount);Rect(possibleArt[i].rectTransform,new Vector2(x-40,4),new Vector2(80,76));Rect(possibleText[i].rectTransform,new Vector2(x-85,80),new Vector2(170,72));}
             }
-            odds.text=preview?"TIEMPO DE FUSIÓN  "+recipe.Seconds/60+":00"+(valid?"":" · ESTIMADO"):"TIEMPO DE FUSIÓN  —";
+            string time = preview ? $"{recipe.Seconds / 60:00}:{recipe.Seconds % 60:00}" : "—";
+            odds.text = $"TIEMPO DE FUSIÓN  {time}" + (preview && !valid ? " · ESTIMADO" : "");
             selection.text=valid?"4 / 4 · Listo para fusionar":chosen.Length+" / 4 · Vista previa según la calidad actual; completa los cuatro espacios.";
         }
         private Image Portrait(Transform parent,Vector2 position,Vector2 size)

@@ -77,6 +77,30 @@ namespace EchoScrap.Tests
         }
         private Button HudButton(string path) => game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/" + path).GetComponent<Button>();
 
+        [UnityTest] public IEnumerator FirstCollectibleShowsVaultHintUntilEquipmentHasBeenUsed()
+        {
+            yield return StartRun();
+            var hint = flow.View.Canvas.transform.Find("EquipmentHint").gameObject;
+            Assert.IsFalse(hint.activeSelf);
+            Assert.IsTrue(station.CollectFromArena(FusionCatalog.MapIds[0]));
+            yield return null;
+            Assert.IsFalse(hint.activeSelf);
+            Assert.IsTrue(travel.TryTravel(false, game.Player));
+            yield return null;
+            Assert.IsTrue(hint.activeSelf);
+            for (int i = 0; i < 3; i++)
+            {
+                var label = station.DisplaySlots[i].GetComponentInChildren<Text>();
+                Assert.That(label.text, Is.EqualTo($"EQUIPO {i + 1}"));
+            }
+            Assert.IsTrue(station.EquipCompanion(0, FusionCatalog.MapIds[0]));
+            yield return null;
+            Assert.IsFalse(hint.activeSelf);
+            Assert.IsTrue(station.EquipCompanion(0, -1));
+            yield return null;
+            Assert.IsFalse(hint.activeSelf);
+        }
+
         [UnityTest] public IEnumerator TitleFreezesWorldAndContinueRequiresACollection()
         {
             Assert.That(flow.State, Is.EqualTo(GameFlowState.MainMenu));

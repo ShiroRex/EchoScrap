@@ -11,6 +11,7 @@ namespace EchoScrap.Combat
         public Mesh mesh, shadowMesh;
         public Material material, shadowMaterial;
         [Min(1f)] public float pixelsPerUnit = 30f;
+        [Min(.1f)] public float presentationScale = 1f;
         [Min(0f)] public float movingThreshold = 0.15f;
         [Range(0f, .5f)] public float directionHysteresis = .12f;
         [Min(0)] public int contactFrame = 3;

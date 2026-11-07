@@ -33,7 +33,12 @@ namespace EchoScrap.Combat
             doorTop=slats.Length==0?Door.position.y+4.3f:slats.Max(t=>t.GetComponent<Renderer>().bounds.max.y);
             resultView=new GameObject("ResultadoFusion").AddComponent<CollectibleDisplay>();resultView.transform.SetParent(transform,false);resultView.transform.position=ResultPoint.position;
             displays=new CollectibleDisplay[DisplaySlots.Length];
-            for(int i=0;i<displays.Length;i++){displays[i]=new GameObject("Coleccionable_"+(i+1)).AddComponent<CollectibleDisplay>();displays[i].transform.SetParent(DisplaySlots[i],false);}
+            for(int i=0;i<displays.Length;i++)
+            {
+                displays[i]=new GameObject("Coleccionable_"+(i+1)).AddComponent<CollectibleDisplay>();
+                displays[i].transform.SetParent(DisplaySlots[i],false);
+                if(i<3) displays[i].MarkEquipmentSlot(i+1,game);
+            }
             smoke=gameObject.AddComponent<FusionRevealSmoke>();
             openingAudio=new GameObject("FusionOpenAudio").AddComponent<AudioSource>();
             openingAudio.transform.SetParent(transform,false);openingAudio.playOnAwake=false;openingAudio.loop=false;
@@ -117,7 +122,9 @@ namespace EchoScrap.Combat
             if(game==null||!game.Session.IsInWarehouse||slot<0||slot>=3||id < -1||id>=FusionCatalog.Count)return false;
             if(id>=0){int used=0;for(int i=0;i<3;i++)if(i!=slot&&Progress.equipped[i]==id)used++;
                 if(Progress.owned[id]<=used)return false;}
-            Progress.equipped[slot]=id;RefreshDisplays();Save();return true;
+            Progress.equipped[slot]=id;
+            if(id>=0) Progress.hasEquippedCompanion=true;
+            RefreshDisplays();Save();return true;
 
         }
         public void ResetCollection()

@@ -7,11 +7,29 @@ namespace EchoScrap.Combat
         [System.Serializable] private sealed class Timing {public float[] durations;}
         private SpriteRenderer visual;private Sprite[] frames;private float[] times;
         private float elapsed;private int frame;private float height;
-        private Camera cameraView;private Canvas label;private Text nameText,rarityText;
+        private Camera cameraView;private Canvas label,equipmentLabel;private Text nameText,rarityText;
         private float spriteScale;private bool showTitle;private CombatGameBootstrap game;
         public int CollectibleId {get;private set;}=-1;
         public static Sprite FrontSprite(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/000"):null;
         public static Sprite CardPortrait(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/CardPortrait"):null;
+        public void MarkEquipmentSlot(int number,CombatGameBootstrap owner)
+        {
+            game=owner;
+            equipmentLabel=new GameObject("PuestoEquipo",typeof(RectTransform),typeof(Canvas),typeof(Image)).GetComponent<Canvas>();
+            equipmentLabel.transform.SetParent(transform,false);
+            equipmentLabel.transform.localPosition=new Vector3(0,.2f,-2.55f);
+            equipmentLabel.transform.localScale=Vector3.one*.01f;
+            equipmentLabel.renderMode=RenderMode.WorldSpace;
+            equipmentLabel.GetComponent<RectTransform>().sizeDelta=new Vector2(265,64);
+            var background=equipmentLabel.GetComponent<Image>();
+            background.color=new Color(.045f,.06f,.08f,.96f);
+            background.raycastTarget=false;
+            var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            var text=Title(equipmentLabel,"Equipo",0,36,skin.semibold);
+            text.text=$"EQUIPO {number}";
+            text.color=new Color(1f,.81f,.47f);
+            equipmentLabel.gameObject.SetActive(false);
+        }
         public void Configure(int id,float displayHeight,bool showLabel)
         {
             CollectibleId=id;height=displayHeight;showTitle=showLabel;
@@ -41,13 +59,13 @@ namespace EchoScrap.Combat
             label.GetComponent<RectTransform>().sizeDelta=new Vector2(400,120);
             label.transform.localScale=Vector3.one*.01f;
             var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
-            nameText=Title("Nombre",28,36,skin.semibold);
-            rarityText=Title("Rareza", -18,26,skin.regular);
+            nameText=Title(label,"Nombre",28,36,skin.semibold);
+            rarityText=Title(label,"Rareza", -18,26,skin.regular);
         }
-        private Text Title(string title,float y,int size,Font font)
+        private static Text Title(Canvas canvas,string title,float y,int size,Font font)
         {
             var text=new GameObject(title,typeof(RectTransform),typeof(Text)).GetComponent<Text>();
-            text.transform.SetParent(label.transform,false);text.rectTransform.sizeDelta=new Vector2(400,80);
+            text.transform.SetParent(canvas.transform,false);text.rectTransform.sizeDelta=new Vector2(400,80);
             text.rectTransform.anchoredPosition=new Vector2(0,y);text.font=font;text.fontSize=size;
             text.alignment=TextAnchor.MiddleCenter;text.color=Color.white;text.raycastTarget=false;
             var outline=text.gameObject.AddComponent<Outline>();outline.effectColor=new Color(0,0,0,.9f);outline.effectDistance=new Vector2(1.5f,-1.5f);
@@ -62,6 +80,12 @@ namespace EchoScrap.Combat
         }
         private void LateUpdate()
         {
+            if(equipmentLabel!=null)
+            {
+                bool show=game!=null&&game.Session.IsInWarehouse&&!game.Session.IsPaused&&game.Player.IsAlive;
+                if(equipmentLabel.gameObject.activeSelf!=show) equipmentLabel.gameObject.SetActive(show);
+                if(show) equipmentLabel.transform.rotation=game.GameplayCamera.transform.rotation;
+            }
             if(CollectibleId<0||frames==null)return;
             elapsed+=Time.deltaTime;
             if(times.Length>1 && elapsed>=Mathf.Max(.03f,times[frame])){elapsed-=Mathf.Max(.03f,times[frame]);frame=(frame+1)%frames.Length;ApplyFrame();}

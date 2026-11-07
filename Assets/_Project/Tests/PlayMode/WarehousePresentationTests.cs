@@ -187,6 +187,43 @@ namespace EchoScrap.Tests
             Assert.IsTrue(travel.PlaceInWarehouse(true)); yield return null; game.ResetRun(); yield return null;
             Assert.IsFalse(guard.IsConfining); Assert.IsTrue(ArenaLightingController.IsExteriorActive);
         }
+        [UnityTest] public IEnumerator CabinRoofRevealsCombatThroughTheGameplayCamera()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) Assert.Ignore("Requires a rendering device.");
+            Assert.IsTrue(travel.PlaceInWarehouse(false));
+            game.Lighting.SetDecorationEnabled(false);
+            var cabin = GameObject.Find("casa_-51_20");
+            var renderer = cabin.GetComponentInChildren<MeshRenderer>();
+            var collider = cabin.GetComponentInChildren<MeshCollider>();
+            Assert.That(renderer.sharedMaterial.shader.name, Is.EqualTo("EchoScrap/Cabin Roof"));
+            Assert.IsTrue(collider.enabled);
+            Bounds bounds = renderer.bounds;
+            Place(new Vector3(bounds.center.x, 0f, bounds.max.z + .75f));
+            for (int i = 0; i < 5; i++) yield return null;
+            var camera = game.GameplayCamera;
+            Color[] revealed = RenderCamera(camera);
+
+            void SuppressReveal(ScriptableRenderContext context, Camera current)
+            {
+                if (current == camera) Shader.SetGlobalVector("_EchoCabinReveal", Vector4.zero);
+            }
+            RenderPipelineManager.beginCameraRendering += SuppressReveal;
+            try
+            {
+                Color[] covered = RenderCamera(camera);
+                int changed = 0;
+                for (int y = 160; y < 352; y++)
+                for (int x = 160; x < 352; x++)
+                {
+                    int index = y * 512 + x;
+                    Color a = revealed[index], b = covered[index];
+                    if (Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b) > .05f)
+                        changed++;
+                }
+                Assert.Greater(changed, 200, "The roof should reveal a local area of combat, even with decorative effects off.");
+            }
+            finally { RenderPipelineManager.beginCameraRendering -= SuppressReveal; }
+        }
         private void Place(Vector3 point)
         {
             var body = game.Player.GetComponent<Rigidbody>(); Vector3 old = body.position;
