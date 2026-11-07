@@ -16,6 +16,7 @@ namespace EchoScrap.Combat
         private Text shakeLabel, decorationLabel;
         private readonly Button[] modes = new Button[3];
         private Button back;
+        private static readonly StatsDisplayMode[] ModeOrder = { StatsDisplayMode.Full, StatsDisplayMode.Reduced, StatsDisplayMode.None };
         private static readonly Color Gold = new Color(.91f, .76f, .44f), Pale = new Color(.92f, .94f, .92f);
 
         public void Build(Transform parent, MainMenuController controller)
@@ -42,17 +43,17 @@ namespace EchoScrap.Combat
             Label(toggleRect, "EFECTOS REDUCIDOS", new Vector2(33, 0), 23, TextAnchor.MiddleLeft, Pale).rectTransform.sizeDelta = new Vector2(560, 48);
             reduced.onValueChanged.AddListener(SetReducedEffects);
             Label(panel, "ESTADÍSTICAS", new Vector2(-240, -137), 21, TextAnchor.MiddleLeft, Pale).rectTransform.sizeDelta = new Vector2(160, 44);
-            string[] names = { "SIN", "COMPLETA", "REDUCIDA" }; float[] positions = { 240, -72, 84 };
+            string[] names = { "COMPLETA", "REDUCIDA", "SIN" };
             for (int i = 0; i < modes.Length; i++)
             {
-                int mode = i;
-                modes[i] = ButtonAt(panel, names[i], new Vector2(positions[i], -137), new Vector2(144, 44), null, () => SetStatsMode((StatsDisplayMode)mode));
+                StatsDisplayMode mode = ModeOrder[i];
+                modes[i] = ButtonAt(panel, names[i], new Vector2(-72 + 156 * i, -137), new Vector2(144, 44), null, () => SetStatsMode(mode));
             }
             back = ButtonAt(panel, "VOLVER", new Vector2(0, -225), new Vector2(304, 112), skin != null ? skin.greenButton : null, owner.CloseConfiguration);
-            Link(shake, back, decoration); Link(decoration, shake, reduced); Link(reduced, decoration, modes[1]);
+            Link(shake, back, decoration); Link(decoration, shake, reduced); Link(reduced, decoration, modes[0]);
             for (int i = 0; i < modes.Length; i++) modes[i].navigation = new Navigation { mode = Navigation.Mode.Explicit,
                 selectOnUp = reduced, selectOnDown = back, selectOnLeft = modes[(i + 2) % 3], selectOnRight = modes[(i + 1) % 3] };
-            Link(back, modes[1], shake); owner.Effects.OnPreferencesChanged += Refresh; Refresh(); root.SetActive(false);
+            Link(back, modes[0], shake); owner.Effects.OnPreferencesChanged += Refresh; Refresh(); root.SetActive(false);
         }
         public void Show() { Refresh(); root.SetActive(true); EventSystem.current?.SetSelectedGameObject(back.gameObject); }
         public void Hide() => root.SetActive(false);
@@ -69,7 +70,7 @@ namespace EchoScrap.Combat
             decorationLabel.text = "EFECTOS DECORATIVOS   " + Mathf.RoundToInt(effects.DecorativeIntensity * 100) + "%";
             for (int i = 0; i < modes.Length; i++)
             {
-                bool selected = i == (int)SceneTransitionState.StatsMode;
+                bool selected = ModeOrder[i] == SceneTransitionState.StatsMode;
                 modes[i].image.color = selected ? Gold : new Color(.15f, .19f, .22f);
                 modes[i].GetComponentInChildren<Text>().color = selected ? new Color(.055f, .065f, .085f) : Pale;
             }

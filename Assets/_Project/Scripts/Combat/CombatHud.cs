@@ -254,8 +254,8 @@ namespace EchoScrap.Combat
             bool visible = !hubMode && ShowStats && !game.Session.IsPaused && !game.Draft.IsOpen &&
                 (state == SessionState.Running || state == SessionState.BossIntro);
             statsReadout.SetDisplayMode(statsMode);
-            statsReadout.gameObject.SetActive(visible);
             if (visible) statsReadout.Refresh(game);
+            statsReadout.gameObject.SetActive(visible && statsReadout.VisibleRowCount > 0);
         }
 
         private void RefreshCards()

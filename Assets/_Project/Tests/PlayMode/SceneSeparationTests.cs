@@ -147,7 +147,12 @@ namespace EchoScrap.Tests
             Canvas.ForceUpdateCanvases();
             foreach (var slider in Menu.Settings.GetComponentsInChildren<UnityEngine.UI.Slider>())
                 Assert.AreEqual(slider.normalizedValue * ((RectTransform)slider.fillRect.parent).rect.width, slider.fillRect.rect.width, .1f, "Slider fill must fit its track at the actual percentage.");
-            Menu.Settings.SetStatsMode(StatsDisplayMode.Reduced); Menu.Settings.SetReducedEffects(true);
+            var modes = Menu.Settings.GetComponentsInChildren<UnityEngine.UI.Button>();
+            System.Array.Find(modes, button => button.name == "COMPLETA").onClick.Invoke();
+            Assert.AreEqual(StatsDisplayMode.Full, SceneTransitionState.StatsMode);
+            System.Array.Find(modes, button => button.name == "REDUCIDA").onClick.Invoke();
+            Assert.AreEqual(StatsDisplayMode.Reduced, SceneTransitionState.StatsMode);
+            Menu.Settings.SetReducedEffects(true);
             Menu.CloseConfiguration(); yield return NewCollection();
             Assert.AreEqual(.35f, Game.Session.Effects.RawShakeIntensity, .001f);
             Assert.AreEqual(.45f, Game.Session.Effects.RawDecorativeIntensity, .001f);
