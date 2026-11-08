@@ -172,7 +172,9 @@ namespace EchoScrap.Tests
             yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();
             var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");var pause=Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin");
             var canvas=station.GetComponentInChildren<Canvas>();var panel=canvas.transform.Find("InventarioFusion/Panel");
-            Assert.IsNull(panel.Find("MarcoFusion").GetComponent<UnityEngine.UI.Image>().sprite);
+            Assert.AreSame(PixelControlArtwork.Load("Fusion/Marco_Fusion"),panel.Find("MarcoFusion").GetComponent<UnityEngine.UI.Image>().sprite);
+            Assert.AreSame(PixelControlArtwork.Load("Fusion/Cuadro_Fusion"),panel.Find("Ingredientes/Espacio_0").GetComponent<UnityEngine.UI.Image>().sprite);
+            Assert.AreSame(PixelControlArtwork.Load("Fusion/Cruz"),panel.Find("Ingredientes/Espacio_0/Cruz").GetComponent<UnityEngine.UI.Image>().sprite);
             var possible=panel.Find("Ingredientes/PosiblesFusiones");Assert.IsNotNull(possible.Find("BordeFusion"));
             Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
             var close=panel.Find("Boton_X").GetComponent<UnityEngine.UI.Button>();Assert.AreSame(Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin").blueButton,close.image.sprite);Assert.AreSame(skin.regular,close.GetComponentInChildren<UnityEngine.UI.Text>().font);

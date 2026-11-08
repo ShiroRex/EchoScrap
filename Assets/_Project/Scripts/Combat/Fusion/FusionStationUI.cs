@@ -13,7 +13,7 @@ namespace EchoScrap.Combat
         public string HeaderTitle=>headerTitle.text;
         public string HeaderTime=>headerTime.text;
         public Font HeaderFont=>headerTitle.font;
-        private GameObject picker;private int selectedSlot=-1;private readonly Image[] slotArt=new Image[4],possibleArt=new Image[FusionCatalog.Count];private readonly Text[] slotText=new Text[4],possibleText=new Text[FusionCatalog.Count];
+        private GameObject picker;private int selectedSlot=-1;private readonly Image[] slotArt=new Image[4],slotCross=new Image[4],possibleArt=new Image[FusionCatalog.Count];private readonly Text[] slotText=new Text[4],possibleText=new Text[FusionCatalog.Count];
         public int SelectedCount=>ingredients.Count(id=>id>=0);
         public bool PickerIsOpen=>picker!=null&&picker.activeSelf;
         private GameObject modal,inventory,result;private Text promptText,selection,odds,status,resultTitle,resultDescription;
@@ -21,6 +21,7 @@ namespace EchoScrap.Combat
         private Button start, removeIngredient, backToReview, resetIngredients;
         private readonly int[] equipmentSlots = {-1,-1,-1,-1};
         private readonly Image[] draftArt = new Image[4];
+        private readonly Image[] draftCross = new Image[4];
         private Image resultImage;private readonly int[] ingredients={-1,-1,-1,-1};
         public bool IsOpen=>modal!=null&&modal.activeSelf;
         private static readonly Color Ink=new Color(.045f,.055f,.08f,1f),Pale=new Color(.9f,.94f,1);
@@ -28,6 +29,9 @@ namespace EchoScrap.Combat
         {
             station=owner;var cardSkin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
             font=cardSkin?.regular??Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");strongFont=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;
+            var marcoSprite=PixelControlArtwork.Load("Fusion/Marco_Fusion");
+            var cuadroSprite=PixelControlArtwork.Load("Fusion/Cuadro_Fusion");
+            var cruzSprite=PixelControlArtwork.Load("Fusion/Cruz");
             var root=new GameObject("FusionCanvas",typeof(RectTransform));root.transform.SetParent(transform,false);
             canvas=root.AddComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=120;canvas.pixelPerfect=true;
             root.AddComponent<GraphicRaycaster>();var scaler=root.AddComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;canvasRect=root.GetComponent<RectTransform>();
@@ -42,8 +46,9 @@ namespace EchoScrap.Combat
             foreach(var text in new[]{headerTitle,headerTime}){text.font=cardFont;var shadow=text.gameObject.AddComponent<Shadow>();shadow.effectColor=new Color(0,0,0,.9f);shadow.effectDistance=new Vector2(2,-2);}
             headerTitle.color=new Color(.88f,.76f,1);headerTime.color=Color.white;
             var shade=Panel("InventarioFusion",canvasRect,Vector2.zero,Vector2.zero,new Color(0,0,0,.65f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;modal=shade.gameObject;
-            var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1120,800),Ink);panel.anchorMin=panel.anchorMax=panel.pivot=new Vector2(.5f,.5f);panel.anchoredPosition=Vector2.zero;
-            var rim=Panel("MarcoFusion",panel,new Vector2(-20,-20),new Vector2(1160,840),Color.white);Frame(rim.GetComponent<Image>(),false);rim.GetComponent<Image>().raycastTarget=false;
+            var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1120,800),Color.clear);panel.anchorMin=panel.anchorMax=panel.pivot=new Vector2(.5f,.5f);panel.anchoredPosition=Vector2.zero;
+            var rim=Panel("MarcoFusion",panel,new Vector2(-20,-20),new Vector2(1160,840),Color.white);
+            var rimImage=rim.GetComponent<Image>();rimImage.sprite=marcoSprite;rimImage.type=Image.Type.Sliced;rimImage.pixelsPerUnitMultiplier=0.2f;rimImage.raycastTarget=false;
             modalTitle=Label(panel,"MÁQUINA DE FUSIÓN",new Vector2(36,22),new Vector2(920,44),32);
             modalTitle.color=new Color(1f,.81f,.49f);
             ButtonAt(panel,"X",new Vector2(1032,21),new Vector2(50,50),station.CloseMenu);
@@ -51,9 +56,11 @@ namespace EchoScrap.Combat
             Label(inventory.transform,"INGREDIENTES · 4 / 4",new Vector2(38,0),new Vector2(1048,42),26);
             for(int i=0;i<4;i++){
                 int slot=i;var card=ButtonAt(inventory.transform,"",new Vector2(38+i*263,54),new Vector2(245,230),()=>OpenPicker(slot));
-                card.name="Espacio_"+i;Frame(card.GetComponent<Image>(),false);
+                card.name="Espacio_"+i;
+                var cardImage=card.GetComponent<Image>();cardImage.sprite=cuadroSprite;cardImage.type=Image.Type.Sliced;cardImage.pixelsPerUnitMultiplier=0.25f;cardImage.color=Color.white;
+                slotCross[i]=Portrait(card.transform,new Vector2(81.5f,67f),new Vector2(82f,96f));slotCross[i].name="Cruz";slotCross[i].sprite=cruzSprite;
                 slotArt[i]=Portrait(card.transform,new Vector2(65,14),new Vector2(115,140));
-                slotText[i]=Label(card.transform,"+",new Vector2(8,150),new Vector2(229,70),25,TextAnchor.MiddleCenter);
+                slotText[i]=Label(card.transform,"",new Vector2(8,150),new Vector2(229,70),25,TextAnchor.MiddleCenter);
             }
             Label(inventory.transform,"POSIBLES RESULTADOS",new Vector2(38,294),new Vector2(1048,38),26);
             var possible=Panel("PosiblesFusiones",inventory.transform,new Vector2(38,335),new Vector2(1034,168),new Color(.07f,.11f,.14f));Frame(possible.GetComponent<Image>(),false);
@@ -77,10 +84,10 @@ namespace EchoScrap.Combat
             Label(picker.transform,"SELECCIÓN",new Vector2(16,542),new Vector2(156,44),21);
             for (int i = 0; i < draftArt.Length; i++)
             {
-                var chip = Panel("Ingrediente_" + i, picker.transform, new Vector2(178 + 54 * i, 542), new Vector2(46,46), Ink);
-                Frame(chip.GetComponent<Image>(), false);
-                Label(chip, (i + 1).ToString(), Vector2.zero, new Vector2(46,46), 18, TextAnchor.MiddleCenter);
-                draftArt[i] = Portrait(chip, new Vector2(3,3), new Vector2(40,40));
+                var chip = Panel("Ingrediente_" + i, picker.transform, new Vector2(178 + 54 * i, 542), new Vector2(46,46), Color.white);
+                var chipImage = chip.GetComponent<Image>(); chipImage.sprite = cuadroSprite; chipImage.type = Image.Type.Sliced; chipImage.pixelsPerUnitMultiplier = 0.5f;
+                draftCross[i] = Portrait(chip, new Vector2(12,10), new Vector2(22,26)); draftCross[i].name = "Cruz"; draftCross[i].sprite = cruzSprite;
+                draftArt[i] = Portrait(chip, new Vector2(5,5), new Vector2(36,36));
             }
             Label(picker.transform,"Las copias en equipo se retiran de su puesto al confirmar.",new Vector2(418,542),new Vector2(632,44),17);
             resetIngredients=ButtonAt(picker.transform,"VACIAR",new Vector2(16,600),new Vector2(220,54),ClearSelection);
@@ -157,11 +164,14 @@ namespace EchoScrap.Combat
         private void RefreshSelection()
         {
             for(int i=0;i<4;i++){
-                int id=ingredients[i];slotArt[i].gameObject.SetActive(id>=0);slotArt[i].sprite=id>=0?CollectibleDisplay.CardPortrait(id):null;
+                int id=ingredients[i];
+                slotArt[i].gameObject.SetActive(id>=0);slotArt[i].sprite=id>=0?CollectibleDisplay.CardPortrait(id):null;
+                if(slotCross[i]!=null)slotCross[i].gameObject.SetActive(id<0);
                 draftArt[i].sprite = slotArt[i].sprite;
                 draftArt[i].gameObject.SetActive(id>=0);
+                if(draftCross[i]!=null)draftCross[i].gameObject.SetActive(id<0);
                 slotText[i].text=id>=0?FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]
-                    +(equipmentSlots[i]>=0?$"\nEN EQUIPO {equipmentSlots[i]+1}":""):"+";
+                    +(equipmentSlots[i]>=0?$"\nEN EQUIPO {equipmentSlots[i]+1}":""):"";
                 Rect(slotText[i].rectTransform,id>=0?new Vector2(8,150):new Vector2(8,35),id>=0?new Vector2(229,70):new Vector2(229,160));
                 slotText[i].font=strongFont;slotText[i].fontSize=id>=0?20:64;slotText[i].color=id>=0?FusionCatalog.ColorOf(id):Pale;
             }
@@ -237,4 +247,3 @@ namespace EchoScrap.Combat
             button.onClick.AddListener(action);Label(t,value,Vector2.zero,size,23,TextAnchor.MiddleCenter);return button;}
     }
 }
-

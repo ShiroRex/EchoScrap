@@ -42,6 +42,9 @@ namespace EchoScrap.Combat
         private bool equipmentHintPending;
         private MenuBackdrop backdrop;
         private Text status;
+        private InputField titleNameInput, expeditionNameInput;
+        public string PlayerName => EventLeaderboardSync.PlayerName;
+        public InputField ExpeditionNameInput => expeditionNameInput;
         public Canvas Canvas { get; private set; }
         public Button ContinueButton => continueButton;
         public Button NewCollectionButton => newButton;
@@ -83,7 +86,7 @@ namespace EchoScrap.Combat
                 newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, 41), new Vector2(336, 72), artwork.Blue, flow.RequestNewCollection);
                 settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -41), new Vector2(336, 72), artwork.Blue, flow.OpenConfiguration);
                 quitButton = ButtonAt(frame, "Quit", "SALIR", new Vector2(0, -123), new Vector2(336, 72), artwork.Red, flow.QuitGame);
-
+                titleNameInput = BuildPlayerNameBox(frame, "TitlePlayerName", new Vector2(0, 238), new Vector2(440, 56));
             }
             if (game != null)
             {
@@ -109,8 +112,9 @@ namespace EchoScrap.Combat
                 selectionInput = expeditionSelection.AddComponent<CanvasGroup>();
                 var frame = Frame(expeditionSelection.transform, "SelectionFrame");
                 selectionFrame = frame.gameObject.AddComponent<CanvasGroup>();
-                Label(frame, "¿QUIERES ENTRAR A LA ARENA?", new Vector2(0, 218), new Vector2(800, 88), 34, new Color(.91f, .76f, .44f));
-                Label(frame, "Elige una ronda para comenzar.", new Vector2(0, 150), new Vector2(700, 48), 24, Color.white);
+                Label(frame, "¿QUIERES ENTRAR A LA ARENA?", new Vector2(0, 240), new Vector2(800, 88), 34, new Color(.91f, .76f, .44f));
+                Label(frame, "Elige una ronda para comenzar.", new Vector2(0, 192), new Vector2(700, 44), 22, Color.white);
+                expeditionNameInput = BuildPlayerNameBox(frame, "PlayerNameInput", new Vector2(0, 134), new Vector2(500, 58));
                 demoButton = ButtonAt(frame, "DemoRound", "RONDA DEMO", new Vector2(0, 44), new Vector2(500, 100), artwork.Green, () => worldFlow.SelectExpedition(false));
                 completeButton = ButtonAt(frame, "CompleteRound", "RONDA COMPLETA", new Vector2(0, -70), new Vector2(500, 100), artwork.Blue, () => worldFlow.SelectExpedition(true));
                 exitExpeditionButton = ButtonAt(frame, "ExitExpedition", "SALIR", new Vector2(0, -202), new Vector2(500, 100), artwork.Red, worldFlow.CancelExpeditionSelection);
@@ -129,6 +133,43 @@ namespace EchoScrap.Combat
             Link(cancelButton, acceptButton, acceptButton); Link(acceptButton, cancelButton, cancelButton);
             confirmation.SetActive(false);
             status = Label(root.transform, "", new Vector2(0, -440), new Vector2(900, 56), 24, Color.white);
+            EventLeaderboardSync.OnPlayerNameChanged += SyncPlayerNameFields;
+            SyncPlayerNameFields(EventLeaderboardSync.PlayerName);
+        }
+
+        private InputField BuildPlayerNameBox(Transform parent, string name, Vector2 position, Vector2 size)
+        {
+            var box = Rect(parent, name, position, size);
+            var bg = box.gameObject.AddComponent<Image>();
+            bg.sprite = Resources.Load<Sprite>("UI/Controls/Pause/Inset");
+            bg.type = Image.Type.Sliced;
+            bg.pixelsPerUnitMultiplier = .5f;
+            bg.color = Color.white;
+
+            var input = box.gameObject.AddComponent<InputField>();
+            input.characterLimit = 20;
+            input.targetGraphic = bg;
+            input.navigation = new Navigation { mode = Navigation.Mode.None };
+
+            var placeholder = Label(box, "NOMBRE DEL JUGADOR (RANKING)...", Vector2.zero, size - new Vector2(32, 10), 20, new Color(.62f, .68f, .78f, .85f));
+            placeholder.name = "Placeholder";
+
+            var text = Label(box, "", Vector2.zero, size - new Vector2(32, 10), 22, VaultGold);
+            text.name = "Text";
+            text.supportRichText = false;
+
+            input.placeholder = placeholder;
+            input.textComponent = text;
+            input.text = EventLeaderboardSync.PlayerName;
+            input.onValueChanged.AddListener(val => EventLeaderboardSync.PlayerName = val);
+            input.onEndEdit.AddListener(val => EventLeaderboardSync.PlayerName = val);
+            return input;
+        }
+
+        private void SyncPlayerNameFields(string value)
+        {
+            if (titleNameInput != null && titleNameInput.text != value) titleNameInput.SetTextWithoutNotify(value);
+            if (expeditionNameInput != null && expeditionNameInput.text != value) expeditionNameInput.SetTextWithoutNotify(value);
         }
 
         public void Refresh()
@@ -452,6 +493,11 @@ namespace EchoScrap.Combat
         }
         private static void Stretch(RectTransform rect)
         { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero; }
-        private void OnDestroy() { artwork?.Dispose(); if (Canvas != null) Destroy(Canvas.gameObject); }
+        private void OnDestroy()
+        {
+            EventLeaderboardSync.OnPlayerNameChanged -= SyncPlayerNameFields;
+            artwork?.Dispose();
+            if (Canvas != null) Destroy(Canvas.gameObject);
+        }
     }
 }
