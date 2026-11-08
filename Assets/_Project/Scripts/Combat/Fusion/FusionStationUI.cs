@@ -16,7 +16,7 @@ namespace EchoScrap.Combat
         private GameObject picker;private int selectedSlot=-1;private readonly Image[] slotArt=new Image[4],possibleArt=new Image[FusionCatalog.Count];private readonly Text[] slotText=new Text[4],possibleText=new Text[FusionCatalog.Count];
         public int SelectedCount=>ingredients.Count(id=>id>=0);
         public bool PickerIsOpen=>picker!=null&&picker.activeSelf;
-        private GameObject modal,inventory,result;private Text promptText,selection,odds,status,resultTitle,resultDescription;
+        private GameObject modal,inventory,result;private Text selection,odds,status,resultTitle,resultDescription;
         private Text modalTitle, pickerTitle, pickerCount;
         private Button start, removeIngredient, backToReview, resetIngredients;
         private readonly int[] equipmentSlots = {-1,-1,-1,-1};
@@ -31,9 +31,8 @@ namespace EchoScrap.Combat
             var root=new GameObject("FusionCanvas",typeof(RectTransform));root.transform.SetParent(transform,false);
             canvas=root.AddComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=120;canvas.pixelPerfect=true;
             root.AddComponent<GraphicRaycaster>();var scaler=root.AddComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;canvasRect=root.GetComponent<RectTransform>();
-            prompt=Panel("IndicadorFusion",canvasRect,new Vector2(0,0),new Vector2(360,56),Color.white);prompt.anchorMin=prompt.anchorMax=prompt.pivot=new Vector2(.5f,.5f);
-            promptText=Label(prompt,"",new Vector2(8,4),new Vector2(204,36),20,TextAnchor.MiddleCenter);
-            interactionPrompt=PixelInteractionPrompt.Attach(prompt,promptText);
+            prompt=Panel("IndicadorFusion",canvasRect,Vector2.zero,Vector2.zero,Color.white);
+            interactionPrompt=PixelInteractionPrompt.Attach(prompt,"FUSIONAR");
             header=Panel("TituloSobreMaquina",canvasRect,Vector2.zero,new Vector2(620,110),Color.clear);
             header.GetComponent<Image>().raycastTarget=false;header.anchorMin=header.anchorMax=header.pivot=new Vector2(.5f,.5f);
             headerTitle=Label(header,"MÁQUINA DE FUSIÓN",Vector2.zero,new Vector2(620,52),34,TextAnchor.MiddleCenter);
@@ -226,8 +225,8 @@ namespace EchoScrap.Combat
             bool interact=station.WorldLabelsAllowed&&station.CanInteract&&!IsOpen&&(phase==FusionPhase.Idle||phase==FusionPhase.Ready||phase==FusionPhase.AwaitingDecision);
             prompt.gameObject.SetActive(interact);
             if(!interact)return;
+            interactionPrompt.SetAction(phase==FusionPhase.Idle?"FUSIONAR":"VER FUSIÓN");
             interactionPrompt.PlaceNear(camera,station.InteractionPoint.position);
-            promptText.text=phase==FusionPhase.Ready||phase==FusionPhase.AwaitingDecision?"VER FUSIÓN":"FUSIONAR";
         }
         private static void Rect(RectTransform t,Vector2 p,Vector2 size){t.anchorMin=t.anchorMax=new Vector2(0,1);bool art=t.TryGetComponent<Image>(out var image)&&image.preserveAspect;t.pivot=art?Vector2.one*.5f:new Vector2(0,1);t.anchoredPosition=art?new Vector2(p.x+size.x*.5f,-p.y-size.y*.5f):new Vector2(p.x,-p.y);t.sizeDelta=size;}
         private static RectTransform Panel(string name,Transform parent,Vector2 p,Vector2 size,Color color){var o=new GameObject(name,typeof(RectTransform));o.transform.SetParent(parent,false);var t=o.GetComponent<RectTransform>();Rect(t,p,size);o.AddComponent<Image>().color=color;return t;}

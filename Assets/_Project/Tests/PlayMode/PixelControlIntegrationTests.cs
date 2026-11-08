@@ -115,7 +115,18 @@ namespace EchoScrap.Tests
                 Assert.AreSame(PixelControlArtwork.Load("InteractionPrompt/Plate_Normal"), prompt.GetComponent<Image>().sprite);
                 Assert.IsFalse(prompt.GetComponent<Image>().raycastTarget);
                 Assert.AreSame(PixelControlArtwork.Load("InteractionPrompt/Glyph_E"), prompt.transform.Find("InteractionKey/Glyph").GetComponent<Image>().sprite);
+                var plate = (RectTransform)prompt.transform;
+                var label = prompt.GetComponentInChildren<Text>(true);
+                Assert.That(plate.sizeDelta.y, Is.EqualTo(42f));
+                Assert.That(plate.sizeDelta.x, Is.LessThanOrEqualTo(215f));
+                Assert.That(label.rectTransform.rect.width, Is.GreaterThanOrEqualTo(label.preferredWidth));
             }
+            var equip = station.transform.Find("CompanionCanvas/EquiparIndicador").GetComponent<PixelInteractionPrompt>();
+            var equipPlate = (RectTransform)equip.transform;
+            float equipWidth = equipPlate.sizeDelta.x;
+            equip.SetAction("EDITAR");
+            Assert.That(equipPlate.sizeDelta.x, Is.LessThan(equipWidth));
+            equip.SetAction("EQUIPAR");
             yield return Capture("HUD", 1920, 1080);
             Assert.IsTrue(Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true));
             Vector3 interaction = station.InteractionPoint.position + Vector3.up;

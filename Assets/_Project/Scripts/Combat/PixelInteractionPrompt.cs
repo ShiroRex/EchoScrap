@@ -3,13 +3,17 @@ using UnityEngine.UI;
 
 namespace EchoScrap.Combat
 {
-    /// <summary>Shared plate and independent keycap; action text remains owned by the interaction.</summary>
+    /// <summary>A compact keycap and single-line action label shared by world interactions.</summary>
     public sealed class PixelInteractionPrompt : MonoBehaviour
     {
         private RectTransform root, canvasRect;
         private Canvas canvas;
+        private Text label;
+        private const float Height = 42f;
+        private const float LeftInset = 54f;
+        private const float RightInset = 22f;
 
-        public static PixelInteractionPrompt Attach(RectTransform root, Text label)
+        public static PixelInteractionPrompt Attach(RectTransform root, string action)
         {
             var view = root.gameObject.AddComponent<PixelInteractionPrompt>();
             view.root = root; view.canvas = root.GetComponentInParent<Canvas>();
@@ -18,21 +22,37 @@ namespace EchoScrap.Combat
             var plate = root.GetComponent<Image>();
             plate.sprite = PixelControlArtwork.Load("InteractionPrompt/Plate_Normal");
             plate.type = Image.Type.Sliced;
-            plate.pixelsPerUnitMultiplier = .5f;
+            plate.pixelsPerUnitMultiplier = 2f / 3f;
             plate.color = Color.white;
             plate.raycastTarget = false;
-            var cap = NewImage(root, "InteractionKey", PixelControlArtwork.Load("InteractionPrompt/Keycap_Normal"), new Vector2(48f, 48f));
+            var cap = NewImage(root, "InteractionKey", PixelControlArtwork.Load("InteractionPrompt/Keycap_Normal"), new Vector2(36f, 36f));
             cap.rectTransform.anchorMin = cap.rectTransform.anchorMax = new Vector2(0f, .5f);
-            cap.rectTransform.anchoredPosition = new Vector2(24f, 0f);
-            NewImage(cap.transform, "Glyph", PixelControlArtwork.Load("InteractionPrompt/Glyph_E"), new Vector2(24f, 24f));
+            cap.rectTransform.anchoredPosition = new Vector2(21f, 0f);
+            NewImage(cap.transform, "Glyph", PixelControlArtwork.Load("InteractionPrompt/Glyph_E"), new Vector2(18f, 18f));
+            var label = new GameObject("Texto", typeof(RectTransform), typeof(Text)).GetComponent<Text>();
+            label.transform.SetParent(root, false);
+            view.label = label;
+            label.font = Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;
+            label.fontSize = 20;
+            label.color = Color.white;
+            label.raycastTarget = false;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
             var textRect = label.rectTransform;
             textRect.anchorMin = Vector2.zero; textRect.anchorMax = Vector2.one;
             textRect.pivot = Vector2.one * .5f;
-            textRect.offsetMin = new Vector2(76f, 10f);
-            textRect.offsetMax = new Vector2(-26f, -10f);
+            textRect.offsetMin = new Vector2(LeftInset, 0f);
+            textRect.offsetMax = new Vector2(-RightInset, 0f);
             label.alignment = TextAnchor.MiddleCenter;
-            label.transform.SetAsLastSibling();
+            view.SetAction(action);
             return view;
+        }
+
+        public void SetAction(string action)
+        {
+            if (label.text == action) return;
+            label.text = action;
+            root.sizeDelta = new Vector2(LeftInset + Mathf.Ceil(label.preferredWidth) + RightInset, Height);
         }
 
         public void PlaceNear(Camera camera, Vector3 worldPosition)
