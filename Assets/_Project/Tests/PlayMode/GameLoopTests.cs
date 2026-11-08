@@ -80,14 +80,14 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator FirstCollectibleShowsVaultHintUntilEquipmentHasBeenUsed()
         {
             yield return StartRun();
-            var hint = flow.View.Canvas.transform.Find("EquipmentHint").gameObject;
+            var hint = flow.View.Canvas.transform.Find("VaultTips/EquipmentHint").gameObject;
             Assert.IsFalse(hint.activeSelf);
             Assert.IsTrue(station.CollectFromArena(FusionCatalog.MapIds[0]));
             yield return null;
             Assert.IsFalse(hint.activeSelf);
             Assert.IsTrue(travel.TryTravel(false, game.Player));
             yield return null;
-            Assert.IsTrue(hint.activeSelf);
+            Assert.IsTrue(hint.activeInHierarchy);
             for (int i = 0; i < 3; i++)
             {
                 var label = station.DisplaySlots[i].GetComponentInChildren<Text>();
@@ -441,6 +441,15 @@ namespace EchoScrap.Tests
                 Assert.That(companions.Abilities, Is.Not.Null);
                 var companionCanvas = station.transform.Find("CompanionCanvas");
                 Assert.That(companionCanvas.Find("CompanerosEquipados/Retrato_0/Cara"), Is.Not.Null);
+                var tips = game.Flow.View.Canvas.transform.Find("VaultTips");
+                Assert.That(tips.gameObject.activeInHierarchy, Is.True);
+                var first = tips.Find("TipDot0").GetComponent<Image>();
+                var second = tips.Find("TipDot1").GetComponent<Image>();
+                Color active = first.color;
+                tips.Find("NextTip").GetComponent<Button>().onClick.Invoke();
+                Assert.That(second.color, Is.EqualTo(active));
+                tips.Find("PreviousTip").GetComponent<Button>().onClick.Invoke();
+                Assert.That(first.color, Is.EqualTo(active));
 
                 game.Session.SetManualPause(true);
                 yield return null;

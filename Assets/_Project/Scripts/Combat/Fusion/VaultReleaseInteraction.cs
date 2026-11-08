@@ -48,11 +48,11 @@ namespace EchoScrap.Combat
         {
             var keyboard=Keyboard.current;int slot=NearestSlot;
             if(IsOpen){if(slot!=pendingSlot||!game.Player.IsAlive||keyboard!=null&&(keyboard.escapeKey.wasPressedThisFrame||keyboard.eKey.wasPressedThisFrame))Close();}
-            else if(keyboard!=null&&keyboard.eKey.wasPressedThisFrame)TryOpen();
+            else if(slot>=3&&keyboard!=null&&keyboard.eKey.wasPressedThisFrame)TryOpen();
             else if(keyboard!=null&&keyboard.tKey.wasPressedThisFrame)TryUnequip();
             slot=NearestSlot;
-            bool visible=!IsOpen&&!game.Session.IsPaused&&slot>=0&&game.Session.State==SessionState.Running;
-            prompt.SetActive(visible);if(visible)promptText.text=(slot<3?"LIBERAR    T · DESEQUIPAR\n":"LIBERAR\n")+FusionCatalog.Names[station.DisplayedId(slot)];
+            bool visible=!IsOpen&&!game.Session.IsPaused&&slot>=3&&game.Session.State==SessionState.Running;
+            prompt.SetActive(visible);if(visible)promptText.text="LIBERAR\n"+FusionCatalog.Names[station.DisplayedId(slot)];
             if(visible)interactionPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
         }
         public bool TryOpen()

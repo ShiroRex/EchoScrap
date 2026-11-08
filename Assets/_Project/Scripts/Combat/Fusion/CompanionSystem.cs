@@ -32,7 +32,7 @@ namespace EchoScrap.Combat
                 return slot;
             }
         }
-        public bool CanEquip => (GetComponent<VaultReleaseInteraction>()?.NearestSlot??-1)<0 && NearestSlot>=0 && (!IsOpen || NearestSlot==SelectedSlot);
+        public bool CanEquip => (GetComponent<VaultReleaseInteraction>()?.NearestSlot??-1)<3 && NearestSlot>=0 && (!IsOpen || NearestSlot==SelectedSlot);
         public bool CanCollect => NearestPickup()>=0;
         public int PickupId(int index)=>index>=0&&index<pickups.Count?pickups[index].Id:-1;
         public Vector3 PickupPosition(int index)=>index>=0&&index<pickups.Count?pickups[index].Ground:Vector3.zero;
@@ -66,6 +66,12 @@ namespace EchoScrap.Combat
         {
             if(!IsOpen || !CanEquip || slot!=SelectedSlot || id>=0&&station.Progress.Available(id)<=0 || !station.EquipCompanion(slot,id))return false;
             RefreshEquipment();return true;
+        }
+        public void RequestRelease()
+        {
+            if (!IsOpen || !CanEquip || station.Progress.equipped[SelectedSlot] < 0) return;
+            Close();
+            GetComponent<VaultReleaseInteraction>().TryOpen();
         }
         public void RefreshEquipment()
         {

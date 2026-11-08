@@ -231,6 +231,23 @@ namespace EchoScrap.Tests
             Directory.CreateDirectory(directory); return Path.Combine(directory, name);
         }
 
+        [UnityTest]
+        public IEnumerator VaultTipsAndExpeditionButtonFitAt720p()
+        {
+            var flow = game.gameObject.AddComponent<GameFlowController>();
+            flow.Initialize(game, false);
+            flow.View.NewCollectionButton.onClick.Invoke();
+            yield return null;
+            Assert.IsTrue(flow.View.IsVaultVisible);
+            var tips = (RectTransform)flow.View.Canvas.transform.Find("VaultTips");
+            var start = (RectTransform)flow.View.StartButton.transform;
+            Assert.That(tips.anchoredPosition.y, Is.EqualTo(start.anchoredPosition.y));
+            Assert.AreEqual(Vector2.zero, tips.anchorMin);
+            Assert.AreEqual(new Vector2(1, 0), start.anchorMin);
+            Assert.IsNotNull(tips.Find("CollectorLantern").GetComponent<Image>().sprite);
+            yield return Capture("Boveda_720", 1280, 720);
+        }
+
         private IEnumerator Capture(string name, int width, int height)
         {
             var camera = game != null ? game.GameplayCamera : new GameObject("Pixel UI capture").AddComponent<Camera>();

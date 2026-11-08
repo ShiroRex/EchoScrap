@@ -216,7 +216,7 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator OccupiedEquipmentSupportsUnequipWithoutLossAndConfirmedRelease()
         {
             station.ResetCollection();station.Progress.owned[0]=1;Approach();Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(0,0));system.Close();var release=station.GetComponent<VaultReleaseInteraction>();
-            Assert.IsFalse(system.TryOpen());Assert.IsTrue(release.TryUnequip());Assert.AreEqual(1,station.Progress.owned[0]);Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
+            Assert.IsTrue(system.TryOpen());Assert.AreEqual(0,system.SelectedSlot);system.Close();Assert.IsTrue(release.TryUnequip());Assert.AreEqual(1,station.Progress.owned[0]);Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
             Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(0,0));system.Close();Assert.IsTrue(release.TryOpen());release.Close();Assert.AreEqual(0,station.Progress.equipped[0]);Assert.AreEqual(1,station.Progress.owned[0]);
             Assert.IsTrue(release.TryOpen());Assert.IsTrue(release.ConfirmRelease());Assert.AreEqual(0,station.Progress.owned[0]);Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));yield return null;
         }

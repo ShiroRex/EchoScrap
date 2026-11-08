@@ -13,6 +13,7 @@ namespace EchoScrap.Combat
         private CombatGameBootstrap game;
         private Font font, strong;
         private GameObject modal, prompt, hud;
+        private Button removeButton, releaseButton;
         private readonly Image[] portraits=new Image[3], backgrounds=new Image[3];
         private readonly StringBuilder powersBuilder=new StringBuilder(320);
         private Text equippedPowers;
@@ -69,7 +70,7 @@ namespace EchoScrap.Combat
             announcement=notice.gameObject.AddComponent<CanvasGroup>();announcement.blocksRaycasts=announcement.interactable=false;
             var message=Label(notice,"Mensaje","¡NUEVOS COLECCIONABLES!",Vector2.zero,new Vector2(400,40),22);
             message.font=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;message.color=new Color(.91f,.76f,.44f);announcementText=message.rectTransform;notice.gameObject.SetActive(false);
-            var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(480,56),Color.white);hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
+            var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(220,56),Color.white);hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
             hintText=Label(hint,"Texto","",Vector2.zero,new Vector2(290,40),20);hintText.font=strong;
             equipPrompt=PixelInteractionPrompt.Attach(hint,hintText);
             prompt.SetActive(false);
@@ -104,15 +105,16 @@ namespace EchoScrap.Combat
             unitGrid.Build(station,AvailableForSlot,(id,copy)=>system.Equip(selected,id),id=>{
                 powerPreview.text=FusionCatalog.Names[id]+" · "+CompanionSystem.PowerNames[id];powerPreview.color=FusionCatalog.ColorOf(id);
             });
-            var remove=Button(panel,"Quitar",new Vector2(-180,-330),new Vector2(250,45),()=>system.Equip(selected,-1));Label(remove.transform,"Texto","QUITAR DEL PUESTO",Vector2.zero,new Vector2(240,45),20);
-            var close=Button(panel,"Cerrar",new Vector2(180,-330),new Vector2(250,45),system.Close);Label(close.transform,"Texto","CERRAR · E / ESC",Vector2.zero,new Vector2(240,45),20);
+            removeButton=Button(panel,"Quitar",new Vector2(-270,-330),new Vector2(250,45),()=>system.Equip(selected,-1));Label(removeButton.transform,"Texto","QUITAR DEL PUESTO",Vector2.zero,new Vector2(240,45),20);
+            releaseButton=Button(panel,"Liberar",new Vector2(0,-330),new Vector2(250,45),system.RequestRelease);Label(releaseButton.transform,"Texto","LIBERAR COPIA",Vector2.zero,new Vector2(240,45),20);
+            var close=Button(panel,"Cerrar",new Vector2(270,-330),new Vector2(250,45),system.Close);Label(close.transform,"Texto","CERRAR · E / ESC",Vector2.zero,new Vector2(240,45),20);
             modal.SetActive(false);Refresh();
         }
         private int AvailableForSlot(int id)=>station.Progress.Available(id);
         public void Show(bool value){modal.SetActive(value);Refresh();}
         public void Refresh()
         {
-            if (modal == null || !game.IsInitialized) return;
+            if (modal == null || game == null || !game.IsInitialized) return;
             bool playing=!game.Session.IsPaused && game.Session.State==SessionState.Running && game.Player.IsAlive;
             bool showNotice=playing&&!game.Session.IsInWarehouse&&announcementAge<2f;
             bool bossVisible=game.Encounter!=null&&game.Encounter.IsEncounterActive&&game.Encounter.Boss!=null&&game.Encounter.Boss.IsAlive;
@@ -121,8 +123,9 @@ namespace EchoScrap.Combat
             if(showNotice){announcementAge+=Time.deltaTime;float enter=Mathf.Clamp01(announcementAge/.26f),leave=Mathf.Clamp01((announcementAge-1.68f)/.32f);float decoration=game.Session.Effects.ReducedEffectsMode?0:game.Session.Effects.DecorativeIntensity;
                 announcement.alpha=Mathf.SmoothStep(0,1,enter)*(1-leave);float pop=1+2.7f*Mathf.Pow(enter-1,3)+1.7f*Mathf.Pow(enter-1,2);
                 announcementText.localScale=Vector3.one*(decoration>.01f?Mathf.Lerp(.72f,1,pop):1);announcementText.anchoredPosition=Vector2.up*(leave*32*decoration);}
-            prompt.SetActive(!IsOpen&&playing&&system.CanEquip);
-            hintText.text="EQUIPAR PUESTO "+(system.NearestSlot+1);
+            bool showEquipmentPrompt = !IsOpen && playing && system.CanEquip;
+            prompt.SetActive(showEquipmentPrompt);
+            if (showEquipmentPrompt) hintText.text = station.Progress.equipped[system.NearestSlot] < 0 ? "EQUIPAR" : "EDITAR";
             collectPrompt.SetActive(!IsOpen&&playing&&system.CanCollect);
             if(prompt.activeSelf)equipPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
             if(collectPrompt.activeSelf)pickupPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
@@ -146,7 +149,9 @@ namespace EchoScrap.Combat
                     powersBuilder.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(FusionCatalog.ColorOf(id))).Append('>').Append(FusionCatalog.Names[id]).Append("</color>  ").Append(CompanionPowerRuntime.HudDescriptions[id]);}
                 equippedPowers.text=powersBuilder.ToString();}
             if(!IsOpen)return;
-            title.text="PUESTO "+(selected+1)+" · ELIGE UN COMPAÑERO";
+            bool occupied = selected >= 0 && station.Progress.equipped[selected] >= 0;
+            removeButton.interactable = releaseButton.interactable = occupied;
+            title.text = $"PUESTO {selected + 1} · " + (occupied ? "EDITAR EQUIPO" : "ELIGE UN COMPAÑERO");
             unitGrid.Refresh();
         }
 

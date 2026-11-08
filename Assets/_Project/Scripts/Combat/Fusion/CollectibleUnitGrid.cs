@@ -20,6 +20,7 @@ namespace EchoScrap.Combat
         private Button previous,next;
         private Font font;
         private int page,hash=int.MinValue;
+        private bool fusionLayout;
         public int VisibleUnits {get;private set;}
         public int UnitId(int slot)=>ids[slot];
         public void Build(FusionStation owner,Func<int,int> availableCopies,Action<int,int> choose,Action<int> preview=null)
@@ -44,6 +45,23 @@ namespace EchoScrap.Combat
             }
             Refresh(true);
         }
+        public void UseFusionLayout()
+        {
+            fusionLayout=true;
+            previous.GetComponent<RectTransform>().anchoredPosition=new Vector2(340,-203);
+            next.GetComponent<RectTransform>().anchoredPosition=new Vector2(480,-203);
+            pageLabel.rectTransform.anchoredPosition=new Vector2(410,-203);
+            pageLabel.rectTransform.sizeDelta=new Vector2(72,30);
+            var frame=Resources.Load<Sprite>("UI/Controls/Pause/Inset");
+            for(int i=0;i<PageSize;i++)
+            {
+                var plate=Box("MarcoRetrato",cards[i].transform,new Vector2(0,28),new Vector2(120,120),Color.white);
+                plate.SetAsFirstSibling();
+                var image=plate.GetComponent<Image>();
+                image.sprite=frame;image.type=Image.Type.Sliced;image.pixelsPerUnitMultiplier=1f;image.raycastTarget=false;
+            }
+            Refresh(true);
+        }
         public void SelectUnit(int slot){if(slot>=0&&slot<VisibleUnits&&cards[slot].interactable)select(ids[slot],copies[slot]);}
         public void ChangePage(int delta){page=Mathf.Max(0,page+delta);Refresh(true);}
         public void Refresh(bool force=false)
@@ -59,9 +77,17 @@ namespace EchoScrap.Combat
                     portraits[slot].sprite=CollectibleDisplay.CardPortrait(id);labels[slot].text=FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]+(cards[slot].interactable?"":"\nRESERVADO");labels[slot].color=FusionCatalog.ColorOf(id);
                 }index+=count;
             }
-            for(int i=0;i<VisibleUnits;i++){int rowCount=Mathf.Min(5,VisibleUnits-i/5*5);cards[i].GetComponent<RectTransform>().anchoredPosition=new Vector2((i%5-(rowCount-1)*.5f)*202,(VisibleUnits<=5?45:110)-i/5*180);}
+            for(int i=0;i<VisibleUnits;i++)
+            {
+                int rowCount=Mathf.Min(5,VisibleUnits-i/5*5);
+                float top=VisibleUnits>5?110:45;
+                cards[i].GetComponent<RectTransform>().anchoredPosition=new Vector2((i%5-(rowCount-1)*.5f)*202,top-i/5*180);
+            }
             for(int i=VisibleUnits;i<PageSize;i++)cards[i].gameObject.SetActive(false);
-            empty.gameObject.SetActive(total==0);pageLabel.text=total+(total==1?" unidad":" unidades")+(pages>1?"  ·  "+(page+1)+" / "+pages:"");previous.interactable=page>0;next.interactable=page+1<pages;previous.gameObject.SetActive(pages>1);next.gameObject.SetActive(pages>1);
+            empty.gameObject.SetActive(total==0);
+            pageLabel.text=fusionLayout?$"{page+1} / {pages}":total+(total==1?" unidad":" unidades")+(pages>1?"  ·  "+(page+1)+" / "+pages:"");
+            previous.interactable=page>0;next.interactable=page+1<pages;
+            previous.gameObject.SetActive(fusionLayout||pages>1);next.gameObject.SetActive(fusionLayout||pages>1);
         }
         private RectTransform Box(string name,Transform parent,Vector2 position,Vector2 size,Color color){var r=new GameObject(name,typeof(RectTransform),typeof(Image)).GetComponent<RectTransform>();r.SetParent(parent,false);r.anchoredPosition=position;r.sizeDelta=size;r.GetComponent<Image>().color=color;return r;}
         private Text Label(Transform parent,string name,Vector2 position,Vector2 size,int points){var t=new GameObject(name,typeof(RectTransform),typeof(Text)).GetComponent<Text>();t.transform.SetParent(parent,false);t.rectTransform.anchoredPosition=position;t.rectTransform.sizeDelta=size;t.font=font;t.fontSize=points;t.color=Color.white;t.alignment=TextAnchor.MiddleCenter;t.raycastTarget=false;return t;}

@@ -139,13 +139,21 @@ namespace EchoScrap.Tests
             Assert.IsFalse(title.gameObject.activeSelf);Assert.IsFalse(canvas.transform.Find("IndicadorFusion").gameObject.activeSelf);
             game.Session.SetManualPause(false);yield return null;Assert.IsTrue(title.gameObject.activeSelf);
         }
-        [UnityTest] public IEnumerator FourEmptySlotsPickFromGarageAndReadyWaitsForNearbyE()
+        [UnityTest] public IEnumerator InventorySelectsFourUnitsThenReviewsAndConfirmsFusion()
         {
             yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();Assert.AreEqual(0,ui.SelectedCount);
-            yield return Capture("CuatroEspaciosVacios",true);
-            for(int i=0;i<4;i++){ui.OpenPicker(i);Assert.IsTrue(ui.PickerIsOpen);if(i==0)yield return Capture("SelectorGaraje",true);ui.AddIngredient(i);Assert.IsFalse(ui.PickerIsOpen);}
+            Assert.IsTrue(ui.PickerIsOpen);
+            yield return Capture("SelectorGaraje",true);
+            var grid=station.GetComponentInChildren<CollectibleUnitGrid>();
+            int[] copies={0,3,4,5};
+            for(int i=0;i<copies.Length;i++){grid.SelectUnit(copies[i]);Assert.AreEqual(i+1,ui.SelectedCount);Assert.AreEqual(i<3,ui.PickerIsOpen);}
             Assert.AreEqual(4,ui.SelectedCount);yield return Capture("CuatroSeleccionados",true);
-            Assert.IsTrue(station.StartFusion(new[]{0,1,2,3}));
+            ui.OpenPicker(0);Assert.IsTrue(ui.PickerIsOpen);
+            var panel=ui.transform.Find("FusionCanvas/InventarioFusion/Panel");
+            panel.Find("MiGaraje/Boton_VOLVER").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.IsFalse(ui.PickerIsOpen);Assert.AreEqual(4,ui.SelectedCount);
+            panel.Find("Ingredientes/Boton_CONFIRMAR").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.AreEqual(FusionPhase.Fusing,station.Progress.phase);
             game.Player.transform.position=Vector3.up;game.Player.GetComponent<Rigidbody>().position=Vector3.up;Physics.SyncTransforms();
             var openingAudio=station.transform.Find("FusionOpenAudio").GetComponent<AudioSource>();Assert.IsNotNull(openingAudio.clip);Assert.IsFalse(openingAudio.isPlaying);
             station.Advance(180);station.Advance(10);yield return null;Assert.AreEqual(FusionPhase.Ready,station.Progress.phase);
@@ -161,7 +169,7 @@ namespace EchoScrap.Tests
             Assert.IsNull(panel.Find("MarcoFusion").GetComponent<UnityEngine.UI.Image>().sprite);
             var possible=panel.Find("Ingredientes/PosiblesFusiones");Assert.IsNotNull(possible.Find("BordeFusion"));
             Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
-            var close=panel.Find("Boton_Cerrar · E").GetComponent<UnityEngine.UI.Button>();Assert.AreSame(Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin").blueButton,close.image.sprite);Assert.AreSame(skin.regular,close.GetComponentInChildren<UnityEngine.UI.Text>().font);
+            var close=panel.Find("Boton_X").GetComponent<UnityEngine.UI.Button>();Assert.AreSame(Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin").blueButton,close.image.sprite);Assert.AreSame(skin.regular,close.GetComponentInChildren<UnityEngine.UI.Text>().font);
             Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,panel.GetComponentInChildren<UnityEngine.UI.Text>().font);
             game.Session.SetManualPause(true);yield return null;game.Hud.RefreshNow();
             Assert.IsFalse(game.Hud.HudCanvas.transform.Find("PauseAndResultOverlay").gameObject.activeSelf);
@@ -171,7 +179,9 @@ namespace EchoScrap.Tests
             var prompt=canvas.transform.Find("IndicadorFusion");
             Assert.LessOrEqual(prompt.GetComponent<RectTransform>().sizeDelta.x,360);
             Assert.AreSame(PixelControlArtwork.Load("InteractionPrompt/Plate_Normal"),prompt.GetComponent<UnityEngine.UI.Image>().sprite);
-            Assert.LessOrEqual(panel.Find("Ingredientes/Boton_FUSIONAR").GetComponent<RectTransform>().sizeDelta.x,210);
+            var confirm=panel.Find("Ingredientes/Boton_CONFIRMAR").GetComponent<UnityEngine.UI.Button>();
+            Assert.AreSame(pause.greenButton,confirm.image.sprite);
+            Assert.IsTrue(confirm.interactable);
             FusionRecipe.TryCreate(new[]{0,1,2,3},out var expected);foreach(int id in FusionCatalog.FusionIds.Where(id=>expected.ResultWeight(id)>0))StringAssert.Contains(expected.ResultPercent(id).ToString("0.##")+"%",text);
             yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
         }
@@ -210,7 +220,7 @@ namespace EchoScrap.Tests
             var possible=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel/Ingredientes/PosiblesFusiones");
             Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
             ui.OpenPicker(0);var picker=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel/MiGaraje");var grid=picker.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(5,grid.VisibleUnits);Assert.AreEqual(0,grid.UnitId(0));Assert.AreEqual(6,grid.UnitId(1));ui.AddIngredient(0);ui.AddIngredient(0);Assert.AreEqual(1,ui.SelectedCount);
-            var values=possible.GetComponentsInChildren<UnityEngine.UI.Text>().Select(t=>t.text).ToArray();
+            var values=possible.GetComponentsInChildren<UnityEngine.UI.Text>(true).Where(t=>t.gameObject.activeSelf).Select(t=>t.text).ToArray();
             CollectionAssert.AreEquivalent(new[]{"Reaper\nCOMÚN\n60%","Chico Emo\nRARO\n40%"},values);
             ui.ClearSelection();for(int i=0;i<4;i++)ui.AddIngredient(6);
             values=possible.GetComponentsInChildren<UnityEngine.UI.Text>().Select(t=>t.text).ToArray();
@@ -237,7 +247,8 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator NarrowResultSpritesAreCenteredOverTheirNames()
         {
-            yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();ui.AddIngredient(1);yield return null;
+            yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();
+            station.Progress.owned[1]=4;for(int i=0;i<4;i++)ui.AddIngredient(1);yield return null;
             var possible=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel/Ingredientes/PosiblesFusiones");
             var images=possible.GetComponentsInChildren<UnityEngine.UI.Image>().Where(i=>i.name=="Retrato").OrderBy(i=>i.rectTransform.anchoredPosition.x).ToArray();
             var names=possible.GetComponentsInChildren<UnityEngine.UI.Text>().OrderBy(t=>t.rectTransform.anchoredPosition.x).ToArray();
@@ -317,8 +328,12 @@ namespace EchoScrap.Tests
         {
             station.ResetCollection();station.Progress.owned[0]=1;station.Progress.equipped[0]=0;station.GetComponent<CompanionSystem>().RefreshEquipment();Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true);
             var p=ArenaSurface.OnGround(station.DisplaySlots[0].position+Vector3.back*3,1);game.Player.transform.position=p;game.Player.GetComponent<Rigidbody>().position=p;Physics.SyncTransforms();yield return null;
-            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;Assert.IsTrue(station.GetComponent<VaultReleaseInteraction>().IsOpen);
-            InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.Escape));yield return null;yield return null;
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;Assert.IsTrue(station.GetComponent<CompanionSystem>().IsOpen);
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;
+            station.transform.Find("CompanionCanvas/EquipoBoveda/Panel/Liberar").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.IsFalse(station.GetComponent<CompanionSystem>().IsOpen);
+            Assert.IsTrue(station.GetComponent<VaultReleaseInteraction>().IsOpen);
+            InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.Escape));yield return null;yield return null;
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.T));yield return null;yield return null;
             Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(1,station.Progress.owned[0]);Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
         }
