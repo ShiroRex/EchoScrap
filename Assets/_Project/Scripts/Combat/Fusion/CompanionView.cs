@@ -59,7 +59,10 @@ namespace EchoScrap.Combat
                 faces[id]=CollectibleDisplay.CardPortrait(id);
             }
             var canvas=new GameObject("CompanionCanvas",typeof(RectTransform),typeof(Canvas),typeof(CanvasScaler),typeof(GraphicRaycaster));canvas.transform.SetParent(transform,false);
-            canvas.GetComponent<Canvas>().renderMode=RenderMode.ScreenSpaceOverlay;canvas.GetComponent<Canvas>().sortingOrder=115;
+            var companionCanvas = canvas.GetComponent<Canvas>();
+            companionCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            companionCanvas.sortingOrder = 115;
+            companionCanvas.pixelPerfect = true;
             var scaler=canvas.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;
             pickupFeedback=canvas.AddComponent<CollectiblePickupFeedback>();pickupFeedback.Build(game,strong);
             var notice=Panel("AvisoColeccionables",canvas.transform,new Vector2(0,-184),new Vector2(420,44),new Color(.018f,.012f,.028f,.86f));notice.anchorMin=notice.anchorMax=new Vector2(.5f,1);announcementRoot=notice;
@@ -69,15 +72,18 @@ namespace EchoScrap.Combat
             var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(480,56),Color.white);hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
             hintText=Label(hint,"Texto","",Vector2.zero,new Vector2(290,40),20);hintText.font=strong;
             equipPrompt=PixelInteractionPrompt.Attach(hint,hintText);
+            prompt.SetActive(false);
             var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(244,56),Color.white);collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
             var collectLabel=Label(collect,"Texto","COLECCIONAR",Vector2.zero,new Vector2(248,46),22);collectLabel.font=strong;
             pickupPrompt=PixelInteractionPrompt.Attach(collect,collectLabel);
+            collectPrompt.SetActive(false);
             // Keep the original three compact frames at the upper left. The text below is deliberately
             // plain: it communicates only the powers currently equipped and never overlaps the portraits.
             var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(155,-190),new Vector2(700,220),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,1);hud=bar.gameObject;
             var portraitsCanvas = hud.AddComponent<Canvas>();
             portraitsCanvas.overrideSorting = true;
-            portraitsCanvas.sortingOrder = game.Hud.HudCanvas.sortingOrder - 1;
+            portraitsCanvas.sortingOrder = CombatHud.CanvasSortingOrder - 1;
+            hud.SetActive(false);
             for(int i=0;i<3;i++){
                 var box=Panel("Retrato_"+i,bar,new Vector2((i-1)*68,0),new Vector2(60,60),Color.gray);backgrounds[i]=box.GetComponent<Image>();
                 var picture=Panel("Cara",box,Vector2.zero,new Vector2(60,60),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
@@ -106,7 +112,7 @@ namespace EchoScrap.Combat
         public void Show(bool value){modal.SetActive(value);Refresh();}
         public void Refresh()
         {
-            if(station==null||station.Progress==null||modal==null)return;
+            if (modal == null || !game.IsInitialized) return;
             bool playing=!game.Session.IsPaused && game.Session.State==SessionState.Running && game.Player.IsAlive;
             bool showNotice=playing&&!game.Session.IsInWarehouse&&announcementAge<2f;
             bool bossVisible=game.Encounter!=null&&game.Encounter.IsEncounterActive&&game.Encounter.Boss!=null&&game.Encounter.Boss.IsAlive;

@@ -416,6 +416,45 @@ namespace EchoScrap.Tests
             Assert.That(Object.FindAnyObjectByType<CombatGameBootstrap>(), Is.Null);
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("MainMenu"));
         }
+
+        [UnityTest] public IEnumerator StartingFromTitleBuildsCompanionUiBeforeEnteringTheVault()
+        {
+            bool saveProgress = SceneTransitionState.SaveProgress;
+            bool hadCollection = SceneTransitionState.HasTransientCollection;
+            string previousCollection = SceneTransitionState.FusionSnapshot;
+            SceneTransitionState.SaveProgress = false;
+            SceneTransitionState.HasTransientCollection = false;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("MainMenu");
+                game = null;
+                yield return null;
+                Object.FindAnyObjectByType<MainMenuController>().RequestNewCollection();
+
+                float deadline = Time.realtimeSinceStartup + 30f;
+                while (LoadingScreen.IsLoading && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.IsFalse(LoadingScreen.IsLoading, "The title transition must finish.");
+                Bind();
+                Assert.That(game.IsSceneEntryReady, Is.True);
+                Assert.That(game.Flow.State, Is.EqualTo(GameFlowState.Vault));
+                var companions = station.GetComponent<CompanionSystem>();
+                Assert.That(companions.Abilities, Is.Not.Null);
+                var companionCanvas = station.transform.Find("CompanionCanvas");
+                Assert.That(companionCanvas.Find("CompanerosEquipados/Retrato_0/Cara"), Is.Not.Null);
+
+                game.Session.SetManualPause(true);
+                yield return null;
+                Assert.That(game.Hud.IsPauseVisible, Is.True);
+                Assert.That(companionCanvas.Find("EquiparIndicador").gameObject.activeInHierarchy, Is.False);
+                Assert.That(companionCanvas.Find("ColeccionarIndicador").gameObject.activeInHierarchy, Is.False);
+            }
+            finally
+            {
+                SceneTransitionState.SaveProgress = saveProgress;
+                SceneTransitionState.HasTransientCollection = hadCollection;
+                SceneTransitionState.FusionSnapshot = previousCollection;
+            }
+        }
     }
 }
 
