@@ -80,17 +80,17 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator FirstCollectibleShowsVaultHintUntilEquipmentHasBeenUsed()
         {
             yield return StartRun();
-            var hint = flow.View.Canvas.transform.Find("EquipmentHint").gameObject;
+            var hint = flow.View.Canvas.transform.Find("VaultTips/EquipmentHint").gameObject;
             Assert.IsFalse(hint.activeSelf);
             Assert.IsTrue(station.CollectFromArena(FusionCatalog.MapIds[0]));
             yield return null;
             Assert.IsFalse(hint.activeSelf);
             Assert.IsTrue(travel.TryTravel(false, game.Player));
             yield return null;
-            Assert.IsTrue(hint.activeSelf);
+            Assert.IsTrue(hint.activeInHierarchy);
             for (int i = 0; i < 3; i++)
             {
-                var label = station.DisplaySlots[i].GetComponentInChildren<Text>();
+                var label = station.DisplaySlots[i].GetComponentInChildren<Text>(true);
                 Assert.That(label.text, Is.EqualTo($"EQUIPO {i + 1}"));
             }
             Assert.IsTrue(station.EquipCompanion(0, FusionCatalog.MapIds[0]));
@@ -415,6 +415,54 @@ namespace EchoScrap.Tests
             Assert.That(title.View.IsTitleVisible, Is.True);
             Assert.That(Object.FindAnyObjectByType<CombatGameBootstrap>(), Is.Null);
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("MainMenu"));
+        }
+
+        [UnityTest] public IEnumerator StartingFromTitleBuildsCompanionUiBeforeEnteringTheVault()
+        {
+            bool saveProgress = SceneTransitionState.SaveProgress;
+            bool hadCollection = SceneTransitionState.HasTransientCollection;
+            string previousCollection = SceneTransitionState.FusionSnapshot;
+            SceneTransitionState.SaveProgress = false;
+            SceneTransitionState.HasTransientCollection = false;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("MainMenu");
+                game = null;
+                yield return null;
+                Object.FindAnyObjectByType<MainMenuController>().RequestNewCollection();
+
+                float deadline = Time.realtimeSinceStartup + 30f;
+                while (LoadingScreen.IsLoading && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.IsFalse(LoadingScreen.IsLoading, "The title transition must finish.");
+                Bind();
+                Assert.That(game.IsSceneEntryReady, Is.True);
+                Assert.That(game.Flow.State, Is.EqualTo(GameFlowState.Vault));
+                var companions = station.GetComponent<CompanionSystem>();
+                Assert.That(companions.Abilities, Is.Not.Null);
+                var companionCanvas = station.transform.Find("CompanionCanvas");
+                Assert.That(companionCanvas.Find("CompanerosEquipados/Retrato_0/Cara"), Is.Not.Null);
+                var tips = game.Flow.View.Canvas.transform.Find("VaultTips");
+                Assert.That(tips.gameObject.activeInHierarchy, Is.True);
+                var first = tips.Find("TipDot0").GetComponent<Image>();
+                var second = tips.Find("TipDot1").GetComponent<Image>();
+                Color active = first.color;
+                tips.Find("NextTip").GetComponent<Button>().onClick.Invoke();
+                Assert.That(second.color, Is.EqualTo(active));
+                tips.Find("PreviousTip").GetComponent<Button>().onClick.Invoke();
+                Assert.That(first.color, Is.EqualTo(active));
+
+                game.Session.SetManualPause(true);
+                yield return null;
+                Assert.That(game.Hud.IsPauseVisible, Is.True);
+                Assert.That(companionCanvas.Find("EquiparIndicador").gameObject.activeInHierarchy, Is.False);
+                Assert.That(companionCanvas.Find("ColeccionarIndicador").gameObject.activeInHierarchy, Is.False);
+            }
+            finally
+            {
+                SceneTransitionState.SaveProgress = saveProgress;
+                SceneTransitionState.HasTransientCollection = hadCollection;
+                SceneTransitionState.FusionSnapshot = previousCollection;
+            }
         }
     }
 }

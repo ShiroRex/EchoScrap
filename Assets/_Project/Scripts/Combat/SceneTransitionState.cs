@@ -31,6 +31,7 @@ namespace EchoScrap.Combat
         public static Entry PendingEntry { get; set; }
         public static EffectPreferences Effects { get; private set; } = new EffectPreferences();
         public static StatsDisplayMode StatsMode { get; set; }
+        public static bool ShowCompanionPowers { get; set; }
         public static bool HasCollection => SaveProgress
             ? PlayerPrefs.HasKey(GameFlowController.ProfileKey) || PlayerPrefs.HasKey(FusionStation.SaveKey)
             : HasTransientCollection;
@@ -40,6 +41,7 @@ namespace EchoScrap.Combat
         {
             SaveProgress = true; HasTransientCollection = false; FusionSnapshot = null;
             PendingEntry = Entry.None; Effects = new EffectPreferences(); StatsMode = StatsDisplayMode.None;
+            ShowCompanionPowers = false;
         }
 
         public static void Capture(CombatGameBootstrap game, FusionStation station, bool hasCollection)

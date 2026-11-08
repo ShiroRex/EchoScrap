@@ -27,12 +27,12 @@ namespace EchoScrap.Combat
         public int NearestSlot {
             get {
                 if(game==null || !game.Session.IsInWarehouse || !game.Player.IsAlive)return -1;
-                int slot=-1;float distance=5;
-                for(int i=0;i<3;i++){float d=Vector3.Distance(game.Player.transform.position,station.DisplaySlots[i].position+Vector3.back*3);if(d<distance){distance=d;slot=i;}}
+                int slot=-1;float distance=FusionStation.DisplayInteractionDistance;
+                for(int i=0;i<3;i++){float d=Vector3.Distance(game.Player.transform.position,station.DisplayApproachPoint(i));if(d<distance){distance=d;slot=i;}}
                 return slot;
             }
         }
-        public bool CanEquip => (GetComponent<VaultReleaseInteraction>()?.NearestSlot??-1)<0 && NearestSlot>=0 && (!IsOpen || NearestSlot==SelectedSlot);
+        public bool CanEquip => (GetComponent<VaultReleaseInteraction>()?.NearestSlot??-1)<3 && NearestSlot>=0 && (!IsOpen || NearestSlot==SelectedSlot);
         public bool CanCollect => NearestPickup()>=0;
         public int PickupId(int index)=>index>=0&&index<pickups.Count?pickups[index].Id:-1;
         public Vector3 PickupPosition(int index)=>index>=0&&index<pickups.Count?pickups[index].Ground:Vector3.zero;
@@ -66,6 +66,12 @@ namespace EchoScrap.Combat
         {
             if(!IsOpen || !CanEquip || slot!=SelectedSlot || id>=0&&station.Progress.Available(id)<=0 || !station.EquipCompanion(slot,id))return false;
             RefreshEquipment();return true;
+        }
+        public void RequestRelease()
+        {
+            if (!IsOpen || !CanEquip || station.Progress.equipped[SelectedSlot] < 0) return;
+            Close();
+            GetComponent<VaultReleaseInteraction>().TryOpen();
         }
         public void RefreshEquipment()
         {
@@ -123,8 +129,9 @@ namespace EchoScrap.Combat
             int index=NearestPickup();if(index<0)return false;
             var item=pickups[index];
             if(!station.Progress.HasSpace){pickupFeedback.Reject();return false;}
+            bool isNew = !station.Progress.IsDiscovered(item.Id);
             if(!station.CollectFromArena(item.Id))return false;
-            Destroy(item.Object);pickups.RemoveAt(index);view.AnnounceCollected(item.Id);return true;
+            Destroy(item.Object);pickups.RemoveAt(index);view.AnnounceCollected(item.Id, isNew);return true;
         }
         private void ClearPickups(){foreach(var p in pickups)if(p.Object!=null)Destroy(p.Object);pickups.Clear();}
         private void OnDestroy(){ClearPickups();if(game!=null){game.Session.SessionReset-=ResetRun;game.Session.Clock.SetPause(PauseReason.CompanionMenu,false);}}

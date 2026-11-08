@@ -48,9 +48,9 @@ namespace EchoScrap.Tests
             var colors=new HashSet<Color32>();foreach(var color in sample.GetPixels32())colors.Add(color);Assert.Greater(colors.Count,30,"Minimap must contain the arena, not a blank render target.");Object.Destroy(sample);
             game.Player.transform.position=previous;yield return Capture();
         }
-        [UnityTest] public IEnumerator MapHidesDuringPauseAndWarehouseAndReturnsForCombat()
+        [UnityTest] public IEnumerator MapStaysBehindPauseAndHidesInTheWarehouse()
         {
-            game.Session.SetManualPause(true);map.Refresh();Assert.IsFalse(map.IsVisible);
+            game.Session.SetManualPause(true);map.Refresh();Assert.IsTrue(map.IsVisible);
             game.Session.SetManualPause(false);map.Refresh();Assert.IsTrue(map.IsVisible);
             Assert.IsTrue(Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true));map.Refresh();Assert.IsFalse(map.IsVisible);
             game.ResetRun();map.Refresh();Assert.IsTrue(map.IsVisible);Assert.AreEqual(30,map.VisibleRadius);yield return null;

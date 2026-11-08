@@ -9,6 +9,7 @@ namespace EchoScrap.Combat
     [DisallowMultipleComponent, RequireComponent(typeof(CombatGameBootstrap))]
     public sealed class CombatMusicPlayer : MonoBehaviour
     {
+        private const string MusicVolumePreference = "EchoScrap.Audio.MusicVolume";
         [SerializeField] private AudioClip arenaClip, bossClip, vaultClip;
         [SerializeField, Range(0,1)] private float arenaVolume=.22f, bossVolume=.25f, vaultVolume=.25f;
         [SerializeField, Min(.05f)] private float crossfadeSeconds=.8f;
@@ -21,6 +22,19 @@ namespace EchoScrap.Combat
         public bool AutoTick { get; set; }=true;
         public CombatMusicTrack CurrentTrack { get; private set; }
         public bool IsPaused { get; private set; }
+        public static float MusicVolume { get; private set; } = 1f;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void LoadMusicVolume()
+        {
+            MusicVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(MusicVolumePreference, 1f));
+        }
+
+        public static void SetMusicVolume(float volume)
+        {
+            MusicVolume = Mathf.Clamp01(volume);
+            PlayerPrefs.SetFloat(MusicVolumePreference, MusicVolume);
+        }
 
         private void OnEnable()
         {
@@ -87,7 +101,7 @@ namespace EchoScrap.Combat
         }
         private static void Blend(AudioSource source,ref float mix,bool wanted,float volume,float step)
         {
-            mix=Mathf.MoveTowards(mix,wanted?1:0,step);source.volume=volume*mix;
+            mix=Mathf.MoveTowards(mix,wanted?1:0,step);source.volume=volume*mix*MusicVolume;
             if(mix>0 && source.clip!=null && !source.isPlaying)source.Play();
             if(mix==0 && source.isPlaying)source.Stop();
         }

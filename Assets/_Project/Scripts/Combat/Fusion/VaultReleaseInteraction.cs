@@ -19,11 +19,11 @@ namespace EchoScrap.Combat
         public int NearestSlot {
             get {
                 if(game==null||!game.Session.IsInWarehouse||!game.Player.IsAlive)return -1;
-                int nearest=-1;float distance=5f;
+                int nearest=-1;float distance=FusionStation.DisplayInteractionDistance;
                 // Nearest occupied station owns the interaction; empty equipment stations remain available for E to equip.
                 for(int i=0;i<station.DisplaySlots.Length;i++){
                     if(i>=3&&station.DisplayedId(i)<0)continue;
-                    float d=Vector3.Distance(game.Player.transform.position,station.DisplaySlots[i].position+Vector3.back*3);
+                    float d=Vector3.Distance(game.Player.transform.position,station.DisplayApproachPoint(i));
                     if(d<distance){distance=d;nearest=i;}
                 }
                 return nearest>=0&&station.DisplayedId(nearest)>=0?nearest:-1;
@@ -48,11 +48,11 @@ namespace EchoScrap.Combat
         {
             var keyboard=Keyboard.current;int slot=NearestSlot;
             if(IsOpen){if(slot!=pendingSlot||!game.Player.IsAlive||keyboard!=null&&(keyboard.escapeKey.wasPressedThisFrame||keyboard.eKey.wasPressedThisFrame))Close();}
-            else if(keyboard!=null&&keyboard.eKey.wasPressedThisFrame)TryOpen();
+            else if(slot>=3&&keyboard!=null&&keyboard.eKey.wasPressedThisFrame)TryOpen();
             else if(keyboard!=null&&keyboard.tKey.wasPressedThisFrame)TryUnequip();
             slot=NearestSlot;
-            bool visible=!IsOpen&&!game.Session.IsPaused&&slot>=0&&game.Session.State==SessionState.Running;
-            prompt.SetActive(visible);if(visible)promptText.text=(slot<3?"LIBERAR    T · DESEQUIPAR\n":"LIBERAR\n")+FusionCatalog.Names[station.DisplayedId(slot)];
+            bool visible=!IsOpen&&!game.Session.IsPaused&&slot>=3&&game.Session.State==SessionState.Running;
+            prompt.SetActive(visible);if(visible)promptText.text="LIBERAR\n"+FusionCatalog.Names[station.DisplayedId(slot)];
             if(visible)interactionPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
         }
         public bool TryOpen()

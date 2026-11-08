@@ -91,11 +91,35 @@ namespace EchoScrap.Combat
         public bool[] discovered=new bool[FusionCatalog.Count];
         public int[] displays={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
         public int Available(int id)=>FusionCatalog.Valid(id)?Mathf.Max(0,owned[id]-equipped.Count(value=>value==id)):0;
-        public bool CanBegin(int[] ingredients){if(phase!=FusionPhase.Idle||!FusionRecipe.TryCreate(ingredients,out _))return false;var used=new int[FusionCatalog.Count];foreach(int id in ingredients)if(++used[id]>Available(id))return false;return true;}
-        public bool Begin(int[] ingredients,int roll,int variant)
+        public bool CanBegin(int[] ingredients, int[] equipmentSlots = null)
         {
-            if(!CanBegin(ingredients)||!FusionRecipe.TryCreate(ingredients,out var recipe))return false;
-            int outcome=recipe.Roll(roll,variant);foreach(int id in ingredients)owned[id]--;
+            if (phase != FusionPhase.Idle || !FusionRecipe.TryCreate(ingredients, out _) ||
+                equipmentSlots != null && equipmentSlots.Length != ingredients.Length) return false;
+            var usedFree = new int[FusionCatalog.Count];
+            int usedSlots = 0;
+            for (int i = 0; i < ingredients.Length; i++)
+            {
+                int id = ingredients[i];
+                int slot = equipmentSlots == null ? -1 : equipmentSlots[i];
+                if (slot == -1)
+                {
+                    if (++usedFree[id] > Available(id)) return false;
+                    continue;
+                }
+                if (slot < 0 || slot >= equipped.Length || equipped[slot] != id || (usedSlots & (1 << slot)) != 0)
+                    return false;
+                usedSlots |= 1 << slot;
+            }
+            return true;
+        }
+        public bool Begin(int[] ingredients,int roll,int variant,int[] equipmentSlots=null)
+        {
+            if(!CanBegin(ingredients,equipmentSlots)||!FusionRecipe.TryCreate(ingredients,out var recipe))return false;
+            int outcome=recipe.Roll(roll,variant);
+            if (equipmentSlots != null)
+                foreach (int slot in equipmentSlots)
+                    if (slot >= 0) equipped[slot] = -1;
+            foreach(int id in ingredients)owned[id]--;
             result=outcome;duration=remaining=recipe.Seconds;opening=0;phase=FusionPhase.Fusing;return true;
         }
         public bool Advance(float seconds)

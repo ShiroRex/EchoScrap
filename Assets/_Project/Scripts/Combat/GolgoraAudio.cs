@@ -72,7 +72,8 @@ namespace EchoScrap.Combat
             }
             foundationVolume = Mathf.MoveTowards(foundationVolume, actor.State == GolgoraState.Intro ? .10f : .19f, deltaTime * .12f);
             pressureVolume = Mathf.MoveTowards(pressureVolume, actor.IsPhaseTwo ? .17f : 0f, deltaTime * .1f);
-            foundation.volume = musicEnabled?foundationVolume:0f; pressure.volume = musicEnabled?pressureVolume:0f;
+            foundation.volume = musicEnabled ? foundationVolume * CombatMusicPlayer.MusicVolume : 0f;
+            pressure.volume = musicEnabled ? pressureVolume * CombatMusicPlayer.MusicVolume : 0f;
         }
         public void Impact(GolgoraAttackKind kind)
         {

@@ -135,18 +135,29 @@ namespace EchoScrap.Tests
         {
             game.Session.SetManualPause(true); game.Hud.RefreshNow();
             var pause = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause");
-            var volume = pause.Find("VolumeSlider").GetComponent<Slider>();
-            var toggle = pause.Find("ReducedEffects").GetComponent<Toggle>();
-            var full = pause.Find("StatsDisplayMode/Full").GetComponent<Button>();
+            var soundTab = pause.Find("Tabs/Sound").GetComponent<Button>();
+            var interfaceTab = pause.Find("Tabs/Interface").GetComponent<Button>();
+            var volume = pause.Find("Sound/VolumeSlider").GetComponent<Slider>();
+            var music = pause.Find("Sound/MusicSlider").GetComponent<Slider>();
+            var full = pause.Find("Interface/StatsDisplayMode/Full").GetComponent<Button>();
             var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
             var baseEvent = new BaseEventData(EventSystem.current);
             float oldVolume = AudioListener.volume;
             bool hadVolume = PlayerPrefs.HasKey("EchoScrap.Audio.MasterVolume");
             float storedVolume = PlayerPrefs.GetFloat("EchoScrap.Audio.MasterVolume", 1f);
+            const string musicKey = "EchoScrap.Audio.MusicVolume";
+            bool hadMusic = PlayerPrefs.HasKey(musicKey);
+            float oldMusic = CombatMusicPlayer.MusicVolume;
             try
             {
+                soundTab.onClick.Invoke();
+                Assert.IsTrue(pause.Find("Sound").gameObject.activeInHierarchy);
+                Assert.IsFalse(pause.Find("General").gameObject.activeInHierarchy);
                 volume.value = 37;
+                music.value = 26;
                 Assert.AreEqual(.37f, AudioListener.volume, .001f);
+                Assert.AreEqual(.26f, CombatMusicPlayer.MusicVolume, .001f);
+                Assert.AreEqual(.26f, PlayerPrefs.GetFloat(musicKey), .001f);
                 Assert.AreSame(PixelControlArtwork.Load("Slider/Track"), volume.transform.Find("Background").GetComponent<Image>().sprite);
                 Assert.AreEqual(48f, volume.handleRect.rect.height, .1f, "The cross-axis anchors must not stretch the handle twice.");
                 ExecuteEvents.Execute(volume.gameObject, pointer, ExecuteEvents.pointerEnterHandler);
@@ -156,10 +167,8 @@ namespace EchoScrap.Tests
                 ExecuteEvents.Execute(volume.gameObject, pointer, ExecuteEvents.pointerUpHandler);
                 ExecuteEvents.Execute(volume.gameObject, pointer, ExecuteEvents.pointerExitHandler);
                 EventSystem.current.SetSelectedGameObject(null);
-                toggle.isOn = true;
-                Assert.IsTrue(game.Session.Effects.ReducedEffectsMode);
-                Assert.AreSame(PixelControlArtwork.Load("Checkbox/On_Normal"), ((Image)toggle.graphic).sprite);
-                toggle.isOn = false;
+                interfaceTab.onClick.Invoke();
+                Assert.IsFalse(pause.Find("Sound").gameObject.activeInHierarchy);
                 ExecuteEvents.Execute(full.gameObject, pointer, ExecuteEvents.pointerClickHandler);
                 Assert.AreEqual(StatsDisplayMode.Full, game.Hud.StatsMode);
                 ExecuteEvents.Execute(full.gameObject, pointer, ExecuteEvents.pointerEnterHandler);
@@ -172,7 +181,11 @@ namespace EchoScrap.Tests
                 ExecuteEvents.Execute(full.gameObject, pointer, ExecuteEvents.pointerExitHandler);
                 EventSystem.current.SetSelectedGameObject(null);
                 Assert.AreSame(PixelControlArtwork.Load("StatsSelector/Selected"), full.image.sprite);
+                yield return Capture("Pausa_Interfaz_720", 1280, 720);
+                soundTab.onClick.Invoke();
                 volume.value = 37;
+                yield return Capture("Pausa_Sonido_720", 1280, 720);
+                pause.Find("Tabs/General").GetComponent<Button>().onClick.Invoke();
                 yield return Capture("Pausa_1080", 1920, 1080);
                 yield return Capture("Pausa_720", 1280, 720);
                 var views = pause.GetComponentsInChildren<PixelControlArtwork>();
@@ -186,6 +199,8 @@ namespace EchoScrap.Tests
             {
                 AudioListener.volume = oldVolume;
                 if (hadVolume) PlayerPrefs.SetFloat("EchoScrap.Audio.MasterVolume", storedVolume); else PlayerPrefs.DeleteKey("EchoScrap.Audio.MasterVolume");
+                CombatMusicPlayer.SetMusicVolume(oldMusic);
+                if (!hadMusic) PlayerPrefs.DeleteKey(musicKey);
                 PlayerPrefs.Save();
             }
         }
@@ -214,6 +229,83 @@ namespace EchoScrap.Tests
             // Automated captures must live beside the external QA project, not the game checkout.
             string directory = Path.GetFullPath(Path.Combine(Application.dataPath, "../../Review"));
             Directory.CreateDirectory(directory); return Path.Combine(directory, name);
+        }
+
+        [UnityTest]
+        public IEnumerator VaultTipsAndExpeditionButtonFitAt720p()
+        {
+            var flow = game.gameObject.AddComponent<GameFlowController>();
+            flow.Initialize(game, false);
+            flow.View.NewCollectionButton.onClick.Invoke();
+            yield return null;
+            Assert.IsTrue(flow.View.IsVaultVisible);
+            var tips = (RectTransform)flow.View.Canvas.transform.Find("VaultTips");
+            var start = (RectTransform)flow.View.StartButton.transform;
+            Assert.That(tips.anchoredPosition.y, Is.EqualTo(start.anchoredPosition.y));
+            Assert.AreEqual(Vector2.zero, tips.anchorMin);
+            Assert.AreEqual(new Vector2(1, 0), start.anchorMin);
+            Assert.IsNotNull(tips.Find("CollectorLantern").GetComponent<Image>().sprite);
+            yield return Capture("Boveda_720", 1280, 720);
+        }
+
+        [UnityTest]
+        public IEnumerator VaultArrowsLeadThroughTheStairsAndHideOutsideExploration()
+        {
+            var flow = game.gameObject.AddComponent<GameFlowController>();
+            flow.Initialize(game, false);
+            flow.View.NewCollectionButton.onClick.Invoke();
+            yield return null;
+            var directions = flow.View.Canvas.transform.Find("VaultDirections");
+            var fusion = (RectTransform)directions.Find("Fusion/Arrow");
+            var equipment = (RectTransform)directions.Find("Equipment/Arrow");
+            Assert.IsTrue(fusion.gameObject.activeInHierarchy && equipment.gameObject.activeInHierarchy);
+            Assert.IsFalse(fusion.GetComponent<Image>().raycastTarget || equipment.GetComponent<Image>().raycastTarget);
+            yield return Capture("Boveda_Flechas_720", 1280, 720);
+
+            var station = Object.FindAnyObjectByType<FusionStation>();
+            var body = game.Player.GetComponent<Rigidbody>();
+            void Place(Vector3 position)
+            {
+                body.position = position;
+                body.transform.position = position;
+                Physics.SyncTransforms();
+            }
+
+            void AssertBearing(RectTransform arrow, Vector3 worldTarget)
+            {
+                Vector3 offset = worldTarget - body.transform.position;
+                offset.y = 0;
+                Vector3 right = game.GameplayCamera.transform.right;
+                right.y = 0;
+                Vector3 expected = new Vector3(Vector3.Dot(offset, right),
+                    Vector3.Dot(offset, Vector3.Cross(right, Vector3.up)), 0).normalized;
+                Assert.That(Vector3.Dot(expected, arrow.localRotation * Vector3.up), Is.GreaterThan(.98f), arrow.parent.name);
+            }
+
+            Place(new Vector3(180, 1, 8));
+            yield return null;
+            AssertBearing(equipment, new Vector3(160, 0, -.5f));
+            AssertBearing(fusion, station.InteractionPoint.position);
+
+            Place(new Vector3(160, 4, 8));
+            yield return null;
+            AssertBearing(equipment, new Vector3(160, 0, 16.5f));
+            AssertBearing(fusion, new Vector3(160, 0, -.5f));
+            Assert.That(equipment.parent.Find("Label").GetComponent<Text>().text, Is.EqualTo("SUBE AL BALCÓN"));
+
+            Place(new Vector3(167, 6, 22));
+            yield return null;
+            Assert.IsFalse(equipment.gameObject.activeInHierarchy);
+            Assert.That(equipment.parent.Find("Label").GetComponent<Text>().text, Is.EqualTo("PUESTO 2 · EQUIPAR"));
+            AssertBearing(fusion, new Vector3(160, 0, 16.5f));
+
+            game.Session.SetManualPause(true);
+            yield return null;
+            Assert.IsFalse(directions.gameObject.activeInHierarchy);
+            game.Session.SetManualPause(false);
+            Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(false);
+            yield return null;
+            Assert.IsFalse(directions.gameObject.activeInHierarchy);
         }
 
         private IEnumerator Capture(string name, int width, int height)

@@ -21,8 +21,6 @@ namespace EchoScrap.Combat
             public Image Icon;
             public Image NewBadge;
             public Image UpgradeArrow;
-            public Image Button;
-            public Text ButtonLabel;
             public Text Level;
             public Text LevelBefore;
             public Text LevelAfter;
@@ -291,8 +289,8 @@ namespace EchoScrap.Combat
             stickLatched = false; navigationRepeat = 0f; pointerKnown = false;
             canvasRoot.SetActive(isActiveAndEnabled && controller != null && controller.IsOpen);
             if (!canvasRoot.activeSelf) return;
-            title.text = "ELIGE UNA MEJORA";
-            subtitle.text = controller.PendingChoices > 1 ? $"SUBIDA DE NIVEL  /  {controller.PendingChoices} ELECCIONES PENDIENTES" : "SUBIDA DE NIVEL  /  EL COMBATE ESTÁ EN PAUSA";
+            title.text = "SELECCIONA UNA MEJORA";
+            subtitle.text = controller.PendingChoices > 1 ? $"{controller.PendingChoices} ELECCIONES PENDIENTES" : "";
             rerollButton.gameObject.SetActive(controller.RerollsRemaining > 0);
             rerollLabel.text = "REINTENTAR [R / Y]  ·  " + controller.RerollsRemaining;
             bool empty = controller.Offers.Count == 0;
@@ -373,9 +371,6 @@ namespace EchoScrap.Combat
                 cards[i].Border.color = i == selectedIndex ? Color.white : new Color(0.78f, 0.78f, 0.78f);
                 cards[i].Number.text = i == selectedIndex ? $"[ {i + 1} ]  ENFOCADA" : $"[ {i + 1} ]";
                 cards[i].Number.color = i == selectedIndex ? color : new Color(0.6f, 0.65f, 0.7f);
-                cards[i].ButtonLabel.text = "ELEGIR";
-                float buttonBrightness = i == selectedIndex ? 1f : 0.82f;
-                cards[i].Button.color = new Color(color.r * buttonBrightness, color.g * buttonBrightness, color.b * buttonBrightness, 1f);
             }
         }
 
@@ -396,7 +391,7 @@ namespace EchoScrap.Combat
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 1f;
             canvasRect = (RectTransform)canvasRoot.transform;
-            RectTransform shade = ImageRect(canvasRect, "Backdrop", Vector2.zero, Vector2.zero, new Color(0.02f, 0.035f, 0.06f, 0.94f));
+            RectTransform shade = ImageRect(canvasRect, "Backdrop", Vector2.zero, Vector2.zero, new Color(.02f, .035f, .06f, .4f));
             shade.anchorMin = Vector2.zero; shade.anchorMax = Vector2.one; shade.offsetMin = Vector2.zero; shade.offsetMax = Vector2.zero;
             title = TextRect(canvasRect, "Title", new Vector2(0f, 470f), new Vector2(1300f, 65f), 48, FontStyle.Bold, TextAnchor.MiddleCenter);
             title.color = new Color(0.91f, 0.84f, 0.70f);
@@ -447,15 +442,8 @@ namespace EchoScrap.Combat
             Image arrow = ImageRect(inner, "ComparisonArrow", new Vector2(0f, -142f), new Vector2(22f, 22f), Color.white).GetComponent<Image>();
             view.ComparisonArrow = arrow;
             arrow.sprite = skin.upgradeArrow; arrow.transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
-            view.Detail = TextRect(inner, "Detail", new Vector2(0f, -206f), new Vector2(340f, 88f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
+            view.Detail = TextRect(inner, "Detail", new Vector2(0f, -228f), new Vector2(288f, 128f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Detail.color = new Color(0.73f, 0.78f, 0.78f);
-            view.Button = ImageRect(inner, "ChooseButton", new Vector2(0f, -272f), new Vector2(280f, 40f), Color.white).GetComponent<Image>();
-            view.Button.sprite = skin.chooseButton;
-            view.Button.type = Image.Type.Sliced;
-            view.Button.fillCenter = true;
-            view.Button.pixelsPerUnitMultiplier = 0.5f;
-            view.ButtonLabel = TextRect(view.Button.transform, "Label", Vector2.zero, new Vector2(260f, 38f), 22, FontStyle.Bold, TextAnchor.MiddleCenter);
-            view.ButtonLabel.color = new Color(0.035f, 0.045f, 0.07f);
             view.Confirmation = ImageRect(view.Root, "ConfirmationFlash", Vector2.zero, new Vector2(400f, 620f), Color.clear, true).GetComponent<Image>();
             NineSlice(view.Confirmation);
             var sheen = new GameObject("SurfaceSheen", typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();
