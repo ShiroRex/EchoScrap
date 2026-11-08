@@ -21,7 +21,7 @@ namespace EchoScrap.Combat
         private readonly Text[] slots=new Text[3];
         private readonly Sprite[] faces=new Sprite[FusionCatalog.Count];
         private int selected=>system.SelectedSlot;
-        private Text title,hintText;
+        private Text title;
         private GameObject collectPrompt;
         private PixelInteractionPrompt equipPrompt, pickupPrompt;
         private RectTransform announcementRoot;
@@ -70,13 +70,11 @@ namespace EchoScrap.Combat
             announcement=notice.gameObject.AddComponent<CanvasGroup>();announcement.blocksRaycasts=announcement.interactable=false;
             var message=Label(notice,"Mensaje","¡NUEVOS COLECCIONABLES!",Vector2.zero,new Vector2(400,40),22);
             message.font=Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;message.color=new Color(.91f,.76f,.44f);announcementText=message.rectTransform;notice.gameObject.SetActive(false);
-            var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(220,56),Color.white);hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
-            hintText=Label(hint,"Texto","",Vector2.zero,new Vector2(290,40),20);hintText.font=strong;
-            equipPrompt=PixelInteractionPrompt.Attach(hint,hintText);
+            var hint=Panel("EquiparIndicador",canvas.transform,Vector2.zero,Vector2.zero,Color.white);prompt=hint.gameObject;
+            equipPrompt=PixelInteractionPrompt.Attach(hint,"EQUIPAR");
             prompt.SetActive(false);
-            var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(244,56),Color.white);collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
-            var collectLabel=Label(collect,"Texto","COLECCIONAR",Vector2.zero,new Vector2(248,46),22);collectLabel.font=strong;
-            pickupPrompt=PixelInteractionPrompt.Attach(collect,collectLabel);
+            var collect=Panel("ColeccionarIndicador",canvas.transform,Vector2.zero,Vector2.zero,Color.white);collectPrompt=collect.gameObject;
+            pickupPrompt=PixelInteractionPrompt.Attach(collect,"COLECCIONAR");
             collectPrompt.SetActive(false);
             // Keep the original three compact frames at the upper left. The text below is deliberately
             // plain: it communicates only the powers currently equipped and never overlaps the portraits.
@@ -125,7 +123,7 @@ namespace EchoScrap.Combat
                 announcementText.localScale=Vector3.one*(decoration>.01f?Mathf.Lerp(.72f,1,pop):1);announcementText.anchoredPosition=Vector2.up*(leave*32*decoration);}
             bool showEquipmentPrompt = !IsOpen && playing && system.CanEquip;
             prompt.SetActive(showEquipmentPrompt);
-            if (showEquipmentPrompt) hintText.text = station.Progress.equipped[system.NearestSlot] < 0 ? "EQUIPAR" : "EDITAR";
+            if (showEquipmentPrompt) equipPrompt.SetAction(station.Progress.equipped[system.NearestSlot] < 0 ? "EQUIPAR" : "EDITAR");
             collectPrompt.SetActive(!IsOpen&&playing&&system.CanCollect);
             if(prompt.activeSelf)equipPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
             if(collectPrompt.activeSelf)pickupPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);

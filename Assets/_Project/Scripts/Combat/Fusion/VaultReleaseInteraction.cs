@@ -10,7 +10,7 @@ namespace EchoScrap.Combat
         private FusionStation station;
         private CombatGameBootstrap game;
         private GameObject prompt,modal;
-        private Text promptText,question;
+        private Text question;
         private PixelInteractionPrompt interactionPrompt;
         private Font font;
         private int pendingSlot=-1,pendingId=-1;
@@ -33,10 +33,10 @@ namespace EchoScrap.Combat
         {
             station=owner;game=bootstrap;font=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").semibold;
             var root=new GameObject("LiberarBovedaCanvas",typeof(RectTransform),typeof(Canvas),typeof(CanvasScaler),typeof(GraphicRaycaster));root.transform.SetParent(transform,false);
-            var canvas=root.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=130;
+            var canvas=root.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=130;canvas.pixelPerfect=true;
             var scaler=root.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;
-            var hint=Panel(root.transform,"IndicadorLiberar",new Vector2(0,175),new Vector2(680,84),Color.white);hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;promptText=Label(hint,Vector2.zero,new Vector2(548,60),23);
-            interactionPrompt=PixelInteractionPrompt.Attach(hint,promptText);
+            var hint=Panel(root.transform,"IndicadorLiberar",Vector2.zero,Vector2.zero,Color.white);prompt=hint.gameObject;
+            interactionPrompt=PixelInteractionPrompt.Attach(hint,"LIBERAR");
             var shade=Panel(root.transform,"ConfirmarLiberacion",Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;modal=shade.gameObject;
             var panel=Panel(shade,"Panel",Vector2.zero,new Vector2(780,360),new Color(.05f,.06f,.1f));
             CollectionMenuStyle.Frame(panel);
@@ -52,14 +52,16 @@ namespace EchoScrap.Combat
             else if(keyboard!=null&&keyboard.tKey.wasPressedThisFrame)TryUnequip();
             slot=NearestSlot;
             bool visible=!IsOpen&&!game.Session.IsPaused&&slot>=3&&game.Session.State==SessionState.Running;
-            prompt.SetActive(visible);if(visible)promptText.text="LIBERAR\n"+FusionCatalog.Names[station.DisplayedId(slot)];
+            prompt.SetActive(visible);
             if(visible)interactionPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
         }
         public bool TryOpen()
         {
             int slot=NearestSlot;if(slot<0||game.Session.IsPaused||game.Session.State!=SessionState.Running)return false;
             pendingSlot=slot;pendingId=station.DisplayedId(slot);game.Motor.CancelDashAndRestoreState();game.Motor.Stop();game.Session.Clock.SetPause(PauseReason.CompanionMenu,true);
-            question.text="¿Seguro que quieres liberar a\n"+FusionCatalog.Names[pendingId]+"?\nEsta unidad desaparecerá de tu colección.";modal.SetActive(true);return true;
+            string rarityColor = ColorUtility.ToHtmlStringRGB(FusionCatalog.ColorOf(pendingId));
+            question.text = $"¿Seguro que quieres liberar a\n<color=#{rarityColor}>{FusionCatalog.Names[pendingId]}</color>?\nEsta unidad desaparecerá de tu colección.";
+            modal.SetActive(true);return true;
         }
         public bool ConfirmRelease()
         {
