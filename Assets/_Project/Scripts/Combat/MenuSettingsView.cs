@@ -40,6 +40,7 @@ namespace EchoScrap.Combat
             var box = ImageAt(toggleRect, "Box", new Vector2(-301, 0), new Vector2(38, 38), new Color(.19f, .24f, .27f));
             var check = ImageAt(box.transform, "Check", Vector2.zero, new Vector2(24, 24), Gold);
             reduced = toggleRect.gameObject.AddComponent<Toggle>(); reduced.targetGraphic = box; reduced.graphic = check;
+            PixelControlArtwork.StyleToggle(reduced);
             Label(toggleRect, "EFECTOS REDUCIDOS", new Vector2(33, 0), 23, TextAnchor.MiddleLeft, Pale).rectTransform.sizeDelta = new Vector2(560, 48);
             reduced.onValueChanged.AddListener(SetReducedEffects);
             Label(panel, "ESTADÍSTICAS", new Vector2(-240, -137), 21, TextAnchor.MiddleLeft, Pale).rectTransform.sizeDelta = new Vector2(160, 44);
@@ -48,6 +49,10 @@ namespace EchoScrap.Combat
             {
                 StatsDisplayMode mode = ModeOrder[i];
                 modes[i] = ButtonAt(panel, names[i], new Vector2(-72 + 156 * i, -137), new Vector2(144, 44), null, () => SetStatsMode(mode));
+                modes[i].image.rectTransform.sizeDelta = new Vector2(144, 48);
+                var label = modes[i].GetComponentInChildren<Text>();
+                label.fontSize = 18; label.rectTransform.sizeDelta = new Vector2(98, 36);
+                PixelControlArtwork.StyleChoice(modes[i]);
             }
             back = ButtonAt(panel, "VOLVER", new Vector2(0, -225), new Vector2(304, 112), skin != null ? skin.greenButton : null, owner.CloseConfiguration);
             Link(shake, back, decoration); Link(decoration, shake, reduced); Link(reduced, decoration, modes[0]);
@@ -66,13 +71,14 @@ namespace EchoScrap.Combat
             var effects = owner.Effects;
             shake.SetValueWithoutNotify(effects.RawShakeIntensity * 100); decoration.SetValueWithoutNotify(effects.RawDecorativeIntensity * 100);
             reduced.SetIsOnWithoutNotify(effects.ReducedEffectsMode); shake.interactable = decoration.interactable = !effects.ReducedEffectsMode;
+            PixelControlArtwork.Refresh(shake); PixelControlArtwork.Refresh(decoration); PixelControlArtwork.Refresh(reduced);
             shakeLabel.text = "MOVIMIENTO DE CÁMARA   " + Mathf.RoundToInt(effects.ShakeIntensity * 100) + "%";
             decorationLabel.text = "EFECTOS DECORATIVOS   " + Mathf.RoundToInt(effects.DecorativeIntensity * 100) + "%";
             for (int i = 0; i < modes.Length; i++)
             {
                 bool selected = ModeOrder[i] == SceneTransitionState.StatsMode;
-                modes[i].image.color = selected ? Gold : new Color(.15f, .19f, .22f);
-                modes[i].GetComponentInChildren<Text>().color = selected ? new Color(.055f, .065f, .085f) : Pale;
+                PixelControlArtwork.SetChoiceActive(modes[i], selected);
+                modes[i].GetComponentInChildren<Text>().color = Pale;
             }
         }
         private Slider SliderAt(Transform parent, string name, float y, UnityEngine.Events.UnityAction<float> changed)
@@ -84,7 +90,8 @@ namespace EchoScrap.Combat
             fill.rectTransform.anchorMin = Vector2.zero; fill.rectTransform.anchorMax = Vector2.one;
             fill.rectTransform.offsetMin = fill.rectTransform.offsetMax = Vector2.zero;
             var handleArea = Rect(rect, "HandleArea", Vector2.zero, new Vector2(618, 34)); var handle = ImageAt(handleArea, "Handle", Vector2.zero, new Vector2(20, 30), Pale);
-            slider.fillRect = fill.rectTransform; slider.handleRect = handle.rectTransform; slider.targetGraphic = handle; slider.onValueChanged.AddListener(changed); return slider;
+            slider.fillRect = fill.rectTransform; slider.handleRect = handle.rectTransform; slider.targetGraphic = handle; slider.onValueChanged.AddListener(changed);
+            PixelControlArtwork.StyleSlider(slider); return slider;
         }
         private Button ButtonAt(Transform parent, string value, Vector2 position, Vector2 size, Sprite sprite, UnityEngine.Events.UnityAction action)
         {

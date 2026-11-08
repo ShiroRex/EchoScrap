@@ -165,12 +165,17 @@ namespace EchoScrap.Tests
             Assert.That(fill.fillAmount,Is.EqualTo(1f));Assert.That(fill.color,Is.EqualTo(Color.white));
             Assert.That(fill.sprite.texture.filterMode,Is.EqualTo(FilterMode.Point));
             Canvas.ForceUpdateCanvases();
-            Assert.That(panel.Find("BossName").GetComponent<Text>().cachedTextGenerator.characterCountVisible,Is.GreaterThan(0),"The boss name and health values must fit their text rectangle.");
+            var name=panel.Find("BossName").GetComponent<Text>();
+            Assert.That(name.cachedTextGenerator.characterCountVisible,Is.GreaterThan(0),"The compact boss name must fit above the bar.");
+            Assert.That(name.text,Is.EqualTo("GÓLGORA"));
+            Assert.That(game.Hud.CanvasRoot.transform.Find("Phase").gameObject.activeSelf,Is.False,"The encounter must not repeat the boss heading under the clock.");
             var hit=new DamageRequest(1,DamageSourceType.FlashlightPulse,Vector3.zero,Vector3.forward,game.Encounter.Boss.MaxHealth*.55f);
             game.Encounter.Boss.ReceiveDamage(in hit);game.Hud.RefreshNow();
             Assert.That(fill.fillAmount,Is.EqualTo(game.Encounter.Boss.CurrentHealth/game.Encounter.Boss.MaxHealth).Within(.001f));
             Assert.That(fill.fillAmount,Is.InRange(.01f,.99f));
+            Assert.That(name.text,Is.EqualTo("GÓLGORA · FASE II"));
             game.ResetRun(false);game.Hud.RefreshNow();Assert.That(panel.gameObject.activeSelf,Is.False);
+            Assert.That(game.Hud.CanvasRoot.transform.Find("Phase").gameObject.activeSelf,Is.True);
         }
 
         [UnityTest]
@@ -194,6 +199,8 @@ namespace EchoScrap.Tests
         {
             var root=game.Hud.CanvasRoot.transform;var icon=root.Find("KillsIcon").GetComponent<Image>();
             var text=root.Find("Kills").GetComponent<Text>();Assert.That(icon.sprite,Is.Not.Null);
+            Assert.That(text.text,Is.EqualTo("0"));
+            Assert.That(text.font,Is.SameAs(root.Find("Clock").GetComponent<Text>().font));
             Assert.That(icon.sprite.texture.filterMode,Is.EqualTo(FilterMode.Point));Assert.That(icon.raycastTarget,Is.False);
             float initial=icon.rectTransform.anchoredPosition.x;
             for(int i=0;i<123;i++)
@@ -201,9 +208,9 @@ namespace EchoScrap.Tests
                 var death=new ActorDeathEvent(i,0,false,false,Vector3.zero,Vector3.zero,DamageSourceType.FlashlightPulse,0,false,false);
                 game.Session.Events.PublishDeath(in death);
             }
-            Assert.That(game.Hud.KillCount,Is.EqualTo(123));Assert.That(text.text,Does.Contain("123"));
+            Assert.That(game.Hud.KillCount,Is.EqualTo(123));Assert.That(text.text,Is.EqualTo("123"));
             Assert.That(icon.rectTransform.anchoredPosition.x,Is.LessThan(initial));
-            game.ResetRun(false);Assert.That(game.Hud.KillCount,Is.Zero);Assert.That(icon.sprite,Is.Not.Null);
+            game.ResetRun(false);Assert.That(game.Hud.KillCount,Is.Zero);Assert.That(icon.sprite,Is.Not.Null);Assert.That(text.text,Is.EqualTo("0"));
             Assert.That(icon.rectTransform.anchoredPosition.x,Is.EqualTo(initial).Within(.01f));
         }
 

@@ -139,7 +139,9 @@ namespace EchoScrap.Combat
             float enter = Mathf.Clamp01(age / .2f), leave = Mathf.Clamp01((age - 1.45f) / .35f);
             float decoration = game.Session.Effects.ReducedEffectsMode ? 0 : game.Session.Effects.DecorativeIntensity;
             group.alpha = Mathf.SmoothStep(0, 1, enter) * (1 - leave);
-            root.anchoredPosition = new Vector2(0, -254 - (1 - enter) * 16 * decoration + leave * 12 * decoration);
+            bool bossVisible = game.Encounter != null && game.Encounter.IsEncounterActive && game.Encounter.Boss != null && game.Encounter.Boss.IsAlive;
+            float baseline = bossVisible ? -280f : -254f;
+            root.anchoredPosition = new Vector2(0, baseline - (1 - enter) * 16 * decoration + leave * 12 * decoration);
             portrait.localScale = Vector3.one * (1 + Mathf.Sin(enter * Mathf.PI) * .12f * decoration);
             for(int i = 0; i < sparks.Length; i++)
             {

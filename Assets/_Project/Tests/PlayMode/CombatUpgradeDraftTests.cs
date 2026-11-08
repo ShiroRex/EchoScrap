@@ -677,7 +677,10 @@ namespace EchoScrap.Tests
                 Assert.That(icons.Add(icon), Is.True); Assert.That(icon.rect.size, Is.EqualTo(Vector2.one * 64));
                 Assert.That(icon.texture.filterMode, Is.EqualTo(FilterMode.Point));
             }
-            Assert.That(skin.regular.name, Does.StartWith("ChakraPetch"));
+            var typography = Resources.Load<UpgradeCardSkin>("UI/PixelPortal/Typography");
+            Assert.That(skin.regular, Is.SameAs(typography.regular));
+            Assert.That(skin.semibold, Is.SameAs(typography.semibold));
+            Assert.That(skin.regular.name, Does.StartWith("PixelifySans"));
             foreach (char letter in "áéíóúñÁÉÍÓÚÑ") Assert.That(skin.regular.HasCharacter(letter), Is.True);
         }
 

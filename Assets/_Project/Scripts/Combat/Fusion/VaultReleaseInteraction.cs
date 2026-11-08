@@ -11,6 +11,7 @@ namespace EchoScrap.Combat
         private CombatGameBootstrap game;
         private GameObject prompt,modal;
         private Text promptText,question;
+        private PixelInteractionPrompt interactionPrompt;
         private Font font;
         private int pendingSlot=-1,pendingId=-1;
         public bool IsOpen=>modal!=null&&modal.activeSelf;
@@ -34,7 +35,8 @@ namespace EchoScrap.Combat
             var root=new GameObject("LiberarBovedaCanvas",typeof(RectTransform),typeof(Canvas),typeof(CanvasScaler),typeof(GraphicRaycaster));root.transform.SetParent(transform,false);
             var canvas=root.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=130;
             var scaler=root.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;
-            var hint=Panel(root.transform,"IndicadorLiberar",new Vector2(0,175),new Vector2(560,64),new Color(.05f,.07f,.11f,.95f));hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;promptText=Label(hint,Vector2.zero,new Vector2(548,60),23);
+            var hint=Panel(root.transform,"IndicadorLiberar",new Vector2(0,175),new Vector2(680,84),Color.white);hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;promptText=Label(hint,Vector2.zero,new Vector2(548,60),23);
+            interactionPrompt=PixelInteractionPrompt.Attach(hint,promptText);
             var shade=Panel(root.transform,"ConfirmarLiberacion",Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;modal=shade.gameObject;
             var panel=Panel(shade,"Panel",Vector2.zero,new Vector2(780,360),new Color(.05f,.06f,.1f));
             CollectionMenuStyle.Frame(panel);
@@ -50,7 +52,8 @@ namespace EchoScrap.Combat
             else if(keyboard!=null&&keyboard.tKey.wasPressedThisFrame)TryUnequip();
             slot=NearestSlot;
             bool visible=!IsOpen&&!game.Session.IsPaused&&slot>=0&&game.Session.State==SessionState.Running;
-            prompt.SetActive(visible);if(visible)promptText.text=(slot<3?"E · LIBERAR    T · DESEQUIPAR\n":"E · LIBERAR\n")+FusionCatalog.Names[station.DisplayedId(slot)];
+            prompt.SetActive(visible);if(visible)promptText.text=(slot<3?"LIBERAR    T · DESEQUIPAR\n":"LIBERAR\n")+FusionCatalog.Names[station.DisplayedId(slot)];
+            if(visible)interactionPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
         }
         public bool TryOpen()
         {
