@@ -197,7 +197,6 @@ namespace EchoScrap.Combat
         {
             if (!IsSelectingExpedition || IsLoading) return;
             IsSelectingExpedition = false;
-            selectionAudio.Play();
             game.Motor.GetComponent<EchoScrap.Player.PlayerInputReader>()?.SuppressDashFromUiConfirmation();
             game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
             Sync();

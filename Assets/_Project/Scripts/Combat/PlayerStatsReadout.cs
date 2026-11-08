@@ -20,6 +20,7 @@ namespace EchoScrap.Combat
             public Text Label;
             public Text Value;
             public float Cached = float.NaN;
+            public bool Changed;
             public ValueFormat Format;
         }
 
@@ -35,6 +36,7 @@ namespace EchoScrap.Combat
         private StatsDisplayMode displayMode = (StatsDisplayMode)(-1);
         private float panelHeight = 676f;
         private float fittedCanvasHeight = -1f;
+        private bool layoutDirty;
 
         public StatsDisplayMode DisplayMode => displayMode;
         public int VisibleRowCount { get; private set; }
@@ -101,19 +103,20 @@ namespace EchoScrap.Combat
             if (mode != StatsDisplayMode.Full && mode != StatsDisplayMode.Reduced) mode = StatsDisplayMode.None;
             if (displayMode == mode) return;
             displayMode = mode;
-            bool reduced = mode == StatsDisplayMode.Reduced;
+            LayoutRows();
+        }
+
+        private void LayoutRows()
+        {
+            layoutDirty = false;
+            bool reduced = displayMode == StatsDisplayMode.Reduced;
             float width = reduced ? 320f : 360f;
-            panelHeight = mode == StatsDisplayMode.Full ? 676f : reduced ? 256f : 76f;
-            ((RectTransform)transform).sizeDelta = new Vector2(width, panelHeight);
-            title.rectTransform.sizeDelta = new Vector2(width - 32f, 32f);
-            separator.sizeDelta = new Vector2(width - 32f, 1f);
-            accent.sizeDelta = new Vector2(2f, panelHeight - 32f);
             VisibleRowCount = 0;
             for (int i = 0; i < rows.Length; i++)
             {
                 Row row = rows[i];
-                bool visible = mode == StatsDisplayMode.Full ||
-                    (reduced && (i == 0 || i == 1 || i == 2 || i == 4 || i == 5 || i == 6));
+                bool core = i <= 6 && i != 3;
+                bool visible = row.Changed && (displayMode == StatsDisplayMode.Full || (reduced && core));
                 row.Root.gameObject.SetActive(visible);
                 if (!visible) continue;
                 row.Root.anchoredPosition = new Vector2(0f, -58f - VisibleRowCount * 30f);
@@ -123,6 +126,11 @@ namespace EchoScrap.Combat
                 row.Value.rectTransform.sizeDelta = new Vector2(reduced ? 94f : 112f, 30f);
                 VisibleRowCount++;
             }
+            panelHeight = 76f + VisibleRowCount * 30f;
+            ((RectTransform)transform).sizeDelta = new Vector2(width, panelHeight);
+            title.rectTransform.sizeDelta = new Vector2(width - 32f, 32f);
+            separator.sizeDelta = new Vector2(width - 32f, 1f);
+            accent.sizeDelta = new Vector2(2f, panelHeight - 32f);
             fittedCanvasHeight = -1f;
             FitToCanvas();
         }
@@ -137,31 +145,34 @@ namespace EchoScrap.Combat
         public void Refresh(CombatGameBootstrap game)
         {
             if (game == null || game.Stats == null) return;
-            FitToCanvas();
             PlayerRuntimeStats stats = game.Stats;
+            PlayerCombatSettings settings = stats.Settings;
             UpgradeTuning upgrades = stats.Upgrades;
             int slowTier = stats.GetUpgradeTier(UpgradeId.CRYO_01);
             float regeneration = UpgradeTuning.At(upgrades.regeneration, stats.GetUpgradeTier(UpgradeId.BIO_03));
-            SetValue(0, stats.FlashlightDamagePerPulse * stats.CompanionDamageMultiplier);
-            SetValue(1, stats.AttackSpeedMultiplier);
-            SetValue(2, stats.FlashlightRange);
-            SetValue(3, stats.FlashlightAngle);
-            SetValue(4, stats.CritChance * 100f);
-            SetValue(5, stats.CritMultiplier);
-            SetValue(6, game.Motor != null && game.Motor.Settings != null ? game.Motor.Settings.MoveSpeed * stats.CompanionMoveMultiplier : 0f);
-            SetValue(7, stats.Armor * 100f);
-            SetValue(8, stats.Evasion * 100f);
-            SetValue(9, stats.BlockChance * 100f);
-            SetValue(10, stats.DashCooldown);
+            float moveSpeed = game.Motor != null && game.Motor.Settings != null ? game.Motor.Settings.MoveSpeed : 0f;
+            SetValue(0, stats.FlashlightDamagePerPulse * stats.CompanionDamageMultiplier, settings.DamagePerPulse);
+            SetValue(1, stats.AttackSpeedMultiplier, 1f);
+            SetValue(2, stats.FlashlightRange, settings.FlashlightRange);
+            SetValue(3, stats.FlashlightAngle, Mathf.Clamp(settings.FlashlightAngle, 10f, 180f));
+            SetValue(4, stats.CritChance * 100f, settings.InitialCritChance * 100f);
+            SetValue(5, stats.CritMultiplier, settings.CritMultiplier);
+            SetValue(6, moveSpeed * stats.CompanionMoveMultiplier, moveSpeed);
+            SetValue(7, stats.Armor * 100f, settings.InitialArmor * 100f);
+            SetValue(8, stats.Evasion * 100f, settings.InitialEvasion * 100f);
+            SetValue(9, stats.BlockChance * 100f, settings.InitialBlockChance * 100f);
+            SetValue(10, stats.DashCooldown, Mathf.Max(.05f, settings.DashCooldown));
             SetValue(11, regeneration / Mathf.Max(.001f, upgrades.regenerationInterval));
-            SetValue(12, stats.MedkitHealAmount);
-            SetValue(13, stats.MagnetRadius);
+            SetValue(12, stats.MedkitHealAmount, settings.BaseMedkitHeal);
+            SetValue(13, stats.MagnetRadius, settings.BaseMagnetRadius);
             SetValue(14, (stats.ExperienceMultiplier - 1f) * 100f);
             SetValue(15, slowTier > 0 ? (upgrades.slowFirstTier + (slowTier - 1) * upgrades.slowPerTier) * 100f : 0f);
             SetValue(16, UpgradeTuning.At(upgrades.freezeDuration, stats.GetUpgradeTier(UpgradeId.CRYO_02)));
             SetValue(17, UpgradeTuning.At(upgrades.executionThreshold, stats.GetUpgradeTier(UpgradeId.CRIT_03)) * 100f);
             SetValue(18, (stats.ExplosionDamageMultiplier - 1f) * 100f);
             SetValue(19, (stats.ExplosionRadiusMultiplier - 1f) * 100f);
+            if (layoutDirty) LayoutRows();
+            else FitToCanvas();
         }
 
         public void FitToCanvas()
@@ -174,10 +185,16 @@ namespace EchoScrap.Combat
             transform.localScale = Vector3.one * scale;
         }
 
-        private void SetValue(int index, float value)
+        private void SetValue(int index, float value, float baseValue = 0f)
         {
             Row row = rows[index];
-            if (row == null || Mathf.Approximately(row.Cached, value)) return;
+            bool changed = !Mathf.Approximately(value, baseValue);
+            if (row.Changed != changed)
+            {
+                row.Changed = changed;
+                layoutDirty = true;
+            }
+            if (Mathf.Approximately(row.Cached, value)) return;
             row.Cached = value;
             string number = value.ToString("0.##", NumberCulture);
             row.Value.text = row.Format switch

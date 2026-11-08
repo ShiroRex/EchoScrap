@@ -163,6 +163,32 @@ namespace EchoScrap.Tests
             Assert.That(game.Session.GameplayTime, Is.LessThan(.5f));
         }
 
+        [UnityTest] public IEnumerator ExpeditionSelectorCanBeClosedSilentlyFromButtonOrPortal()
+        {
+            EnterVault();
+            yield return new WaitForSeconds(1.05f);
+            var roarClip = Resources.Load<AudioClip>("Audio/ArenaSelectionRoar");
+            Assert.That(roarClip, Is.Not.Null);
+            var roar = System.Array.Find(flow.GetComponents<AudioSource>(), source => source.clip == roarClip);
+            Assert.That(roar, Is.Not.Null);
+
+            flow.View.StartButton.onClick.Invoke();
+            Assert.That(flow.IsSelectingExpedition, Is.True);
+            Assert.That(roar.isPlaying, Is.False);
+            flow.View.ExitExpeditionButton.onClick.Invoke();
+            yield return null;
+            Assert.That(roar.isPlaying, Is.False);
+
+            Assert.That(travel.TryTravel(true, game.Player), Is.True);
+            Assert.That(flow.IsSelectingExpedition, Is.True);
+            Assert.That(roar.isPlaying, Is.False);
+            flow.CancelExpeditionSelection();
+            yield return null;
+            Assert.That(roar.isPlaying, Is.False);
+            Assert.That(flow.State, Is.EqualTo(GameFlowState.Vault));
+            Assert.That(game.Session.IsPaused, Is.False);
+        }
+
         [UnityTest] public IEnumerator WalkingIntoPhysicalPortalStartsRunWithoutClickingUi()
         {
             EnterVault();

@@ -110,11 +110,15 @@ namespace EchoScrap.Tests
             CollectionAssert.Contains(CombatTargetRegistry.ActiveTargets, boss);
             Assert.IsTrue(boss.BodyCollider.enabled);
             Assert.GreaterOrEqual(boss.BodyCollider.bounds.min.y, 0.045f, "Scaled boss collider remains above the ground.");
+            Assert.That(boss.HitRadius, Is.EqualTo(2.1f).Within(.001f));
+            Assert.That(boss.BodyCollider.bounds.size.y, Is.EqualTo(6.825f).Within(.001f));
             boss.Step(0.02f);
             Assert.AreEqual(1.6f, boss.Velocity.magnitude, 0.001f);
             boss.ApplyKnockback(Vector3.forward * 20f);
             Assert.AreEqual(Vector3.zero, boss.KnockbackVelocity);
-            MovePlayer(new Vector3(2f, 1f, 0f));
+            MovePlayer(boss.WorldCenter + Vector3.right * (boss.HitRadius + player.HitRadius + .1f));
+            Assert.IsFalse(boss.TryDealContactDamage());
+            MovePlayer(boss.WorldCenter + Vector3.right * (boss.HitRadius + player.HitRadius - .1f));
             Assert.IsTrue(boss.TryDealContactDamage(), "Large collider, not center distance, deals contact.");
             Assert.AreEqual(70f, player.CurrentHealth);
             Assert.IsFalse(boss.TryDealContactDamage());
@@ -431,6 +435,7 @@ namespace EchoScrap.Tests
             encounter.Step(BossEncounter.IntroDuration);
             int awards = 0;
             encounter.ClosingXpAwarded += value => { awards++; Assert.AreEqual(500, value); };
+            Vector3 liveScale = encounter.Boss.GetComponent<MataColeccionistaView>().Model.lossyScale;
             var expectedRng = new DeterministicRandom(session.CurrentSeed);
             var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, encounter.Boss.MaxHealth*2f);
             encounter.Boss.ReceiveDamage(in lethal);
@@ -445,6 +450,8 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0, hazards.ActiveProjectileCount);
             Assert.AreEqual(0, director.ActiveEnemyCount);
             Assert.IsTrue(encounter.DeathPresentation.IsPlaying);
+            Vector3 collapseScale = encounter.DeathPresentation.transform.Find("GolgoraCollapsedRig").lossyScale;
+            Assert.That(Vector3.Distance(collapseScale, liveScale), Is.LessThan(.001f));
             encounter.DeathPresentation.AutoTick = false;
             Time.timeScale = 0f;
             encounter.DeathPresentation.StepUnscaled(0.65f);

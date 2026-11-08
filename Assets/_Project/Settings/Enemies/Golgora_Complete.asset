@@ -25,8 +25,8 @@ MonoBehaviour:
     KnockbackSusceptibility: 0
     KnockbackBraking: 30
     VisualScale: {x: 3.5, y: 3.5, z: 3.5}
-    ColliderRadius: 0.5
-    ColliderHeight: 1.8
+    ColliderRadius: 0.6
+    ColliderHeight: 1.95
     PrimaryColor: {r: 0.19, g: 0.13, b: 0.14, a: 1}
     SecondaryColor: {r: 1, g: 0.37, b: 0.08, a: 1}
     IsHeavyMass: 1

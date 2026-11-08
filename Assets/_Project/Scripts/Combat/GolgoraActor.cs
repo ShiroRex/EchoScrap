@@ -334,11 +334,12 @@ namespace EchoScrap.Combat
         private void ExecutePattern()
         {
             bool rain=CurrentAttackKind==GolgoraAttackKind.Rain;
+            Vector3 launchOrigin = rain ? MeteorLaunchOrigin() : stompOrigin + Vector3.up * .2f;
             for(int i=0;i<PatternProjectileCount;i++)
             {
                 var spec=new CorrosivePuddlePool.ProjectileSpec
                 {
-                    SourceId=TargetId,LaunchOrigin=rain?WorldCenter+Vector3.up*3.3f:stompOrigin+Vector3.up*.2f,
+                    SourceId=TargetId,LaunchOrigin=launchOrigin,
                     TargetPosition=patternTargets[i],FlightDuration=rain?Settings.RainFlightDuration+i*.1f:.25f+i*Settings.FissureTravelStep,
                     ArcPeakHeight=rain?5f:.15f,ImpactRadius=rain?Settings.RainRadius:Settings.FissureRadius,
                     DirectImpactDamage=rain?Settings.RainDamage:Settings.FissureDamage,DirectImpactSource=DamageSourceType.BossBombardmentImpact,
@@ -428,11 +429,12 @@ namespace EchoScrap.Combat
         }
         private void ExecuteBarrage()
         {
+            Vector3 launchOrigin = MeteorLaunchOrigin();
             for (int i = 0; i < barrageTargets.Length; i++)
             {
                 var spec = new CorrosivePuddlePool.ProjectileSpec
                 {
-                    SourceId = TargetId, LaunchOrigin = WorldCenter + Vector3.up * 3.3f,
+                    SourceId = TargetId, LaunchOrigin = launchOrigin,
                     TargetPosition = barrageTargets[i], FlightDuration = Settings.BarrageFlightDuration, ArcPeakHeight = 3.5f,
                     ImpactRadius = Settings.BarrageRadius, DirectImpactDamage = Settings.BarrageDamage,
                     DirectImpactSource = DamageSourceType.BossBombardmentImpact,
@@ -444,6 +446,14 @@ namespace EchoScrap.Combat
             }
             BarragesExecuted++; AttackExecuted?.Invoke(GolgoraAttackKind.Barrage, stompOrigin, attackDirection);
         }
+
+        private Vector3 MeteorLaunchOrigin()
+        {
+            Transform model = modelView != null ? modelView.Model : null;
+            return model != null ? model.position + Vector3.up * (4.25f * model.localScale.y)
+                : WorldCenter + Vector3.up * 3.3f;
+        }
+
         public Vector3 GetLastBarrageTarget(int index) => barrageTargets[Mathf.Clamp(index, 0, 2)];
         private void BeginTransition()
         {

@@ -237,8 +237,8 @@ namespace EchoScrap.Combat
                         KnockbackSusceptibility = 0f,
                         KnockbackBraking = 30f,
                         VisualScale = Vector3.one * 3.5f,
-                        ColliderRadius = 0.5f,
-                        ColliderHeight = 1.8f,
+                        ColliderRadius = 0.6f,
+                        ColliderHeight = 1.95f,
                         PrimaryColor = new Color(0.19f, 0.13f, 0.14f),
                         SecondaryColor = new Color(1f, 0.37f, 0.08f),
                         IsHeavyMass = true

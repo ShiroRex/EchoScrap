@@ -7,6 +7,7 @@ Shader "EchoScrap/GolgoraRingFire"
         _Detail("Decorative intensity", Range(0,1)) = 1
         _ArcLength("Arc metres", Float) = 20
         _Fade("Opacity", Range(0,1)) = 1
+        [Enum(UnityEngine.Rendering.CompareFunction)] _DepthTest("Depth test", Float) = 4
         [HDR] _HotColor("White hot slag", Color) = (3.5,2.6,1.15,1)
         [HDR] _FireColor("Molten orange", Color) = (2.2,.38,.035,1)
         _CoalColor("Cooling crust", Color) = (.055,.018,.014,1)
@@ -20,6 +21,7 @@ Shader "EchoScrap/GolgoraRingFire"
             Tags { "LightMode"="SRPDefaultUnlit" }
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
+            ZTest [_DepthTest]
             Cull Off
             HLSLPROGRAM
             #pragma vertex Vert

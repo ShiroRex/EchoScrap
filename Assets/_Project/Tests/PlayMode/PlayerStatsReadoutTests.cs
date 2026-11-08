@@ -79,6 +79,8 @@ namespace EchoScrap.Tests
             Assert.That(game.Hud.StatsMode, Is.EqualTo(StatsDisplayMode.Reduced));
             Assert.That(resume.FindSelectableOnUp(), Is.SameAs(compact));
             game.Hud.ResumeGame();
+            Assert.That(game.Hud.IsStatsVisible, Is.False, "A base build leaves the panel hidden.");
+            game.Stats.SetUpgradeTier("FLASH_01", 1);
             Assert.That(game.Hud.IsStatsVisible, Is.True);
             game.Session.SetManualPause(true);
             EventSystem.current.SetSelectedGameObject(none.gameObject);
@@ -123,21 +125,28 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void ReducedModePacksSixCoreStatsAndReusesTheSameObjectsWhenSwitchingModes()
+        public void ModesPackChangedRowsAndReuseTheSameObjects()
         {
-            string[] core = { "damage", "attackSpeed", "range", "critChance", "critMultiplier", "moveSpeed" };
-            string[] other = { "angle", "armor", "evasion", "blockChance", "dashCooldown", "regeneration", "healing", "magnet", "experience", "slow", "freeze", "execution", "explosionDamage", "explosionRadius" };
+            string[] core = { "range", "critChance" };
             game.Hud.SetStatsDisplayMode(StatsDisplayMode.Full);
             var readout = game.Hud.StatsReadout;
             int objects = readout.GetComponentsInChildren<Transform>(true).Length;
+            Assert.That(readout.VisibleRowCount, Is.Zero);
+            Assert.That(game.Hud.IsStatsVisible, Is.False);
+            game.Stats.SetUpgradeTier("FLASH_01", 3);
+            game.Stats.SetUpgradeTier("CRIT_01", 2);
+            game.Stats.SetUpgradeTier("SCRAP_01", 1);
             float fullHeight = ((RectTransform)readout.transform).rect.height;
-            Assert.That(readout.VisibleRowCount, Is.EqualTo(20));
+            Assert.That(readout.VisibleRowCount, Is.EqualTo(4));
+            Assert.That(readout.IsRowVisible("angle"), Is.True);
+            Assert.That(readout.IsRowVisible("armor"), Is.True);
+            Assert.That(readout.IsRowVisible("damage"), Is.False, "An unchanged stat stays hidden even when its base value is nonzero.");
             game.Hud.SetStatsDisplayMode(StatsDisplayMode.Reduced);
             Assert.That(readout.DisplayMode, Is.EqualTo(StatsDisplayMode.Reduced));
-            Assert.That(readout.VisibleRowCount, Is.EqualTo(6));
+            Assert.That(readout.VisibleRowCount, Is.EqualTo(2));
             foreach (string key in core) Assert.That(readout.IsRowVisible(key), Is.True, key);
-            foreach (string key in other) Assert.That(readout.IsRowVisible(key), Is.False, key);
-            Assert.That(((RectTransform)readout.transform).rect.height, Is.LessThan(fullHeight * .5f));
+            Assert.That(readout.IsRowVisible("armor"), Is.False);
+            Assert.That(((RectTransform)readout.transform).rect.height, Is.EqualTo(fullHeight - 60f));
             var labels = readout.GetComponentsInChildren<Text>(true);
             float lastY = 0f, spacing = 0f;
             for (int i = 0; i < core.Length; i++)
@@ -149,8 +158,6 @@ namespace EchoScrap.Tests
                 if (i > 1) Assert.That(lastY - y, Is.EqualTo(spacing).Within(.1f), "Hidden rows leave no gaps.");
                 lastY = y;
             }
-            game.Stats.SetUpgradeTier("FLASH_01", 3);
-            game.Stats.SetUpgradeTier("CRIT_01", 2);
             Assert.That(readout.GetValue("range"), Is.EqualTo("10 m"));
             Assert.That(readout.GetValue("critChance"), Is.EqualTo("16%"));
             foreach (var mode in new[] { StatsDisplayMode.None, StatsDisplayMode.Full, StatsDisplayMode.Reduced })
@@ -158,7 +165,7 @@ namespace EchoScrap.Tests
                 game.Hud.SetStatsDisplayMode(mode);
                 game.ResetRun(false);
                 Assert.That(game.Hud.StatsMode, Is.EqualTo(mode), "The selected mode survives restarting the run.");
-                Assert.That(game.Hud.IsStatsVisible, Is.EqualTo(mode != StatsDisplayMode.None));
+                Assert.That(game.Hud.IsStatsVisible, Is.False);
                 Assert.That(readout.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(objects));
             }
         }
@@ -227,12 +234,14 @@ namespace EchoScrap.Tests
             Assert.That(readout.GetValue("explosionRadius"), Is.EqualTo("+45%"));
             game.Stats.SetUpgradeTier("DASH_04", 1);
             Assert.That(readout.GetValue("dashCooldown"), Is.EqualTo("0,5 s"));
+            Assert.That(readout.IsRowVisible("dashCooldown"), Is.True);
             game.Hud.SetStatsVisible(false);
             game.Stats.SetUpgradeTier("FLASH_01", 4);
             game.Hud.SetStatsVisible(true);
             Assert.That(readout.GetValue("range"), Is.EqualTo("11 m"), "Hidden changes must appear when enabled again.");
             game.ResetRun(false);
-            Assert.That(game.Hud.ShowStats && game.Hud.IsStatsVisible, Is.True);
+            Assert.That(game.Hud.ShowStats, Is.True);
+            Assert.That(game.Hud.IsStatsVisible, Is.False);
             Assert.That(readout.GetValue("damage"), Is.EqualTo("3,75"));
             Assert.That(readout.GetValue("armor"), Is.EqualTo("0%"));
             Assert.That(readout.GetValue("regeneration"), Is.EqualTo("0/s"));
@@ -242,6 +251,7 @@ namespace EchoScrap.Tests
         public void ReadoutYieldsToDraftAndResultAndNeverInterceptsGameplayInput()
         {
             game.Hud.SetStatsVisible(true);
+            game.Stats.SetUpgradeTier("FLASH_01", 1);
             Assert.That(game.Hud.StatsReadout.GetComponentsInChildren<Selectable>(true), Is.Empty);
             foreach (Graphic graphic in game.Hud.StatsReadout.GetComponentsInChildren<Graphic>(true))
                 Assert.That(graphic.raycastTarget, Is.False, graphic.name);
@@ -258,7 +268,7 @@ namespace EchoScrap.Tests
             Assert.That(game.Hud.IsResultVisible, Is.True);
             Assert.That(game.Hud.IsStatsVisible, Is.False);
             game.ResetRun(false);
-            Assert.That(game.Hud.IsStatsVisible, Is.True);
+            Assert.That(game.Hud.IsStatsVisible, Is.False);
             game.Hud.SetStatsVisible(false);
             game.ResetRun(false);
             Assert.That(game.Hud.ShowStats || game.Hud.IsStatsVisible, Is.False);
@@ -269,6 +279,8 @@ namespace EchoScrap.Tests
         {
             game.Hud.SetStatsVisible(true);
             var readout = game.Hud.StatsReadout;
+            game.Stats.SetCompanionBonuses(0f, 1f, .1f, 1f, 0f, 0f);
+            Assert.That(readout.IsRowVisible("damage"), Is.True);
             int children = readout.transform.childCount;
             for (int i = 0; i < 32; i++) readout.Refresh(game);
             string sameText = readout.GetValue("damage");
@@ -282,6 +294,8 @@ namespace EchoScrap.Tests
             for (int i = 0; i < 1000; i++) readout.Refresh(game);
             double elapsedMs = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000d / System.Diagnostics.Stopwatch.Frequency;
             Debug.Log($"[Player stats] 1000 unchanged refreshes: {elapsedMs:0.###} ms CPU; managed allocations: {bytes} bytes.");
+            game.Stats.SetCompanionBonuses(0f, 1f, 0f, 1f, 0f, 0f);
+            Assert.That(readout.IsRowVisible("damage"), Is.False);
         }
 
         [UnityTest]

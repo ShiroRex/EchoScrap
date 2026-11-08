@@ -35,7 +35,7 @@ namespace EchoScrap.Combat
         }
         private readonly Ring[] rings = new Ring[Capacity];
         private GolgoraActor owner;
-        private Material material, fireMaterial, fragmentMaterial, residueMaterial;
+        private Material material, fireMaterial, fragmentMaterial, residueMaterial, guideMaterial;
         private Transform visualRoot;
         private LineRenderer gapLeft, gapRight;
         private readonly LineRenderer[] gapGuides = new LineRenderer[GuideSegments * 2];
@@ -53,6 +53,9 @@ namespace EchoScrap.Combat
             visualRoot = new GameObject("GolgoraMagmaWaves").transform;
             Shader shader = Resources.Load<Shader>("Golgora/RingFire") ?? Shader.Find("Universal Render Pipeline/Unlit");
             material = CreateMaterial(shader, "GolgoraMagmaCrackedFootprint", 0f);
+            material.SetFloat("_DepthTest", (float)CompareFunction.Always);
+            guideMaterial = GolgoraPresentation.CreateOutlineMaterial(
+                Resources.Load<Shader>("Golgora/ForgeEnergy") ?? Shader.Find("Universal Render Pipeline/Unlit"), "Golgora safe gap guides");
             fireMaterial = CreateMaterial(shader, "GolgoraMagmaRisingCrest", 1f);
             fragmentMaterial = CreateMaterial(shader, "GolgoraMagmaAirborneSlag", 2f);
             residueMaterial = CreateMaterial(shader, "GolgoraMagmaCoolingResidue", 3f);
@@ -141,9 +144,9 @@ namespace EchoScrap.Combat
         {
             var go = new GameObject(guideName); go.transform.SetParent(visualRoot, false);
             var line = go.AddComponent<LineRenderer>();
-            line.sharedMaterial = Prototype.VfxRuntimeUtils.FlatMaterial;
+            line.sharedMaterial = guideMaterial;
             line.useWorldSpace = true; line.positionCount = 2;
-            line.startWidth = .045f; line.endWidth = .025f;
+            line.startWidth = .08f; line.endWidth = .045f;
             line.startColor = new Color(.5f, .9f, 1f, .8f); line.endColor = new Color(.65f, .95f, 1f, .35f);
             line.shadowCastingMode = ShadowCastingMode.Off; line.receiveShadows = false;
             return line;
@@ -375,6 +378,7 @@ namespace EchoScrap.Combat
             if (fireMaterial != null) Destroy(fireMaterial);
             if (fragmentMaterial != null) Destroy(fragmentMaterial);
             if (residueMaterial != null) Destroy(residueMaterial);
+            if (guideMaterial != null) Destroy(guideMaterial);
             foreach (Ring ring in rings) if (ring != null)
             { Destroy(ring.Mesh); Destroy(ring.CrestMesh); Destroy(ring.FragmentMesh); Destroy(ring.ResidueMesh); }
         }
