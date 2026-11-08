@@ -59,7 +59,9 @@ namespace EchoScrap.Combat
         {
             int slot=NearestSlot;if(slot<0||game.Session.IsPaused||game.Session.State!=SessionState.Running)return false;
             pendingSlot=slot;pendingId=station.DisplayedId(slot);game.Motor.CancelDashAndRestoreState();game.Motor.Stop();game.Session.Clock.SetPause(PauseReason.CompanionMenu,true);
-            question.text="¿Seguro que quieres liberar a\n"+FusionCatalog.Names[pendingId]+"?\nEsta unidad desaparecerá de tu colección.";modal.SetActive(true);return true;
+            string rarityColor = ColorUtility.ToHtmlStringRGB(FusionCatalog.ColorOf(pendingId));
+            question.text = $"¿Seguro que quieres liberar a\n<color=#{rarityColor}>{FusionCatalog.Names[pendingId]}</color>?\nEsta unidad desaparecerá de tu colección.";
+            modal.SetActive(true);return true;
         }
         public bool ConfirmRelease()
         {

@@ -215,7 +215,10 @@ namespace EchoScrap.Tests
             Assert.AreEqual("LIBERAR", hint.Find("Texto").GetComponent<Text>().text);
             Assert.That(((RectTransform)hint).sizeDelta.x, Is.LessThanOrEqualTo(170f));
             yield return Capture("LiberarEnGaleria",true);
-            Assert.IsTrue(release.TryOpen());Assert.IsTrue(game.Session.IsPaused);StringAssert.Contains("Hada",release.ConfirmationText);yield return Capture("ConfirmarLiberacionGaleria",true);
+            Assert.IsTrue(release.TryOpen());Assert.IsTrue(game.Session.IsPaused);
+            string rarityColor = ColorUtility.ToHtmlStringRGB(FusionCatalog.ColorOf(6));
+            StringAssert.Contains($"<color=#{rarityColor}>Hada</color>?",release.ConfirmationText);
+            yield return Capture("ConfirmarLiberacionGaleria",true);
             release.Close();Assert.AreEqual(1,station.Progress.owned[6]);Assert.IsTrue(release.TryOpen());Assert.IsTrue(release.ConfirmRelease());Assert.AreEqual(0,station.Progress.owned[6]);Assert.IsFalse(release.ConfirmRelease());Assert.IsFalse(release.TryOpen());CollectionAssert.AreEqual(new[]{0,0,-1},station.Progress.equipped);
         }
         [UnityTest] public IEnumerator OccupiedEquipmentSupportsUnequipWithoutLossAndConfirmedRelease()

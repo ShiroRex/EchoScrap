@@ -22,6 +22,7 @@ namespace EchoScrap.Combat
         private static readonly Color TabMuted = new Color32(203, 184, 175, 255);
         private const string VolumePreference = "EchoScrap.Audio.MasterVolume";
         private static readonly Vector2 PauseSize = new Vector2(900f, 680f);
+        private const float PausePresentationScale = .85f;
         private const float ObjectiveHintSeconds = 5f;
         private const float DashReadySeconds = 2f;
         private CombatGameBootstrap game;
@@ -425,7 +426,9 @@ namespace EchoScrap.Combat
         }
         private void FitPauseToCanvas()
         {
-            float scale=Mathf.Clamp(Mathf.Min((canvasRect.rect.width-48f)/PauseSize.x,(canvasRect.rect.height-48f)/PauseSize.y),.1f,1f);
+            float fit = Mathf.Clamp(Mathf.Min((canvasRect.rect.width - 48f) / PauseSize.x,
+                (canvasRect.rect.height - 48f) / PauseSize.y), .1f, 1f);
+            float scale = fit * PausePresentationScale;
             pauseContent.transform.localScale=Vector3.one*scale;
             modalPanel.rectTransform.sizeDelta=PauseSize*scale;
         }
@@ -868,7 +871,7 @@ namespace EchoScrap.Combat
         private Button CreatePauseButton(Transform parent, string name, Vector2 position, string value, Sprite sprite)
         {
             Button button = CreateButton(parent, name, position, value, Color.white);
-            button.image.rectTransform.sizeDelta = new Vector2(304f, 112f);
+            button.image.rectTransform.sizeDelta = new Vector2(280f, 104f);
             var label = button.transform.Find("Label").GetComponent<Text>();
             label.rectTransform.sizeDelta = new Vector2(244f, 72f);
             if (sprite == null || pauseSkin == null) return button;
