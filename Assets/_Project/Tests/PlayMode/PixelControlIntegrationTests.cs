@@ -248,6 +248,64 @@ namespace EchoScrap.Tests
             yield return Capture("Boveda_720", 1280, 720);
         }
 
+        [UnityTest]
+        public IEnumerator VaultArrowsLeadThroughTheStairsAndHideOutsideExploration()
+        {
+            var flow = game.gameObject.AddComponent<GameFlowController>();
+            flow.Initialize(game, false);
+            flow.View.NewCollectionButton.onClick.Invoke();
+            yield return null;
+            var directions = flow.View.Canvas.transform.Find("VaultDirections");
+            var fusion = (RectTransform)directions.Find("Fusion/Arrow");
+            var equipment = (RectTransform)directions.Find("Equipment/Arrow");
+            Assert.IsTrue(fusion.gameObject.activeInHierarchy && equipment.gameObject.activeInHierarchy);
+            Assert.IsFalse(fusion.GetComponent<Image>().raycastTarget || equipment.GetComponent<Image>().raycastTarget);
+            yield return Capture("Boveda_Flechas_720", 1280, 720);
+
+            var station = Object.FindAnyObjectByType<FusionStation>();
+            var body = game.Player.GetComponent<Rigidbody>();
+            void Place(Vector3 position)
+            {
+                body.position = position;
+                body.transform.position = position;
+                Physics.SyncTransforms();
+            }
+
+            void AssertBearing(RectTransform arrow, Vector3 worldTarget)
+            {
+                Vector3 offset = worldTarget - body.transform.position;
+                offset.y = 0;
+                Vector3 right = game.GameplayCamera.transform.right;
+                right.y = 0;
+                Vector3 expected = new Vector3(Vector3.Dot(offset, right),
+                    Vector3.Dot(offset, Vector3.Cross(right, Vector3.up)), 0).normalized;
+                Assert.That(Vector3.Dot(expected, arrow.localRotation * Vector3.up), Is.GreaterThan(.98f), arrow.parent.name);
+            }
+
+            Place(new Vector3(180, 1, 8));
+            yield return null;
+            AssertBearing(equipment, new Vector3(160, 0, -.5f));
+            AssertBearing(fusion, station.InteractionPoint.position);
+
+            Place(new Vector3(160, 4, 8));
+            yield return null;
+            AssertBearing(equipment, new Vector3(160, 0, 16.5f));
+            AssertBearing(fusion, new Vector3(160, 0, -.5f));
+
+            Place(new Vector3(167, 6, 22));
+            yield return null;
+            AssertBearing(equipment, station.DisplaySlots[1].position);
+            AssertBearing(fusion, new Vector3(160, 0, 16.5f));
+
+            game.Session.SetManualPause(true);
+            yield return null;
+            Assert.IsFalse(directions.gameObject.activeInHierarchy);
+            game.Session.SetManualPause(false);
+            Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(false);
+            yield return null;
+            Assert.IsFalse(directions.gameObject.activeInHierarchy);
+        }
+
         private IEnumerator Capture(string name, int width, int height)
         {
             var camera = game != null ? game.GameplayCamera : new GameObject("Pixel UI capture").AddComponent<Camera>();

@@ -25,6 +25,7 @@ namespace EchoScrap.Combat
         public bool IsSelectingExpedition { get; private set; }
         public bool IsFadingExpeditionSelection { get; private set; }
         public CombatGameBootstrap Game => game;
+        internal FusionStation Station => station;
         public EffectPreferences Effects => game.Session.Effects;
         private bool transientProfile;
         private bool collectionPersistence;

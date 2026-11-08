@@ -30,6 +30,9 @@ namespace EchoScrap.Combat
         private static readonly Color VaultGold = new Color(.98f, .78f, .46f);
         private readonly Image[] tipDots = new Image[VaultTips.Length];
         private GameObject vaultTips;
+        private FusionStation vaultStation;
+        private RectTransform vaultDirections, fusionArrow, equipmentArrow;
+        private Bounds? vaultStairs;
         private Text tipBody, equipmentHint;
         private int tipIndex;
         private float nextTipTime;
@@ -97,6 +100,7 @@ namespace EchoScrap.Combat
                 BuildVaultTips(root.transform);
 
                 var worldFlow = (GameFlowController)flow;
+                BuildVaultDirections(root.transform, worldFlow.Station);
                 expeditionSelection = Overlay(root.transform, "ExpeditionSelection", SelectionShade);
                 selectionBackground = expeditionSelection.GetComponent<Image>();
                 selectionInput = expeditionSelection.AddComponent<CanvasGroup>();
@@ -159,8 +163,10 @@ namespace EchoScrap.Combat
         {
             if (vault == null) return;
             bool visible = game != null && flow.State == GameFlowState.Vault && !game.Session.IsPaused && !flow.IsConfirming;
-            bool showHint = game.Session.IsInWarehouse && !game.Session.IsPaused && game.Player.IsAlive
-                && flow is GameFlowController world && !world.OwnsOverlay && world.ShowEquipmentHint;
+            var world = (GameFlowController)flow;
+            bool exploringVault = game.Session.IsInWarehouse && !game.Session.IsPaused && game.Player.IsAlive && !world.OwnsOverlay;
+            bool showHint = exploringVault && world.ShowEquipmentHint;
+            RefreshVaultDirections(exploringVault);
             bool showTips = visible || showHint;
             if (equipmentHintPending != showHint || showTips && !vaultTips.activeSelf)
             {
@@ -181,6 +187,96 @@ namespace EchoScrap.Combat
             image.type = Image.Type.Sliced;
             image.pixelsPerUnitMultiplier = .5f;
             image.raycastTarget = false;
+        }
+
+        private void BuildVaultDirections(Transform root, FusionStation station)
+        {
+            if (station == null || station.InteractionPoint == null || station.DisplaySlots == null) return;
+            vaultStation = station;
+            var room = station.transform.parent;
+            var left = room?.Find("BordeEscaleraIzquierdo")?.GetComponent<Collider>();
+            var right = room?.Find("BordeEscaleraDerecho")?.GetComponent<Collider>();
+            if (left != null && right != null)
+            {
+                Bounds stairs = left.bounds;
+                stairs.Encapsulate(right.bounds);
+                vaultStairs = stairs;
+            }
+
+            vaultDirections = Rect(root, "VaultDirections", new Vector2(0, -124), Vector2.zero);
+            vaultDirections.anchorMin = vaultDirections.anchorMax = new Vector2(.5f, 1f);
+            Sprite pointer = PixelControlArtwork.Load("BossPointer/Up");
+            fusionArrow = DirectionCard("Fusion", "MÁQUINA DE FUSIÓN", -152, pointer);
+            equipmentArrow = DirectionCard("Equipment", "EQUIPAR ENTIDADES", 152, pointer);
+            vaultDirections.gameObject.SetActive(false);
+        }
+
+        private RectTransform DirectionCard(string name, string titleText, float x, Sprite pointer)
+        {
+            var card = Rect(vaultDirections, name, new Vector2(x, 0), new Vector2(290, 48));
+            VaultPlate(card);
+            var arrow = Rect(card, "Arrow", new Vector2(-111, 0), new Vector2(40, 40)).gameObject.AddComponent<Image>();
+            arrow.sprite = pointer;
+            arrow.raycastTarget = false;
+            Label(card, titleText, new Vector2(22, 0), new Vector2(228, 34), 19, VaultGold).alignment = TextAnchor.MiddleLeft;
+            return arrow.rectTransform;
+        }
+
+        private void RefreshVaultDirections(bool visible)
+        {
+            if (vaultDirections == null) return;
+            var camera = game.GameplayCamera;
+            visible = visible && camera != null && vaultStation != null;
+            if (vaultDirections.gameObject.activeSelf != visible) vaultDirections.gameObject.SetActive(visible);
+            if (!visible) return;
+
+            vaultDirections.anchoredPosition = new Vector2(0, flow.State == GameFlowState.Vault ? -124 : -176);
+            Vector3 player = game.Player.transform.position;
+            Vector3 fusion = vaultStation.InteractionPoint.position;
+            Transform[] slots = vaultStation.DisplaySlots;
+            Transform nearest = null;
+            float bestDistance = float.PositiveInfinity;
+            for (int i = 0; i < Mathf.Min(3, slots.Length); i++)
+            {
+                Transform slot = slots[i];
+                if (slot == null) continue;
+                float distance = (slot.position - player).sqrMagnitude;
+                if (distance >= bestDistance) continue;
+                nearest = slot;
+                bestDistance = distance;
+            }
+
+            equipmentArrow.parent.gameObject.SetActive(nearest != null);
+            if (nearest != null)
+            {
+                Vector3 equipment = nearest.position;
+                if (vaultStairs is Bounds stairs)
+                {
+                    // The equipment is on the balcony. Lead through the stair entrances on each floor.
+                    bool aligned = player.x >= stairs.min.x + .5f && player.x <= stairs.max.x - .5f;
+                    bool onStairs = aligned && player.z >= stairs.min.z && player.z < stairs.max.z;
+                    bool upstairs = player.z >= stairs.max.z && player.y >= equipment.y - 1f;
+                    var bottom = new Vector3(stairs.center.x, 0, stairs.min.z - 1.5f);
+                    var top = new Vector3(stairs.center.x, 0, stairs.max.z + 1.5f);
+                    if (!upstairs) equipment = aligned && player.z < stairs.max.z ? top : bottom;
+                    if (upstairs || onStairs) fusion = aligned ? bottom : top;
+                }
+                PointDirection(equipmentArrow, equipment - player, camera.transform);
+            }
+            PointDirection(fusionArrow, fusion - player, camera.transform);
+        }
+
+        private static void PointDirection(RectTransform arrow, Vector3 offset, Transform camera)
+        {
+            offset.y = 0;
+            bool visible = offset.sqrMagnitude > 1f;
+            if (arrow.gameObject.activeSelf != visible) arrow.gameObject.SetActive(visible);
+            if (!visible) return;
+            Vector3 right = camera.right;
+            right.y = 0;
+            Vector3 forward = Vector3.Cross(right, Vector3.up);
+            float angle = Mathf.Atan2(-Vector3.Dot(offset, right), Vector3.Dot(offset, forward)) * Mathf.Rad2Deg;
+            arrow.localRotation = Quaternion.Euler(0, 0, angle);
         }
 
         private void BuildVaultTips(Transform root)
