@@ -5,6 +5,8 @@ using EchoScrap.Combat;
 using EchoScrap.Core;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
@@ -39,10 +41,16 @@ namespace EchoScrap.Tests
             Assert.AreEqual(1,feedback.NotificationsPlayed);Assert.AreEqual(1,feedback.SoundsPlayed);Assert.AreEqual(2,feedback.DisplayedId);
             Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(1,feedback.SoundsPlayed);
             yield return new WaitForSeconds(.15f);Assert.IsTrue(feedback.IsVisible);
+            var notification = feedback.transform.Find("ColeccionableRecogido");
+            Assert.IsTrue(notification.Find("Nuevo").gameObject.activeSelf);
+            Assert.IsFalse(notification.Find("Confirmacion").gameObject.activeSelf);
             game.Session.SetManualPause(true);Assert.IsFalse(feedback.IsVisible);yield return null;
             Assert.IsFalse(feedback.GetComponent<AudioSource>().isPlaying);
             game.Session.SetManualPause(false);yield return null;Assert.IsTrue(feedback.IsVisible);
             yield return Capture("ColeccionableRecogido");
+            yield return new WaitForSeconds(3.6f);
+            Assert.IsTrue(notification.Find("Confirmacion").gameObject.activeSelf);
+            Assert.IsFalse(notification.Find("Nuevo").gameObject.activeSelf);
             yield return new WaitForSeconds(2);Assert.IsFalse(feedback.IsVisible);
             feedback.Show(0);feedback.Show(2);game.ResetRun(false);yield return null;
             Assert.IsFalse(feedback.IsVisible);Assert.AreEqual(-1,feedback.DisplayedId);
@@ -54,7 +62,8 @@ namespace EchoScrap.Tests
             var random=Random.state;Random.InitState(734);var expected=Random.value;Random.InitState(734);
             feedback.Show(0);feedback.Show(0);Assert.AreEqual(expected,Random.value);Random.state=random;
             Assert.AreEqual(1,feedback.NotificationsPlayed);Assert.AreEqual(2,feedback.SoundsPlayed);
-            yield return new WaitForSeconds(1.9f);Assert.AreEqual(2,feedback.NotificationsPlayed);Assert.IsTrue(feedback.IsVisible);
+            Assert.IsFalse(feedback.transform.Find("ColeccionableRecogido/Nuevo").gameObject.activeSelf);
+            yield return new WaitForSeconds(5.6f);Assert.AreEqual(2,feedback.NotificationsPlayed);Assert.IsTrue(feedback.IsVisible);
             game.Session.SetWarehouseVisit(true);yield return null;Assert.IsFalse(feedback.IsVisible);Assert.IsFalse(audio.isPlaying);
             game.Session.SetWarehouseVisit(false);yield return null;Assert.IsFalse(feedback.IsVisible);
         }
@@ -96,7 +105,9 @@ namespace EchoScrap.Tests
             Assert.AreEqual(Color.clear,hud.Find("Retrato_0").GetComponent<Image>().color);Assert.IsNotNull(hud.Find("Retrato_0/Cara").GetComponent<Image>().sprite);
             StringAssert.Contains(FusionCatalog.Names[3],hud.Find("PoderesActivos").GetComponent<Text>().text);
             StringAssert.Contains(CompanionPowerRuntime.HudDescriptions[3],hud.Find("PoderesActivos").GetComponent<Text>().text);
-            yield return Capture("Retratos");game.Session.SetManualPause(true);yield return null;Assert.IsFalse(hud.gameObject.activeSelf);
+            yield return Capture("Retratos");game.Session.SetManualPause(true);yield return null;
+            Assert.IsTrue(hud.gameObject.activeInHierarchy);
+            Assert.IsFalse(hud.Find("PoderesActivos").gameObject.activeSelf);
         }
         [UnityTest] public IEnumerator EquipmentRoundTripsAndMalformedSaveIsRepaired(){
             var progress=new FusionProgress();for(int id=0;id<4;id++)progress.owned[id]=1;progress.equipped=new[]{0,1,2};var copy=JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(progress));copy.Validate();CollectionAssert.AreEqual(progress.equipped,copy.equipped);
@@ -109,7 +120,7 @@ namespace EchoScrap.Tests
             Vector3 original=display.transform.position;system.Advance(.5f);yield return null;
             Assert.AreNotEqual(original.y,display.transform.position.y);Assert.AreEqual(2,display.GetComponentsInChildren<Text>().Length);
             var texts=display.GetComponentsInChildren<Text>().Select(t=>t.text).ToArray();CollectionAssert.AreEquivalent(new[]{"Basket","COMÚN"},texts);
-            var map=game.Hud.GetComponent<CombatMinimap>();map.Refresh();var marker=game.Hud.HudCanvas.transform.Find("Minimap/Interior/MapaArena/Coleccionable_0");Assert.IsTrue(marker.gameObject.activeSelf);Assert.AreEqual(0,marker.childCount);Assert.AreEqual(Vector2.one*7,marker.GetComponent<RectTransform>().sizeDelta);Assert.IsNotNull(marker.GetComponent<Image>().sprite);
+            var map=game.Hud.GetComponent<CombatMinimap>();map.Refresh();var marker=game.Hud.HudCanvas.transform.Find("Minimap/Interior/MapaArena/Coleccionable_0");Assert.IsTrue(marker.gameObject.activeSelf);Assert.AreEqual(0,marker.childCount);Assert.AreEqual(Vector2.one*16,marker.GetComponent<RectTransform>().sizeDelta);Assert.IsNotNull(marker.GetComponent<Image>().sprite);
             game.Session.SetManualPause(true);system.Advance(10);Assert.AreEqual(1,system.ActivePickups);game.Session.SetManualPause(false);
             system.Advance(9.5f);yield return null;map.Refresh();Assert.AreEqual(0,system.ActivePickups);Assert.IsFalse(marker.gameObject.activeSelf);Assert.IsFalse(system.TryCollectNearest());
         }
@@ -158,6 +169,39 @@ namespace EchoScrap.Tests
             Assert.Less(powers.rectTransform.anchoredPosition.y+powers.rectTransform.sizeDelta.y*.5f,-30);
             for(int slot=0;slot<3;slot++){var art=hud.Find("Retrato_"+slot+"/Cara").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(ids[slot]),art.sprite);Assert.IsTrue(art.enabled);Assert.AreEqual(Vector2.one*60,art.rectTransform.sizeDelta);}
             yield return Capture("MarcosCombate");
+
+            bool previousPowers = SceneTransitionState.ShowCompanionPowers;
+            var background = InputSystem.settings.backgroundBehavior;
+            var editorInput = InputSystem.settings.editorInputBehaviorInPlayMode;
+            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+            var keyboard = InputSystem.AddDevice<Keyboard>();
+            keyboard.MakeCurrent();
+            try
+            {
+                SceneTransitionState.ShowCompanionPowers = false;
+                game.Hud.SetStatsVisible(false);
+                game.Stats.SetUpgradeTier("FLASH_01", 1);
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Q));
+                yield return null;
+                yield return null;
+                Assert.IsTrue(keyboard.qKey.isPressed, "The virtual keyboard must deliver Q to the Game view.");
+                Assert.IsTrue(powers.gameObject.activeInHierarchy);
+                Assert.IsTrue(game.Hud.IsStatsVisible);
+                Assert.IsFalse(game.Hud.ShowStats);
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return null;
+                yield return null;
+                Assert.IsFalse(powers.gameObject.activeInHierarchy);
+                Assert.IsFalse(game.Hud.IsStatsVisible);
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(keyboard);
+                InputSystem.settings.backgroundBehavior = background;
+                InputSystem.settings.editorInputBehaviorInPlayMode = editorInput;
+                SceneTransitionState.ShowCompanionPowers = previousPowers;
+            }
         }
         [UnityTest] public IEnumerator ReleaseOnlyAtOccupiedGalleryAndEquipmentOnlyListsFreeCopies()
         {

@@ -8,14 +8,16 @@ namespace EchoScrap.Combat
     // A single reusable notification: collecting never allocates effects or consumes combat RNG.
     public sealed class CollectiblePickupFeedback : MonoBehaviour
     {
-        private const float Duration = 1.8f;
-        private readonly Queue<int> pending = new Queue<int>();
+        private const float DetailsDuration = 3.5f;
+        private const float Duration = DetailsDuration + 2f;
+        private readonly Queue<(int Id, bool IsNew)> pending = new Queue<(int, bool)>();
         private readonly RectTransform[] sparks = new RectTransform[8];
         private CombatGameBootstrap game;
         private RectTransform root, portrait;
         private CanvasGroup group;
         private Image face;
-        private Text nameLabel, rarityLabel;
+        private Text nameLabel, rarityLabel, newLabel, acquiredLabel;
+        private bool displayedIsNew;
         private AudioSource voice;
         private AudioSource rejectionVoice;
         private RectTransform rejectionRoot;
@@ -33,14 +35,16 @@ namespace EchoScrap.Combat
         {
             game = owner;
             root = new GameObject("ColeccionableRecogido", typeof(RectTransform), typeof(CanvasGroup)).GetComponent<RectTransform>();
-            root.SetParent(transform, false);root.anchorMin = root.anchorMax = new Vector2(.5f, 1);
-            root.sizeDelta = new Vector2(460, 96);root.anchoredPosition = new Vector2(0, -254);
+            root.SetParent(transform, false);root.anchorMin = root.anchorMax = Vector2.zero;
+            root.sizeDelta = new Vector2(460, 96);root.anchoredPosition = new Vector2(270, 220);
             group = root.GetComponent<CanvasGroup>();group.interactable = group.blocksRaycasts = false;
             portrait = ImageAt("Retrato", new Vector2(-177, 0), new Vector2(78, 78));
             face = portrait.GetComponent<Image>();face.preserveAspect = true;
-            Label("Confirmacion", "¡COLECCIONADO!", new Vector2(50, 33), 18, font);
+            newLabel = Label("Nuevo", "NUEVO", new Vector2(50, 33), 18, font);
+            newLabel.color = new Color(1f, .81f, .36f);
             nameLabel = Label("Nombre", "", new Vector2(50, 4), 25, font);
             rarityLabel = Label("Rareza", "", new Vector2(50, -27), 17, font);
+            acquiredLabel = Label("Confirmacion", "Adquirido", new Vector2(50, -27), 17, font);
             for(int i = 0; i < sparks.Length; i++)
                 sparks[i] = ImageAt("Pixel_" + i, Vector2.zero, Vector2.one * (i % 2 == 0 ? 6 : 4));
             voice = gameObject.AddComponent<AudioSource>();voice.playOnAwake = false;voice.loop = false;
@@ -80,11 +84,11 @@ namespace EchoScrap.Combat
             return text;
         }
 
-        public void Show(int id)
+        public void Show(int id, bool isNew = false)
         {
             if(!FusionCatalog.Valid(id) || !CanShow || game.Session.IsPaused) return;
             rejectionAge=2;rejectionRoot.gameObject.SetActive(false);rejectionVoice.Stop();
-            pending.Enqueue(id);
+            pending.Enqueue((id, isNew));
             if(age >= Duration) Next();
             if(voice.clip != null) { voice.Play();SoundsPlayed++; }
         }
@@ -101,7 +105,11 @@ namespace EchoScrap.Combat
         private void Next()
         {
             if(pending.Count == 0) { root.gameObject.SetActive(false);DisplayedId = -1;return; }
-            DisplayedId = pending.Dequeue();age = 0;NotificationsPlayed++;
+            var notification = pending.Dequeue();
+            DisplayedId = notification.Id;
+            displayedIsNew = notification.IsNew;
+            age = 0;
+            NotificationsPlayed++;
             face.sprite = CollectibleDisplay.CardPortrait(DisplayedId);
             nameLabel.text = FusionCatalog.Names[DisplayedId];nameLabel.color = FusionCatalog.ColorOf(DisplayedId);
             rarityLabel.text = FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[DisplayedId]];
@@ -136,12 +144,14 @@ namespace EchoScrap.Combat
 
         private void ApplyPresentation()
         {
-            float enter = Mathf.Clamp01(age / .2f), leave = Mathf.Clamp01((age - 1.45f) / .35f);
+            bool showDetails = age < DetailsDuration;
+            newLabel.gameObject.SetActive(showDetails && displayedIsNew);
+            rarityLabel.gameObject.SetActive(showDetails);
+            acquiredLabel.gameObject.SetActive(!showDetails);
+            float enter = Mathf.Clamp01(age / .2f), leave = Mathf.Clamp01((age - (Duration - .35f)) / .35f);
             float decoration = game.Session.Effects.ReducedEffectsMode ? 0 : game.Session.Effects.DecorativeIntensity;
             group.alpha = Mathf.SmoothStep(0, 1, enter) * (1 - leave);
-            bool bossVisible = game.Encounter != null && game.Encounter.IsEncounterActive && game.Encounter.Boss != null && game.Encounter.Boss.IsAlive;
-            float baseline = bossVisible ? -280f : -254f;
-            root.anchoredPosition = new Vector2(0, baseline - (1 - enter) * 16 * decoration + leave * 12 * decoration);
+            root.anchoredPosition = new Vector2(270, 220 - (1 - enter) * 16 * decoration + leave * 12 * decoration);
             portrait.localScale = Vector3.one * (1 + Mathf.Sin(enter * Mathf.PI) * .12f * decoration);
             for(int i = 0; i < sparks.Length; i++)
             {

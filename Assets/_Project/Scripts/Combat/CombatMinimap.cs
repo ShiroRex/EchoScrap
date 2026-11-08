@@ -112,9 +112,11 @@ namespace EchoScrap.Combat
         public void Refresh()
         {
             if(game==null||frame==null)return;
-            bool visible=game.Player!=null&&game.Player.IsAlive&&!game.Session.IsInWarehouse&&!game.Session.IsPaused&&
+            bool live=game.Player!=null&&game.Player.IsAlive&&!game.Session.IsInWarehouse&&!game.Session.IsPaused&&
                 (game.Session.State==SessionState.Running||game.Session.State==SessionState.BossIntro);
-            bool wasVisible=IsVisible;frame.gameObject.SetActive(visible);if(!visible)return;
+            bool behindOverlay=game.Player!=null&&game.Player.IsAlive&&!game.Session.IsInWarehouse&&
+                (game.Hud.IsPauseVisible||game.Draft.IsOpen);
+            bool wasVisible=IsVisible;frame.gameObject.SetActive(live||behindOverlay);if(!live)return;
             Explore(game.Player.transform.position);
             playerMarker.anchoredPosition=MapPosition(game.Player.transform.position);
             if(companions==null)companions=FindAnyObjectByType<CompanionSystem>();

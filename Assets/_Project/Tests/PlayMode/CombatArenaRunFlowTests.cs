@@ -462,8 +462,9 @@ namespace EchoScrap.Tests
                     decoration.rectTransform.rect.width / decoration.rectTransform.rect.height, .001f,
                     ornament + " must keep the original art proportions.");
             }
-            Assert.That(resume.image.sprite, Is.SameAs(skin.greenButton));
+            Assert.That(resume.image.sprite, Is.SameAs(skin.blueButton));
             Assert.That(restart.image.sprite, Is.SameAs(skin.redButton));
+            Assert.That(restart.transform.localPosition.x, Is.LessThan(resume.transform.localPosition.x));
             EventSystem.current.SetSelectedGameObject(null);
             yield return null;
             foreach (Vector2Int size in new[] { new Vector2Int(1280, 720), new Vector2Int(1920, 1080), new Vector2Int(2560, 1080) })
@@ -471,7 +472,7 @@ namespace EchoScrap.Tests
             EventSystem.current.SetSelectedGameObject(restart.gameObject);
             yield return null;
             Assert.That(restart.image.overrideSprite, Is.SameAs(skin.blueButton));
-            Assert.That(resume.image.overrideSprite, Is.SameAs(skin.greenButton));
+            Assert.That(resume.image.overrideSprite, Is.SameAs(skin.blueButton));
             yield return CapturePauseArtwork(new Vector2Int(1920, 1080), "Pause_Focus");
             ExecuteEvents.Execute(restart.gameObject, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left }, ExecuteEvents.pointerClickHandler);
             Assert.That(game.Progression.TotalXp, Is.Zero, "The red navigation button still restarts the run.");

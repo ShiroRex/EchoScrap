@@ -123,8 +123,9 @@ namespace EchoScrap.Combat
             int index=NearestPickup();if(index<0)return false;
             var item=pickups[index];
             if(!station.Progress.HasSpace){pickupFeedback.Reject();return false;}
+            bool isNew = !station.Progress.IsDiscovered(item.Id);
             if(!station.CollectFromArena(item.Id))return false;
-            Destroy(item.Object);pickups.RemoveAt(index);view.AnnounceCollected(item.Id);return true;
+            Destroy(item.Object);pickups.RemoveAt(index);view.AnnounceCollected(item.Id, isNew);return true;
         }
         private void ClearPickups(){foreach(var p in pickups)if(p.Object!=null)Destroy(p.Object);pickups.Clear();}
         private void OnDestroy(){ClearPickups();if(game!=null){game.Session.SessionReset-=ResetRun;game.Session.Clock.SetPause(PauseReason.CompanionMenu,false);}}

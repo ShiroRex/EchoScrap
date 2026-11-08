@@ -1017,9 +1017,9 @@ namespace EchoScrap.Tests
                     Assert.That(root.localScale.x,Is.EqualTo(scale).Within(.0001));
                     Assert.That(root.localScale.y,Is.EqualTo(scale).Within(.0001));
                     Assert.That(root.GetComponent<CanvasGroup>().alpha, Is.EqualTo(i == selection ? 1f : .55f));
-                    Assert.That(root.Find("Panel/ChooseButton/Label").GetComponent<Text>().text, Is.EqualTo("ELEGIR"));
+                    Assert.That(root.Find("Panel/ChooseButton"), Is.Null);
                     if (i == selection) Assert.That(root.Find("Selection").GetComponent<Text>().text, Does.Contain("ENFOCADA"));
-                    foreach(string centered in new[]{"RarityTier","TypeIcon","Type","Name","Description","PrimaryLabel","ComparisonArrow","Detail","ChooseButton"})
+                    foreach(string centered in new[]{"RarityTier","TypeIcon","Type","Name","Description","PrimaryLabel","ComparisonArrow","Detail"})
                     {
                         var rect=(RectTransform)root.Find("Panel/"+centered);
                         Assert.That(rect.anchoredPosition.x,Is.Zero,centered+" must share the frame center.");
@@ -1028,9 +1028,6 @@ namespace EchoScrap.Tests
                     var before=(RectTransform)root.Find("Panel/Before");var after=(RectTransform)root.Find("Panel/After");
                     Assert.That(after.anchoredPosition.x,Is.EqualTo(draft.Offers[i].CurrentTier > 0 ? -before.anchoredPosition.x : 0f));
                     Assert.That(before.anchoredPosition.y,Is.EqualTo(after.anchoredPosition.y));
-                    var button=(RectTransform)root.Find("Panel/ChooseButton");
-                    Assert.That(button.anchoredPosition,Is.EqualTo(new Vector2(0,-272)));
-                    Assert.That(button.rect.size,Is.EqualTo(new Vector2(280,40)));
                     Assert.That(root.Find("NewBadge").GetComponent<UpgradeCardPerspective>(),Is.Not.Null);
                     Assert.That(root.Find("UpgradeArrow").GetComponent<UpgradeCardPerspective>(),Is.Not.Null);
                 }
@@ -1098,9 +1095,9 @@ namespace EchoScrap.Tests
                 Assert.That(badge.sizeDelta.x, Is.EqualTo(64f * 1.39f).Within(.001f));
                 Assert.That(badge.sizeDelta.y, Is.EqualTo(badge.sizeDelta.x));
                 Assert.That(badge.anchoredPosition, Is.EqualTo(new Vector2(194f, -276f)));
-                var button = (RectTransform)panel.Find("ChooseButton");
+                var detail = (RectTransform)panel.Find("Detail");
                 Assert.That(badge.anchoredPosition.x - badge.sizeDelta.x / 2f,
-                    Is.GreaterThan(button.anchoredPosition.x + button.sizeDelta.x / 2f));
+                    Is.GreaterThan(detail.anchoredPosition.x + detail.sizeDelta.x / 2f));
                 var levelArrow = panel.Find("LevelArrow").GetComponent<Image>();
                 Assert.That(levelArrow.gameObject.activeSelf, Is.EqualTo(tier > 0));
                 Assert.That(levelArrow.sprite, Is.SameAs(panel.Find("ComparisonArrow").GetComponent<Image>().sprite));
@@ -1112,7 +1109,7 @@ namespace EchoScrap.Tests
                 }
                 foreach(var text in panel.GetComponentsInChildren<Text>())
                     Assert.That(text.preferredHeight,Is.LessThanOrEqualTo(text.rectTransform.rect.height+.5f),card.Id+" tier "+tier+" / "+text.name+" / "+text.text);
-                foreach(var pair in new[]{("Type","Name"),("Name","Description"),("Description","PrimaryLabel"),("PrimaryLabel","Before"),("Before","Detail"),("Detail","ChooseButton")})
+                foreach(var pair in new[]{("Type","Name"),("Name","Description"),("Description","PrimaryLabel"),("PrimaryLabel","Before"),("Before","Detail")})
                 {
                     var upper=(RectTransform)panel.Find(pair.Item1);var lower=(RectTransform)panel.Find(pair.Item2);
                     Assert.That(upper.anchoredPosition.y-upper.rect.height*.5f,Is.GreaterThanOrEqualTo(lower.anchoredPosition.y+lower.rect.height*.5f),card.Id+" overlap "+pair);

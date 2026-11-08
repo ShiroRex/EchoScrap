@@ -52,12 +52,13 @@ namespace EchoScrap.Tests
             game.Session.SetManualPause(true);
             game.Hud.RefreshNow();
             Transform pause = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause");
-            Transform selector = pause.Find("StatsDisplayMode");
+            var interfaceTab = pause.Find("Tabs/Interface").GetComponent<Button>();
+            interfaceTab.onClick.Invoke();
+            Transform selector = pause.Find("Interface/StatsDisplayMode");
             var full = selector.Find("Full").GetComponent<Button>();
-            var compact = selector.Find("Reduced").GetComponent<Button>();
             var none = selector.Find("None").GetComponent<Button>();
             var resume = pause.Find("Resume").GetComponent<Button>();
-            var reduced = pause.Find("ReducedEffects").GetComponent<Toggle>();
+            var powers = pause.Find("Interface/CompanionPowers/Yes").GetComponent<Toggle>();
             int samples = game.Session.Rng.Combat.SampleCount;
             float shake = game.Session.Effects.RawShakeIntensity;
             float decorative = game.Session.Effects.RawDecorativeIntensity;
@@ -68,21 +69,17 @@ namespace EchoScrap.Tests
             Assert.That(game.Hud.ShowStats, Is.True);
             Assert.That(game.Session.IsPaused, Is.True);
             Assert.That(game.Hud.IsStatsVisible, Is.False, "The pause artwork keeps priority over the ingame readout.");
-            Assert.That(resume.FindSelectableOnUp(), Is.SameAs(full));
-            Assert.That(reduced.FindSelectableOnDown(), Is.SameAs(full));
-            Assert.That(full.FindSelectableOnUp(), Is.SameAs(reduced));
-            Assert.That(full.FindSelectableOnDown(), Is.SameAs(resume));
+            Assert.That(interfaceTab.FindSelectableOnDown(), Is.SameAs(full));
+            Assert.That(full.FindSelectableOnUp(), Is.SameAs(interfaceTab));
+            Assert.That(full.FindSelectableOnDown(), Is.SameAs(powers));
             Assert.That(full.FindSelectableOnLeft(), Is.SameAs(none));
-            Assert.That(full.FindSelectableOnRight(), Is.SameAs(compact));
-            EventSystem.current.SetSelectedGameObject(compact.gameObject);
-            ExecuteEvents.Execute(compact.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
-            Assert.That(game.Hud.StatsMode, Is.EqualTo(StatsDisplayMode.Reduced));
-            Assert.That(resume.FindSelectableOnUp(), Is.SameAs(compact));
+            Assert.That(full.FindSelectableOnRight(), Is.SameAs(none));
             game.Hud.ResumeGame();
             Assert.That(game.Hud.IsStatsVisible, Is.False, "A base build leaves the panel hidden.");
             game.Stats.SetUpgradeTier("FLASH_01", 1);
             Assert.That(game.Hud.IsStatsVisible, Is.True);
             game.Session.SetManualPause(true);
+            interfaceTab.onClick.Invoke();
             EventSystem.current.SetSelectedGameObject(none.gameObject);
             ExecuteEvents.Execute(none.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
             Assert.That(game.Hud.StatsMode, Is.EqualTo(StatsDisplayMode.None));
@@ -105,11 +102,12 @@ namespace EchoScrap.Tests
             {
                 game.Session.SetManualPause(true);game.Hud.RefreshNow();
                 var pause=game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause");
-                var slider=pause.Find("VolumeSlider").GetComponent<Slider>();
+                pause.Find("Tabs/Sound").GetComponent<Button>().onClick.Invoke();
+                var slider=pause.Find("Sound/VolumeSlider").GetComponent<Slider>();
                 slider.value=35;
                 Assert.AreEqual(.35f,AudioListener.volume,.001f);
                 Assert.AreEqual(.35f,PlayerPrefs.GetFloat(key),.001f);
-                Assert.AreSame(pause.Find("ShakeSlider").GetComponent<Slider>(),slider.FindSelectableOnDown());
+                Assert.AreSame(pause.Find("Sound/MusicSlider").GetComponent<Slider>(),slider.FindSelectableOnDown());
                 Assert.AreEqual(Image.Type.Sliced,pause.Find("Artwork").GetComponent<Image>().type);
                 Assert.Greater(pause.Find("Artwork").GetComponent<Image>().sprite.border.x,0);
                 game.ResetRun(false);Assert.AreEqual(.35f,AudioListener.volume,.001f);
@@ -354,16 +352,16 @@ namespace EchoScrap.Tests
                 {
                     Rect bounds=WorldRect((RectTransform)canvas.transform),panel=WorldRect((RectTransform)content);
                     Assert.IsTrue(bounds.Contains(panel.min)&&bounds.Contains(panel.max),"The complete pause frame must stay on screen.");
-                    string[] controls={"VolumeLabel","VolumeSlider","ShakeLabel","ShakeSlider","EffectsLabel","EffectsSlider","ReducedEffects","StatsDisplayMode","Resume","Restart"};
+                    string[] controls={"Tabs","General/ShakeLabel","General/ShakeSlider","General/EffectsLabel","General/EffectsSlider","Resume","Restart"};
                     for(int a=0;a<controls.Length;a++)for(int b=a+1;b<controls.Length;b++)
                         Assert.IsFalse(WorldRect((RectTransform)content.Find(controls[a])).Overlaps(WorldRect((RectTransform)content.Find(controls[b]))),controls[a]+" overlaps "+controls[b]);
-                    Transform selector = content.Find("StatsDisplayMode");
+                    Transform selector = content.Find("Interface/StatsDisplayMode");
                     Rect selectorRect = WorldRect((RectTransform)selector);
-                    foreach (string choice in new[] { "Full", "Reduced", "None" })
+                    foreach (string choice in new[] { "Full", "None" })
                     {
                         Rect button = WorldRect((RectTransform)selector.Find(choice));
                         Assert.That(selectorRect.Contains(button.min) && selectorRect.Contains(button.max), Is.True, choice + " stays in its row.");
-                        foreach (string name in new[] { "ReducedEffects", "Resume", "Restart" })
+                        foreach (string name in new[] { "Interface/CompanionPowers", "Resume", "Restart" })
                             Assert.That(button.Overlaps(WorldRect((RectTransform)content.Find(name))), Is.False, choice + " overlaps " + name);
                     }
                 }

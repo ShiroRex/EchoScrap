@@ -30,9 +30,9 @@ namespace EchoScrap.Combat
         private float announcementAge=2f;
         public void AnnounceSpawn(){announcementAge=0;}
         public void ClearAnnouncement(){announcementAge=2f;if(announcement!=null)announcement.gameObject.SetActive(false);pickupFeedback?.Clear();}
-        public void AnnounceCollected(int id)
+        public void AnnounceCollected(int id, bool isNew)
         {
-            announcementAge=2f;announcement.gameObject.SetActive(false);pickupFeedback.Show(id);
+            announcementAge=2f;announcement.gameObject.SetActive(false);pickupFeedback.Show(id, isNew);
         }
         public bool IsOpen => modal!=null&&modal.activeSelf;
         private RectTransform Panel(string name,Transform parent,Vector2 position,Vector2 size,Color color)
@@ -69,12 +69,15 @@ namespace EchoScrap.Combat
             var hint=Panel("EquiparIndicador",canvas.transform,new Vector2(0,175),new Vector2(480,56),Color.white);hint.anchorMin=hint.anchorMax=new Vector2(.5f,0);prompt=hint.gameObject;
             hintText=Label(hint,"Texto","",Vector2.zero,new Vector2(290,40),20);hintText.font=strong;
             equipPrompt=PixelInteractionPrompt.Attach(hint,hintText);
-            var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(360,56),Color.white);collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
+            var collect=Panel("ColeccionarIndicador",canvas.transform,new Vector2(0,175),new Vector2(244,56),Color.white);collect.anchorMin=collect.anchorMax=new Vector2(.5f,0);collectPrompt=collect.gameObject;
             var collectLabel=Label(collect,"Texto","COLECCIONAR",Vector2.zero,new Vector2(248,46),22);collectLabel.font=strong;
             pickupPrompt=PixelInteractionPrompt.Attach(collect,collectLabel);
             // Keep the original three compact frames at the upper left. The text below is deliberately
             // plain: it communicates only the powers currently equipped and never overlaps the portraits.
             var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(155,-190),new Vector2(700,220),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,1);hud=bar.gameObject;
+            var portraitsCanvas = hud.AddComponent<Canvas>();
+            portraitsCanvas.overrideSorting = true;
+            portraitsCanvas.sortingOrder = game.Hud.HudCanvas.sortingOrder - 1;
             for(int i=0;i<3;i++){
                 var box=Panel("Retrato_"+i,bar,new Vector2((i-1)*68,0),new Vector2(60,60),Color.gray);backgrounds[i]=box.GetComponent<Image>();
                 var picture=Panel("Cara",box,Vector2.zero,new Vector2(60,60),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
@@ -117,7 +120,10 @@ namespace EchoScrap.Combat
             collectPrompt.SetActive(!IsOpen&&playing&&system.CanCollect);
             if(prompt.activeSelf)equipPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
             if(collectPrompt.activeSelf)pickupPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
-            hud.SetActive(playing&&!game.Session.IsInWarehouse);
+            bool hudVisible = !game.Session.IsInWarehouse && game.Player.IsAlive &&
+                (playing || game.Hud.IsPauseVisible || game.Draft.IsOpen);
+            hud.SetActive(hudVisible);
+            equippedPowers.gameObject.SetActive(playing && (SceneTransitionState.ShowCompanionPowers || game.Hud.IsHudDetailHeld));
             int powersHash=17;
             for(int i=0;i<3;i++){
                 int id=station.Progress.equipped[i];portraits[i].enabled=id>=0;portraits[i].sprite=id>=0?faces[id]:null;
