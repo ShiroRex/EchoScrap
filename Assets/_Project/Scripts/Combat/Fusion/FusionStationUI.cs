@@ -19,6 +19,8 @@ namespace EchoScrap.Combat
         private GameObject modal,inventory,result;private Text promptText,selection,odds,status,resultTitle,resultDescription;
         private Text modalTitle, pickerTitle, pickerCount;
         private Button start, removeIngredient, backToReview, resetIngredients;
+        private readonly int[] equipmentSlots = {-1,-1,-1,-1};
+        private readonly Image[] draftArt = new Image[4];
         private Image resultImage;private readonly int[] ingredients={-1,-1,-1,-1};
         public bool IsOpen=>modal!=null&&modal.activeSelf;
         private static readonly Color Ink=new Color(.045f,.055f,.08f,1f),Pale=new Color(.9f,.94f,1);
@@ -54,7 +56,7 @@ namespace EchoScrap.Combat
                 slotText[i]=Label(card.transform,"+",new Vector2(8,150),new Vector2(229,70),25,TextAnchor.MiddleCenter);
             }
             Label(inventory.transform,"POSIBLES RESULTADOS",new Vector2(38,294),new Vector2(1048,38),26);
-            var possible=Panel("PosiblesFusiones",inventory.transform,new Vector2(38,335),new Vector2(1034,155),new Color(.07f,.11f,.14f));Frame(possible.GetComponent<Image>(),false);
+            var possible=Panel("PosiblesFusiones",inventory.transform,new Vector2(38,335),new Vector2(1034,168),new Color(.07f,.11f,.14f));Frame(possible.GetComponent<Image>(),false);
             for(int i=0;i<FusionCatalog.Count;i++){
                 possibleArt[i]=Portrait(possible,new Vector2(48+i*202,8),new Vector2(100,90));
                 possibleArt[i].sprite=CollectibleDisplay.CardPortrait(i);
@@ -63,16 +65,24 @@ namespace EchoScrap.Combat
             odds=Label(inventory.transform,"",new Vector2(38,506),new Vector2(1048,40),24);
             selection=Label(inventory.transform,"",new Vector2(38,546),new Vector2(1048,32),18);
             ButtonAt(inventory.transform,"VACIAR",new Vector2(38,600),new Vector2(220,54),ClearSelection);
-            start=ButtonAt(inventory.transform,"CONFIRMAR",new Vector2(805,600),new Vector2(266,54),()=>station.StartFusion((int[])ingredients.Clone()));
+            start=ButtonAt(inventory.transform,"CONFIRMAR",new Vector2(805,600),new Vector2(266,54),()=>station.StartFusion(ingredients,equipmentSlots));
             start.image.sprite=Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin").greenButton;
             picker=Panel("MiGaraje",panel,new Vector2(20,84),new Vector2(1080,660),Color.clear).gameObject;
             pickerTitle=Label(picker.transform,"",new Vector2(16,0),new Vector2(1034,38),23);
-            pickerCount=Label(picker.transform,"",new Vector2(840,45),new Vector2(210,35),19,TextAnchor.MiddleRight);
+            pickerCount=Label(picker.transform,"",new Vector2(765,45),new Vector2(285,35),19,TextAnchor.MiddleRight);
             var gridRoot=Panel("Unidades",picker.transform,new Vector2(0,85),new Vector2(1080,450),Color.clear);
             unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
             unitGrid.Build(station,id=>id==4?0:AvailableIngredient(id,selectedSlot),SelectFusionUnit);
-            unitGrid.UseFusionLayout();
-            Label(picker.transform,"Los coleccionables equipados se retiran de su puesto al seleccionarlos.",new Vector2(16,546),new Vector2(1034,38),17);
+            unitGrid.UseFusionLayout(EquipmentSlotForCopy);
+            Label(picker.transform,"SELECCIÓN",new Vector2(16,542),new Vector2(156,44),21);
+            for (int i = 0; i < draftArt.Length; i++)
+            {
+                var chip = Panel("Ingrediente_" + i, picker.transform, new Vector2(178 + 54 * i, 542), new Vector2(46,46), Ink);
+                Frame(chip.GetComponent<Image>(), false);
+                Label(chip, (i + 1).ToString(), Vector2.zero, new Vector2(46,46), 18, TextAnchor.MiddleCenter);
+                draftArt[i] = Portrait(chip, new Vector2(3,3), new Vector2(40,40));
+            }
+            Label(picker.transform,"Las copias en equipo se retiran de su puesto al confirmar.",new Vector2(418,542),new Vector2(632,44),17);
             resetIngredients=ButtonAt(picker.transform,"VACIAR",new Vector2(16,600),new Vector2(220,54),ClearSelection);
             removeIngredient=ButtonAt(picker.transform,"QUITAR INGREDIENTE",new Vector2(16,600),new Vector2(320,54),RemoveIngredient);
             backToReview=ButtonAt(picker.transform,"VOLVER",new Vector2(785,600),new Vector2(266,54),()=>ShowSelection(false));
@@ -99,7 +109,7 @@ namespace EchoScrap.Combat
             if (!picking) { selectedSlot=-1; return; }
             bool editing=selectedSlot>=0&&ingredients[selectedSlot]>=0;
             pickerTitle.text=editing?$"Elige un reemplazo para el ingrediente {selectedSlot+1}.":"Selecciona 4 coleccionables para hacer una fusión.";
-            pickerCount.text=$"TOTAL {station.Progress.OwnedCount}   ·   {SelectedCount} / 4";
+            pickerCount.text=$"COLECCIÓN {station.Progress.OwnedCount}   ·   {SelectedCount} / 4";
             resetIngredients.gameObject.SetActive(!editing&&SelectedCount>0);
             removeIngredient.gameObject.SetActive(editing);
             backToReview.gameObject.SetActive(SelectedCount==4);
@@ -109,48 +119,69 @@ namespace EchoScrap.Combat
         {
             if (selectedSlot < 0) return;
             ingredients[selectedSlot]=-1;
+            equipmentSlots[selectedSlot]=-1;
             selectedSlot=-1;
             RefreshSelection();
             ShowSelection(true);
         }
         private void SelectFusionUnit(int id,int copy)
         {
-            int reserved=ingredients.Where((value,index)=>index!=selectedSlot&&value==id).Count();
-            if(copy>=Mathf.Max(0,station.Progress.Available(id)-reserved)&&!station.UnequipForFusion(id))return;
-            AddIngredient(id);
+            if (!FusionCatalog.Valid(id) || id == 4 || station.Progress.phase != FusionPhase.Idle) return;
+            int slot = selectedSlot >= 0 ? selectedSlot : System.Array.IndexOf(ingredients,-1);
+            if (slot < 0 || copy < 0 || copy >= AvailableIngredient(id,slot)) return;
+            equipmentSlots[slot] = EquipmentSlotForCopy(id,copy);
+            ingredients[slot] = id;
+            selectedSlot = -1;
+            RefreshSelection();
+            ShowSelection(SelectedCount < 4);
         }
-        public void AddIngredient(int id)
+        public void AddIngredient(int id) => SelectFusionUnit(id, 0);
+        private int EquipmentSlotForCopy(int id, int copy)
         {
-            if(!FusionCatalog.Valid(id)||id==4||station.Progress.phase!=FusionPhase.Idle)return;
-            int slot=selectedSlot>=0?selectedSlot:System.Array.IndexOf(ingredients,-1);if(slot<0||AvailableIngredient(id,slot)<=0)return;
-            int reserved=ingredients.Where((value,index)=>index!=slot&&value==id).Count();
-            if(station.Progress.Available(id)<=reserved&&!station.UnequipForFusion(id))return;
-            ingredients[slot]=id;selectedSlot=-1;RefreshSelection();ShowSelection(SelectedCount<4);
+            int free = station.Progress.Available(id);
+            for (int i = 0; i < ingredients.Length; i++)
+                if (i != selectedSlot && ingredients[i] == id && equipmentSlots[i] < 0) free--;
+            if (copy < free) return -1;
+            copy -= Mathf.Max(0, free);
+            for (int slot = 0; slot < station.Progress.equipped.Length; slot++)
+            {
+                if (station.Progress.equipped[slot] != id) continue;
+                int reservation = System.Array.IndexOf(equipmentSlots,slot);
+                if (reservation >= 0 && reservation != selectedSlot) continue;
+                if (copy-- == 0) return slot;
+            }
+            return -1;
         }
         private int AvailableIngredient(int id,int slot)=>Mathf.Max(0,station.Progress.owned[id]-ingredients.Where((value,index)=>index!=slot&&value==id).Count());
-        public void ClearSelection(){for(int i=0;i<4;i++)ingredients[i]=-1;selectedSlot=-1;RefreshSelection();ShowSelection(true);}
+        public void ClearSelection(){for(int i=0;i<4;i++){ingredients[i]=-1;equipmentSlots[i]=-1;}selectedSlot=-1;RefreshSelection();ShowSelection(true);}
         private void RefreshSelection()
         {
             for(int i=0;i<4;i++){
                 int id=ingredients[i];slotArt[i].gameObject.SetActive(id>=0);slotArt[i].sprite=id>=0?CollectibleDisplay.CardPortrait(id):null;
-                slotText[i].text=id>=0?FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]:"+";
+                draftArt[i].sprite = slotArt[i].sprite;
+                draftArt[i].gameObject.SetActive(id>=0);
+                slotText[i].text=id>=0?FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]
+                    +(equipmentSlots[i]>=0?$"\nEN EQUIPO {equipmentSlots[i]+1}":""):"+";
                 Rect(slotText[i].rectTransform,id>=0?new Vector2(8,150):new Vector2(8,35),id>=0?new Vector2(229,70):new Vector2(229,160));
-                slotText[i].font=strongFont;slotText[i].fontSize=id>=0?22:64;slotText[i].color=id>=0?FusionCatalog.ColorOf(id):Pale;
+                slotText[i].font=strongFont;slotText[i].fontSize=id>=0?20:64;slotText[i].color=id>=0?FusionCatalog.ColorOf(id):Pale;
             }
             var chosen=ingredients.Where(id=>id>=0).ToArray();bool preview=FusionRecipe.TryPreview(chosen,out var recipe);
-            bool valid=FusionRecipe.TryCreate(ingredients,out var final);if(valid)recipe=final;start.interactable=valid&&station.Progress.CanBegin(ingredients);
+            bool valid=FusionRecipe.TryCreate(ingredients,out var final);if(valid)recipe=final;start.interactable=valid&&station.Progress.CanBegin(ingredients,equipmentSlots);
             float[] chance=Enumerable.Range(0,FusionCatalog.Count).Select(recipe.ResultPercent).ToArray();
             int visibleCount=preview?chance.Count(value=>value>0):0,index=0;
             foreach(int i in Enumerable.Range(0,FusionCatalog.Count).OrderByDescending(id=>chance[id]).ThenBy(id=>id)){
                 bool visible=preview&&chance[i]>0;
                 possibleArt[i].gameObject.SetActive(visible);possibleText[i].gameObject.SetActive(visible);
                 possibleText[i].color=FusionCatalog.ColorOf(i);
-                possibleText[i].text=visible?FusionCatalog.Names[i]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[i]]+"\n"+chance[i].ToString("0.##")+"%":"";
-                if(visible){float spacing=Mathf.Min(202,1000f/visibleCount);float x=17+(index+++.5f)*spacing;Rect(possibleArt[i].rectTransform,new Vector2(x-40,4),new Vector2(80,76));Rect(possibleText[i].rectTransform,new Vector2(x-spacing*.5f,80),new Vector2(spacing,72));}
+                possibleText[i].text=visible?FusionCatalog.Names[i]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[i]]
+                    +"\n<size=27><color=#F9E0B3>"+chance[i].ToString("0.##")+"%</color></size>":"";
+                if(visible){float spacing=Mathf.Min(202,1000f/visibleCount);float x=17+(index+++.5f)*spacing;Rect(possibleArt[i].rectTransform,new Vector2(x-40,4),new Vector2(80,76));Rect(possibleText[i].rectTransform,new Vector2(x-spacing*.5f,80),new Vector2(spacing,82));}
             }
             string time = preview ? $"{recipe.Seconds / 60:00}:{recipe.Seconds % 60:00}" : "—";
             odds.text = $"TIEMPO DE FUSIÓN  {time}" + (preview && !valid ? " · ESTIMADO" : "");
-            selection.text="Selecciona un ingrediente para cambiarlo antes de confirmar.";
+            selection.text=System.Array.Exists(equipmentSlots,slot=>slot>=0)
+                ? "Al confirmar, las copias marcadas se retiran del equipo."
+                : "Selecciona un ingrediente para cambiarlo antes de confirmar.";
         }
         private Image Portrait(Transform parent,Vector2 position,Vector2 size)
         {var image=new GameObject("Retrato",typeof(RectTransform)).AddComponent<Image>();image.transform.SetParent(parent,false);image.preserveAspect=true;Rect(image.rectTransform,position,size);image.raycastTarget=false;return image;}

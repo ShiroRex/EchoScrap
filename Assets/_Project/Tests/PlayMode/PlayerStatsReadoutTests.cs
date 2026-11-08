@@ -56,6 +56,7 @@ namespace EchoScrap.Tests
             interfaceTab.onClick.Invoke();
             Transform selector = pause.Find("Interface/StatsDisplayMode");
             var full = selector.Find("Full").GetComponent<Button>();
+            var reduced = selector.Find("Reduced").GetComponent<Button>();
             var none = selector.Find("None").GetComponent<Button>();
             var resume = pause.Find("Resume").GetComponent<Button>();
             var powers = pause.Find("Interface/CompanionPowers/Yes").GetComponent<Toggle>();
@@ -73,7 +74,13 @@ namespace EchoScrap.Tests
             Assert.That(full.FindSelectableOnUp(), Is.SameAs(interfaceTab));
             Assert.That(full.FindSelectableOnDown(), Is.SameAs(powers));
             Assert.That(full.FindSelectableOnLeft(), Is.SameAs(none));
-            Assert.That(full.FindSelectableOnRight(), Is.SameAs(none));
+            Assert.That(full.FindSelectableOnRight(), Is.SameAs(reduced));
+            reduced.onClick.Invoke();
+            Assert.That(game.Hud.StatsMode, Is.EqualTo(StatsDisplayMode.Reduced));
+            Assert.That(interfaceTab.FindSelectableOnDown(), Is.SameAs(reduced));
+            Assert.That(reduced.image.sprite, Is.SameAs(PixelControlArtwork.Load("StatsSelector/Selected")));
+            Assert.That(full.image.sprite, Is.SameAs(PixelControlArtwork.Load("StatsSelector/Normal")));
+            full.onClick.Invoke();
             game.Hud.ResumeGame();
             Assert.That(game.Hud.IsStatsVisible, Is.False, "A base build leaves the panel hidden.");
             game.Stats.SetUpgradeTier("FLASH_01", 1);
@@ -357,7 +364,7 @@ namespace EchoScrap.Tests
                         Assert.IsFalse(WorldRect((RectTransform)content.Find(controls[a])).Overlaps(WorldRect((RectTransform)content.Find(controls[b]))),controls[a]+" overlaps "+controls[b]);
                     Transform selector = content.Find("Interface/StatsDisplayMode");
                     Rect selectorRect = WorldRect((RectTransform)selector);
-                    foreach (string choice in new[] { "Full", "None" })
+                    foreach (string choice in new[] { "Full", "Reduced", "None" })
                     {
                         Rect button = WorldRect((RectTransform)selector.Find(choice));
                         Assert.That(selectorRect.Contains(button.min) && selectorRect.Contains(button.max), Is.True, choice + " stays in its row.");

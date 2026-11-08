@@ -386,7 +386,7 @@ namespace EchoScrap.Combat
                 bool settings = game.Flow.IsConfiguring;
                 pauseTitle.text = settings ? "CONFIGURACIÓN" : "PAUSA";
                 resumeLabel.text = settings ? "VOLVER" : "REANUDAR";
-                pauseSecondaryLabel.text = settings || game.Flow.State != GameFlowState.Expedition ? "MENÚ INICIAL" : "ABANDONAR";
+                pauseSecondaryLabel.text = settings || game.Flow.State != GameFlowState.Expedition ? "MENÚ PRINCIPAL" : "ABANDONAR";
                 pauseRestartButton.interactable = !settings;
                 resultActionLabel.text = "VOLVER A LA BÓVEDA";
             }
@@ -471,7 +471,7 @@ namespace EchoScrap.Combat
                 var mode = (StatsDisplayMode)i;
                 Button button = statsModeButtons[i];
                 if (button == null) continue;
-                bool active = statsMode == mode || (statsMode == StatsDisplayMode.Reduced && mode == StatsDisplayMode.Full);
+                bool active = statsMode == mode;
                 PixelControlArtwork.SetChoiceActive(button, active);
                 button.transform.Find("Label").GetComponent<Text>().color = Pale;
             }
@@ -635,11 +635,12 @@ namespace EchoScrap.Combat
             (shakeSlider, shakeLabel) = CreatePauseSlider(general, "Shake", "Movimiento de cámara", 48, SetShakePercent);
             (decorativeSlider, decorativeLabel) = CreatePauseSlider(general, "Effects", "Efectos decorativos", -48, SetDecorativePercent);
 
-            Label(layout, "StatsLabel", new Vector2(0, 67), new Vector2(640, 32), "Estadísticas generales", 26, TextAnchor.MiddleLeft, Pale);
+            Label(layout, "StatsLabel", new Vector2(0, 67), new Vector2(640, 32), "Estadísticas generales", 26, TextAnchor.MiddleLeft, Pale).font = pauseTitle.font;
             var statsModes = Rect(layout, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0, 17), new Vector2(640, 52));
             statsModeButtons[(int)StatsDisplayMode.Full] = CreatePauseChoice(statsModes, "Full", -240, "COMPLETAS", () => SetStatsDisplayMode(StatsDisplayMode.Full));
-            statsModeButtons[(int)StatsDisplayMode.None] = CreatePauseChoice(statsModes, "None", -68, "NO", () => SetStatsDisplayMode(StatsDisplayMode.None));
-            Label(layout, "PowersLabel", new Vector2(0, -43), new Vector2(640, 34), "Atributos de coleccionables", 26, TextAnchor.MiddleLeft, Pale);
+            statsModeButtons[(int)StatsDisplayMode.Reduced] = CreatePauseChoice(statsModes, "Reduced", -68, "REDUCIDAS", () => SetStatsDisplayMode(StatsDisplayMode.Reduced));
+            statsModeButtons[(int)StatsDisplayMode.None] = CreatePauseChoice(statsModes, "None", 104, "OCULTAS", () => SetStatsDisplayMode(StatsDisplayMode.None));
+            Label(layout, "PowersLabel", new Vector2(0, -43), new Vector2(640, 34), "Atributos de coleccionables", 26, TextAnchor.MiddleLeft, Pale).font = pauseTitle.font;
             var powers = Rect(layout, "CompanionPowers", Vector2.one * .5f, new Vector2(0, -86), new Vector2(640, 48));
             var powerGroup = powers.gameObject.AddComponent<ToggleGroup>();
             powerToggles[0] = CreatePowerToggle(powers, powerGroup, "Yes", -257, "SÍ", true);
@@ -762,13 +763,15 @@ namespace EchoScrap.Combat
             if (pauseTab == 1)
             {
                 Button full = statsModeButtons[(int)StatsDisplayMode.Full];
+                Button reduced = statsModeButtons[(int)StatsDisplayMode.Reduced];
                 Button none = statsModeButtons[(int)StatsDisplayMode.None];
-                top = statsMode == StatsDisplayMode.None ? none : full;
+                top = statsModeButtons[(int)statsMode];
                 bottom = powerToggles[SceneTransitionState.ShowCompanionPowers ? 0 : 1];
-                SetNavigation(full, tab, powerToggles[0], none, none);
-                SetNavigation(none, tab, powerToggles[1], full, full);
+                SetNavigation(full, tab, powerToggles[0], none, reduced);
+                SetNavigation(reduced, tab, powerToggles[1], full, none);
+                SetNavigation(none, tab, powerToggles[1], reduced, full);
                 SetNavigation(powerToggles[0], full, leftAction, powerToggles[1], powerToggles[1]);
-                SetNavigation(powerToggles[1], none, resumeButton, powerToggles[0], powerToggles[0]);
+                SetNavigation(powerToggles[1], reduced, resumeButton, powerToggles[0], powerToggles[0]);
             }
             else
             {

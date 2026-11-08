@@ -596,7 +596,7 @@ namespace EchoScrap.Combat
                 return;
 
             bool inVault = game != null && game.Session != null && game.Session.IsInWarehouse;
-            bool hudVisible = inVault && !IsOpen && !station.IsMenuOpen && (game.Player == null || game.Player.IsAlive);
+            bool hudVisible = CanOpen();
             if (hudButtonRect != null && hudButtonRect.gameObject.activeSelf != hudVisible)
                 hudButtonRect.gameObject.SetActive(hudVisible);
 
@@ -614,7 +614,7 @@ namespace EchoScrap.Combat
                     return;
                 }
 
-                if (!IsOpen && inVault && !station.IsMenuOpen && !game.Session.IsPaused && Keyboard.current.iKey.wasPressedThisFrame)
+                if (hudVisible && Keyboard.current.iKey.wasPressedThisFrame)
                 {
                     Open(ActiveTab);
                     return;
@@ -625,18 +625,16 @@ namespace EchoScrap.Combat
                 Refresh(false);
         }
 
+        private bool CanOpen() => station != null && station.Progress != null && game != null
+            && game.Session.IsInWarehouse && game.Player.IsAlive && !game.Session.IsPaused
+            && game.Flow?.OwnsOverlay != true && !IsOpen && !station.IsMenuOpen;
+
         public void Open(IndexTab tab = IndexTab.ByRarity)
         {
-            if (station == null || station.Progress == null)
-                return;
-            if (station.IsMenuOpen)
-                station.CloseMenu();
-            if (game != null)
-            {
-                game.Motor?.CancelDashAndRestoreState();
-                game.Motor?.Stop();
-                game.Session?.Clock?.SetPause(PauseReason.FusionMenu, true);
-            }
+            if (!CanOpen()) return;
+            game.Motor.CancelDashAndRestoreState();
+            game.Motor.Stop();
+            game.Session.Clock.SetPause(PauseReason.FusionMenu, true);
 
             ActiveTab = tab;
             modal.SetActive(true);

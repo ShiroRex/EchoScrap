@@ -19,11 +19,11 @@ namespace EchoScrap.Combat
         public int NearestSlot {
             get {
                 if(game==null||!game.Session.IsInWarehouse||!game.Player.IsAlive)return -1;
-                int nearest=-1;float distance=5f;
+                int nearest=-1;float distance=FusionStation.DisplayInteractionDistance;
                 // Nearest occupied station owns the interaction; empty equipment stations remain available for E to equip.
                 for(int i=0;i<station.DisplaySlots.Length;i++){
                     if(i>=3&&station.DisplayedId(i)<0)continue;
-                    float d=Vector3.Distance(game.Player.transform.position,station.DisplaySlots[i].position+Vector3.back*3);
+                    float d=Vector3.Distance(game.Player.transform.position,station.DisplayApproachPoint(i));
                     if(d<distance){distance=d;nearest=i;}
                 }
                 return nearest>=0&&station.DisplayedId(nearest)>=0?nearest:-1;

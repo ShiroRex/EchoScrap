@@ -27,8 +27,8 @@ namespace EchoScrap.Combat
         public int NearestSlot {
             get {
                 if(game==null || !game.Session.IsInWarehouse || !game.Player.IsAlive)return -1;
-                int slot=-1;float distance=5;
-                for(int i=0;i<3;i++){float d=Vector3.Distance(game.Player.transform.position,station.DisplaySlots[i].position+Vector3.back*3);if(d<distance){distance=d;slot=i;}}
+                int slot=-1;float distance=FusionStation.DisplayInteractionDistance;
+                for(int i=0;i<3;i++){float d=Vector3.Distance(game.Player.transform.position,station.DisplayApproachPoint(i));if(d<distance){distance=d;slot=i;}}
                 return slot;
             }
         }

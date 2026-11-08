@@ -291,10 +291,12 @@ namespace EchoScrap.Tests
             yield return null;
             AssertBearing(equipment, new Vector3(160, 0, 16.5f));
             AssertBearing(fusion, new Vector3(160, 0, -.5f));
+            Assert.That(equipment.parent.Find("Label").GetComponent<Text>().text, Is.EqualTo("SUBE AL BALCÓN"));
 
             Place(new Vector3(167, 6, 22));
             yield return null;
-            AssertBearing(equipment, station.DisplaySlots[1].position);
+            Assert.IsFalse(equipment.gameObject.activeInHierarchy);
+            Assert.That(equipment.parent.Find("Label").GetComponent<Text>().text, Is.EqualTo("PUESTO 2 · EQUIPAR"));
             AssertBearing(fusion, new Vector3(160, 0, 16.5f));
 
             game.Session.SetManualPause(true);

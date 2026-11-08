@@ -32,6 +32,9 @@ namespace EchoScrap.Combat
         private GameObject vaultTips;
         private FusionStation vaultStation;
         private RectTransform vaultDirections, fusionArrow, equipmentArrow;
+        private Text fusionGuide, equipmentGuide;
+        private readonly string[] equipLabels = {"PUESTO 1 · EQUIPAR", "PUESTO 2 · EQUIPAR", "PUESTO 3 · EQUIPAR"};
+        private readonly string[] editLabels = {"PUESTO 1 · EDITAR", "PUESTO 2 · EDITAR", "PUESTO 3 · EDITAR"};
         private Bounds? vaultStairs;
         private Text tipBody, equipmentHint;
         private int tipIndex;
@@ -205,20 +208,21 @@ namespace EchoScrap.Combat
 
             vaultDirections = Rect(root, "VaultDirections", new Vector2(0, -124), Vector2.zero);
             vaultDirections.anchorMin = vaultDirections.anchorMax = new Vector2(.5f, 1f);
-            Sprite pointer = PixelControlArtwork.Load("BossPointer/Up");
-            fusionArrow = DirectionCard("Fusion", "MÁQUINA DE FUSIÓN", -152, pointer);
-            equipmentArrow = DirectionCard("Equipment", "EQUIPAR ENTIDADES", 152, pointer);
+            Sprite pointer = PixelControlArtwork.Load("VaultDirection");
+            fusionArrow = DirectionCard("Fusion", -152, pointer, out fusionGuide);
+            equipmentArrow = DirectionCard("Equipment", 152, pointer, out equipmentGuide);
             vaultDirections.gameObject.SetActive(false);
         }
 
-        private RectTransform DirectionCard(string name, string titleText, float x, Sprite pointer)
+        private RectTransform DirectionCard(string name, float x, Sprite pointer, out Text guide)
         {
             var card = Rect(vaultDirections, name, new Vector2(x, 0), new Vector2(290, 48));
             VaultPlate(card);
-            var arrow = Rect(card, "Arrow", new Vector2(-111, 0), new Vector2(40, 40)).gameObject.AddComponent<Image>();
+            var arrow = Rect(card, "Arrow", new Vector2(-111, 0), new Vector2(36, 36)).gameObject.AddComponent<Image>();
             arrow.sprite = pointer;
             arrow.raycastTarget = false;
-            Label(card, titleText, new Vector2(22, 0), new Vector2(228, 34), 19, VaultGold).alignment = TextAnchor.MiddleLeft;
+            guide = Label(card, "", new Vector2(24, 0), new Vector2(220, 36), 19, VaultGold);
+            guide.alignment = TextAnchor.MiddleLeft;
             return arrow.rectTransform;
         }
 
@@ -234,22 +238,24 @@ namespace EchoScrap.Combat
             Vector3 player = game.Player.transform.position;
             Vector3 fusion = vaultStation.InteractionPoint.position;
             Transform[] slots = vaultStation.DisplaySlots;
-            Transform nearest = null;
+            int nearest = -1;
             float bestDistance = float.PositiveInfinity;
             for (int i = 0; i < Mathf.Min(3, slots.Length); i++)
             {
                 Transform slot = slots[i];
                 if (slot == null) continue;
-                float distance = (slot.position - player).sqrMagnitude;
+                float distance = (vaultStation.DisplayApproachPoint(i) - player).sqrMagnitude;
                 if (distance >= bestDistance) continue;
-                nearest = slot;
+                nearest = i;
                 bestDistance = distance;
             }
 
-            equipmentArrow.parent.gameObject.SetActive(nearest != null);
-            if (nearest != null)
+            string fusionText = "MÁQUINA DE FUSIÓN";
+            equipmentArrow.parent.gameObject.SetActive(nearest >= 0);
+            if (nearest >= 0)
             {
-                Vector3 equipment = nearest.position;
+                Vector3 equipment = vaultStation.DisplayApproachPoint(nearest);
+                bool viaStairs = false;
                 if (vaultStairs is Bounds stairs)
                 {
                     // The equipment is on the balcony. Lead through the stair entrances on each floor.
@@ -258,12 +264,29 @@ namespace EchoScrap.Combat
                     bool upstairs = player.z >= stairs.max.z && player.y >= equipment.y - 1f;
                     var bottom = new Vector3(stairs.center.x, 0, stairs.min.z - 1.5f);
                     var top = new Vector3(stairs.center.x, 0, stairs.max.z + 1.5f);
-                    if (!upstairs) equipment = aligned && player.z < stairs.max.z ? top : bottom;
-                    if (upstairs || onStairs) fusion = aligned ? bottom : top;
+                    if (!upstairs)
+                    {
+                        equipment = aligned && player.z < stairs.max.z ? top : bottom;
+                        viaStairs = true;
+                    }
+                    if (upstairs || onStairs)
+                    {
+                        fusion = aligned ? bottom : top;
+                        fusionText = "BAJA A FUSIÓN";
+                    }
                 }
-                PointDirection(equipmentArrow, equipment - player, camera.transform);
+                float range = FusionStation.DisplayInteractionDistance;
+                bool atEquipment = !viaStairs && bestDistance < range * range;
+                equipmentGuide.text = atEquipment
+                    ? (vaultStation.DisplayedId(nearest) < 0 ? equipLabels[nearest] : editLabels[nearest])
+                    : viaStairs ? "SUBE AL BALCÓN" : "EQUIPAR ENTIDADES";
+                PointDirection(equipmentArrow, atEquipment ? Vector3.zero : equipment - player, camera.transform);
             }
-            PointDirection(fusionArrow, fusion - player, camera.transform);
+            bool atFusion = vaultStation.CanInteract;
+            fusionGuide.text = atFusion
+                ? vaultStation.Progress?.phase == FusionPhase.Fusing ? "EN FUSIÓN" : "E · MÁQUINA DE FUSIÓN"
+                : fusionText;
+            PointDirection(fusionArrow, atFusion ? Vector3.zero : fusion - player, camera.transform);
         }
 
         private static void PointDirection(RectTransform arrow, Vector3 offset, Transform camera)

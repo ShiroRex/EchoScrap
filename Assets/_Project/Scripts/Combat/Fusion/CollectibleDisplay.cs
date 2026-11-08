@@ -9,6 +9,7 @@ namespace EchoScrap.Combat
         private float elapsed;private int frame;private float height;
         private Camera cameraView;private Canvas label,equipmentLabel;private Text nameText,rarityText;
         private float spriteScale;private bool showTitle;private CombatGameBootstrap game;
+        private readonly Vector3[] labelCorners = new Vector3[4];
         public int CollectibleId {get;private set;}=-1;
         public static Sprite FrontSprite(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/000"):null;
         public static Sprite CardPortrait(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/CardPortrait"):null;
@@ -82,9 +83,16 @@ namespace EchoScrap.Combat
         {
             if(equipmentLabel!=null)
             {
-                bool show=game!=null&&game.Session.IsInWarehouse&&!game.Session.IsPaused&&game.Player.IsAlive;
+                var camera = game != null ? game.GameplayCamera : null;
+                bool show=camera!=null&&game.Session.IsInWarehouse&&!game.Session.IsPaused&&game.Player.IsAlive;
+                if (show)
+                {
+                    equipmentLabel.transform.rotation = camera.transform.rotation;
+                    Vector3 offset = game.Player.transform.position - equipmentLabel.transform.position;
+                    offset.y = 0;
+                    show = offset.sqrMagnitude > 2.25f && FitsViewport(equipmentLabel, camera);
+                }
                 if(equipmentLabel.gameObject.activeSelf!=show) equipmentLabel.gameObject.SetActive(show);
-                if(show) equipmentLabel.transform.rotation=game.GameplayCamera.transform.rotation;
             }
             if(CollectibleId<0||frames==null)return;
             elapsed+=Time.deltaTime;
@@ -94,11 +102,23 @@ namespace EchoScrap.Combat
                 visual.transform.rotation=Quaternion.Euler(0,cameraView.transform.eulerAngles.y,0);
                 if(label!=null){
                     if(game==null)game=FindAnyObjectByType<CombatGameBootstrap>();
-                    label.gameObject.SetActive(showTitle && (game==null || (!game.Session.IsPaused && game.Player.IsAlive)));
                     label.transform.rotation=cameraView.transform.rotation;
                     label.transform.position=transform.position+Vector3.up*(height+.35f);
+                    label.gameObject.SetActive(showTitle && (game==null || (!game.Session.IsPaused && game.Player.IsAlive))
+                        && (equipmentLabel == null || FitsViewport(label,cameraView)));
                 }
             }
+        }
+
+        private bool FitsViewport(Canvas canvas, Camera camera)
+        {
+            ((RectTransform)canvas.transform).GetWorldCorners(labelCorners);
+            foreach (Vector3 corner in labelCorners)
+            {
+                Vector3 point = camera.WorldToViewportPoint(corner);
+                if (point.z <= 0 || point.x < .02f || point.x > .98f || point.y < .02f || point.y > .98f) return false;
+            }
+            return true;
         }
     }
 }

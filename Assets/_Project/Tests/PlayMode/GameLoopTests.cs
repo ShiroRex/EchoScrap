@@ -90,7 +90,7 @@ namespace EchoScrap.Tests
             Assert.IsTrue(hint.activeInHierarchy);
             for (int i = 0; i < 3; i++)
             {
-                var label = station.DisplaySlots[i].GetComponentInChildren<Text>();
+                var label = station.DisplaySlots[i].GetComponentInChildren<Text>(true);
                 Assert.That(label.text, Is.EqualTo($"EQUIPO {i + 1}"));
             }
             Assert.IsTrue(station.EquipCompanion(0, FusionCatalog.MapIds[0]));

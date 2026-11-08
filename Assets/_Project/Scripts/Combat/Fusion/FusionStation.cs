@@ -10,6 +10,8 @@ namespace EchoScrap.Combat
         public Transform InteractionPoint, ResultPoint, Door, HeaderPoint;
         public Transform[] DisplaySlots;
         public float InteractionDistance=4.5f;
+        internal const float DisplayInteractionDistance = 5f;
+        internal Vector3 DisplayApproachPoint(int slot) => DisplaySlots[slot].position + Vector3.back * 3f;
         public float DisplayHeight=5.5f;
         public bool PersistProgress=true;
         public const string SaveKey="EchoScrap.Collection.Production.v1";
@@ -77,7 +79,10 @@ namespace EchoScrap.Combat
         {
             if(Progress==null||game==null)return;
             if(IsMenuOpen&&(!CanInteract||!game.Player.IsAlive))CloseMenu();
-            if(Keyboard.current!=null&&Keyboard.current.eKey.wasPressedThisFrame){if(IsMenuOpen)CloseMenu();else TryOpenMenu();}
+            var keyboard = Keyboard.current;
+            bool opening = Progress.phase == FusionPhase.Opening && game.Session.Clock.HasPauseReason(PauseReason.FusionMenu);
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && (IsMenuOpen || opening)) CloseMenu();
+            else if(keyboard!=null&&keyboard.eKey.wasPressedThisFrame){if(IsMenuOpen)CloseMenu();else TryOpenMenu();}
             if(!game.Session.IsPaused && (game.Session.State==SessionState.Running||game.Session.IsInWarehouse)) Advance(Time.deltaTime);
             if(Progress.phase==FusionPhase.Opening&&game.Session.Clock.HasPauseReason(PauseReason.FusionMenu)&&!game.Session.Clock.HasPauseReason(PauseReason.Manual)) Advance(Time.unscaledDeltaTime);
             float target=Progress.phase==FusionPhase.Opening?Progress.opening:Progress.phase==FusionPhase.AwaitingDecision?1:0;
@@ -96,11 +101,16 @@ namespace EchoScrap.Combat
             ui.Show();return true;
         }
         public void CloseMenu(){if(ui!=null)ui.Hide();if(game!=null&&(Index==null||!Index.IsOpen))game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}
-        public bool StartFusion(int[] ingredients)
+        public bool StartFusion(int[] ingredients, int[] equipmentSlots = null)
         {
             if(!IsMenuOpen||!CanInteract)return false;
-            if(!Progress.Begin(ingredients,UnityEngine.Random.Range(0,10000),UnityEngine.Random.Range(0,2)))return false;
-            Notice="Fusión iniciada. Puedes seguir jugando.";RefreshDisplays();UpdateResult();Save();CloseMenu();return true;
+            if(!Progress.Begin(ingredients,UnityEngine.Random.Range(0,10000),UnityEngine.Random.Range(0,2),equipmentSlots))return false;
+            var companions = GetComponent<CompanionSystem>();
+            if (equipmentSlots != null && Array.Exists(equipmentSlots, slot => slot >= 0) && companions != null)
+                companions.RefreshEquipment();
+            else
+                RefreshDisplays();
+            Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();CloseMenu();return true;
         }
         public void Advance(float seconds){if(Progress.Advance(seconds)){UpdateResult();Save();if(Progress.phase==FusionPhase.AwaitingDecision&&CanInteract&&game.Session.Clock.HasPauseReason(PauseReason.FusionMenu))ui.Show();}}
         public bool Resolve(bool collect)
@@ -128,12 +138,6 @@ namespace EchoScrap.Combat
             displays[i].Configure(FusionCatalog.Valid(id)&&Progress.owned[id]>0?id:-1,DisplayHeight,true);
         }if(Index!=null&&Index.IsOpen)Index.Refresh(true);}
         public int DisplayedId(int slot)=>displays!=null&&slot>=0&&slot<displays.Length?displays[slot].CollectibleId:-1;
-        public bool UnequipForFusion(int id)
-        {
-            if(!IsMenuOpen||!CanInteract||!FusionCatalog.Valid(id))return false;
-            int slot=Array.IndexOf(Progress.equipped,id);if(slot<0)return false;
-            Progress.equipped[slot]=-1;GetComponent<CompanionSystem>()?.RefreshEquipment();Save();return true;
-        }
         public bool ReleaseCollectible(int id)
         {
             if(!FusionCatalog.Valid(id)||Progress.Available(id)<=0)return false;
