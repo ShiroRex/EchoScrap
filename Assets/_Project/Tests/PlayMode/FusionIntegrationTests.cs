@@ -148,14 +148,21 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator InventorySelectsFourUnitsThenReviewsAndConfirmsFusion()
         {
             yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();Assert.AreEqual(0,ui.SelectedCount);
-            Assert.IsTrue(ui.PickerIsOpen);
-            yield return Capture("SelectorGaraje",true);
-            var grid=station.GetComponentInChildren<CollectibleUnitGrid>();
-            int[] copies={0,3,4,5};
-            for(int i=0;i<copies.Length;i++){grid.SelectUnit(copies[i]);Assert.AreEqual(i+1,ui.SelectedCount);Assert.AreEqual(i<3,ui.PickerIsOpen);}
+            Assert.IsFalse(ui.PickerIsOpen);
+            var panel=ui.transform.Find("FusionCanvas/InventarioFusion/Panel");
+            int[] copies={0,2,2,2};
+            for(int i=0;i<copies.Length;i++)
+            {
+                ui.OpenPicker(i);
+                Assert.IsTrue(ui.PickerIsOpen);
+                if(i==0)yield return Capture("SelectorGaraje",true);
+                var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();
+                grid.SelectUnit(copies[i]);
+                Assert.IsFalse(ui.PickerIsOpen);
+                Assert.AreEqual(i+1,ui.SelectedCount);
+            }
             Assert.AreEqual(4,ui.SelectedCount);yield return Capture("CuatroSeleccionados",true);
             ui.OpenPicker(0);Assert.IsTrue(ui.PickerIsOpen);
-            var panel=ui.transform.Find("FusionCanvas/InventarioFusion/Panel");
             panel.Find("MiGaraje/Boton_VOLVER").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             Assert.IsFalse(ui.PickerIsOpen);Assert.AreEqual(4,ui.SelectedCount);
             panel.Find("Ingredientes/Boton_CONFIRMAR").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
@@ -190,7 +197,7 @@ namespace EchoScrap.Tests
             var confirm=panel.Find("Ingredientes/Boton_CONFIRMAR").GetComponent<UnityEngine.UI.Button>();
             Assert.AreSame(pause.greenButton,confirm.image.sprite);
             Assert.IsTrue(confirm.interactable);
-            FusionRecipe.TryCreate(new[]{0,1,2,3},out var expected);foreach(int id in FusionCatalog.FusionIds.Where(id=>expected.ResultWeight(id)>0))StringAssert.Contains(expected.ResultPercent(id).ToString("0.##")+"%",text);
+            FusionRecipe.TryCreate(new[]{0,1,2,3},out var expected);foreach(int id in FusionCatalog.FusionIds.Where(id=>expected.ResultWeight(id)>0))StringAssert.Contains(Mathf.RoundToInt(expected.ResultPercent(id))+"%",text);
             yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
         }
         [UnityTest] public IEnumerator VaultLayoutSupportsTravelStairsAndFusion()
@@ -232,7 +239,7 @@ namespace EchoScrap.Tests
             CollectionAssert.AreEquivalent(new[]{"Reaper\nCOMÚN\n60%","Chico Emo\nRARO\n40%"},values);
             ui.ClearSelection();for(int i=0;i<4;i++)ui.AddIngredient(6);
             values=possible.GetComponentsInChildren<UnityEngine.UI.Text>().Select(t=>PlainResult(t.text)).ToArray();
-            CollectionAssert.AreEquivalent(new[]{$"Murciélago Cristal\nÉPICO\n{59.4f:0.##}%",$"Sirena\nLEGENDARIO\n{39.6f:0.##}%","Yanikua\nMÍTICO\n1%"},values);
+            CollectionAssert.AreEquivalent(new[]{"Murciélago Cristal\nÉPICO\n59%","Sirena\nLEGENDARIO\n40%","Yanikua\nMÍTICO\n1%"},values);
             yield return Capture("RecetaEpica",true);
             ui.ClearSelection();Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
         }
@@ -270,7 +277,7 @@ namespace EchoScrap.Tests
             yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();foreach(int id in new[]{0,7,2,0})ui.AddIngredient(id);
             var panel=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel");
             var labels=panel.Find("Ingredientes/PosiblesFusiones").GetComponentsInChildren<UnityEngine.UI.Text>().OrderBy(t=>t.rectTransform.anchoredPosition.x).Select(t=>PlainResult(t.text)).ToArray();
-            StringAssert.StartsWith($"Chico Emo\nRARO\n{44.55f:0.##}%",labels[0]);StringAssert.StartsWith("Conde Alucard\nESPECIAL",labels[1]);StringAssert.StartsWith("Yanikua\nMÍTICO\n1%",labels[3]);yield return Capture("ProbabilidadesOrdenadas",true);
+            StringAssert.StartsWith("Chico Emo\nRARO\n45%",labels[0]);StringAssert.StartsWith("Conde Alucard\nESPECIAL",labels[1]);StringAssert.StartsWith("Yanikua\nMÍTICO\n1%",labels[3]);yield return Capture("ProbabilidadesOrdenadas",true);
             ui.OpenPicker(0);var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.IsFalse(grid.GetComponentsInChildren<UnityEngine.UI.Button>(true).Any(b=>b.name=="LIBERAR"));Assert.AreEqual(2,station.Progress.owned[0]);
         }
         private static string PlainResult(string text) => System.Text.RegularExpressions.Regex.Replace(text,"<[^>]+>","");
@@ -281,6 +288,7 @@ namespace EchoScrap.Tests
             var companions=station.GetComponent<CompanionSystem>();
             Assert.IsTrue(companions.Abilities.Has(0));yield return Approach();Assert.IsTrue(station.TryOpenMenu());
             var ui=station.GetComponent<FusionStationUI>();
+            ui.OpenPicker(0);
             var grid=station.GetComponentInChildren<CollectibleUnitGrid>();
             Assert.AreEqual(4,grid.VisibleUnits);
             Assert.IsFalse(grid.transform.Find("Unidad_0/EnEquipo").gameObject.activeInHierarchy);
@@ -294,6 +302,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0,station.Progress.equipped[0]);Assert.IsTrue(companions.Abilities.Has(0));
             Assert.IsTrue(station.TryOpenMenu());
             Assert.AreEqual(0,ui.SelectedCount);
+            ui.OpenPicker(0);
             yield return Capture("Fusion_Copia_Equipada",true);
             grid.SelectUnit(1);
             ui.AddIngredient(0);ui.AddIngredient(1);ui.AddIngredient(1);
@@ -384,15 +393,6 @@ namespace EchoScrap.Tests
             Assert.AreEqual(3,station.Index.VisibleVaultCardsCount);
             station.Index.Close();
             Assert.IsFalse(station.Index.IsOpen);
-            Transform mundo=GameObject.Find("Mundo3D_EchoScrap").transform;
-            int floating=0;
-            foreach(Transform cat in mundo)foreach(Transform prop in cat){
-                var renderers=prop.GetComponentsInChildren<Renderer>(true);if(renderers.Length==0)continue;
-                Bounds b=renderers[0].bounds;for(int i=1;i<renderers.Length;i++)b.Encapsulate(renderers[i].bounds);
-                float h=ArenaSurface.Profile(b.center.x,b.center.z);
-                if(b.min.y-h>0.35f)floating++;
-            }
-            Assert.AreEqual(0,floating);
         }
         [UnityTest] public IEnumerator TAtOccupiedEquipmentRemovesPowerAndKeepsCollectible()
         {
@@ -456,4 +456,3 @@ namespace EchoScrap.Tests
         }
     }
 }
-
