@@ -99,15 +99,16 @@ namespace EchoScrap.Tests
             var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
             for(int id=0;id<FusionCatalog.Count;id++){
                 display.Configure(id,station.DisplayHeight,true);yield return null;
-                var texts=display.GetComponentsInChildren<UnityEngine.UI.Text>();
-                Assert.AreEqual(FusionCatalog.Names[id],texts[0].text);Assert.AreEqual(FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]],texts[1].text);
-                Assert.AreSame(skin.semibold,texts[0].font);Assert.AreSame(skin.regular,texts[1].font);
-                Canvas.ForceUpdateCanvases();Assert.Greater(texts[0].cachedTextGenerator.characterCountVisible,0);Assert.Greater(texts[1].cachedTextGenerator.characterCountVisible,0);
-                Assert.AreEqual(FusionCatalog.ColorOf(id),texts[1].color);
+                var name=display.transform.Find("NombreRareza/Nombre").GetComponent<UnityEngine.UI.Text>();
+                var rarity=display.transform.Find("NombreRareza/Rareza").GetComponent<UnityEngine.UI.Text>();
+                Assert.AreEqual(FusionCatalog.Names[id],name.text);Assert.AreEqual(FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]],rarity.text);
+                Assert.AreSame(skin.semibold,name.font);Assert.AreSame(skin.regular,rarity.font);
+                Canvas.ForceUpdateCanvases();Assert.Greater(name.cachedTextGenerator.characterCountVisible,0);Assert.Greater(rarity.cachedTextGenerator.characterCountVisible,0);
+                Assert.AreEqual(FusionCatalog.ColorOf(id),rarity.color);
                 var sprite=display.GetComponentInChildren<SpriteRenderer>();Assert.LessOrEqual(sprite.bounds.size.x,2.85f);Assert.LessOrEqual(sprite.bounds.size.y,station.DisplayHeight+.05f);
                 Assert.AreEqual(display.transform.position.y,sprite.bounds.min.y,.05f);
             }
-            game.Session.SetManualPause(true);yield return null;Assert.IsFalse(display.GetComponentInChildren<Canvas>(true).gameObject.activeSelf);
+            game.Session.SetManualPause(true);yield return null;Assert.IsFalse(display.transform.Find("NombreRareza").gameObject.activeSelf);
             game.Session.SetManualPause(false);display.Configure(0,station.DisplayHeight,true);yield return null;
             yield return Capture("RotulosCapsulas",false,true);
         }
@@ -125,8 +126,8 @@ namespace EchoScrap.Tests
             Assert.IsNotNull(station.transform.GetComponentInParent<VaultFloorSurface>());Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
             Assert.AreEqual(3,station.GetComponent<FusionAura>().GetComponentsInChildren<ParticleSystem>().Length);
             Assert.IsNull(station.GetComponentInChildren<LineRenderer>());
-            station.Progress.Begin(new[]{0,0,0,0},9999,0);game.Session.SetManualPause(true);yield return null;
-            Assert.AreEqual("FUSIONANDO",ui.HeaderTitle);Assert.AreEqual("01:00",ui.HeaderTime);
+            Assert.IsTrue(station.Progress.Begin(new[]{0,0,0,0},9999,0));game.Session.SetManualPause(true);yield return null;
+            Assert.AreEqual("FUSIONANDO",ui.HeaderTitle);Assert.AreEqual("00:30",ui.HeaderTime);
             foreach(var particles in station.GetComponentsInChildren<ParticleSystem>())particles.Simulate(2);
             yield return Capture("RotuloYAura",true);game.Session.SetManualPause(false);
         }
@@ -167,7 +168,9 @@ namespace EchoScrap.Tests
             foreach(int id in new[]{0,1,2,3})ui.AddIngredient(id);
             var text=string.Join(" ",possible.GetComponentsInChildren<UnityEngine.UI.Text>().Select(t=>t.text));
             Assert.AreEqual(2,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);StringAssert.DoesNotContain("—",text);
-            Assert.LessOrEqual(canvas.transform.Find("IndicadorFusion").GetComponent<RectTransform>().sizeDelta.x,220);
+            var prompt=canvas.transform.Find("IndicadorFusion");
+            Assert.LessOrEqual(prompt.GetComponent<RectTransform>().sizeDelta.x,360);
+            Assert.AreSame(PixelControlArtwork.Load("InteractionPrompt/Plate_Normal"),prompt.GetComponent<UnityEngine.UI.Image>().sprite);
             Assert.LessOrEqual(panel.Find("Ingredientes/Boton_FUSIONAR").GetComponent<RectTransform>().sizeDelta.x,210);
             FusionRecipe.TryCreate(new[]{0,1,2,3},out var expected);foreach(int id in FusionCatalog.FusionIds.Where(id=>expected.ResultWeight(id)>0))StringAssert.Contains(expected.ResultPercent(id).ToString("0.##")+"%",text);
             yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
@@ -211,7 +214,7 @@ namespace EchoScrap.Tests
             CollectionAssert.AreEquivalent(new[]{"Reaper\nCOMÚN\n60%","Chico Emo\nRARO\n40%"},values);
             ui.ClearSelection();for(int i=0;i<4;i++)ui.AddIngredient(6);
             values=possible.GetComponentsInChildren<UnityEngine.UI.Text>().Select(t=>t.text).ToArray();
-            CollectionAssert.AreEquivalent(new[]{"Murciélago Cristal\nÉPICO\n59.4%","Sirena\nLEGENDARIO\n39.6%","Yanikua\nMÍTICO\n1%"},values);
+            CollectionAssert.AreEquivalent(new[]{$"Murciélago Cristal\nÉPICO\n{59.4f:0.##}%",$"Sirena\nLEGENDARIO\n{39.6f:0.##}%","Yanikua\nMÍTICO\n1%"},values);
             yield return Capture("RecetaEpica",true);
             ui.ClearSelection();Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
         }
@@ -226,7 +229,8 @@ namespace EchoScrap.Tests
             Assert.IsTrue(companions.TrySpawn(0));var point=companions.PickupPosition(0)+Vector3.up;
             game.Player.transform.position=point;game.Player.GetComponent<Rigidbody>().position=point;Physics.SyncTransforms();yield return null;
             var prompt=station.transform.Find("CompanionCanvas/ColeccionarIndicador");Assert.IsTrue(prompt.gameObject.activeSelf);
-            Assert.AreEqual("E · COLECCIONAR",prompt.GetComponentInChildren<UnityEngine.UI.Text>().text);
+            Assert.AreEqual("COLECCIONAR",prompt.GetComponentInChildren<UnityEngine.UI.Text>().text);
+            Assert.AreSame(PixelControlArtwork.Load("InteractionPrompt/Glyph_E"),prompt.Find("InteractionKey/Glyph").GetComponent<UnityEngine.UI.Image>().sprite);
             Assert.AreEqual(0,station.Progress.owned[0]);InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;
             Assert.AreEqual(1,station.Progress.owned[0]);Assert.AreEqual(0,companions.ActivePickups);Assert.IsFalse(prompt.gameObject.activeSelf);
             yield return null;Assert.AreEqual(1,station.Progress.owned[0]);
@@ -247,7 +251,7 @@ namespace EchoScrap.Tests
             yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();foreach(int id in new[]{0,7,2,0})ui.AddIngredient(id);
             var panel=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel");
             var labels=panel.Find("Ingredientes/PosiblesFusiones").GetComponentsInChildren<UnityEngine.UI.Text>().OrderBy(t=>t.rectTransform.anchoredPosition.x).Select(t=>t.text).ToArray();
-            StringAssert.StartsWith("Chico Emo\nRARO\n44.55%",labels[0]);StringAssert.StartsWith("Conde Alucard\nESPECIAL",labels[1]);StringAssert.StartsWith("Yanikua\nMÍTICO\n1%",labels[3]);yield return Capture("ProbabilidadesOrdenadas",true);
+            StringAssert.StartsWith($"Chico Emo\nRARO\n{44.55f:0.##}%",labels[0]);StringAssert.StartsWith("Conde Alucard\nESPECIAL",labels[1]);StringAssert.StartsWith("Yanikua\nMÍTICO\n1%",labels[3]);yield return Capture("ProbabilidadesOrdenadas",true);
             ui.OpenPicker(0);var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.IsFalse(grid.GetComponentsInChildren<UnityEngine.UI.Button>(true).Any(b=>b.name=="LIBERAR"));Assert.AreEqual(2,station.Progress.owned[0]);
         }
         [UnityTest] public IEnumerator FusionCanSelectEquippedCopyAndImmediatelyRemovesItsPowerAndDisplay()
