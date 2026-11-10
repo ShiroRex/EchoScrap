@@ -73,7 +73,7 @@ namespace EchoScrap.Combat
             ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);
             Index=gameObject.AddComponent<VaultCollectionIndex>();Index.Initialize(this,game);
             RefreshDisplays();UpdateResult();
-            if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);gameObject.AddComponent<VaultReleaseInteraction>().Initialize(this,game);}
+            if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);gameObject.AddComponent<VaultReleaseInteraction>().Initialize(this,game);gameObject.AddComponent<EventLeaderboardSync>().Initialize(game,this);}
         }
         private void Update()
         {
@@ -121,6 +121,7 @@ namespace EchoScrap.Combat
                 ui.ShowInventoryFull();GetComponentInChildren<CollectiblePickupFeedback>()?.Reject(false);return false;
             }
             int id=Progress.result;if(!Progress.Resolve(collect))return false;
+            if(collect)EventLeaderboardSync.Instance?.NotifyCollectibleObtained();
             Notice=collect?FusionCatalog.Names[id]+" coleccionado. Guardado en tu inventario.":"Coleccionable liberado.";
             RefreshDisplays();UpdateResult();Save();CloseMenu();return true;
         }
@@ -146,6 +147,7 @@ namespace EchoScrap.Combat
         public bool CollectFromArena(int id)
         {
             if(!FusionCatalog.CanSpawn(id)||!Progress.TryCollect(id))return false;
+            EventLeaderboardSync.Instance?.NotifyCollectibleObtained();
             RefreshDisplays();Save();return true;
         }
         public bool EquipCompanion(int slot,int id)
@@ -161,7 +163,7 @@ namespace EchoScrap.Combat
         public void ResetCollection()
         {
             openingAudio.Stop();CloseMenu();Index?.Close();Notice="";Progress=new FusionProgress();Progress.Validate();
-            RefreshDisplays();UpdateResult();Save();GetComponent<CompanionSystem>()?.RefreshEquipment();
+            RefreshDisplays();UpdateResult();Save();GetComponent<CompanionSystem>()?.RefreshEquipment();EventLeaderboardSync.Instance?.ResetSessionCounters();
         }
         private void OnSessionReset(){openingAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();Index?.Close();}
         private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}

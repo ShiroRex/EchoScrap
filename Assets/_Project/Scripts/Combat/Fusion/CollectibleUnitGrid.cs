@@ -56,13 +56,13 @@ namespace EchoScrap.Combat
             next.GetComponent<RectTransform>().anchoredPosition=new Vector2(480,-203);
             pageLabel.rectTransform.anchoredPosition=new Vector2(410,-203);
             pageLabel.rectTransform.sizeDelta=new Vector2(72,30);
-            var frame=Resources.Load<Sprite>("UI/Controls/Pause/Inset");
+            var frame=PixelControlArtwork.Load("Fusion/Cuadro_Fusion");
             for(int i=0;i<PageSize;i++)
             {
                 var plate=Box("MarcoRetrato",cards[i].transform,new Vector2(0,28),new Vector2(120,120),Color.white);
                 plate.SetAsFirstSibling();
                 var image=plate.GetComponent<Image>();
-                image.sprite=frame;image.type=Image.Type.Sliced;image.pixelsPerUnitMultiplier=1f;image.raycastTarget=false;
+                image.sprite=frame;image.type=Image.Type.Sliced;image.pixelsPerUnitMultiplier=0.5f;image.raycastTarget=false;
                 var badge = Box("EnEquipo", cards[i].transform, new Vector2(0, 72), new Vector2(130, 24), new Color(.12f, .08f, .09f));
                 badge.GetComponent<Image>().raycastTarget = false;
                 equippedBadges[i] = Label(badge, "Texto", Vector2.zero, new Vector2(130, 24), 15);

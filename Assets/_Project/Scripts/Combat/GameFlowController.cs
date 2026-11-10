@@ -110,6 +110,7 @@ namespace EchoScrap.Combat
         {
             if (station != null) station.PersistProgress = collectionPersistence;
             station?.ResetCollection();
+            EventLeaderboardSync.StartNewPlayerSession(view != null ? view.PlayerName : null);
             transientProfile = true;
             if (persist) { PlayerPrefs.SetInt(ProfileKey, 1); PlayerPrefs.Save(); }
             ReturnToVault();
@@ -158,6 +159,7 @@ namespace EchoScrap.Combat
         {
             if (!IsSelectingExpedition || IsLoading) return;
             IsSelectingExpedition = false;
+            EventLeaderboardSync.Instance?.RequestImmediateSync();
             IsLoading = true;
             IsFadingExpeditionSelection = true;
             selectionAudio.Play();
@@ -198,6 +200,7 @@ namespace EchoScrap.Combat
         {
             if (!IsSelectingExpedition || IsLoading) return;
             IsSelectingExpedition = false;
+            EventLeaderboardSync.Instance?.RequestImmediateSync();
             game.Motor.GetComponent<EchoScrap.Player.PlayerInputReader>()?.SuppressDashFromUiConfirmation();
             game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
             Sync();
