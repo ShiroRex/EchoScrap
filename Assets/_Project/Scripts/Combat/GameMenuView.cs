@@ -42,14 +42,16 @@ namespace EchoScrap.Combat
         private bool equipmentHintPending;
         private MenuBackdrop backdrop;
         private Text status;
-        private InputField titleNameInput, expeditionNameInput;
+        private InputField confirmNameInput;
         public string PlayerName => EventLeaderboardSync.PlayerName;
-        public InputField ExpeditionNameInput => expeditionNameInput;
+        public string ConfirmedPlayerName => confirmNameInput != null ? confirmNameInput.text : "";
+        public InputField ConfirmNameInput => confirmNameInput;
         public Canvas Canvas { get; private set; }
         public Button ContinueButton => continueButton;
         public Button NewCollectionButton => newButton;
         public Button StartButton => startButton;
         public Button CancelButton => cancelButton;
+        public Button AcceptButton => acceptButton;
         public Button DemoRoundButton => demoButton;
         public Button CompleteRoundButton => completeButton;
         public Button ExitExpeditionButton => exitExpeditionButton;
@@ -86,7 +88,6 @@ namespace EchoScrap.Combat
                 newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, 41), new Vector2(336, 72), artwork.Blue, flow.RequestNewCollection);
                 settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -41), new Vector2(336, 72), artwork.Blue, flow.OpenConfiguration);
                 quitButton = ButtonAt(frame, "Quit", "SALIR", new Vector2(0, -123), new Vector2(336, 72), artwork.Red, flow.QuitGame);
-                titleNameInput = BuildPlayerNameBox(frame, "TitlePlayerName", new Vector2(0, 238), new Vector2(440, 56));
             }
             if (game != null)
             {
@@ -112,9 +113,8 @@ namespace EchoScrap.Combat
                 selectionInput = expeditionSelection.AddComponent<CanvasGroup>();
                 var frame = Frame(expeditionSelection.transform, "SelectionFrame");
                 selectionFrame = frame.gameObject.AddComponent<CanvasGroup>();
-                Label(frame, "¿QUIERES ENTRAR A LA ARENA?", new Vector2(0, 240), new Vector2(800, 88), 34, new Color(.91f, .76f, .44f));
-                Label(frame, "Elige una ronda para comenzar.", new Vector2(0, 192), new Vector2(700, 44), 22, Color.white);
-                expeditionNameInput = BuildPlayerNameBox(frame, "PlayerNameInput", new Vector2(0, 134), new Vector2(500, 58));
+                Label(frame, "¿QUIERES ENTRAR A LA ARENA?", new Vector2(0, 218), new Vector2(800, 88), 34, new Color(.91f, .76f, .44f));
+                Label(frame, "Elige una ronda para comenzar.", new Vector2(0, 150), new Vector2(700, 48), 24, Color.white);
                 demoButton = ButtonAt(frame, "DemoRound", "RONDA DEMO", new Vector2(0, 44), new Vector2(500, 100), artwork.Green, () => worldFlow.SelectExpedition(false));
                 completeButton = ButtonAt(frame, "CompleteRound", "RONDA COMPLETA", new Vector2(0, -70), new Vector2(500, 100), artwork.Blue, () => worldFlow.SelectExpedition(true));
                 exitExpeditionButton = ButtonAt(frame, "ExitExpedition", "SALIR", new Vector2(0, -202), new Vector2(500, 100), artwork.Red, worldFlow.CancelExpeditionSelection);
@@ -128,13 +128,13 @@ namespace EchoScrap.Combat
             var confirmFrame = Frame(confirmation.transform, "ConfirmFrame");
             confirmTitle = Label(confirmFrame, "", new Vector2(0, 155), new Vector2(670, 110), 34, new Color(.91f, .76f, .44f));
             confirmMessage = Label(confirmFrame, "", new Vector2(0, 0), new Vector2(650, 170), 27, Color.white);
+            confirmNameInput = BuildPlayerNameBox(confirmFrame, "PlayerNameInput", new Vector2(0, -48), new Vector2(540, 64));
+            confirmNameInput.gameObject.SetActive(false);
             cancelButton = ButtonAt(confirmFrame, "Cancel", "CANCELAR", new Vector2(-170, -195), new Vector2(304, 112), artwork.Green, flow.CancelConfirmation);
             acceptButton = ButtonAt(confirmFrame, "Confirm", "CONFIRMAR", new Vector2(170, -195), new Vector2(304, 112), artwork.Red, flow.AcceptConfirmation);
             Link(cancelButton, acceptButton, acceptButton); Link(acceptButton, cancelButton, cancelButton);
             confirmation.SetActive(false);
             status = Label(root.transform, "", new Vector2(0, -440), new Vector2(900, 56), 24, Color.white);
-            EventLeaderboardSync.OnPlayerNameChanged += SyncPlayerNameFields;
-            SyncPlayerNameFields(EventLeaderboardSync.PlayerName);
         }
 
         private InputField BuildPlayerNameBox(Transform parent, string name, Vector2 position, Vector2 size)
@@ -160,16 +160,7 @@ namespace EchoScrap.Combat
 
             input.placeholder = placeholder;
             input.textComponent = text;
-            input.text = EventLeaderboardSync.PlayerName;
-            input.onValueChanged.AddListener(val => EventLeaderboardSync.PlayerName = val);
-            input.onEndEdit.AddListener(val => EventLeaderboardSync.PlayerName = val);
             return input;
-        }
-
-        private void SyncPlayerNameFields(string value)
-        {
-            if (titleNameInput != null && titleNameInput.text != value) titleNameInput.SetTextWithoutNotify(value);
-            if (expeditionNameInput != null && expeditionNameInput.text != value) expeditionNameInput.SetTextWithoutNotify(value);
         }
 
         public void Refresh()
@@ -395,9 +386,16 @@ namespace EchoScrap.Combat
                 tipDots[i].color = i == tipIndex ? VaultGold : new Color(.35f, .42f, .56f);
         }
 
-        public void ShowConfirmation(string heading, string message)
+        public void ShowConfirmation(string heading, string message, bool askPlayerName = false)
         {
             confirmTitle.text = heading; confirmMessage.text = message;
+            confirmTitle.rectTransform.anchoredPosition = new Vector2(0, askPlayerName ? 185 : 155);
+            confirmMessage.rectTransform.anchoredPosition = new Vector2(0, askPlayerName ? 65 : 0);
+            if (confirmNameInput != null)
+            {
+                confirmNameInput.gameObject.SetActive(askPlayerName);
+                if (askPlayerName) confirmNameInput.SetTextWithoutNotify("");
+            }
             confirmation.SetActive(true); Select(cancelButton);
         }
 
@@ -495,7 +493,6 @@ namespace EchoScrap.Combat
         { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero; }
         private void OnDestroy()
         {
-            EventLeaderboardSync.OnPlayerNameChanged -= SyncPlayerNameFields;
             artwork?.Dispose();
             if (Canvas != null) Destroy(Canvas.gameObject);
         }

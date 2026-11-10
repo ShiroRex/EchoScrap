@@ -47,15 +47,19 @@ namespace EchoScrap.Combat
         public void RequestNewCollection()
         {
             if (IsLoading || IsConfirming || IsConfiguring) return;
-            if (!HasCollection) { LoadWorld(SceneTransitionState.Entry.NewCollection); return; }
             IsConfirming = true; View.Refresh();
-            View.ShowConfirmation("¿NUEVA COLECCIÓN?", "Se reiniciarán tu colección y la fusión en curso.\nEsta acción no se puede deshacer.");
+            string message = HasCollection
+                ? "Nombre nuevo: primera partida al ranking.\nSe reiniciarán tu colección y la fusión en curso."
+                : "Nombre nuevo: primera partida al ranking.\nVacío o repetido: solo práctica.";
+            View.ShowConfirmation("¿NUEVA COLECCIÓN?", message, true);
         }
         public void CancelConfirmation() { IsConfirming = false; View.Refresh(); }
         public void AcceptConfirmation()
         {
             if (!IsConfirming || IsLoading) return;
-            IsConfirming = false; LoadWorld(SceneTransitionState.Entry.NewCollection);
+            IsConfirming = false;
+            EventLeaderboardSync.StartNewPlayerSession(View.ConfirmedPlayerName);
+            LoadWorld(SceneTransitionState.Entry.NewCollection);
         }
         public void OpenConfiguration()
         {

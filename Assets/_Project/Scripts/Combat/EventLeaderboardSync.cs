@@ -1,6 +1,6 @@
 using System;
 using System.Collections;
-using System.IO;
+using System.Collections.Generic;
 using System.Text;
 using EchoScrap.Core;
 using UnityEngine;
@@ -14,6 +14,7 @@ namespace EchoScrap.Combat
         public string uid;
         public string sessionId;
         public string playerName;
+        public int fusions;
         public int kills;
         public int collectibles;
         public int ownedInVault;
@@ -22,6 +23,7 @@ namespace EchoScrap.Combat
         public string highestRarityName;
         public int survivalSeconds;
         public int score;
+        public int rawScore, modeMinutes, rulesVersion;
         public string status;
         public long updatedAt;
     }
@@ -44,81 +46,72 @@ namespace EchoScrap.Combat
         public const string DefaultApiKey = "AIzaSyBgdPPFayt0SzNf95YMdTnONFtpZd2DflA";
         public const string DefaultProjectId = "echoscrap";
         public const string PlayerNamePrefKey = "EchoScrap.Event.PlayerName";
-        public const string SessionIdPrefKey = "EchoScrap.Event.SessionId";
+        private static string NameKey => Application.isBatchMode ? PlayerNamePrefKey + ".Test" : PlayerNamePrefKey;
 
         public static EventLeaderboardSync Instance { get; private set; }
         public static bool EnableNetworkInTests { get; set; }
 
-        private static string currentPlayerName = "";
-        private static string currentSessionId = "";
+        [Serializable]
+        public sealed class RankingLedger
+        {
+            public List<string> names = new List<string>();
+            public List<EventPlayerRecord> pending = new List<EventPlayerRecord>();
+            public string name, interrupted;
+            public bool eligible;
+
+            public void NewCollection(string input)
+            {
+                name = SanitizeName(input);
+                eligible = name.Length > 0 && !names.Exists(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
+                if (eligible) names.Add(name);
+            }
+
+            public bool Claim()
+            {
+                if (!eligible) return false;
+                eligible = false;
+                return true;
+            }
+        }
+
+        // Keep automated play sessions isolated from the player's collection.
+        private static string LedgerKey => Application.isBatchMode ? "EchoScrap.Rank.Test.v2" : "EchoScrap.Rank.v2";
+        private static RankingLedger ReadLedger() =>
+            JsonUtility.FromJson<RankingLedger>(PlayerPrefs.GetString(LedgerKey, "{}")) ?? new RankingLedger();
+        private static void SaveLedger(RankingLedger ledger)
+        {
+            PlayerPrefs.SetString(LedgerKey, JsonUtility.ToJson(ledger));
+            PlayerPrefs.Save();
+        }
+
+        public static string SanitizeName(string raw) => string.IsNullOrWhiteSpace(raw) ? "" :
+            raw.Trim().Substring(0, Math.Min(raw.Trim().Length, 20));
+        public static string PlayerName => PlayerPrefs.GetString(NameKey, "");
         public static event Action<string> OnPlayerNameChanged;
-
-        public static string PlayerName
+        public static void StartNewPlayerSession(string input)
         {
-            get => currentPlayerName;
-            set
-            {
-                string sanitized = SanitizeName(value);
-                if (currentPlayerName == sanitized) return;
-                currentPlayerName = sanitized;
-                if (!string.IsNullOrEmpty(sanitized))
-                {
-                    PlayerPrefs.SetString(PlayerNamePrefKey, sanitized);
-                    PlayerPrefs.Save();
-                }
-                OnPlayerNameChanged?.Invoke(currentPlayerName);
-                if (Instance != null) Instance.RequestImmediateSync();
-            }
+            Instance?.CancelAttempt();
+            var ledger = ReadLedger();
+            // JsonUtility can yield null lists for a missing field in an old or empty save.
+            ledger.names ??= new List<string>();
+            ledger.pending ??= new List<EventPlayerRecord>();
+            if (!string.IsNullOrEmpty(ledger.interrupted)) QueueCancellation(ledger);
+            ledger.NewCollection(input);
+            PlayerPrefs.SetString(NameKey, ledger.name);
+            SaveLedger(ledger);
+            OnPlayerNameChanged?.Invoke(ledger.name);
         }
 
-        public static string SessionId
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(currentSessionId))
-                {
-                    currentSessionId = "run_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "_" + Guid.NewGuid().ToString("N").Substring(0, 6);
-                }
-                return currentSessionId;
-            }
-        }
-
-        public static void StartNewPlayerSession(string playerName = null)
-        {
-            currentSessionId = "run_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "_" + Guid.NewGuid().ToString("N").Substring(0, 6);
-            if (playerName != null)
-            {
-                currentPlayerName = SanitizeName(playerName);
-            }
-            if (Instance != null)
-            {
-                Instance.ResetSessionCounters();
-                Instance.RequestImmediateSync();
-            }
-        }
-
-        public static string SanitizeName(string raw)
-        {
-            if (string.IsNullOrWhiteSpace(raw)) return "";
-            string trimmed = raw.Trim();
-            return trimmed.Length <= 20 ? trimmed : trimmed.Substring(0, 20);
-        }
+        public static int CalculateScore(int rawScore, int modeMinutes) =>
+            modeMinutes == 8 ? rawScore / 2 : rawScore;
 
         private CombatGameBootstrap game;
         private FusionStation station;
-        private string idToken = "";
-        private string authUid = "event_booth";
-        private bool authAttempted;
-        private bool syncPending;
-        private bool isSyncing;
-        private float nextAllowedSyncTime;
-        private int bestKillsInSession;
-        private int bestCollectiblesInSession;
-        private int lastObservedOwned = -1;
-        private int lastObservedKills = -1;
-        private SessionState lastObservedState = (SessionState)(-1);
-        private bool lastObservedWarehouse;
-
+        private string idToken = "", authUid = "";
+        private bool active, sending, hasPending;
+        private float retryAt, nextUpload;
+        private int mode, collected, discoveries, fusions, highest;
+        private string attemptId, attemptName;
         public EventPlayerRecord LastRecord { get; private set; }
 
         public void Initialize(CombatGameBootstrap bootstrap, FusionStation fusionStation)
@@ -126,197 +119,124 @@ namespace EchoScrap.Combat
             Instance = this;
             game = bootstrap;
             station = fusionStation;
-            if (string.IsNullOrEmpty(currentPlayerName) && PlayerPrefs.HasKey(PlayerNamePrefKey))
-            {
-                currentPlayerName = SanitizeName(PlayerPrefs.GetString(PlayerNamePrefKey, ""));
-            }
-            if (string.IsNullOrEmpty(currentSessionId))
-            {
-                currentSessionId = SessionId;
-            }
-            LastRecord = BuildSnapshot();
+            game.Session.Events.OnSessionStateChanged += OnState;
+            game.Session.SessionReset += CancelAttempt;
+            var ledger = ReadLedger();
+            if (!string.IsNullOrEmpty(ledger.interrupted)) QueueCancellation(ledger);
+            hasPending = ledger.pending?.Count > 0;
         }
 
-        public void ResetSessionCounters()
+        public void BeginRankedExpedition(bool longMode)
         {
-            bestKillsInSession = 0;
-            bestCollectiblesInSession = 0;
-            lastObservedKills = -1;
-            lastObservedOwned = -1;
+            var ledger = ReadLedger();
+            if (active || !ledger.Claim()) return;
+            active = true;
+            attemptId = ledger.interrupted = Guid.NewGuid().ToString("N");
+            SaveLedger(ledger);
+            attemptName = ledger.name;
+            mode = longMode ? 8 : 3;
+            collected = 0;
+            highest = -1;
+            discoveries = fusions = 0;
+            nextUpload = 0;
         }
 
-        public void NotifyCollectibleObtained()
+        private static void QueueCancellation(RankingLedger ledger)
         {
-            bestCollectiblesInSession++;
-            RequestImmediateSync();
+            ledger.pending ??= new List<EventPlayerRecord>();
+            ledger.pending.Add(new EventPlayerRecord { sessionId = ledger.interrupted, status = "CANCELADA" });
+            ledger.interrupted = null;
+            ledger.eligible = true;
+            SaveLedger(ledger);
         }
 
-        public void RequestImmediateSync()
+        private void CancelAttempt()
         {
-            syncPending = true;
-            nextAllowedSyncTime = 0f;
-            LastRecord = BuildSnapshot();
+            if (!active) return;
+            active = false;
+            QueueCancellation(ReadLedger());
+            hasPending = true;
+        }
+        public void NotifyCollectibleObtained(int id, bool firstDiscovery, bool fromFusion)
+        {
+            if (!active) return;
+            if (firstDiscovery) discoveries++;
+            if (fromFusion) fusions++;
+            collected++;
+            highest = Mathf.Max(highest, (int)FusionCatalog.Rarities[id]);
         }
 
-        private void Update()
+        public static int RawPoints(int kills, int units, int discoveries, int highest, int seconds) =>
+            100 * kills + 300 * units + 150 * discoveries + 250 * (highest + 1) + 2 * seconds;
+
+        private EventPlayerRecord Snapshot(string status, float gameplayTime)
         {
-            if (game == null || game.Session == null) return;
-
-            int currentKills = game.Hud != null ? game.Hud.KillCount : 0;
-            if (currentKills > bestKillsInSession)
-                bestKillsInSession = currentKills;
-
-            int owned = station != null && station.Progress != null ? station.Progress.OwnedCount : 0;
-            int discovered = station != null && station.Progress != null ? station.Progress.DiscoveredCount : 0;
-            int collectiblesMetric = Mathf.Max(bestCollectiblesInSession, Mathf.Max(owned, discovered));
-            if (collectiblesMetric > bestCollectiblesInSession)
-                bestCollectiblesInSession = collectiblesMetric;
-
-            SessionState state = game.Session.State;
-            bool inWarehouse = game.Session.IsInWarehouse;
-
-            if (currentKills != lastObservedKills || owned != lastObservedOwned || state != lastObservedState || inWarehouse != lastObservedWarehouse)
-            {
-                bool urgent = state != lastObservedState || inWarehouse != lastObservedWarehouse || owned != lastObservedOwned;
-                lastObservedKills = currentKills;
-                lastObservedOwned = owned;
-                lastObservedState = state;
-                lastObservedWarehouse = inWarehouse;
-                syncPending = true;
-                if (urgent) nextAllowedSyncTime = 0f;
-            }
-
-            if (syncPending && !isSyncing && Time.unscaledTime >= nextAllowedSyncTime)
-            {
-                syncPending = false;
-                nextAllowedSyncTime = Time.unscaledTime + 1.5f;
-                EventPlayerRecord snapshot = BuildSnapshot();
-                LastRecord = snapshot;
-                SaveLocalBackup(snapshot);
-                if (ShouldSendNetworkRequests())
-                {
-                    StartCoroutine(PushRecordCoroutine(snapshot));
-                }
-            }
-        }
-
-        public EventPlayerRecord BuildSnapshot()
-        {
-            int currentKills = game != null && game.Hud != null ? game.Hud.KillCount : 0;
-            int totalKills = Mathf.Max(bestKillsInSession, currentKills);
-
-            int owned = 0;
-            int discovered = 0;
-            int highestRarity = -1;
-
-            if (station != null && station.Progress != null)
-            {
-                owned = station.Progress.OwnedCount;
-                discovered = station.Progress.DiscoveredCount;
-                for (int id = 0; id < FusionCatalog.Count; id++)
-                {
-                    if (station.Progress.owned[id] > 0 || station.Progress.IsDiscovered(id))
-                    {
-                        int r = (int)FusionCatalog.Rarities[id];
-                        if (r > highestRarity) highestRarity = r;
-                    }
-                }
-            }
-
-            int totalCollectibles = Mathf.Max(bestCollectiblesInSession, Mathf.Max(owned, discovered));
-            int survival = game != null && game.Session != null ? Mathf.FloorToInt(game.Session.GameplayTime) : 0;
-            int rarityBonus = Mathf.Max(0, highestRarity + 1) * 250;
-            int computedScore = totalKills * 100 + totalCollectibles * 300 + discovered * 150 + rarityBonus + survival * 2;
-
-            string statusText = "EN BÓVEDA";
-            if (game != null && game.Session != null)
-            {
-                if (game.Session.State == SessionState.Victory) statusText = "VICTORIA";
-                else if (game.Session.State == SessionState.Defeat) statusText = "DERROTA";
-                else if (!game.Session.IsInWarehouse) statusText = "EN PARTIDA";
-            }
-
-            string displayPlayerName = string.IsNullOrWhiteSpace(currentPlayerName) ? "JUGADOR" : currentPlayerName;
-            string rarityLabel = highestRarity >= 0 && highestRarity < FusionCatalog.RarityNames.Length
-                ? FusionCatalog.RarityNames[highestRarity]
-                : "SIN COLECCIÓN";
-
-            return new EventPlayerRecord
-            {
-                uid = authUid,
-                sessionId = SessionId,
-                playerName = displayPlayerName,
-                kills = totalKills,
-                collectibles = totalCollectibles,
-                ownedInVault = owned,
-                discoveredCount = discovered,
-                highestRarity = Mathf.Max(0, highestRarity),
-                highestRarityName = rarityLabel,
-                survivalSeconds = survival,
-                score = computedScore,
-                status = statusText,
+            var kills = game.Hud.KillCount;
+            var seconds = Mathf.FloorToInt(gameplayTime);
+            var raw = RawPoints(kills, collected, discoveries, highest, seconds);
+            return new EventPlayerRecord {
+                sessionId = attemptId, playerName = attemptName, modeMinutes = mode, rulesVersion = 2,
+                kills = kills, collectibles = collected, discoveredCount = discoveries, survivalSeconds = seconds,
+                highestRarity = highest, ownedInVault = station.Progress.OwnedCount,
+                highestRarityName = highest < 0 ? "" : FusionCatalog.RarityNames[highest],
+                rawScore = raw, score = CalculateScore(raw, mode),
+                status = status, fusions = fusions,
                 updatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
         }
 
-        private static bool ShouldSendNetworkRequests()
+        private void OnState(SessionStateEvent change)
         {
-            if (EnableNetworkInTests) return true;
-            return !Application.isBatchMode;
+            if (!active || (change.State != SessionState.Victory && change.State != SessionState.Defeat)) return;
+            active = false;
+            LastRecord = Snapshot(change.State == SessionState.Victory ? "VICTORIA" : "DERROTA", change.GameplayTime);
+            var ledger = ReadLedger();
+            ledger.interrupted = null;
+            ledger.pending ??= new List<EventPlayerRecord>();
+            ledger.pending.Add(LastRecord);
+            SaveLedger(ledger);
+            hasPending = true;
         }
 
-        private static void SaveLocalBackup(EventPlayerRecord record)
+        private void Update()
         {
-            try
+            if (sending || Time.unscaledTime < retryAt || (Application.isBatchMode && !EnableNetworkInTests)) return;
+            if (hasPending)
             {
-                string path = Path.Combine(Application.persistentDataPath, "EchoScrap_EventRanking_LastSession.json");
-                File.WriteAllText(path, JsonUtility.ToJson(record, true), Encoding.UTF8);
+                var queue = ReadLedger().pending;
+                if (queue != null && queue.Count > 0) { StartCoroutine(PushRecordCoroutine(queue[0], true)); return; }
+                hasPending = false;
             }
-            catch (Exception)
-            {
-                // Ignore local disk errors in restricted environments.
-            }
+            if (!active || Time.unscaledTime < nextUpload) return;
+            nextUpload = Time.unscaledTime + 2f;
+            StartCoroutine(PushRecordCoroutine(Snapshot("EN PARTIDA", game.Session.GameplayTime), false));
         }
 
-        private IEnumerator PushRecordCoroutine(EventPlayerRecord record)
+        private IEnumerator PushRecordCoroutine(EventPlayerRecord record, bool persistent)
         {
-            isSyncing = true;
-
-            if (!authAttempted)
+            sending = true;
+            if (string.IsNullOrEmpty(idToken)) yield return AuthenticateAnonymouslyCoroutine();
+            string url = $"{DefaultDatabaseUrl}/players/{record.sessionId}.json";
+            if (!string.IsNullOrEmpty(idToken)) url += "?auth=" + UnityWebRequest.EscapeURL(idToken);
+            record.uid = authUid;
+            using var request = record.status == "CANCELADA" ? UnityWebRequest.Delete(url) : UnityWebRequest.Put(url, Encoding.UTF8.GetBytes(JsonUtility.ToJson(record).TrimEnd('}') + ",\"heartbeat\":{\".sv\":\"timestamp\"}}"));
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.timeout = 8;
+            yield return request.SendWebRequest();
+            if (request.result == UnityWebRequest.Result.Success)
             {
-                authAttempted = true;
-                yield return AuthenticateAnonymouslyCoroutine();
-                if (!string.IsNullOrEmpty(authUid))
-                {
-                    record.uid = authUid;
-                }
+                if (!persistent) { sending = false; yield break; }
+                var ledger = ReadLedger();
+                ledger.pending.RemoveAll(r => r.sessionId == record.sessionId);
+                SaveLedger(ledger);
+                hasPending = ledger.pending.Count > 0;
             }
-
-            string baseUrl = $"{DefaultDatabaseUrl}/players/{UnityWebRequest.EscapeURL(record.sessionId)}.json";
-            string url = !string.IsNullOrEmpty(idToken) ? $"{baseUrl}?auth={UnityWebRequest.EscapeURL(idToken)}" : baseUrl;
-            byte[] payload = Encoding.UTF8.GetBytes(JsonUtility.ToJson(record));
-
-            using (var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPUT))
+            else
             {
-                request.uploadHandler = new UploadHandlerRaw(payload);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = 5;
-                yield return request.SendWebRequest();
-
-                if (request.result != UnityWebRequest.Result.Success && !string.IsNullOrEmpty(idToken))
-                {
-                    // Fallback without token in case database rules are public and token expired.
-                    using var fallback = new UnityWebRequest(baseUrl, UnityWebRequest.kHttpVerbPUT);
-                    fallback.uploadHandler = new UploadHandlerRaw(payload);
-                    fallback.downloadHandler = new DownloadHandlerBuffer();
-                    fallback.SetRequestHeader("Content-Type", "application/json");
-                    fallback.timeout = 5;
-                    yield return fallback.SendWebRequest();
-                }
+                if (request.responseCode == 401 || request.responseCode == 403) idToken = "";
+                retryAt = Time.unscaledTime + 15;
             }
-
-            isSyncing = false;
+            sending = false;
         }
 
         private IEnumerator AuthenticateAnonymouslyCoroutine()
@@ -352,6 +272,8 @@ namespace EchoScrap.Combat
 
         private void OnDestroy()
         {
+            if (game != null && game.Session != null) { game.Session.Events.OnSessionStateChanged -= OnState; game.Session.SessionReset -= CancelAttempt; }
+            CancelAttempt();
             if (Instance == this) Instance = null;
         }
     }

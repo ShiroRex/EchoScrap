@@ -59,6 +59,30 @@ namespace EchoScrap.Tests
             Assert.IsTrue(station.Resolve(true));Assert.AreEqual(before+1,station.Progress.owned[id]);Assert.IsFalse(station.Resolve(true));
             Assert.IsFalse(game.Session.IsPaused);Assert.IsTrue(game.Motor.GetComponent<PlayerInputReader>().CanRead);
         }
+        [UnityTest] public IEnumerator RankedVictoryIncludesTheClaimedFusionOnce()
+        {
+            var sync = EventLeaderboardSync.Instance;
+            EventLeaderboardSync.StartNewPlayerSession(System.Guid.NewGuid().ToString("N"));
+            sync.BeginRankedExpedition(false);
+            yield return Approach();
+            Assert.IsTrue(station.Progress.Begin(new[] { 0, 0, 0, 0 }, 0, 0));
+            station.Advance(180);
+            Assert.IsTrue(station.TryOpenMenu());
+            station.Advance(1.3f);
+            int resultId = station.Progress.result;
+            Assert.IsTrue(station.Resolve(true));
+            Assert.IsFalse(station.Resolve(true));
+            var death = new ActorDeathEvent(999, 5, false, true, Vector3.zero, Vector3.forward,
+                DamageSourceType.FlashlightPulse, 0, false, true);
+            game.Session.QueueBossDeath(in death);
+            game.Session.ResolveSimulationStepOutcome();
+            Assert.AreEqual("VICTORIA", sync.LastRecord.status);
+            Assert.AreEqual(1, sync.LastRecord.fusions);
+            Assert.AreEqual(1, sync.LastRecord.collectibles);
+            Assert.AreEqual((int)FusionCatalog.Rarities[resultId], sync.LastRecord.highestRarity);
+            Assert.AreEqual(sync.LastRecord.rawScore, sync.LastRecord.score);
+        }
+
         [UnityTest] public IEnumerator FullCollectionKeepsRevealedFusionUntilPlayerFreesSpace()
         {
             yield return Approach();Assert.IsTrue(station.Progress.Begin(new[]{0,0,0,0},9999,0));

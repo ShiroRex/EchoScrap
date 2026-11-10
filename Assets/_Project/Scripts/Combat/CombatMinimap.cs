@@ -37,7 +37,12 @@ namespace EchoScrap.Combat
             hasExplored=true;lastReveal=position;var center=(exploredMin+exploredMax)*.5f;mapCenter=new Vector3(center.x,0,center.y);
             mapRadius=Mathf.Max(30,(exploredMax-exploredMin).magnitude*.5f+18);
             float size=WorldSize;
-            for(int z=0;z<128;z++)for(int x=0;x<128;x++){
+            // Outside the reveal radius the previous fog value cannot change.
+            int minX = Mathf.Max(0, Mathf.FloorToInt(((point.x - 14f) / size + .5f) * 128));
+            int maxX = Mathf.Min(127, Mathf.CeilToInt(((point.x + 14f) / size + .5f) * 128));
+            int minZ = Mathf.Max(0, Mathf.FloorToInt(((point.y - 14f) / size + .5f) * 128));
+            int maxZ = Mathf.Min(127, Mathf.CeilToInt(((point.y + 14f) / size + .5f) * 128));
+            for(int z=minZ;z<=maxZ;z++)for(int x=minX;x<=maxX;x++){
                 var cell=new Vector2(((x+.5f)/128-.5f)*size,((z+.5f)/128-.5f)*size);
                 explored[z*128+x]=Mathf.Max(explored[z*128+x],Mathf.Clamp01((14-Vector2.Distance(cell,point))/2));
             }
@@ -128,7 +133,6 @@ namespace EchoScrap.Combat
             portalMarker.gameObject.SetActive(portal!=null&&IsExplored(portal.position));if(portal!=null)portalMarker.anchoredPosition=MapPosition(portal.position);
             if(wasVisible&&Time.unscaledTime<nextRender)return;
             nextRender=Time.unscaledTime+.25f;
-            var center=ArenaSurface.Active!=null&&ArenaSurface.Active.GroundCollider!=null?ArenaSurface.Active.GroundCollider.bounds.center:Vector3.zero;
             mapCamera.transform.SetPositionAndRotation(new Vector3(mapCenter.x,160,mapCenter.z),Quaternion.Euler(90,0,0));
             mapCamera.orthographicSize=mapRadius;
             mapCamera.Render();

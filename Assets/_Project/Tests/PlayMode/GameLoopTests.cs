@@ -64,7 +64,11 @@ namespace EchoScrap.Tests
             }
             CombatTargetRegistry.Clear(); Time.timeScale = 1;
         }
-        private void EnterVault() => flow.View.NewCollectionButton.onClick.Invoke();
+        private void EnterVault()
+        {
+            flow.View.NewCollectionButton.onClick.Invoke();
+            if (flow.IsConfirming) flow.AcceptConfirmation();
+        }
         private IEnumerator StartRun() { EnterVault(); flow.View.StartButton.onClick.Invoke(); yield return ChooseRound(); }
         private IEnumerator ChooseRound()
         {
@@ -76,6 +80,35 @@ namespace EchoScrap.Tests
             Assert.That(game.Session.IsPaused, Is.False);
         }
         private Button HudButton(string path) => game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/" + path).GetComponent<Button>();
+
+        [UnityTest] public IEnumerator RankingCancelsFirstAttemptThenStoresOnlyFirstResult()
+        {
+            yield return StartRun();
+            var sync = EventLeaderboardSync.Instance;
+            EventLeaderboardSync.StartNewPlayerSession(System.Guid.NewGuid().ToString("N"));
+            sync.BeginRankedExpedition(false);
+            game.ResetRun();
+            Assert.IsNull(sync.LastRecord);
+            sync.BeginRankedExpedition(true);
+            int unit = FusionCatalog.MapIds[0];
+            Assert.IsTrue(station.CollectFromArena(unit));
+            Assert.IsTrue(station.CollectFromArena(unit));
+            yield return new WaitForSeconds(1.1f);
+            game.Player.TakeContactOrHazardDamage(10000, Vector3.right);
+            game.Session.ResolveSimulationStepOutcome();
+            var result = sync.LastRecord;
+            Assert.AreEqual("DERROTA", result.status);
+            Assert.AreEqual(2, result.collectibles);
+            Assert.AreEqual(1, result.discoveredCount);
+            Assert.GreaterOrEqual(result.survivalSeconds, 1);
+            Assert.AreEqual(result.rawScore / 2, result.score);
+            game.ResetRun();
+            sync.BeginRankedExpedition(false);
+            game.Player.TakeContactOrHazardDamage(10000, Vector3.right);
+            game.Session.ResolveSimulationStepOutcome();
+            Assert.AreSame(result, sync.LastRecord);
+            Assert.AreEqual(3430, EventLeaderboardSync.RawPoints(20, 2, 1, 1, 90));
+        }
 
         [UnityTest] public IEnumerator FirstCollectibleShowsVaultHintUntilEquipmentHasBeenUsed()
         {
@@ -209,6 +242,14 @@ namespace EchoScrap.Tests
         {
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
             var pad = InputSystem.AddDevice<Gamepad>(); testDevice = pad;
+            InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
+            yield return null; yield return null;
+            Assert.That(flow.IsConfirming, Is.True);
+            Assert.That(flow.View.ConfirmNameInput.gameObject.activeInHierarchy, Is.True);
+            InputSystem.QueueStateEvent(pad, new GamepadState());
+            yield return null;
+            InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.DpadRight));
+            yield return null; yield return null;
             InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
             yield return null; yield return null;
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Vault));
@@ -429,7 +470,9 @@ namespace EchoScrap.Tests
                 yield return SceneManager.LoadSceneAsync("MainMenu");
                 game = null;
                 yield return null;
-                Object.FindAnyObjectByType<MainMenuController>().RequestNewCollection();
+                var title = Object.FindAnyObjectByType<MainMenuController>();
+                title.RequestNewCollection();
+                title.AcceptConfirmation();
 
                 float deadline = Time.realtimeSinceStartup + 30f;
                 while (LoadingScreen.IsLoading && Time.realtimeSinceStartup < deadline) yield return null;
@@ -466,4 +509,3 @@ namespace EchoScrap.Tests
         }
     }
 }
-

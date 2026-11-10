@@ -248,6 +248,7 @@ namespace EchoScrap.Tests
             var flow = game.gameObject.AddComponent<GameFlowController>();
             flow.Initialize(game, false);
             flow.View.NewCollectionButton.onClick.Invoke();
+            if (flow.IsConfirming) flow.AcceptConfirmation();
             yield return null;
             Assert.IsTrue(flow.View.IsVaultVisible);
             var tips = (RectTransform)flow.View.Canvas.transform.Find("VaultTips");
@@ -265,6 +266,7 @@ namespace EchoScrap.Tests
             var flow = game.gameObject.AddComponent<GameFlowController>();
             flow.Initialize(game, false);
             flow.View.NewCollectionButton.onClick.Invoke();
+            if (flow.IsConfirming) flow.AcceptConfirmation();
             yield return null;
             var directions = flow.View.Canvas.transform.Find("VaultDirections");
             var fusion = (RectTransform)directions.Find("Fusion/Arrow");

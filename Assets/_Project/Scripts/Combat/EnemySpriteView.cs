@@ -22,6 +22,9 @@ namespace EchoScrap.Combat
         private EnemyEffectPool effects;
         private float clipTime, attackRemaining, attackDuration, hitRemaining;
         private Vector3 contactDirection;
+        private CharacterSpriteSet.Clip appliedClip;
+        private int appliedFrame;
+        private uint appliedRevision;
         public EnemySpriteMotion Motion { get; private set; }
         public CharacterFacing Facing { get; private set; }
         public int FrameIndex { get; private set; }
@@ -34,6 +37,7 @@ namespace EchoScrap.Combat
         public void Bind(EnemyActor owner)
         {
             actor = owner;
+            appliedClip = null;
             effects = EnemyEffectPool.GetOrCreate(owner.Session);
             sprites = EnemySpriteSet.Load(owner.ArchetypeId);
             if (sprites == null) return;
@@ -172,6 +176,11 @@ namespace EchoScrap.Combat
         {
             var clip = sprites.GetClip(Motion, Facing);
             FrameIndex = clip.FrameAt(clipTime);
+            uint revision = actor.VisualComposer.RendererPropertyRevision;
+            if (appliedClip == clip && appliedFrame == FrameIndex && appliedRevision == revision) return;
+            appliedClip = clip;
+            appliedFrame = FrameIndex;
+            appliedRevision = revision;
             pixels.GetPropertyBlock(block);
             block.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
             if (!actor.VisualComposer.IsFlashActive) block.SetColor(BaseColorId, Color.white);

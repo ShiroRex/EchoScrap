@@ -55,7 +55,11 @@ namespace EchoScrap.Tests
             Assert.IsNotNull(Menu); yield return null;
         }
         private IEnumerator NewCollection()
-        { Menu.View.NewCollectionButton.onClick.Invoke(); yield return World(); }
+        {
+            Menu.View.NewCollectionButton.onClick.Invoke();
+            if (Menu.IsConfirming) Menu.AcceptConfirmation();
+            yield return World();
+        }
 
         [UnityTest] public IEnumerator IdleTitleDoesNotConstructWorldPlayerPoolsOrFusion()
         {
@@ -73,6 +77,9 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator NewCollectionLoadsOnlyWorldAndEntersVaultWithoutTitleAssets()
         {
             Menu.View.NewCollectionButton.onClick.Invoke();
+            Assert.IsTrue(Menu.IsConfirming);
+            Assert.IsTrue(Menu.View.ConfirmNameInput.gameObject.activeInHierarchy);
+            Menu.AcceptConfirmation();
             var loading = Object.FindAnyObjectByType<LoadingScreen>();
             Assert.IsNotNull(loading);
             Assert.AreEqual(Color.black, loading.GetComponentInChildren<UnityEngine.UI.Image>().color);
@@ -181,6 +188,13 @@ namespace EchoScrap.Tests
         {
             var pad = InputSystem.AddDevice<Gamepad>(); device = pad;
             InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
+            yield return null; yield return null;
+            Assert.IsTrue(Menu.IsConfirming);
+            InputSystem.QueueStateEvent(pad, new GamepadState());
+            yield return null;
+            InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.DpadRight));
+            yield return null; yield return null;
+            InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
             yield return null; yield return World();
             Assert.IsFalse(Game.Motor.IsDashing);
             Assert.IsFalse(Game.Motor.GetComponent<PlayerInputReader>().IsDashQueued);
@@ -189,4 +203,3 @@ namespace EchoScrap.Tests
         }
     }
 }
-

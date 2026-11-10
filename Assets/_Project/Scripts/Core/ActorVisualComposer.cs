@@ -446,8 +446,11 @@ namespace EchoScrap.Core
             presentationPivot.localScale = localScale;
         }
 
+        public uint RendererPropertyRevision { get; private set; }
+
         private void ApplyFlashBlock(bool enableFlash)
         {
+            RendererPropertyRevision++;
             flashApplied = enableFlash;
             if (cachedRenderers == null || cachedRenderers.Length == 0)
                 return;

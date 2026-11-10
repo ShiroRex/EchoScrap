@@ -98,19 +98,17 @@ namespace EchoScrap.Combat
         public void RequestNewCollection()
         {
             if (State != GameFlowState.MainMenu || IsConfiguring || IsConfirming) return;
-            if (HasCollection)
-            {
-                newCollectionConfirmation = true;
-                Confirm("¿NUEVA COLECCIÓN?", "Se reiniciarán tu colección y la fusión en curso.\nEsta acción no se puede deshacer.");
-            }
-            else CreateCollection();
+            newCollectionConfirmation = true;
+            string message = HasCollection
+                ? "Nombre nuevo: primera partida al ranking.\nSe reiniciarán tu colección y la fusión en curso."
+                : "Nombre nuevo: primera partida al ranking.\nVacío o repetido: solo práctica.";
+            Confirm("¿NUEVA COLECCIÓN?", message, true);
         }
 
         private void CreateCollection()
         {
             if (station != null) station.PersistProgress = collectionPersistence;
             station?.ResetCollection();
-            EventLeaderboardSync.StartNewPlayerSession(view != null ? view.PlayerName : null);
             transientProfile = true;
             if (persist) { PlayerPrefs.SetInt(ProfileKey, 1); PlayerPrefs.Save(); }
             ReturnToVault();
@@ -159,7 +157,6 @@ namespace EchoScrap.Combat
         {
             if (!IsSelectingExpedition || IsLoading) return;
             IsSelectingExpedition = false;
-            EventLeaderboardSync.Instance?.RequestImmediateSync();
             IsLoading = true;
             IsFadingExpeditionSelection = true;
             selectionAudio.Play();
@@ -190,6 +187,7 @@ namespace EchoScrap.Combat
                 game.SelectWaveSettings(waves);
                 State = GameFlowState.Expedition;
                 game.ResetRun();
+                EventLeaderboardSync.Instance?.BeginRankedExpedition(waves == entrySettings.CompleteRound);
                 IsLoading = false;
                 Sync();
                 entrance.Play();
@@ -200,7 +198,6 @@ namespace EchoScrap.Combat
         {
             if (!IsSelectingExpedition || IsLoading) return;
             IsSelectingExpedition = false;
-            EventLeaderboardSync.Instance?.RequestImmediateSync();
             game.Motor.GetComponent<EchoScrap.Player.PlayerInputReader>()?.SuppressDashFromUiConfirmation();
             game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
             Sync();
@@ -228,12 +225,12 @@ namespace EchoScrap.Combat
             Confirm("¿ABANDONAR EXPEDICIÓN?", "Perderás las mejoras de esta partida y volverás a la bóveda.\nTu colección se conserva.");
         }
 
-        private void Confirm(string title, string message)
+        private void Confirm(string title, string message, bool askPlayerName = false)
         {
             IsConfirming = true;
             game.Session.Clock.SetPause(PauseReason.FrontEnd, true);
             Sync();
-            view.ShowConfirmation(title, message);
+            view.ShowConfirmation(title, message, askPlayerName);
         }
 
         public void CancelConfirmation()
@@ -248,7 +245,11 @@ namespace EchoScrap.Combat
         {
             if (!IsConfirming) return;
             IsConfirming = false;
-            if (newCollectionConfirmation) CreateCollection();
+            if (newCollectionConfirmation)
+            {
+                EventLeaderboardSync.StartNewPlayerSession(view.ConfirmedPlayerName);
+                CreateCollection();
+            }
             else ReturnToVault();
         }
 
