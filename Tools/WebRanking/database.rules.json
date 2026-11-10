@@ -1,0 +1,14 @@
+{
+  "rules": {
+    ".read": true,
+    "gamertags": {
+      "$key": {
+        ".write": "!data.exists() && newData.exists()",
+        ".validate": "$key.matches(/^[0-9a-f]{64}$/) && newData.isString() && newData.val().matches(/^[0-9a-f]{32}$/)"
+      }
+    },
+    "$other": {
+      ".write": "$other !== 'gamertags'"
+    }
+  }
+}

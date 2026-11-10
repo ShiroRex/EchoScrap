@@ -8,8 +8,21 @@ const integer=v=>Number.isFinite(v)?Math.max(0,Math.floor(v)):0;
 let latestRecords={}, serverOffset=0;
 const activeLifetime=30000;
 function render(records){
- const sessions=Object.entries(records??{}).filter(([,p])=>p?.rulesVersion===2 && Number.isFinite(p.score) &&
- (p.status==='VICTORIA'||p.status==='DERROTA'||(p.status==='EN PARTIDA' && Date.now()+serverOffset-(p.heartbeat??p.updatedAt)<activeLifetime))).sort(([a,p],[b,q])=>q.score-p.score||a.localeCompare(b));
+ // Older installations may still publish multiple attempts under the same name.
+ const byName=new Map();
+ for(const [id,p] of Object.entries(records??{})){
+   if(p?.rulesVersion!==2 || !Number.isFinite(p.score) || typeof p.playerName!=='string')continue;
+   const key=p.gamertagNormalized || p.playerName.normalize('NFKC').trim().replace(/\s+/gu,' ').toUpperCase();
+   const live=p.status==='EN PARTIDA';
+   const time=p.heartbeat??p.updatedAt??0;
+   if(!key || (live ? Date.now()+serverOffset-time>=activeLifetime : !['VICTORIA','DERROTA'].includes(p.status)))continue;
+   const previous=byName.get(key);
+   if(!previous || (previous.live && !live) ||
+      (previous.live===live && (live ? time>previous.time : time<previous.time))){
+     byName.set(key,{id,p,time,live});
+   }
+ }
+ const sessions=Array.from(byName.values(),({id,p})=>[id,p]).sort(([a,p],[b,q])=>q.score-p.score||a.localeCompare(b));
  const frag=document.createDocumentFragment();let rank=0,previous=null;
  sessions.forEach(([,p],i)=>{const score=integer(p.score);if(previous!==score)rank=i+1;previous=score;
  const tr=document.createElement('tr');tr.classList.toggle('leader',rank===1);const seconds=integer(p.survivalSeconds);

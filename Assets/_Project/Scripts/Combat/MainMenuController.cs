@@ -50,16 +50,19 @@ namespace EchoScrap.Combat
             IsConfirming = true; View.Refresh();
             string message = HasCollection
                 ? "Nombre nuevo: primera partida al ranking.\nSe reiniciarán tu colección y la fusión en curso."
-                : "Nombre nuevo: primera partida al ranking.\nVacío o repetido: solo práctica.";
+                : "Nombre nuevo: primera partida al ranking.\nDéjalo vacío para jugar en práctica.";
             View.ShowConfirmation("¿NUEVA COLECCIÓN?", message, true);
         }
-        public void CancelConfirmation() { IsConfirming = false; View.Refresh(); }
+        public void CancelConfirmation() { if (View.IsValidatingName) return; IsConfirming = false; View.Refresh(); }
         public void AcceptConfirmation()
         {
             if (!IsConfirming || IsLoading) return;
-            IsConfirming = false;
-            EventLeaderboardSync.StartNewPlayerSession(View.ConfirmedPlayerName);
-            LoadWorld(SceneTransitionState.Entry.NewCollection);
+            if (!Application.CanStreamedLevelBeLoaded("CombatArena")) { View.SetStatus("No se pudo cargar el Vertedero."); return; }
+            View.ValidateCollectionName(() =>
+            {
+                IsConfirming = false;
+                LoadWorld(SceneTransitionState.Entry.NewCollection);
+            });
         }
         public void OpenConfiguration()
         {

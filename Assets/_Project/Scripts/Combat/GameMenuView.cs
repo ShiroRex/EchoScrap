@@ -399,6 +399,39 @@ namespace EchoScrap.Combat
             confirmation.SetActive(true); Select(cancelButton);
         }
 
+        public bool IsValidatingName { get; private set; }
+
+        public void ValidateCollectionName(System.Action create)
+        {
+            if (IsValidatingName) return;
+            string name;
+            try { name = GamertagRegistry.DisplayName(ConfirmedPlayerName); }
+            catch (System.ArgumentException) { confirmMessage.text = "Revisa los caracteres de tu gamertag."; return; }
+            if (name.Length > 20 || System.Text.RegularExpressions.Regex.IsMatch(name, @"[\p{Cc}\p{Cf}]"))
+            {
+                confirmMessage.text = "Elige un gamertag visible de hasta 20 caracteres.";
+                return;
+            }
+            if (name.Length == 0) { EventLeaderboardSync.StartNewPlayerSession(""); create(); return; }
+            if (EventLeaderboardSync.NameAlreadyUsed(name))
+            {
+                confirmMessage.text = "Ese gamertag ya está en uso. Elige otro.";
+                return;
+            }
+            IsValidatingName = true;
+            acceptButton.interactable = cancelButton.interactable = confirmNameInput.interactable = false;
+            confirmMessage.text = "Comprobando disponibilidad…";
+            StartCoroutine(GamertagRegistry.Reserve(name, error =>
+            {
+                IsValidatingName = false;
+                acceptButton.interactable = cancelButton.interactable = confirmNameInput.interactable = true;
+                if (error != null) { confirmMessage.text = error; return; }
+                EventLeaderboardSync.StartNewPlayerSession(name);
+                GamertagRegistry.ForgetReceipt(name);
+                create();
+            }));
+        }
+
         public void SetStatus(string message) => status.text = message;
 
         public void PressExpeditionSelection(bool completeRound)

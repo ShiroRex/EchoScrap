@@ -101,7 +101,7 @@ namespace EchoScrap.Combat
             newCollectionConfirmation = true;
             string message = HasCollection
                 ? "Nombre nuevo: primera partida al ranking.\nSe reiniciarán tu colección y la fusión en curso."
-                : "Nombre nuevo: primera partida al ranking.\nVacío o repetido: solo práctica.";
+                : "Nombre nuevo: primera partida al ranking.\nDéjalo vacío para jugar en práctica.";
             Confirm("¿NUEVA COLECCIÓN?", message, true);
         }
 
@@ -235,7 +235,7 @@ namespace EchoScrap.Combat
 
         public void CancelConfirmation()
         {
-            if (!IsConfirming) return;
+            if (!IsConfirming || view.IsValidatingName) return;
             IsConfirming = false;
             if (State != GameFlowState.MainMenu) game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
             Sync();
@@ -244,13 +244,15 @@ namespace EchoScrap.Combat
         public void AcceptConfirmation()
         {
             if (!IsConfirming) return;
-            IsConfirming = false;
             if (newCollectionConfirmation)
             {
-                EventLeaderboardSync.StartNewPlayerSession(view.ConfirmedPlayerName);
-                CreateCollection();
+                view.ValidateCollectionName(() =>
+                {
+                    IsConfirming = false;
+                    CreateCollection();
+                });
             }
-            else ReturnToVault();
+            else { IsConfirming = false; ReturnToVault(); }
         }
 
         public void OpenConfiguration()

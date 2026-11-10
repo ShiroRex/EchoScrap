@@ -13,7 +13,7 @@ namespace EchoScrap.Combat
     {
         public string uid;
         public string sessionId;
-        public string playerName;
+        public string playerName, gamertagNormalized;
         public int fusions;
         public int kills;
         public int collectibles;
@@ -86,6 +86,11 @@ namespace EchoScrap.Combat
 
         public static string SanitizeName(string raw) => string.IsNullOrWhiteSpace(raw) ? "" :
             raw.Trim().Substring(0, Math.Min(raw.Trim().Length, 20));
+        public static bool NameAlreadyUsed(string name)
+        {
+            string key = GamertagRegistry.Key(name);
+            return ReadLedger().names?.Exists(previous => GamertagRegistry.Key(previous) == key) == true;
+        }
         public static string PlayerName => PlayerPrefs.GetString(NameKey, "");
         public static event Action<string> OnPlayerNameChanged;
         public static void StartNewPlayerSession(string input)
@@ -111,7 +116,7 @@ namespace EchoScrap.Combat
         private bool active, sending, hasPending;
         private float retryAt, nextUpload;
         private int mode, collected, discoveries, fusions, highest;
-        private string attemptId, attemptName;
+        private string attemptId, attemptName, normalizedName;
         public EventPlayerRecord LastRecord { get; private set; }
 
         public void Initialize(CombatGameBootstrap bootstrap, FusionStation fusionStation)
@@ -134,6 +139,7 @@ namespace EchoScrap.Combat
             attemptId = ledger.interrupted = Guid.NewGuid().ToString("N");
             SaveLedger(ledger);
             attemptName = ledger.name;
+            normalizedName = GamertagRegistry.CanonicalName(attemptName);
             mode = longMode ? 8 : 3;
             collected = 0;
             highest = -1;
@@ -175,7 +181,7 @@ namespace EchoScrap.Combat
             var seconds = Mathf.FloorToInt(gameplayTime);
             var raw = RawPoints(kills, collected, discoveries, highest, seconds);
             return new EventPlayerRecord {
-                sessionId = attemptId, playerName = attemptName, modeMinutes = mode, rulesVersion = 2,
+                sessionId = attemptId, playerName = attemptName, gamertagNormalized = normalizedName, modeMinutes = mode, rulesVersion = 2,
                 kills = kills, collectibles = collected, discoveredCount = discoveries, survivalSeconds = seconds,
                 highestRarity = highest, ownedInVault = station.Progress.OwnedCount,
                 highestRarityName = highest < 0 ? "" : FusionCatalog.RarityNames[highest],
