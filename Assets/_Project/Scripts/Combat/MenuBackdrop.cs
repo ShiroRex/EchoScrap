@@ -81,7 +81,6 @@ namespace EchoScrap.Combat
             orbiters[slot].name = "Orbit_" + orbiters[slot].sprite.name;
         }
 
-        internal void PlaceMenuPanel(RectTransform panel) => panel.anchoredPosition = Vector2.zero;
         private void OnEnable() => Subscribe();
         private void Subscribe()
         {

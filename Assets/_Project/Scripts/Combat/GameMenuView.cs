@@ -80,14 +80,19 @@ namespace EchoScrap.Combat
                 backdrop = MenuBackdrop.Create(root.transform, flow.Effects, artwork);
                 title = Overlay(root.transform, "MainMenu", Color.clear);
                 title.GetComponent<Image>().raycastTarget = false;
+                AddTitleArtwork(title.transform, "CoverArtwork", "CoverArt", new Vector2(-315f, -12f), new Vector2(384f, 510f));
+                AddTitleArtwork(title.transform, "TitleArtwork", "Title", new Vector2(74f, 351f), new Vector2(574f, 122f));
+                AddTitleArtwork(title.transform, "LanternLogo", "Logo", new Vector2(-264f, 353f), new Vector2(66f, 104f));
                 var frame = Frame(title.transform, "TitleFrame");
                 frame.sizeDelta = new Vector2(552, 408);
-                backdrop.PlaceMenuPanel(frame);
-                Rect(title.transform, "LogoReservedArea", new Vector2(0, 420), new Vector2(640, 180));
-                continueButton = ButtonAt(frame, "Continue", "CONTINUAR", new Vector2(0, 123), new Vector2(336, 72), artwork.Green, flow.ContinueCollection);
-                newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, 41), new Vector2(336, 72), artwork.Blue, flow.RequestNewCollection);
-                settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -41), new Vector2(336, 72), artwork.Blue, flow.OpenConfiguration);
-                quitButton = ButtonAt(frame, "Quit", "SALIR", new Vector2(0, -123), new Vector2(336, 72), artwork.Red, flow.QuitGame);
+                frame.anchoredPosition = new Vector2(206f, -16f);
+                var green = PixelControlArtwork.Load("Presentation/ButtonGreen");
+                var blue = PixelControlArtwork.Load("Presentation/ButtonBlue");
+                var red = PixelControlArtwork.Load("Presentation/ButtonRed");
+                continueButton = ButtonAt(frame, "Continue", "CONTINUAR", new Vector2(0, 123), new Vector2(336, 72), green, flow.ContinueCollection);
+                newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, 41), new Vector2(336, 72), blue, flow.RequestNewCollection);
+                settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -41), new Vector2(336, 72), blue, flow.OpenConfiguration);
+                quitButton = ButtonAt(frame, "Quit", "SALIR", new Vector2(0, -123), new Vector2(336, 72), red, flow.QuitGame);
             }
             if (game != null)
             {
@@ -193,7 +198,16 @@ namespace EchoScrap.Combat
             else if (vaultVisible) EventSystem.current?.SetSelectedGameObject(null);
         }
 
-        private void LateUpdate() => RefreshVault();
+        private void LateUpdate()
+        {
+            if (title != null && title.activeSelf)
+            {
+                Vector2 size = ((RectTransform)Canvas.transform).rect.size;
+                float fit = Mathf.Clamp(Mathf.Min((size.x - 36f) / 1018f, (size.y - 36f) / 836f), .1f, 1f);
+                if (!Mathf.Approximately(title.transform.localScale.x, fit)) title.transform.localScale = Vector3.one * fit;
+            }
+            RefreshVault();
+        }
         private void RefreshVault()
         {
             if (vault == null) return;
@@ -508,6 +522,13 @@ namespace EchoScrap.Combat
             colors.pressedColor = new Color(.65f, .65f, .65f); colors.disabledColor = new Color(.4f, .4f, .4f, .6f); button.colors = colors;
             Label(rect, text, Vector2.zero, size - new Vector2(44, 16), 24, Color.white);
             return button;
+        }
+        private static void AddTitleArtwork(Transform parent, string name, string artwork, Vector2 position, Vector2 size)
+        {
+            var image = Rect(parent, name, position, size).gameObject.AddComponent<Image>();
+            image.sprite = PixelControlArtwork.Load("Presentation/" + artwork);
+            image.preserveAspect = true;
+            image.raycastTarget = false;
         }
         private Text Label(Transform parent, string text, Vector2 position, Vector2 size, int points, Color color)
         {

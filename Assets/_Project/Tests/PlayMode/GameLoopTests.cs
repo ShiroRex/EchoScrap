@@ -318,6 +318,7 @@ namespace EchoScrap.Tests
             game.Session.ResolveSimulationStepOutcome(); game.Hud.RefreshNow();
             Assert.That(game.Session.State, Is.EqualTo(SessionState.Defeat));
             Assert.That(game.Hud.IsResultVisible, Is.True);
+            Assert.AreSame(PixelControlArtwork.Load("Presentation/Defeat"), game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Result/ResultArtwork").GetComponent<UnityEngine.UI.Image>().sprite);
             HudButton("Result/Restart").onClick.Invoke();
             yield return null;
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Vault));
@@ -336,6 +337,7 @@ namespace EchoScrap.Tests
             var death = new ActorDeathEvent(999, 5, false, true, Vector3.zero, Vector3.forward, DamageSourceType.FlashlightPulse, 0, false, true);
             game.Session.QueueBossDeath(in death); game.Session.ResolveSimulationStepOutcome(); game.Hud.RefreshNow();
             Assert.That(game.Hud.IsResultVisible, Is.True);
+            Assert.AreSame(PixelControlArtwork.Load("Presentation/Victory"), game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Result/ResultArtwork").GetComponent<UnityEngine.UI.Image>().sprite);
             HudButton("Result/Restart").onClick.Invoke();
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Vault));
             Assert.That(station.Progress.phase, Is.EqualTo(FusionPhase.Fusing));

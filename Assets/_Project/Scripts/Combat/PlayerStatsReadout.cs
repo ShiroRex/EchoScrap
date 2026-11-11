@@ -47,7 +47,7 @@ namespace EchoScrap.Combat
             var rect = (RectTransform)root.transform;
             rect.SetParent(canvasRoot, false);
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(40f, -188f);
+            rect.anchoredPosition = new Vector2(40f, -CompanionView.StatsTop(false));
             rect.sizeDelta = new Vector2(360f, 676f);
             Image background = root.GetComponent<Image>();
             background.color = new Color(.025f, .035f, .045f, .78f);
@@ -115,8 +115,7 @@ namespace EchoScrap.Combat
             for (int i = 0; i < rows.Length; i++)
             {
                 Row row = rows[i];
-                bool core = i <= 6 && i != 3;
-                bool visible = row.Changed && (displayMode == StatsDisplayMode.Full || (reduced && core));
+                bool visible = displayMode == StatsDisplayMode.Full || (reduced && row.Changed);
                 row.Root.gameObject.SetActive(visible);
                 if (!visible) continue;
                 row.Root.anchoredPosition = new Vector2(0f, -58f - VisibleRowCount * 30f);
@@ -181,8 +180,18 @@ namespace EchoScrap.Combat
             float height = canvasRect.rect.height;
             if (Mathf.Approximately(fittedCanvasHeight, height)) return;
             fittedCanvasHeight = height;
-            float scale = Mathf.Min(1f, Mathf.Max(.01f, (height - 188f - 184f) / panelHeight));
+            float top = -((RectTransform)transform).anchoredPosition.y;
+            float scale = Mathf.Min(1f, Mathf.Max(.01f, (height - top - 184f) / panelHeight));
             transform.localScale = Vector3.one * scale;
+        }
+
+        public void PlaceBelowCompanions(bool showingPowers)
+        {
+            var rect = (RectTransform)transform;
+            float top = CompanionView.StatsTop(showingPowers);
+            if (Mathf.Approximately(rect.anchoredPosition.y, -top)) return;
+            rect.anchoredPosition = new Vector2(40f, -top);
+            fittedCanvasHeight = -1f;
         }
 
         private void SetValue(int index, float value, float baseValue = 0f)

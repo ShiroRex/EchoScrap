@@ -102,7 +102,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));Assert.IsTrue(system.Abilities.Has(3));
             for(int i=0;i<3;i++)Assert.AreEqual(station.Progress.equipped[i],station.DisplaySlots[i].GetComponentInChildren<CollectibleDisplay>().CollectibleId);
             yield return null;var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
-            Assert.AreEqual(Color.clear,hud.Find("Retrato_0").GetComponent<Image>().color);Assert.IsNotNull(hud.Find("Retrato_0/Cara").GetComponent<Image>().sprite);
+            Assert.AreSame(PixelControlArtwork.Load("Presentation/EquippedSlot"),hud.Find("Retrato_0").GetComponent<Image>().sprite);Assert.IsNotNull(hud.Find("Retrato_0/Cara").GetComponent<Image>().sprite);
             StringAssert.Contains(FusionCatalog.Names[3],hud.Find("PoderesActivos").GetComponent<Text>().text);
             StringAssert.Contains(CompanionPowerRuntime.HudDescriptions[3],hud.Find("PoderesActivos").GetComponent<Text>().text);
             yield return Capture("Retratos");game.Session.SetManualPause(true);yield return null;
@@ -167,7 +167,7 @@ namespace EchoScrap.Tests
             Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,powers.font);
             Assert.AreEqual(Color.clear,hud.GetComponent<Image>().color);
             Assert.Less(powers.rectTransform.anchoredPosition.y+powers.rectTransform.sizeDelta.y*.5f,-30);
-            for(int slot=0;slot<3;slot++){var art=hud.Find("Retrato_"+slot+"/Cara").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(ids[slot]),art.sprite);Assert.IsTrue(art.enabled);Assert.AreEqual(Vector2.one*60,art.rectTransform.sizeDelta);}
+            for(int slot=0;slot<3;slot++){var frame=hud.Find("Retrato_"+slot);var art=frame.Find("Cara").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(ids[slot]),art.sprite);Assert.IsTrue(art.enabled);Assert.AreEqual(Vector2.one*48,art.rectTransform.sizeDelta);Assert.AreSame(PixelControlArtwork.Load("Presentation/EquippedSlot"),frame.GetComponent<Image>().sprite);}
             yield return Capture("MarcosCombate");
 
             bool previousPowers = SceneTransitionState.ShowCompanionPowers;
@@ -189,6 +189,12 @@ namespace EchoScrap.Tests
                 Assert.IsTrue(powers.gameObject.activeInHierarchy);
                 Assert.IsTrue(game.Hud.IsStatsVisible);
                 Assert.IsFalse(game.Hud.ShowStats);
+                Canvas.ForceUpdateCanvases();
+                var statsCorners = new Vector3[4];
+                var powerCorners = new Vector3[4];
+                ((RectTransform)game.Hud.StatsReadout.transform).GetWorldCorners(statsCorners);
+                powers.rectTransform.GetWorldCorners(powerCorners);
+                Assert.That(statsCorners[1].y, Is.LessThan(powerCorners[0].y));
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                 yield return null;
                 yield return null;

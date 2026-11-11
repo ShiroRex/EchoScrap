@@ -221,6 +221,11 @@ namespace EchoScrap.Tests
         {
             yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
             var menu = Object.FindAnyObjectByType<MainMenuController>();
+            var title = menu.View.Canvas.transform.Find("MainMenu");
+            Assert.AreSame(PixelControlArtwork.Load("Presentation/CoverArt"), title.Find("CoverArtwork").GetComponent<Image>().sprite);
+            Assert.AreSame(PixelControlArtwork.Load("Presentation/Logo"), title.Find("LanternLogo").GetComponent<Image>().sprite);
+            Assert.AreSame(PixelControlArtwork.Load("Presentation/Title"), title.Find("TitleArtwork").GetComponent<Image>().sprite);
+            Assert.AreSame(PixelControlArtwork.Load("Presentation/ButtonBlue"), title.Find("TitleFrame/NewCollection").GetComponent<Image>().sprite);
             bool previous = menu.Effects.ReducedEffectsMode;
             try
             {

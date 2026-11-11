@@ -28,6 +28,13 @@ namespace EchoScrap.Combat
         private CanvasGroup announcement;
         private RectTransform announcementText;
         private CollectiblePickupFeedback pickupFeedback;
+        private const float PortraitCenter = 190f;
+        private const float PortraitSize = 60f;
+        private const float PowerOffset = 99f;
+        private const float PowerHeight = 108f;
+        internal static float StatsTop(bool showingPowers) =>
+            PortraitCenter + (showingPowers ? PowerOffset + PowerHeight * .5f : PortraitSize * .5f) + 14f;
+
         private float announcementAge=2f;
         public void AnnounceSpawn(){announcementAge=0;}
         public void ClearAnnouncement(){announcementAge=2f;if(announcement!=null)announcement.gameObject.SetActive(false);pickupFeedback?.Clear();}
@@ -78,16 +85,18 @@ namespace EchoScrap.Combat
             collectPrompt.SetActive(false);
             // Keep the original three compact frames at the upper left. The text below is deliberately
             // plain: it communicates only the powers currently equipped and never overlaps the portraits.
-            var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(155,-190),new Vector2(700,220),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,1);hud=bar.gameObject;
+            var bar=Panel("CompanerosEquipados",canvas.transform,new Vector2(138,-PortraitCenter),new Vector2(700,220),Color.clear);bar.anchorMin=bar.anchorMax=new Vector2(0,1);hud=bar.gameObject;
             var portraitsCanvas = hud.AddComponent<Canvas>();
             portraitsCanvas.overrideSorting = true;
             portraitsCanvas.sortingOrder = CombatHud.CanvasSortingOrder - 1;
             hud.SetActive(false);
+            Sprite slotFrame = PixelControlArtwork.Load("Presentation/EquippedSlot");
             for(int i=0;i<3;i++){
-                var box=Panel("Retrato_"+i,bar,new Vector2((i-1)*68,0),new Vector2(60,60),Color.gray);backgrounds[i]=box.GetComponent<Image>();
-                var picture=Panel("Cara",box,Vector2.zero,new Vector2(60,60),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
+                var box=Panel("Retrato_"+i,bar,new Vector2((i-1)*68,0),Vector2.one * PortraitSize,Color.white);backgrounds[i]=box.GetComponent<Image>();
+                backgrounds[i].sprite = slotFrame;
+                var picture=Panel("Cara",box,Vector2.zero,new Vector2(48,48),Color.white).GetComponent<Image>();picture.preserveAspect=true;portraits[i]=picture;
             }
-            equippedPowers=Label(bar,"PoderesActivos","",new Vector2(177,-117),new Vector2(550,150),18);
+            equippedPowers=Label(bar,"PoderesActivos","",new Vector2(177,-PowerOffset),new Vector2(550,PowerHeight),18);
             equippedPowers.alignment=TextAnchor.UpperLeft;equippedPowers.font=strong;equippedPowers.color=new Color(.91f,.92f,.94f);
             equippedPowers.lineSpacing=1.35f;ReadablePowerNumbers.Attach(equippedPowers);
             var powerShadow=equippedPowers.gameObject.AddComponent<Shadow>();powerShadow.effectColor=new Color(.025f,.018f,.04f,.95f);powerShadow.effectDistance=new Vector2(1,-2);
@@ -134,7 +143,7 @@ namespace EchoScrap.Combat
             int powersHash=17;
             for(int i=0;i<3;i++){
                 int id=station.Progress.equipped[i];portraits[i].enabled=id>=0;portraits[i].sprite=id>=0?faces[id]:null;
-                backgrounds[i].color=id>=0?Color.clear:new Color(.1f,.12f,.16f,.6f);
+                backgrounds[i].color=id>=0?Color.white:new Color(.72f,.66f,.7f,.85f);
                 powersHash=powersHash*31+id;
                 slots[i].text=(selected==i?"▸ ":"")+"PUESTO "+(i+1)+"\n"+(id>=0?FusionCatalog.Names[id]+" · "+CompanionSystem.PowerNames[id]:"VACÍO");
                 slots[i].transform.parent.gameObject.SetActive(i==selected);

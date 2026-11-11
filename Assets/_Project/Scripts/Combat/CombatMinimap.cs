@@ -55,7 +55,7 @@ namespace EchoScrap.Combat
             }
             fogTexture.SetPixels32(colors);fogTexture.Apply();nextRender=0;
         }
-        private const float MapPixels = 156f;
+        private const float MapPixels = 178f;
         private Sprite portraitSprite;
         public bool IsVisible => frame != null && frame.gameObject.activeInHierarchy;
         public RectTransform PlayerMarker => playerMarker;
@@ -67,9 +67,9 @@ namespace EchoScrap.Combat
             game=owner;
             frame=Box("Minimap",canvas,new Vector2(288,288),Color.clear);
             frame.anchorMin=frame.anchorMax=new Vector2(1,1);frame.anchoredPosition=new Vector2(-168,-168);
-            var background=Box("Interior",frame,new Vector2(150,156),new Color(.035f,.045f,.06f));
-            // Native aperture is x=38,y=40,w=50,h=52 in the 128px Aseprite source.
-            background.anchoredPosition=new Vector2(-3,-6);
+            // Native aperture is x=26, y=33, w=76, h=79 in the 128px source.
+            var background=Box("Interior",frame,new Vector2(171,177.75f),new Color(.035f,.045f,.06f));
+            background.anchoredPosition=new Vector2(0,-19.125f);
             background.GetComponent<Image>().sprite=PixelControlArtwork.Load("MinimapFrame/Mask");
             background.gameObject.AddComponent<Mask>().showMaskGraphic=true;
             var picture=new GameObject("MapaArena",typeof(RectTransform),typeof(RawImage)).GetComponent<RawImage>();
@@ -98,7 +98,7 @@ namespace EchoScrap.Combat
             portraitSprite=Sprite.Create(atlas,new Rect(17,atlas.height-29,29,29),Vector2.one*.5f,100);
             playerMarker.GetComponent<Image>().sprite=portraitSprite;playerMarker.GetComponent<Image>().preserveAspect=true;
             foreach(var gateway in FindObjectsByType<WarehouseGateway>(FindObjectsSortMode.None))if(!gateway.FromWarehouse){portal=gateway.transform;break;}
-            var artwork=Box("Artwork",frame,new Vector2(384,384),Color.white);
+            var artwork=Box("Artwork",frame,new Vector2(288,288),Color.white);
             artwork.GetComponent<Image>().sprite=PixelControlArtwork.Load("MinimapFrame/Frame");
             var north=Box("Norte",background,new Vector2(32,32),Color.white);
             north.anchoredPosition=new Vector2(0,50);north.GetComponent<Image>().sprite=PixelControlArtwork.Load("MinimapMarkers/North");
@@ -111,7 +111,7 @@ namespace EchoScrap.Combat
         }
         public Vector2 MapPosition(Vector3 position)
         {
-            return Vector2.ClampMagnitude(new Vector2(position.x-mapCenter.x,position.z-mapCenter.z)/(mapRadius*2),.42f)*MapPixels;
+            return Vector2.ClampMagnitude(new Vector2(position.x-mapCenter.x,position.z-mapCenter.z)/(mapRadius*2),.4f)*MapPixels;
         }
         private void LateUpdate()=>Refresh();
         public void Refresh()

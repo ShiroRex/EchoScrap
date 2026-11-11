@@ -460,6 +460,14 @@ namespace EchoScrap.Tests
                     Assert.AreEqual((int)FusionCatalog.Rarities[id]==rarity,index.GetRarityCardFrame(id).gameObject.activeSelf);
             }
             index.SetRarityFilter(1);
+            var book = canvas.transform.Find("ModalIndiceBoveda/VentanaIndice");
+            Assert.AreSame(PixelControlArtwork.Load("Presentation/BookOpen"), book.GetComponent<UnityEngine.UI.Image>().sprite);
+            var story = book.GetComponentsInChildren<UnityEngine.UI.Text>().Single(t=>t.name=="TextoHistoria");
+            StringAssert.StartsWith("Hechicero veterano", story.text);
+            book.Find("SeccionPorRarezas/Anterior").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            StringAssert.Contains("Descubre", story.text);
+            book.Find("SeccionPorRarezas/Siguiente").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            StringAssert.StartsWith("Hechicero veterano", story.text);
             yield return Capture("IndiceRarezas",true,false,canvas);
             index.SelectTab(VaultCollectionIndex.IndexTab.InVault);
             Assert.AreEqual(10,index.VisibleVaultCardsCount);
@@ -468,7 +476,8 @@ namespace EchoScrap.Tests
             Assert.AreEqual(10,cards.Length);
             foreach(var card in cards) Assert.That(-card.anchoredPosition.y+card.rect.height,Is.LessThanOrEqualTo(766));
             yield return Capture("IndiceTuBoveda",true,false,canvas);
-            index.Close();
+            book.Find("CerrarIndice").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.IsFalse(index.IsOpen);
         }
         private IEnumerator VaultCapture()
         {
