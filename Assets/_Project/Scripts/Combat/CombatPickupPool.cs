@@ -365,6 +365,7 @@ namespace EchoScrap.Combat
             Vector3 target = playerHealth.transform.position;
             target.y = ArenaSurface.Height(target) + PickupHeight;
             bool decorative = session == null || (!session.Effects.ReducedEffectsMode && session.Effects.DecorativeIntensity > 0f);
+            Quaternion orbRotation = OrbRotation;
             for (int i = 0; i < slots.Count; i++)
             {
                 if (!CanAdvance)
@@ -386,7 +387,7 @@ namespace EchoScrap.Combat
                     slot.Position = CollectorFlightPosition(slot, target, progress, decorative);
                     slot.Root.transform.position = slot.Position;
                     slot.Visual.localScale = Vector3.one * 1.4f;
-                    if(slot.Kind==CombatPickupKind.Experience)slot.Visual.rotation=OrbRotation;
+                    if(slot.Kind==CombatPickupKind.Experience)slot.Visual.rotation=orbRotation;
                     else slot.Visual.localRotation=Quaternion.identity;
                     if (slot.FlightTrail != null)
                     {
@@ -401,18 +402,20 @@ namespace EchoScrap.Combat
                 if (distanceSquared <= magnetRadius * magnetRadius)
                     slot.Attracted = true;
                 if (slot.Attracted)
+                {
                     slot.Position = Vector3.MoveTowards(slot.Position, target, Mathf.Max(0f, speed) * deltaTime);
-                slot.Position = ArenaSurface.OnGround(slot.Position, PickupHeight);
+                    slot.Position = ArenaSurface.OnGround(slot.Position, PickupHeight);
+                    slot.Root.transform.position = slot.Position;
+                }
                 if ((slot.Position - target).sqrMagnitude <= collectRadius * collectRadius &&
                     (slot.Kind != CombatPickupKind.Experience || progression != null))
                 {
                     Collect(slot);
                     continue;
                 }
-                slot.Root.transform.position = slot.Position;
                 float bob = decorative ? Mathf.Sin(slot.Age * 4f + slot.BobPhase) * 0.045f : 0f;
                 slot.Visual.localPosition = Vector3.up * bob;
-                if(slot.Kind==CombatPickupKind.Experience)slot.Visual.rotation=OrbRotation;
+                if(slot.Kind==CombatPickupKind.Experience)slot.Visual.rotation=orbRotation;
                 else slot.Visual.localRotation=Quaternion.identity;
                 float pop = !decorative ? 1f : (slot.Age < 0.06f
                     ? Mathf.Lerp(0.7f, 1.12f, slot.Age / 0.06f)

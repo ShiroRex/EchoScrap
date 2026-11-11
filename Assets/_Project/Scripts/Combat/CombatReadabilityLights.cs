@@ -50,14 +50,14 @@ namespace EchoScrap.Combat
                 CombatGlowSource source = sources[i];
                 if (source == null || !source.isActiveAndEnabled) continue;
                 Vector3 position = source.transform.position;
+                float distance = (position - focus).sqrMagnitude / source.Priority;
+                // Once eight visible lights qualify, a farther source cannot enter the selection.
+                if (distance >= distances[Capacity - 1]) continue;
                 if (viewCamera != null)
                 {
                     Vector3 screen = viewCamera.WorldToViewportPoint(position);
                     if (screen.z < 0f || screen.x < -0.15f || screen.x > 1.15f || screen.y < -0.15f || screen.y > 1.15f) continue;
                 }
-                float distance = (position - focus).sqrMagnitude;
-                // Prefer medkits and armed reactors when the screen is crowded.
-                distance /= source.Priority;
                 for (int k = 0; k < Capacity; k++)
                 {
                     if (distance >= distances[k]) continue;

@@ -204,7 +204,9 @@ namespace EchoScrap.Combat
             }
             public int Index(Vector3 position) => Mathf.Clamp(Mathf.RoundToInt((position.z - minimumZ) / Cell), 0, Depth - 1) * Width
                 + Mathf.Clamp(Mathf.RoundToInt((position.x - minimumX) / Cell), 0, Width - 1);
-            public Vector3 Position(int index) => Grounded(new Vector3(minimumX + index % Width * Cell, 1f, minimumZ + index / Width * Cell));
+            private Vector3 PlanarPosition(int index) =>
+                new Vector3(minimumX + index % Width * Cell, 1f, minimumZ + index / Width * Cell);
+            public Vector3 Position(int index) => Grounded(PlanarPosition(index));
             private Vector3 Grounded(Vector3 point)
             { point.y = ArenaSurface.SupportHeight(point, Key.Radius) + EnemySpawnGeometry.RootHeight; return point; }
             private void Capsule(Vector3 root, out Vector3 bottom, out Vector3 top)
@@ -267,7 +269,7 @@ namespace EchoScrap.Combat
             {
                 int mask = 1 << direction;
                 if ((checkedEdges[from] & mask) != 0) return (blockedEdges[from] & mask) == 0;
-                bool clear = ClearSegment(Position(from), Position(to));
+                bool clear = ClearSegment(PlanarPosition(from), PlanarPosition(to));
                 checkedEdges[from] |= (byte)mask;
                 if (!clear) blockedEdges[from] |= (byte)mask;
                 return clear;
@@ -334,11 +336,12 @@ namespace EchoScrap.Combat
                         int nx = x + dx[direction], nz = z + dz[direction];
                         if (nx < 0 || nz < 0 || nx >= map.Width || nz >= map.Depth) continue;
                         int next = nz * map.Width + nx;
-                        if (closed[next] == generation || !map.Walkable(next)) continue;
-                        if (direction >= 4 && (!map.Walkable(z * map.Width + nx) || !map.Walkable(nz * map.Width + x))) continue;
-                        if (!map.Edge(current, next, direction)) continue;
+                        if (closed[next] == generation) continue;
                         float nextCost = cost[current] + (direction < 4 ? 1f : 1.41421356f);
                         if (seen[next] == generation && nextCost >= cost[next]) continue;
+                        if (!map.Walkable(next)) continue;
+                        if (direction >= 4 && (!map.Walkable(z * map.Width + nx) || !map.Walkable(nz * map.Width + x))) continue;
+                        if (!map.Edge(current, next, direction)) continue;
                         bool existing = seen[next] == generation;
                         seen[next] = generation; cost[next] = nextCost; score[next] = nextCost + Heuristic(next); parent[next] = current;
                         if (existing) Up(heapIndex[next]); else Push(next);
