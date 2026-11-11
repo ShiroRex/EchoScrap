@@ -35,13 +35,13 @@ namespace EchoScrap.Tests
             if(game!=null)yield return SceneManager.UnloadSceneAsync(game.gameObject.scene);
             SceneTransitionState.Reset();CombatTargetRegistry.Clear();
         }
-        [Test] public void ArenaAndTwoMinuteBossExcerptAreStreamedAndLooped()
+        [Test] public void ArenaAndBossUseOfficialStreamedLoops()
         {
             Assert.That(Arena.clip,Is.Not.Null);Assert.That(Boss.clip,Is.Not.Null);
             Assert.That(Arena.clip.loadType,Is.EqualTo(AudioClipLoadType.Streaming));
             Assert.That(Boss.clip.loadType,Is.EqualTo(AudioClipLoadType.Streaming));
-            Assert.That(Arena.clip.length,Is.InRange(302f,303f));
-            Assert.That(Boss.clip.length,Is.InRange(170.8f,171.2f),"The 4:51 source is trimmed at 2:00; its intro must not return when looping.");
+            Assert.That(Arena.clip.length,Is.EqualTo(76.402f).Within(.05f));
+            Assert.That(Boss.clip.length,Is.EqualTo(52.255f).Within(.05f));
             Assert.That(Arena.loop && Boss.loop);Assert.That(Arena.spatialBlend,Is.Zero);
             music.Step(1);Assert.That(music.CurrentTrack,Is.EqualTo(CombatMusicTrack.Arena));
             Assert.That(Arena.isPlaying);Assert.That(Arena.volume,Is.GreaterThan(0));Assert.That(Boss.volume,Is.Zero);

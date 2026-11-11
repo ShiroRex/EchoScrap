@@ -23,8 +23,8 @@ namespace EchoScrap.Combat
         public string Notice {get;private set;}="";
         private FusionRevealSmoke smoke;
         private AudioSource openingAudio;
-        private AudioSource fusionStartSound;
-        private AudioClip fusionStartClip;
+        private AudioSource resultAudio;
+        private bool resultAudioPlayed;
         private CombatGameBootstrap game;private FusionStationUI ui;private CollectibleDisplay resultView;
         private CollectibleDisplay[] displays;private MeshRenderer[] slatRenderers;private Transform[] slats;private Vector3[] closed;private float doorTop,doorAmount,saveClock;
         private void Awake()
@@ -69,13 +69,22 @@ namespace EchoScrap.Combat
                 if(i<3) displays[i].MarkEquipmentSlot(i+1,game);
             }
             smoke=gameObject.AddComponent<FusionRevealSmoke>();
-            openingAudio=new GameObject("FusionOpenAudio").AddComponent<AudioSource>();
-            openingAudio.transform.SetParent(transform,false);openingAudio.playOnAwake=false;openingAudio.loop=false;
-            openingAudio.spatialBlend=0;openingAudio.volume=.7f;openingAudio.clip=Resources.Load<AudioClip>("Audio/FusionOpen");
+            openingAudio = CreateAudioSource("FusionOpenAudio", "Audio/FusionOpen");
+            resultAudio = CreateAudioSource("FusionResultAudio", "Audio/Fusion_Resultado");
             ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);
             Index=gameObject.AddComponent<VaultCollectionIndex>();Index.Initialize(this,game);
             RefreshDisplays();UpdateResult();
             if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);gameObject.AddComponent<VaultReleaseInteraction>().Initialize(this,game);gameObject.AddComponent<EventLeaderboardSync>().Initialize(game,this);}
+        }
+
+        private AudioSource CreateAudioSource(string name, string resource)
+        {
+            var source = new GameObject(name).AddComponent<AudioSource>();
+            source.transform.SetParent(transform, false);
+            source.playOnAwake = false;
+            source.volume = .7f;
+            source.clip = Resources.Load<AudioClip>(resource);
+            return source;
         }
         private void Update()
         {
@@ -110,33 +119,38 @@ namespace EchoScrap.Combat
             if(!CanInteract || game.Session.IsPaused || game.Session.State!=SessionState.Running || Progress.phase==FusionPhase.Fusing || Progress.phase==FusionPhase.Opening)return false;
             game.Motor.CancelDashAndRestoreState();game.Motor.Stop();game.Session.Clock.SetPause(PauseReason.FusionMenu,true);
             if(Progress.OpenReady()){openingAudio.Play();smoke.Play(ResultPoint.position);UpdateResult();Save();return true;}
-            ui.Show();return true;
+            ShowMenu();return true;
         }
         public void CloseMenu(){if(ui!=null)ui.Hide();if(game!=null&&(Index==null||!Index.IsOpen))game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}
         public bool StartFusion(int[] ingredients, int[] equipmentSlots = null)
         {
             if(!IsMenuOpen||!CanInteract)return false;
             if(!Progress.Begin(ingredients,UnityEngine.Random.Range(0,10000),UnityEngine.Random.Range(0,2),equipmentSlots))return false;
+            resultAudioPlayed = false;
             var companions = GetComponent<CompanionSystem>();
             if (equipmentSlots != null && Array.Exists(equipmentSlots, slot => slot >= 0) && companions != null)
                 companions.RefreshEquipment();
             else
                 RefreshDisplays();
-            Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();PlayFusionStartSound();CloseMenu();return true;
+            Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();CloseMenu();return true;
         }
 
-        private void PlayFusionStartSound()
+        private void ShowMenu()
         {
-            if(fusionStartSound==null)
-            {
-                fusionStartClip=Resources.Load<AudioClip>("Audio/Fusion_Resultado");
-                fusionStartSound=new GameObject("FusionStartAudio").AddComponent<AudioSource>();
-                fusionStartSound.transform.SetParent(transform,false);fusionStartSound.playOnAwake=false;fusionStartSound.loop=false;
-                fusionStartSound.spatialBlend=0;fusionStartSound.volume=.7f;
-            }
-            if(fusionStartClip!=null)fusionStartSound.PlayOneShot(fusionStartClip);
+            ui.Show();
+            if (Progress.phase != FusionPhase.AwaitingDecision || resultAudioPlayed || resultAudio.clip == null) return;
+            resultAudioPlayed = true;
+            resultAudio.Play();
         }
-        public void Advance(float seconds){if(Progress.Advance(seconds)){UpdateResult();Save();if(Progress.phase==FusionPhase.AwaitingDecision&&CanInteract&&game.Session.Clock.HasPauseReason(PauseReason.FusionMenu))ui.Show();}}
+
+        public void Advance(float seconds)
+        {
+            if (!Progress.Advance(seconds)) return;
+            UpdateResult();
+            Save();
+            if (Progress.phase == FusionPhase.AwaitingDecision && CanInteract && game.Session.Clock.HasPauseReason(PauseReason.FusionMenu))
+                ShowMenu();
+        }
         public bool Resolve(bool collect)
         {
             if(!IsMenuOpen||!CanInteract)return false;
@@ -157,6 +171,8 @@ namespace EchoScrap.Combat
             var restored=JsonUtility.FromJson<FusionProgress>(snapshot);
             if(restored==null)return;
             restored.Validate();Progress=restored;
+            resultAudio.Stop();
+            resultAudioPlayed = false;
             RefreshDisplays();UpdateResult();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
 
@@ -190,10 +206,10 @@ namespace EchoScrap.Combat
         }
         public void ResetCollection()
         {
-            openingAudio.Stop();CloseMenu();Index?.Close();Notice="";Progress=new FusionProgress();Progress.Validate();
+            openingAudio.Stop();resultAudio.Stop();resultAudioPlayed=false;CloseMenu();Index?.Close();Notice="";Progress=new FusionProgress();Progress.Validate();
             RefreshDisplays();UpdateResult();Save();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
-        private void OnSessionReset(){openingAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();Index?.Close();}
+        private void OnSessionReset(){openingAudio.Stop();resultAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();Index?.Close();}
         private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}
         private void OnApplicationPause(bool paused){if(paused)Save();}
         private void OnApplicationQuit(){Save();}

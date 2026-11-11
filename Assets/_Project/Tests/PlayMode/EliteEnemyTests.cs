@@ -150,6 +150,10 @@ namespace EchoScrap.Tests
         {
             var actor = Spawn(id); var elite = actor.Elite;
             elite.TryOverrideLocomotion(.8f,out _);
+            var attackAudio = actor.GetComponent<AudioSource>();
+            Assert.That(attackAudio, Is.Not.Null);
+            Assert.That(attackAudio.isPlaying, Is.True);
+            attackAudio.Stop();
             session.Clock.SetPause(PauseReason.Manual, true);
             elite.TryOverrideLocomotion(10f,out _);
             Assert.That(elite.PhaseTime, Is.Zero); Assert.That(elite.AttacksResolved, Is.Zero);
@@ -160,6 +164,7 @@ namespace EchoScrap.Tests
             elite.TryOverrideLocomotion(10f,out _); Assert.That(elite.PhaseTime, Is.Zero);
             actor.SimulationSuspended = false; elite.TryOverrideLocomotion(elite.Settings.Windup,out _);
             Assert.That(elite.AttacksResolved, Is.EqualTo(1));
+            Assert.That(attackAudio.isPlaying, Is.False);
         }
 
         [TestCase(0f, true)]

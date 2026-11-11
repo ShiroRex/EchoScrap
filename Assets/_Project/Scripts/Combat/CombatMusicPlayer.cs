@@ -10,6 +10,7 @@ namespace EchoScrap.Combat
     public sealed class CombatMusicPlayer : MonoBehaviour
     {
         private const string MusicVolumePreference = "EchoScrap.Audio.MusicVolume";
+        private const float DefaultMusicVolume = .85f;
         [SerializeField] private AudioClip arenaClip, bossClip, vaultClip;
         [SerializeField, Range(0,1)] private float arenaVolume=1f, bossVolume=.25f, vaultVolume=.25f;
         [SerializeField, Min(.05f)] private float crossfadeSeconds=.8f;
@@ -22,12 +23,12 @@ namespace EchoScrap.Combat
         public bool AutoTick { get; set; }=true;
         public CombatMusicTrack CurrentTrack { get; private set; }
         public bool IsPaused { get; private set; }
-        public static float MusicVolume { get; private set; } = 1f;
+        public static float MusicVolume { get; private set; } = DefaultMusicVolume;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void LoadMusicVolume()
         {
-            MusicVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(MusicVolumePreference, 1f));
+            MusicVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(MusicVolumePreference, DefaultMusicVolume));
         }
 
         public static void SetMusicVolume(float volume)

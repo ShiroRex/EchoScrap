@@ -82,6 +82,8 @@ namespace EchoScrap.Combat
                 LockedDirection = offset.sqrMagnitude > .0001f ? offset.normalized : actor.FacingDirection;
                 WarningOrigin = actor.WorldCenter;
                 State = EliteEnemyState.Windup; phaseTime = 0f;
+                if (IsCopper) PlaySentinelAttackSound();
+                else PlaySweepSound();
             }
             else
             {
@@ -92,13 +94,11 @@ namespace EchoScrap.Combat
                     {
                         if (projectiles == null || !projectiles.FireFan(actor.TargetId, WarningOrigin, LockedDirection, Settings))
                             return true;
-                        PlaySentinelShotSound();
                         effects?.Play(EnemyEffectId.CopperMuzzle, WarningOrigin + LockedDirection * .6f, LockedDirection);
                     }
                     else
                     {
                         ResolveSweep();
-                        PlaySweepSound();
                         effects?.Play(EnemyEffectId.SpectralSweep, WarningOrigin, LockedDirection, Vector2.one * Settings.Range * 2.5f);
                     }
                     AttacksResolved++;
@@ -114,7 +114,7 @@ namespace EchoScrap.Combat
             return State != EliteEnemyState.Pursuit;
         }
 
-        private void PlaySentinelShotSound()
+        private void PlaySentinelAttackSound()
         {
             if (sentinelSound == null)
             {

@@ -27,8 +27,10 @@ namespace EchoScrap.Combat
             actor = boss;
             if (cues != null) return;
             cues = Source("GolgoraSignals", false); foundation = Source("GolgoraFoundation", true); pressure = Source("GolgoraPressure", true);
-            string[] names = { "Spawn", "HammerCharge", "HammerImpact", "SweepCharge", "SweepImpact", "Throw", "Cerco", "Footstep", "Overload", "Death" };
-            for (int i = 0; i < names.Length; i++) clips[i] = Resources.Load<AudioClip>("MataColeccionista/Audio/" + names[i]);
+            const string localAudio = "MataColeccionista/Audio/";
+            string[] paths = { localAudio + "Spawn", localAudio + "HammerCharge", "Audio/Golgora_Impacto", localAudio + "SweepCharge",
+                localAudio + "SweepImpact", localAudio + "Throw", localAudio + "Cerco", localAudio + "Footstep", localAudio + "Overload", localAudio + "Death" };
+            for (int i = 0; i < paths.Length; i++) clips[i] = Resources.Load<AudioClip>(paths[i]);
             foundation.clip = Resources.Load<AudioClip>("MataColeccionista/Audio/FoundryFoundation");
             pressure.clip = Resources.Load<AudioClip>("MataColeccionista/Audio/FoundryPressure");
             previous = GolgoraState.Dead;

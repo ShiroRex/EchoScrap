@@ -446,6 +446,13 @@ namespace EchoScrap.Combat
         }
         public void SetShakePercent(float value) { if (game != null) game.Session.Effects.ShakeIntensity = value / 100f; }
         public void SetDecorativePercent(float value) { if (game != null) game.Session.Effects.DecorativeIntensity = value / 100f; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void LoadMasterVolume()
+        {
+            AudioListener.volume = Mathf.Clamp01(PlayerPrefs.GetFloat(VolumePreference, .85f));
+        }
+
         public void SetVolumePercent(float value)
         {
             AudioListener.volume = Mathf.Clamp01(value / 100f);
@@ -511,7 +518,6 @@ namespace EchoScrap.Combat
             if (canvas != null) return;
             font = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.regular ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             pauseSkin = Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin");
-            AudioListener.volume=Mathf.Clamp01(PlayerPrefs.GetFloat(VolumePreference,1f));
             whiteSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height), Vector2.one * 0.5f);
             CreateBorderSprite();
             var root = new GameObject("CombatHUDCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));

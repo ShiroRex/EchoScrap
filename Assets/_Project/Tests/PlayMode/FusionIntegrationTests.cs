@@ -193,10 +193,20 @@ namespace EchoScrap.Tests
             Assert.AreEqual(FusionPhase.Fusing,station.Progress.phase);
             game.Player.transform.position=Vector3.up;game.Player.GetComponent<Rigidbody>().position=Vector3.up;Physics.SyncTransforms();
             var openingAudio=station.transform.Find("FusionOpenAudio").GetComponent<AudioSource>();Assert.IsNotNull(openingAudio.clip);Assert.IsFalse(openingAudio.isPlaying);
+            var resultAudio = station.transform.Find("FusionResultAudio").GetComponent<AudioSource>();
+            Assert.That(resultAudio.clip, Is.SameAs(Resources.Load<AudioClip>("Audio/Fusion_Resultado")));
+            Assert.That(resultAudio.isPlaying, Is.False);
             station.Advance(180);station.Advance(10);yield return null;Assert.AreEqual(FusionPhase.Ready,station.Progress.phase);
             Assert.IsTrue(station.Door.GetComponentsInChildren<MeshRenderer>().All(r=>r.enabled));Assert.IsFalse(station.TryOpenMenu());Assert.AreEqual(0,station.GetComponent<FusionRevealSmoke>().RevealCount);Assert.IsFalse(openingAudio.isPlaying);
             yield return Approach();Assert.IsTrue(station.TryOpenMenu());Assert.AreEqual(FusionPhase.Opening,station.Progress.phase);Assert.AreEqual(1,station.GetComponent<FusionRevealSmoke>().RevealCount);Assert.IsTrue(openingAudio.isPlaying);Assert.IsFalse(openingAudio.loop);
-            yield return new WaitForSecondsRealtime(.45f);yield return Capture("AbriendoConHumo",false);yield return new WaitForSecondsRealtime(1.5f);Assert.AreEqual(FusionPhase.AwaitingDecision,station.Progress.phase);Assert.IsTrue(station.IsMenuOpen);Assert.IsTrue(station.Resolve(true));
+            Assert.That(resultAudio.isPlaying, Is.False);
+            yield return new WaitForSecondsRealtime(.45f);yield return Capture("AbriendoConHumo",false);yield return new WaitForSecondsRealtime(1.5f);Assert.AreEqual(FusionPhase.AwaitingDecision,station.Progress.phase);Assert.IsTrue(station.IsMenuOpen);
+            Assert.That(resultAudio.isPlaying, Is.True);
+            resultAudio.Stop();
+            station.CloseMenu();
+            Assert.That(station.TryOpenMenu(), Is.True);
+            Assert.That(resultAudio.isPlaying, Is.False);
+            Assert.IsTrue(station.Resolve(true));
         }
         [UnityTest] public IEnumerator FusionUsesOwnFrameAndCardFontsWithoutPauseMenuBleedingThrough()
         {
