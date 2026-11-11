@@ -96,6 +96,9 @@ namespace EchoScrap.Combat
         private int nextId = 1;
         private float nextMedkitDropTime;
         private bool initialized;
+        private const float MedkitHealVolume = 0.7f;
+        private AudioSource medkitHealSource;
+        private AudioClip medkitHealClip;
 
         public bool AutoTick { get; set; } = true;
         public int ActivePickupCount { get; private set; }
@@ -483,9 +486,26 @@ namespace EchoScrap.Combat
                 TotalCollectedMedkits++;
                 HealResult heal = playerHealth.Heal(stats != null ? stats.MedkitHealAmount : 15f);
                 if (heal.ActualHealed > 0f)
+                {
+                    PlayMedkitHealSound();
                     TriggerAbsorption(new Color(0.30f, 1f, 0.48f));
+                }
             }
             OnPickupCollected?.Invoke(info);
+        }
+
+        private void PlayMedkitHealSound()
+        {
+            if (medkitHealSource == null)
+            {
+                medkitHealClip = Resources.Load<AudioClip>("Audio/Curacion_Botiquin");
+                medkitHealSource = gameObject.AddComponent<AudioSource>();
+                medkitHealSource.playOnAwake = false;
+                medkitHealSource.spatialBlend = 0f;
+                medkitHealSource.volume = MedkitHealVolume;
+            }
+            if (medkitHealClip != null)
+                medkitHealSource.PlayOneShot(medkitHealClip);
         }
 
         private void TriggerAbsorption(Color color)

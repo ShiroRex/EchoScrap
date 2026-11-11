@@ -48,6 +48,9 @@ namespace EchoScrap.Combat
         public int StompsExecuted { get; private set; }
         public int SweepsExecuted { get; private set; }
         public int BarragesExecuted { get; private set; }
+        private const float BarrageVolume = 0.8f;
+        private AudioSource barrageSound;
+        private AudioClip barrageClip;
         public int FissuresExecuted { get; private set; }
         public int RainsExecuted { get; private set; }
         public bool IsPatternWindup => State==GolgoraState.FissureWindup || State==GolgoraState.RainWindup;
@@ -444,7 +447,22 @@ namespace EchoScrap.Combat
                 };
                 hazards.TryLaunchParabolicProjectile(in spec);
             }
+            PlayBarrageSound();
             BarragesExecuted++; AttackExecuted?.Invoke(GolgoraAttackKind.Barrage, stompOrigin, attackDirection);
+        }
+
+        private void PlayBarrageSound()
+        {
+            if (barrageSound == null)
+            {
+                barrageClip = Resources.Load<AudioClip>("Audio/Golgora_Impacto");
+                barrageSound = gameObject.AddComponent<AudioSource>();
+                barrageSound.playOnAwake = false;
+                barrageSound.spatialBlend = 0f;
+                barrageSound.volume = BarrageVolume;
+            }
+            if (barrageClip != null)
+                barrageSound.PlayOneShot(barrageClip);
         }
 
         private Vector3 MeteorLaunchOrigin()

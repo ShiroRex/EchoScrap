@@ -32,6 +32,7 @@ namespace EchoScrap.Combat
             Settings = gameObject.AddComponent<MenuSettingsView>();
             Settings.Build(View.Canvas.transform, this);
             View.Refresh();
+            MenuMusic.Play();
         }
 
         private void Update()

@@ -8,7 +8,7 @@ namespace EchoScrap.Combat
     [RequireComponent(typeof(FlashlightWeapon))]
     public sealed class FlashlightAudio : MonoBehaviour
     {
-        [SerializeField, Range(0f, 1f)] private float volume = .7f;
+        [SerializeField, Range(0f, 1f)] private float volume = 0.3f;
         [SerializeField] private AudioClip burstStart;
         [SerializeField] private AudioClip[] pulses = new AudioClip[3];
         [SerializeField] private AudioClip fourthPulse;

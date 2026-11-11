@@ -15,6 +15,12 @@ namespace EchoScrap.Combat
         private EliteEnemyPresentation presentation;
         private EliteProjectilePool projectiles;
         private EnemyEffectPool effects;
+        private const float SweepVolume = 0.7f;
+        private const float SentinelVolume = 0.7f;
+        private AudioSource sentinelSound;
+        private AudioClip sentinelClip;
+        private AudioSource sweepSound;
+        private AudioClip sweepClip;
         private float phaseTime;
         public EliteEnemyState State { get; private set; }
         public Vector3 LockedDirection { get; private set; } = Vector3.forward;
@@ -86,11 +92,13 @@ namespace EchoScrap.Combat
                     {
                         if (projectiles == null || !projectiles.FireFan(actor.TargetId, WarningOrigin, LockedDirection, Settings))
                             return true;
+                        PlaySentinelShotSound();
                         effects?.Play(EnemyEffectId.CopperMuzzle, WarningOrigin + LockedDirection * .6f, LockedDirection);
                     }
                     else
                     {
                         ResolveSweep();
+                        PlaySweepSound();
                         effects?.Play(EnemyEffectId.SpectralSweep, WarningOrigin, LockedDirection, Vector2.one * Settings.Range * 2.5f);
                     }
                     AttacksResolved++;
@@ -104,6 +112,34 @@ namespace EchoScrap.Combat
             }
             presentation.Refresh();
             return State != EliteEnemyState.Pursuit;
+        }
+
+        private void PlaySentinelShotSound()
+        {
+            if (sentinelSound == null)
+            {
+                sentinelClip = Resources.Load<AudioClip>("Audio/Centinela_Disparo");
+                sentinelSound = gameObject.AddComponent<AudioSource>();
+                sentinelSound.playOnAwake = false;
+                sentinelSound.spatialBlend = 0f;
+                sentinelSound.volume = SentinelVolume;
+            }
+            if (sentinelClip != null)
+                sentinelSound.PlayOneShot(sentinelClip);
+        }
+
+        private void PlaySweepSound()
+        {
+            if (sweepSound == null)
+            {
+                sweepClip = Resources.Load<AudioClip>("Audio/Caballero_Barrido");
+                sweepSound = gameObject.AddComponent<AudioSource>();
+                sweepSound.playOnAwake = false;
+                sweepSound.spatialBlend = 0f;
+                sweepSound.volume = SweepVolume;
+            }
+            if (sweepClip != null)
+                sweepSound.PlayOneShot(sweepClip);
         }
 
         private void ResolveSweep()

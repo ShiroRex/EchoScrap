@@ -112,6 +112,7 @@ namespace EchoScrap.Combat
             yield return SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
             var game = FindAnyObjectByType<CombatGameBootstrap>();
             while (game != null && !game.IsSceneEntryReady) yield return null;
+            MenuMusic.Stop();
             // Allow the destination's UI to finish its first layout behind the overlay.
             yield return null;
             Destroy(gameObject);

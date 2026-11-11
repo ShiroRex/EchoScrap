@@ -48,7 +48,7 @@ namespace EchoScrap.Combat
             for(int i = 0; i < sparks.Length; i++)
                 sparks[i] = ImageAt("Pixel_" + i, Vector2.zero, Vector2.one * (i % 2 == 0 ? 6 : 4));
             voice = gameObject.AddComponent<AudioSource>();voice.playOnAwake = false;voice.loop = false;
-            voice.spatialBlend = 0;voice.volume = .45f;voice.clip = Resources.Load<AudioClip>("Audio/CollectiblePickup");
+            voice.spatialBlend = 0;voice.volume = .45f;voice.clip = Resources.Load<AudioClip>("Audio/Coleccionable");
             rejectionRoot=new GameObject("InventarioLleno",typeof(RectTransform),typeof(CanvasGroup)).GetComponent<RectTransform>();
             rejectionRoot.SetParent(transform,false);rejectionRoot.anchorMin=rejectionRoot.anchorMax=new Vector2(.5f,1);
             rejectionRoot.sizeDelta=new Vector2(620,80);rejectionRoot.anchoredPosition=new Vector2(0,-340);

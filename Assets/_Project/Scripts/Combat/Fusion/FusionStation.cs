@@ -23,6 +23,8 @@ namespace EchoScrap.Combat
         public string Notice {get;private set;}="";
         private FusionRevealSmoke smoke;
         private AudioSource openingAudio;
+        private AudioSource fusionStartSound;
+        private AudioClip fusionStartClip;
         private CombatGameBootstrap game;private FusionStationUI ui;private CollectibleDisplay resultView;
         private CollectibleDisplay[] displays;private MeshRenderer[] slatRenderers;private Transform[] slats;private Vector3[] closed;private float doorTop,doorAmount,saveClock;
         private void Awake()
@@ -120,7 +122,19 @@ namespace EchoScrap.Combat
                 companions.RefreshEquipment();
             else
                 RefreshDisplays();
-            Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();CloseMenu();return true;
+            Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();PlayFusionStartSound();CloseMenu();return true;
+        }
+
+        private void PlayFusionStartSound()
+        {
+            if(fusionStartSound==null)
+            {
+                fusionStartClip=Resources.Load<AudioClip>("Audio/Fusion_Resultado");
+                fusionStartSound=new GameObject("FusionStartAudio").AddComponent<AudioSource>();
+                fusionStartSound.transform.SetParent(transform,false);fusionStartSound.playOnAwake=false;fusionStartSound.loop=false;
+                fusionStartSound.spatialBlend=0;fusionStartSound.volume=.7f;
+            }
+            if(fusionStartClip!=null)fusionStartSound.PlayOneShot(fusionStartClip);
         }
         public void Advance(float seconds){if(Progress.Advance(seconds)){UpdateResult();Save();if(Progress.phase==FusionPhase.AwaitingDecision&&CanInteract&&game.Session.Clock.HasPauseReason(PauseReason.FusionMenu))ui.Show();}}
         public bool Resolve(bool collect)

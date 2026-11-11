@@ -24,6 +24,9 @@ namespace EchoScrap.Combat
         private MortarDeathPresentationPool deaths;
         private float clock, clipTime, chargeProgress;
         private bool pendingFire;
+        private const float FireVolume = 0.6f;
+        private AudioSource fireSource;
+        private AudioClip fireClip;
         public MortarMotion Motion { get; private set; }
         public CharacterFacing Facing { get; private set; }
         public int FrameIndex { get; private set; }
@@ -86,6 +89,7 @@ namespace EchoScrap.Combat
                     Motion = MortarMotion.Fire;
                     clipTime = 0f;
                     pendingFire = false;
+                    PlayFireSound();
                 }
                 if (Motion == MortarMotion.Fire || Motion == MortarMotion.Recover)
                 {
@@ -131,7 +135,22 @@ namespace EchoScrap.Combat
             Facing = ResolveFacing();
             Motion = MortarMotion.Fire;
             clipTime = 0f;
+            PlayFireSound();
             ApplyFrame(actor.Session != null && actor.Session.IsPaused);
+        }
+
+        private void PlayFireSound()
+        {
+            if (fireSource == null)
+            {
+                fireClip = Resources.Load<AudioClip>("Audio/Mortero");
+                fireSource = pixels.gameObject.AddComponent<AudioSource>();
+                fireSource.playOnAwake = false;
+                fireSource.spatialBlend = 0f;
+                fireSource.volume = FireVolume;
+            }
+            if (fireClip != null)
+                fireSource.PlayOneShot(fireClip);
         }
 
         public void PlayDeath()

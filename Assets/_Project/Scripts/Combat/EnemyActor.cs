@@ -79,6 +79,12 @@ namespace EchoScrap.Combat
         private MothFusePresentation mothPresentation;
         private Prototype.EnemyMoth prototypeMoth;
         private MothExplosionPool mothExplosions;
+        private const float InterceptorAttackVolume = 0.6f;
+        private AudioSource interceptorSound;
+        private AudioClip interceptorSoundClip;
+        private const float MothSoundVolume = 0.6f;
+        private AudioSource mothSound;
+        private AudioClip mothSoundClip;
         private MortarSpriteView mortarView;
         private EnemySpriteView groundSpriteView;
         private Transform mortarEmitter;
@@ -981,7 +987,23 @@ namespace EchoScrap.Combat
 
             targetPlayer.ReceiveDamage(in request);
             groundSpriteView?.NotifyContact();
+            if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Interceptor)
+                PlayInterceptorAttackSound();
             return true;
+        }
+
+        private void PlayInterceptorAttackSound()
+        {
+            if (interceptorSound == null)
+            {
+                interceptorSoundClip = Resources.Load<AudioClip>("Audio/Galgo_Ataque");
+                interceptorSound = gameObject.AddComponent<AudioSource>();
+                interceptorSound.playOnAwake = false;
+                interceptorSound.spatialBlend = 0f;
+                interceptorSound.volume = InterceptorAttackVolume;
+            }
+            if (interceptorSoundClip != null)
+                interceptorSound.PlayOneShot(interceptorSoundClip);
         }
 
         /// <summary>
@@ -1159,6 +1181,21 @@ namespace EchoScrap.Combat
                 return;
             isFuseActive = true;
             fuseTimer = prototypeMoth.StartPriming(fromLethalDamage);
+            PlayMothWarningSound();
+        }
+
+        private void PlayMothWarningSound()
+        {
+            if (mothSound == null)
+            {
+                mothSoundClip = Resources.Load<AudioClip>("Audio/Polilla_Aviso_Explosion");
+                mothSound = gameObject.AddComponent<AudioSource>();
+                mothSound.playOnAwake = false;
+                mothSound.spatialBlend = 0f;
+                mothSound.volume = MothSoundVolume;
+            }
+            if (mothSoundClip != null)
+                mothSound.PlayOneShot(mothSoundClip);
         }
 
         public void CompleteMothDetonation()

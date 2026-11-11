@@ -50,6 +50,10 @@ namespace EchoScrap.Combat
         private float wallSparkTimer;
         private const float WallSparkDuration = 0.10f;
 
+        private const float DashVolume = 0.9f;
+        private AudioSource dashAudio;
+        private AudioClip dashClip;
+
         private float dashElapsed;
         private int spawnedThisDash;
         private bool initialized;
@@ -89,6 +93,13 @@ namespace EchoScrap.Combat
             if (session == null)
                 session = FindAnyObjectByType<CombatSession>();
             spriteView = GetComponent<CollectorSpriteView>();
+
+            dashClip = Resources.Load<AudioClip>("Audio/Dash");
+            dashAudio = GetComponent<AudioSource>();
+            if (dashAudio == null)
+                dashAudio = gameObject.AddComponent<AudioSource>();
+            dashAudio.playOnAwake = false;
+            dashAudio.spatialBlend = 0f;
 
             propertyBlock = new MaterialPropertyBlock();
             Shader unlitShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Universal Render Pipeline/Lit");
@@ -216,6 +227,8 @@ namespace EchoScrap.Combat
 
                 if (!AreEffectsSuppressed())
                 {
+                    if (dashAudio != null && dashClip != null)
+                        dashAudio.PlayOneShot(dashClip, DashVolume);
                     SpawnAfterimage(0, evt.Position, evt.Direction);
                     spawnedThisDash = 1;
                     SpawnExitRing(evt.Position, evt.Direction);

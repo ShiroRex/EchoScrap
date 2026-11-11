@@ -194,6 +194,9 @@ namespace EchoScrap.Combat
             Encounter.BindReferences(Session, Enemies, Hazards, Director, Player);
             Encounter.BindArena(BossArena);
             GetOrAdd<CombatMusicPlayer>(gameObject).Bind(this);
+            GetOrAdd<SessionOutcomeAudio>(gameObject).Bind(this);
+            GetOrAdd<LevelUpAudio>(gameObject).Bind(this);
+            GetOrAdd<UpgradeChoiceAudio>(gameObject).Bind(this);
             cameraRig.Follow = playerObject.transform;
             cameraFeedback = GetOrAdd<CombatCameraFeedback>(cameraRig.gameObject);
             Encounter.RoarPresentation.BindFeedback(cameraFeedback);
@@ -203,6 +206,7 @@ namespace EchoScrap.Combat
             Hud = SystemObject<CombatHud>("CombatHud");
             var hurtPresentation = GetOrAdd<PlayerHurtPresentation>(playerObject);
             hurtPresentation.Bind(Session, Player);
+            GetOrAdd<PlayerHitAudio>(playerObject).Bind(Session);
             Hud.BindReferences(this, hurtPresentation);
             yield return null;
             DamageNumbers = SystemObject<DamageNumberPresenter>("DamageNumbers");

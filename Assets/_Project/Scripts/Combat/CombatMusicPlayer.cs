@@ -11,7 +11,7 @@ namespace EchoScrap.Combat
     {
         private const string MusicVolumePreference = "EchoScrap.Audio.MusicVolume";
         [SerializeField] private AudioClip arenaClip, bossClip, vaultClip;
-        [SerializeField, Range(0,1)] private float arenaVolume=.22f, bossVolume=.25f, vaultVolume=.25f;
+        [SerializeField, Range(0,1)] private float arenaVolume=1f, bossVolume=.25f, vaultVolume=.25f;
         [SerializeField, Min(.05f)] private float crossfadeSeconds=.8f;
         private CombatGameBootstrap game;
         private AudioSource arena, boss, vault;
@@ -78,8 +78,10 @@ namespace EchoScrap.Combat
             bool playing=game.IsInitialized && game.IsSceneEntryReady && !game.Session.IsInWarehouse &&
                 (game.Session.Clock.ActiveReasons & (PauseReason.FrontEnd|PauseReason.FusionMenu))==0 &&
                 game.Session.State!=SessionState.Defeat && game.Session.State!=SessionState.Victory;
+            // The expedition prompt pauses the vault with FrontEnd; its track should keep playing behind the prompt.
+            bool choosingExpedition = game.Flow != null && game.Flow.IsSelectingExpedition;
             bool inVault=game.IsInitialized && game.IsSceneEntryReady && game.Session.IsInWarehouse &&
-                (game.Session.Clock.ActiveReasons & PauseReason.FrontEnd)==0;
+                ((game.Session.Clock.ActiveReasons & PauseReason.FrontEnd)==0 || choosingExpedition);
             CurrentTrack=inVault?CombatMusicTrack.Vault:!playing?CombatMusicTrack.None:
                 actor!=null?(actor.IsAlive && game.Encounter.IsEncounterActive?CombatMusicTrack.Boss:CombatMusicTrack.None):CombatMusicTrack.Arena;
             // Menu pauses freeze combat, while the streamed musical bed keeps its DSP clock.
