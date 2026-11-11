@@ -236,6 +236,10 @@ namespace EchoScrap.Tests
         public IEnumerator VictoryAndDefeat_DisplaySummaryAndRestartTheSameArena()
         {
             game.Session.Effects.ReducedEffectsMode = false;
+            game.Session.Effects.DecorativeIntensity = 1f;
+            var overlay = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay");
+            var confetti = overlay.Find("VictoryConfetti").gameObject;
+            var pulse = overlay.Find("DefeatPulse").gameObject;
             game.Session.Clock.SetGameplayTimeForTesting(193f);
             game.Progression.AddExperience(87);
             var bossDeath = new ActorDeathEvent(999, 99, false, true, Vector3.up, Vector3.forward, DamageSourceType.FlashlightPulse, 500, false, true);
@@ -243,6 +247,9 @@ namespace EchoScrap.Tests
             game.Session.ResolveSimulationStepOutcome();
             game.Hud.RefreshNow();
             Assert.IsTrue(game.Hud.IsResultVisible);
+            Assert.IsTrue(confetti.activeInHierarchy);
+            Assert.IsNotNull(confetti.GetComponent<CanvasRenderer>());
+            Assert.IsFalse(pulse.activeSelf);
             StringAssert.Contains("Gólgora ha caído", game.Hud.DisplayedSummary);
             StringAssert.Contains("TIEMPO: 00:00", game.Hud.DisplayedSummary);
             StringAssert.Contains("XP OBTENIDA: 0", game.Hud.DisplayedSummary);
@@ -257,6 +264,7 @@ namespace EchoScrap.Tests
             game.Hud.RestartGame();
             Assert.AreEqual(SessionState.Running, game.Session.State);
             Assert.IsFalse(game.Hud.IsResultVisible);
+            Assert.IsFalse(confetti.activeSelf);
             game.Session.Effects.ReducedEffectsMode = true;
             game.Session.Clock.SetGameplayTimeForTesting(23f);
             game.Progression.AddExperience(7);
@@ -264,6 +272,8 @@ namespace EchoScrap.Tests
             game.Session.ResolveSimulationStepOutcome();
             game.Hud.RefreshNow();
             Assert.IsTrue(game.Hud.IsResultVisible);
+            Assert.IsFalse(confetti.activeSelf);
+            Assert.IsFalse(pulse.activeSelf);
             StringAssert.Contains("integridad llegó a cero", game.Hud.DisplayedSummary);
             StringAssert.Contains("TIEMPO: 00:23", game.Hud.DisplayedSummary);
             StringAssert.EndsWith("XP OBTENIDA: 7", game.Hud.DisplayedSummary);

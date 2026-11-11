@@ -30,6 +30,8 @@ namespace EchoScrap.Combat
         private static readonly Color DefeatTitle = new Color32(211, 120, 129, 255);
         private const float ResultEntranceDuration = .30f;
         private const float ResultCounterDuration = .92f;
+        private const float DefeatPulsePeriod = .78f;
+        private const float DefeatPulseDuration = 2f * DefeatPulsePeriod;
         private const float PausePresentationScale = .85f;
         private const float ObjectiveHintSeconds = 5f;
         private const float DashReadySeconds = 2f;
@@ -51,6 +53,8 @@ namespace EchoScrap.Combat
         private GameObject resultContent;
         private CanvasGroup resultCanvasGroup;
         private Image resultArtwork;
+        private Image resultPulse;
+        private ResultConfetti resultConfetti;
         private Sprite victoryArtwork, defeatArtwork;
         private Image modalPanel;
         private Image modalBackdrop;
@@ -113,6 +117,7 @@ namespace EchoScrap.Combat
         private (int seconds, int level, int kills, long xp) resultTotals, resultDisplayed;
         private float resultStartedAt;
         private bool resultAnimating;
+        private bool victoryResult;
         private bool hubMode;
         private Text pauseTitle, resumeLabel, pauseSecondaryLabel, resultActionLabel;
 
@@ -416,8 +421,14 @@ namespace EchoScrap.Combat
             }
             bool wasVisible = modal.activeSelf;
             bool wasPaused = pauseContent.activeSelf;
-            bool openingResult = showResult && (!IsResultVisible || state != previousState);
+            bool hadResult = IsResultVisible;
+            bool openingResult = showResult && (!hadResult || state != previousState);
             if (openingResult) BeginResult(state);
+            if (!showResult && hadResult)
+            {
+                resultConfetti.gameObject.SetActive(false);
+                resultPulse.gameObject.SetActive(false);
+            }
             pauseContent.SetActive(showPause);
             resultContent.SetActive(showResult);
             modal.SetActive(showPause || showResult);
@@ -437,11 +448,11 @@ namespace EchoScrap.Combat
 
         private void BeginResult(SessionState state)
         {
-            bool victory = state == SessionState.Victory;
-            resultTitle.text = victory ? "VICTORIA" : "DERROTA";
-            resultTitle.color = victory ? VictoryTitle : DefeatTitle;
-            resultArtwork.sprite = victory ? victoryArtwork : defeatArtwork;
-            resultDescription.text = victory ? "Gólgora ha caído." : "Tu integridad llegó a cero.";
+            victoryResult = state == SessionState.Victory;
+            resultTitle.text = victoryResult ? "VICTORIA" : "DERROTA";
+            resultTitle.color = victoryResult ? VictoryTitle : DefeatTitle;
+            resultArtwork.sprite = victoryResult ? victoryArtwork : defeatArtwork;
+            resultDescription.text = victoryResult ? "Gólgora ha caído." : "Tu integridad llegó a cero.";
             resultActionLabel.text = game.Flow != null ? "VOLVER A LA BÓVEDA" : "REINICIAR";
 
             int seconds = Mathf.Max(0, Mathf.FloorToInt(game.Session.GameplayTime));
@@ -460,8 +471,9 @@ namespace EchoScrap.Combat
             resultArtwork.rectTransform.anchoredPosition = ResultArtworkPosition + Vector2.up * (18f * (1f - settle));
             resultArtwork.rectTransform.localScale = Vector3.one * Mathf.Lerp(.89f, 1f, settle);
 
-            resultAnimating = elapsed < ResultCounterDuration;
-            if (!resultAnimating)
+            bool decorationsActive = AnimateResultDecorations(elapsed);
+            resultAnimating = elapsed < ResultCounterDuration || decorationsActive;
+            if (elapsed >= ResultCounterDuration)
             {
                 RenderResultValues(resultTotals);
                 return;
@@ -471,6 +483,24 @@ namespace EchoScrap.Combat
             RenderResultValues(((int)(resultTotals.seconds * fraction),
                 1 + (int)((resultTotals.level - 1) * fraction),
                 (int)(resultTotals.kills * fraction), (long)(resultTotals.xp * fraction)));
+        }
+
+        private bool AnimateResultDecorations(float elapsed)
+        {
+            float intensity = game.Session.Effects.DecorativeIntensity;
+            bool showConfetti = victoryResult && intensity > 0f && elapsed < ResultConfetti.Duration;
+            bool showPulse = !victoryResult && intensity > 0f && elapsed < DefeatPulseDuration;
+            resultConfetti.gameObject.SetActive(showConfetti);
+            resultPulse.gameObject.SetActive(showPulse);
+            if (showConfetti)
+                resultConfetti.ShowFrame(elapsed, intensity);
+            if (showPulse)
+            {
+                float wave = Mathf.Sin(Mathf.PI * Mathf.Repeat(elapsed / DefeatPulsePeriod, 1f));
+                float fade = Mathf.Lerp(.70f, .34f, elapsed / DefeatPulseDuration);
+                resultPulse.color = new Color(.89f, .14f, .22f, wave * wave * fade * intensity);
+            }
+            return showConfetti || showPulse;
         }
 
         private void RenderResultValues((int seconds, int level, int kills, long xp) values)
@@ -684,6 +714,14 @@ namespace EchoScrap.Combat
             Stretch((RectTransform)modal.transform);
             modalBackdrop = FullScreenImage(modal.transform, "Backdrop", new Color(.02f, .025f, .04f, .9f));
             modalBackdrop.raycastTarget = true;
+            resultPulse = FullScreenImage(modal.transform, "DefeatPulse", Color.clear);
+            resultPulse.sprite = borderSprite;
+            resultPulse.gameObject.SetActive(false);
+            RectTransform confetti = Rect(modal.transform, "VictoryConfetti", Vector2.zero, Vector2.zero, Vector2.zero);
+            Stretch(confetti);
+            resultConfetti = confetti.gameObject.AddComponent<ResultConfetti>();
+            resultConfetti.raycastTarget = false;
+            confetti.gameObject.SetActive(false);
             Image panel = modalPanel = ImageRect(modal.transform, "Panel", Vector2.zero, new Vector2(760f, 720f), Ink);
             panel.raycastTarget = true;
             modalAccent = ImageRect(panel.transform, "TopAccent", new Vector2(0f, 357f), new Vector2(760f, 4f), Apollo);
