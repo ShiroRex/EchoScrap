@@ -232,24 +232,41 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0.35f, game.Session.Effects.RawShakeIntensity, 0.001f);
         }
 
-        [Test]
-        public void VictoryAndDefeat_DisplaySummaryAndRestartTheSameArena()
+        [UnityTest]
+        public IEnumerator VictoryAndDefeat_DisplaySummaryAndRestartTheSameArena()
         {
+            game.Session.Effects.ReducedEffectsMode = false;
+            game.Session.Clock.SetGameplayTimeForTesting(193f);
+            game.Progression.AddExperience(87);
             var bossDeath = new ActorDeathEvent(999, 99, false, true, Vector3.up, Vector3.forward, DamageSourceType.FlashlightPulse, 500, false, true);
             game.Session.QueueBossDeath(in bossDeath);
             game.Session.ResolveSimulationStepOutcome();
             game.Hud.RefreshNow();
             Assert.IsTrue(game.Hud.IsResultVisible);
             StringAssert.Contains("Gólgora ha caído", game.Hud.DisplayedSummary);
-            StringAssert.Contains("XP OBTENIDA", game.Hud.DisplayedSummary);
+            StringAssert.Contains("TIEMPO: 00:00", game.Hud.DisplayedSummary);
+            StringAssert.Contains("XP OBTENIDA: 0", game.Hud.DisplayedSummary);
+            Assert.AreEqual(0f, Time.timeScale);
+
+            yield return new WaitForSecondsRealtime(1.05f);
+            game.Hud.RefreshNow();
+            StringAssert.Contains("TIEMPO: 03:13", game.Hud.DisplayedSummary);
+            StringAssert.Contains($"BAJAS: {game.Hud.KillCount}\n", game.Hud.DisplayedSummary);
+            StringAssert.EndsWith($"XP OBTENIDA: {87 + game.Encounter.ClosingXpReward}", game.Hud.DisplayedSummary);
+
             game.Hud.RestartGame();
             Assert.AreEqual(SessionState.Running, game.Session.State);
             Assert.IsFalse(game.Hud.IsResultVisible);
+            game.Session.Effects.ReducedEffectsMode = true;
+            game.Session.Clock.SetGameplayTimeForTesting(23f);
+            game.Progression.AddExperience(7);
             game.Player.TakeContactOrHazardDamage(500f, Vector3.back);
             game.Session.ResolveSimulationStepOutcome();
             game.Hud.RefreshNow();
             Assert.IsTrue(game.Hud.IsResultVisible);
             StringAssert.Contains("integridad llegó a cero", game.Hud.DisplayedSummary);
+            StringAssert.Contains("TIEMPO: 00:23", game.Hud.DisplayedSummary);
+            StringAssert.EndsWith("XP OBTENIDA: 7", game.Hud.DisplayedSummary);
             Assert.IsFalse(game.Weapon.enabled);
             game.Hud.RestartGame();
             Assert.IsTrue(game.Player.IsAlive);

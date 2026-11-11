@@ -159,8 +159,10 @@ namespace EchoScrap.Tests
             game.Encounter.Step(.31f);
             game.Encounter.Step(BossEncounter.IntroDuration);
             Assert.AreEqual(GolgoraState.Pursuing, boss.State, "Finish the transfer and introduction before applying lethal damage.");
-            var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, 2000f);
-            boss.ReceiveDamage(in lethal); game.Session.ResolveSimulationStepOutcome();
+            var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, boss.MaxHealth * 2f);
+            boss.ReceiveDamage(in lethal);
+            Assert.IsFalse(boss.IsAlive, "The closing presentation requires an actual boss defeat.");
+            game.Session.ResolveSimulationStepOutcome();
             game.Encounter.DeathPresentation.AutoTick = false;
             game.Hud.RefreshNow(); Assert.IsFalse(game.Hud.IsResultVisible);
             game.Encounter.DeathPresentation.StepUnscaled(1.29f);

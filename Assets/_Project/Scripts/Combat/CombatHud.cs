@@ -22,7 +22,14 @@ namespace EchoScrap.Combat
         private static readonly Color TabMuted = new Color32(203, 184, 175, 255);
         private const string VolumePreference = "EchoScrap.Audio.MasterVolume";
         private static readonly Vector2 PauseSize = new Vector2(900f, 680f);
-        private static readonly Vector2 ResultSize = new Vector2(760f, 720f);
+        private static readonly Vector2 ResultSize = new Vector2(760f, 900f);
+        private static readonly Vector2 ResultArtworkPosition = new Vector2(0f, 265f);
+        private static readonly Color ResultBackdrop = new Color32(16, 14, 24, 255);
+        private static readonly Color ResultText = new Color32(244, 234, 215, 255);
+        private static readonly Color VictoryTitle = new Color32(255, 215, 112, 255);
+        private static readonly Color DefeatTitle = new Color32(211, 120, 129, 255);
+        private const float ResultEntranceDuration = .30f;
+        private const float ResultCounterDuration = .92f;
         private const float PausePresentationScale = .85f;
         private const float ObjectiveHintSeconds = 5f;
         private const float DashReadySeconds = 2f;
@@ -42,6 +49,7 @@ namespace EchoScrap.Combat
         private GameObject modal;
         private GameObject pauseContent;
         private GameObject resultContent;
+        private CanvasGroup resultCanvasGroup;
         private Image resultArtwork;
         private Sprite victoryArtwork, defeatArtwork;
         private Image modalPanel;
@@ -65,6 +73,7 @@ namespace EchoScrap.Combat
         private Text bossHealthText;
         private Text phaseText;
         private Text resultTitle;
+        private Text resultDescription;
         private Text resultSummary;
         private Text shakeLabel;
         private Text decorativeLabel;
@@ -101,6 +110,9 @@ namespace EchoScrap.Combat
         private bool experienceDirty = true;
         private float refreshTimer;
         private SessionState previousState = (SessionState)(-1);
+        private (int seconds, int level, int kills, long xp) resultTotals, resultDisplayed;
+        private float resultStartedAt;
+        private bool resultAnimating;
         private bool hubMode;
         private Text pauseTitle, resumeLabel, pauseSecondaryLabel, resultActionLabel;
 
@@ -122,7 +134,8 @@ namespace EchoScrap.Combat
         public Image ImmediateHealthFill => healthFill;
         public Image RecentHealthFill => recentHealthFill;
         public string DisplayedHealth => healthText != null ? healthText.text : string.Empty;
-        public string DisplayedSummary => resultSummary != null ? resultSummary.text : string.Empty;
+        public string DisplayedSummary => resultSummary != null
+            ? resultDescription.text + "\n\n" + resultSummary.text : string.Empty;
         public string DisplayedCards => cardsText != null ? cardsText.text : string.Empty;
         public string DisplayedBossName => bossHealthText != null ? bossHealthText.text : string.Empty;
         public bool ShowStats => statsMode != StatsDisplayMode.None;
@@ -247,7 +260,12 @@ namespace EchoScrap.Combat
             if (game != null) UpdateBossArrow();
             if (IsStatsVisible) statsReadout.FitToCanvas();
             if (IsPauseVisible) FitPauseToCanvas();
-            else if (IsResultVisible) FitResultToCanvas();
+            else if (IsResultVisible)
+            {
+                FitResultToCanvas();
+                if (resultAnimating)
+                    AnimateResult(Time.unscaledTime - resultStartedAt);
+            }
         }
 
         public void RefreshNow()
@@ -382,6 +400,7 @@ namespace EchoScrap.Combat
             var closing = game.Encounter != null ? game.Encounter.DeathPresentation : null;
             bool closingVisible = state == SessionState.Victory && closing != null
                 && closing.IsPlaying && closing.PresentationTime < 1.3f;
+            bool showResult = ended && !closingVisible;
             bool userPause = game.Session.Clock.HasPauseReason(PauseReason.Manual) || game.Session.Clock.HasPauseReason(PauseReason.FocusLost);
             bool showPause = !ended && userPause && !game.Draft.IsOpen
                 && !game.Session.Clock.HasPauseReason(PauseReason.FusionMenu)
@@ -394,34 +413,71 @@ namespace EchoScrap.Combat
                 resumeLabel.text = settings ? "VOLVER" : "REANUDAR";
                 pauseSecondaryLabel.text = settings || game.Flow.State != GameFlowState.Expedition ? "MENÚ PRINCIPAL" : "ABANDONAR";
                 pauseRestartButton.interactable = !settings;
-                resultActionLabel.text = "VOLVER A LA BÓVEDA";
             }
             bool wasVisible = modal.activeSelf;
             bool wasPaused = pauseContent.activeSelf;
-            modal.SetActive((ended && !closingVisible) || showPause);
+            bool openingResult = showResult && (!IsResultVisible || state != previousState);
+            if (openingResult) BeginResult(state);
             pauseContent.SetActive(showPause);
-            resultContent.SetActive(ended);
-            modalPanel.color = showPause && pauseSkin != null ? Color.clear : Ink;
-            modalBackdrop.color = new Color(.02f, .025f, .04f, showPause ? .54f : .9f);
+            resultContent.SetActive(showResult);
+            modal.SetActive(showPause || showResult);
+            modalPanel.color = showPause && pauseSkin == null ? Ink : Color.clear;
+            modalBackdrop.color = showResult ? ResultBackdrop : new Color(.02f, .025f, .04f, .54f);
             if (showPause && !wasPaused) SelectPauseTab(0);
             if (showPause) LinkPauseControls();
             if (showPause) FitPauseToCanvas();
-            else if (ended) FitResultToCanvas();
-            modalAccent.gameObject.SetActive(!showPause || pauseSkin == null);
-            if (ended && (state != previousState || !wasVisible))
-            {
-                bool victory = state == SessionState.Victory;
-                resultTitle.text = victory ? "VICTORIA" : "DERROTA";
-                resultArtwork.sprite = victory ? victoryArtwork : defeatArtwork;
-                int second = Mathf.Max(0, Mathf.FloorToInt(game.Session.GameplayTime));
-                long xp = game.Progression.TotalXp + (game.Encounter != null ? game.Encounter.ClosingXpReward : 0);
-                resultSummary.text = $"{(state == SessionState.Victory ? "Gólgora ha caído." : "Tu integridad llegó a cero.")}\n\nTIEMPO   {second / 60:00}:{second % 60:00}\nNIVEL   {game.Progression.Level}\nBAJAS   {kills}\nXP OBTENIDA   {xp}";
-            }
-            if (modal.activeSelf && (!wasVisible || state != previousState))
-                EventSystem.current?.SetSelectedGameObject(ended ? resultRestartButton.gameObject : resumeButton.gameObject);
+            else if (showResult) FitResultToCanvas();
+            modalAccent.gameObject.SetActive(showPause && pauseSkin == null);
+            if (modal.activeSelf && (!wasVisible || state != previousState || openingResult))
+                EventSystem.current?.SetSelectedGameObject(showResult ? resultRestartButton.gameObject : resumeButton.gameObject);
             else if (!modal.activeSelf && wasVisible && EventSystem.current != null)
                 EventSystem.current.SetSelectedGameObject(null);
             previousState = state;
+        }
+
+        private void BeginResult(SessionState state)
+        {
+            bool victory = state == SessionState.Victory;
+            resultTitle.text = victory ? "VICTORIA" : "DERROTA";
+            resultTitle.color = victory ? VictoryTitle : DefeatTitle;
+            resultArtwork.sprite = victory ? victoryArtwork : defeatArtwork;
+            resultDescription.text = victory ? "Gólgora ha caído." : "Tu integridad llegó a cero.";
+            resultActionLabel.text = game.Flow != null ? "VOLVER A LA BÓVEDA" : "REINICIAR";
+
+            int seconds = Mathf.Max(0, Mathf.FloorToInt(game.Session.GameplayTime));
+            long xp = game.Progression.TotalXp + (game.Encounter?.ClosingXpReward ?? 0);
+            resultTotals = (seconds, game.Progression.Level, kills, xp);
+            resultDisplayed = (-1, -1, -1, -1);
+            resultStartedAt = Time.unscaledTime;
+            AnimateResult(game.Session.Effects.ReducedEffectsMode ? ResultCounterDuration : 0f);
+        }
+
+        private void AnimateResult(float elapsed)
+        {
+            float entrance = Mathf.Clamp01(elapsed / ResultEntranceDuration);
+            float settle = Mathf.SmoothStep(0f, 1f, entrance);
+            resultCanvasGroup.alpha = Mathf.Lerp(.45f, 1f, settle);
+            resultArtwork.rectTransform.anchoredPosition = ResultArtworkPosition + Vector2.up * (18f * (1f - settle));
+            resultArtwork.rectTransform.localScale = Vector3.one * Mathf.Lerp(.89f, 1f, settle);
+
+            resultAnimating = elapsed < ResultCounterDuration;
+            if (!resultAnimating)
+            {
+                RenderResultValues(resultTotals);
+                return;
+            }
+            double progress = elapsed / ResultCounterDuration;
+            double fraction = progress * (2d - progress);
+            RenderResultValues(((int)(resultTotals.seconds * fraction),
+                1 + (int)((resultTotals.level - 1) * fraction),
+                (int)(resultTotals.kills * fraction), (long)(resultTotals.xp * fraction)));
+        }
+
+        private void RenderResultValues((int seconds, int level, int kills, long xp) values)
+        {
+            if (values == resultDisplayed) return;
+            resultDisplayed = values;
+            resultSummary.text = $"TIEMPO: {values.seconds / 60:00}:{values.seconds % 60:00}\nNIVEL: {values.level}\nBAJAS: {values.kills}\nXP OBTENIDA: {values.xp}";
         }
 
         public void ResumeGame()
@@ -678,21 +734,35 @@ namespace EchoScrap.Combat
             resumeLabel = resumeButton.transform.Find("Label").GetComponent<Text>();
             pauseSecondaryLabel = pauseRestartButton.transform.Find("Label").GetComponent<Text>();
             SelectPauseTab(0);
-            resultContent = Rect(panel.transform, "Result", Vector2.one * 0.5f, Vector2.zero, ResultSize).gameObject;
+            BuildResult(panel.transform);
+            modal.SetActive(false);
+        }
+
+        private void BuildResult(Transform panel)
+        {
+            resultContent = Rect(panel, "Result", Vector2.one * .5f, Vector2.zero, ResultSize).gameObject;
+            resultCanvasGroup = resultContent.AddComponent<CanvasGroup>();
             victoryArtwork = PixelControlArtwork.Load("Presentation/Victory");
             defeatArtwork = PixelControlArtwork.Load("Presentation/Defeat");
-            resultArtwork = ImageRect(resultContent.transform, "ResultArtwork", new Vector2(0f, 252f), new Vector2(132f, 132f), Color.white);
+            resultArtwork = ImageRect(resultContent.transform, "ResultArtwork", ResultArtworkPosition, new Vector2(320f, 320f), Color.white);
             resultArtwork.preserveAspect = true;
             resultArtwork.raycastTarget = false;
-            resultTitle = Label(resultContent.transform, "Title", new Vector2(0f, 143f), new Vector2(640f, 70f), "VICTORIA", 52, TextAnchor.MiddleCenter, Apollo);
-            resultSummary = Label(resultContent.transform, "Summary", new Vector2(0f, -27f), new Vector2(640f, 255f), "", 29, TextAnchor.MiddleCenter, Pale);
-            resultRestartButton = CreatePauseButton(resultContent.transform, "Restart", new Vector2(0f, -241f), "REINICIAR", pauseSkin != null ? pauseSkin.greenButton : null);
-            resultRestartButton.image.rectTransform.sizeDelta = new Vector2(500f, 112f);
+            resultTitle = Label(resultContent.transform, "Title", new Vector2(0f, 62f), new Vector2(680f, 86f), "", 70, TextAnchor.MiddleCenter, VictoryTitle);
+            resultDescription = Label(resultContent.transform, "Description", new Vector2(0f, -15f), new Vector2(690f, 52f), "", 32, TextAnchor.MiddleCenter, ResultText);
+            resultSummary = Label(resultContent.transform, "Summary", new Vector2(0f, -174f), new Vector2(680f, 194f), "", 33, TextAnchor.MiddleCenter, ResultText);
+            resultSummary.lineSpacing = 1.16f;
+            resultRestartButton = CreateButton(resultContent.transform, "Restart", new Vector2(0f, -365f), "REINICIAR", Color.white);
+            Image buttonArtwork = resultRestartButton.image;
+            buttonArtwork.sprite = PixelControlArtwork.Load("Presentation/ButtonBlue");
+            buttonArtwork.type = Image.Type.Sliced;
+            buttonArtwork.pixelsPerUnitMultiplier = .45f;
+            buttonArtwork.rectTransform.sizeDelta = new Vector2(450f, 80f);
             resultActionLabel = resultRestartButton.transform.Find("Label").GetComponent<Text>();
-            resultRestartButton.transform.Find("Label").GetComponent<RectTransform>().sizeDelta = new Vector2(430f, 72f);
+            resultActionLabel.rectTransform.sizeDelta = new Vector2(414f, 62f);
+            resultActionLabel.fontSize = 29;
+            resultActionLabel.color = ResultText;
             resultRestartButton.onClick.AddListener(ResultAction);
             resultContent.SetActive(false);
-            modal.SetActive(false);
         }
 
         private void BuildPauseTabs()
