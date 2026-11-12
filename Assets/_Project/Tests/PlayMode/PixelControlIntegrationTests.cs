@@ -103,7 +103,7 @@ namespace EchoScrap.Tests
             var map = game.Hud.GetComponent<CombatMinimap>(); map.Refresh();
             Assert.AreSame(PixelControlArtwork.Load("MinimapFrame/Frame"), hud.Find("Minimap/Artwork").GetComponent<Image>().sprite);
             Assert.IsNull(hud.Find("Minimap/Interior/Norte"));
-            Assert.AreSame(PixelControlArtwork.Load("MinimapMarkers/North"), hud.Find("GuiasColeccionables/Flecha_0").GetComponent<Image>().sprite);
+            Assert.IsNull(hud.Find("GuiasColeccionables"));
             Assert.AreSame(PixelControlArtwork.Load("BossPointer/Up"), hud.Find("BossOffscreenArrow/Artwork").GetComponent<Image>().sprite);
             var station = Object.FindAnyObjectByType<FusionStation>();
             var companions = station.GetComponent<CompanionSystem>();

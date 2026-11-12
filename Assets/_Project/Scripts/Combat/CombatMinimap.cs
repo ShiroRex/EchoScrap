@@ -12,12 +12,10 @@ namespace EchoScrap.Combat
         private Camera mapCamera;
         private RenderTexture texture;
         private RectTransform frame, playerMarker, portalMarker;
-        private RectTransform canvasRect, directionRoot;
         private Transform portal;
         private CompanionSystem companions;
         private readonly RectTransform[] collectibleMarkers=new RectTransform[CompanionSystem.PickupCapacity];
         private readonly Image[] collectibleImages=new Image[CompanionSystem.PickupCapacity];
-        private readonly Image[] directions = new Image[CompanionSystem.PickupCapacity];
         private readonly Sprite[] rarityMarkers=new Sprite[6];
         private readonly int[] collectibleIds=new int[CompanionSystem.PickupCapacity];
         private float nextRender;
@@ -72,7 +70,6 @@ namespace EchoScrap.Combat
         {
             if(frame!=null)return;
             game=owner;
-            canvasRect = canvas;
             frame = Box("Minimap", canvas, Vector2.one * FrameSize, Color.clear);
             frame.anchorMin = frame.anchorMax = Vector2.one;
             float frameCenter = FrameMargin + FrameSize * .5f;
@@ -98,10 +95,6 @@ namespace EchoScrap.Combat
             portalMarker.GetComponent<Image>().sprite = PixelControlArtwork.Load("MinimapMarkers/Portal");
             OutlineMarker(portalMarker, new Color(.91f, .85f, 1f, .85f), 1.5f);
 
-            directionRoot = new GameObject("GuiasColeccionables", typeof(RectTransform)).GetComponent<RectTransform>();
-            directionRoot.SetParent(canvas, false);
-            directionRoot.sizeDelta = Vector2.zero;
-            Sprite directionSprite = PixelControlArtwork.Load("MinimapMarkers/North");
             string[] rarityNames={"Common","Rare","Special","Epic","Legendary","Mythic"};
             for(int i=0;i<rarityMarkers.Length;i++)rarityMarkers[i]=PixelControlArtwork.Load("MinimapMarkers/"+rarityNames[i]);
             for (int i = 0; i < collectibleMarkers.Length; i++)
@@ -111,12 +104,6 @@ namespace EchoScrap.Combat
                 collectibleIds[i] = -1;
                 OutlineMarker(collectibleMarkers[i], new Color(1f, 1f, 1f, .85f), 2f);
                 collectibleMarkers[i].gameObject.SetActive(false);
-
-                var direction = Box("Flecha_" + i, directionRoot, Vector2.one * 56f, Color.white);
-                directions[i] = direction.GetComponent<Image>();
-                directions[i].sprite = directionSprite;
-                OutlineMarker(direction, new Color(.025f, .018f, .04f, 1f), 2.5f);
-                direction.gameObject.SetActive(false);
             }
             playerMarker = Box("Jugador", picture.transform, Vector2.one * 34f, Color.white);
             playerMarker.SetSiblingIndex(portalMarker.GetSiblingIndex() + 1);
@@ -155,7 +142,6 @@ namespace EchoScrap.Combat
                 (game.Hud.IsPauseVisible||game.Draft.IsOpen);
             bool wasVisible = IsVisible;
             frame.gameObject.SetActive(live || behindOverlay);
-            directionRoot.gameObject.SetActive(live && game.GameplayCamera != null && !game.Draft.IsOpen);
             if (!live) return;
 
             Explore(game.Player.transform.position);
@@ -175,11 +161,7 @@ namespace EchoScrap.Combat
             {
                 int id = companions != null ? companions.PickupId(i) : -1;
                 collectibleMarkers[i].gameObject.SetActive(id >= 0);
-                if (id < 0)
-                {
-                    directions[i].gameObject.SetActive(false);
-                    continue;
-                }
+                if (id < 0) continue;
 
                 Vector3 position = companions.PickupPosition(i);
                 collectibleMarkers[i].anchoredPosition = MapPosition(position);
@@ -187,40 +169,8 @@ namespace EchoScrap.Combat
                 {
                     collectibleIds[i] = id;
                     collectibleImages[i].sprite = rarityMarkers[(int)FusionCatalog.Rarities[id]];
-                    directions[i].color = FusionCatalog.ColorOf(id);
                 }
-                if (directionRoot.gameObject.activeSelf) PlaceDirection(i, position + Vector3.up);
             }
-        }
-
-        private void PlaceDirection(int index, Vector3 target)
-        {
-            var arrow = directions[index].rectTransform;
-            Vector3 viewport = game.GameplayCamera.WorldToViewportPoint(target);
-            bool inView = viewport.z > 0f && viewport.x >= .04f && viewport.x <= .96f &&
-                viewport.y >= .06f && viewport.y <= .94f;
-            arrow.gameObject.SetActive(!inView);
-            if (inView) return;
-
-            Vector2 canvasSize = canvasRect.rect.size;
-            Vector2 direction = Vector2.Scale(new Vector2(viewport.x - .5f, viewport.y - .5f), canvasSize);
-            if (viewport.z <= 0f) direction = -direction;
-            if (direction.sqrMagnitude < .01f) direction = Vector2.down;
-
-            Vector2 half = canvasSize * .5f;
-            float horizontal = half.x - Mathf.Min(FrameSize + FrameMargin + 30f, half.x * .64f);
-            float vertical = half.y - Mathf.Min(direction.y > 0f ? 244f : 140f, half.y * .65f);
-            float reach = Mathf.Min(horizontal / Mathf.Max(.001f, Mathf.Abs(direction.x)),
-                vertical / Mathf.Max(.001f, Mathf.Abs(direction.y)));
-            Vector2 position = direction * reach;
-            for (int i = 0; i < index; i++)
-            {
-                var earlier = directions[i].rectTransform;
-                if (earlier.gameObject.activeSelf && (position - earlier.anchoredPosition).sqrMagnitude < 52f * 52f)
-                    position = Vector2.MoveTowards(position, Vector2.zero, 52f);
-            }
-            arrow.anchoredPosition = position;
-            arrow.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f);
         }
 
         private void OnDestroy()

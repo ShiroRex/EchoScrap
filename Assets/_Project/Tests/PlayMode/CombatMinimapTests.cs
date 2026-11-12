@@ -7,7 +7,6 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
-using UnityEngine.UI;
 
 namespace EchoScrap.Tests
 {
@@ -56,53 +55,6 @@ namespace EchoScrap.Tests
             Assert.IsTrue(Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true));map.Refresh();Assert.IsFalse(map.IsVisible);
             game.ResetRun();map.Refresh();Assert.IsTrue(map.IsVisible);Assert.AreEqual(30,map.VisibleRadius);yield return null;
         }
-        [UnityTest] public IEnumerator DirectionsPointToOffscreenPickupsAndHideInViewOrPause()
-        {
-            var companions = Object.FindAnyObjectByType<CompanionSystem>();
-            companions.AutoTick = false;
-            Assert.IsTrue(companions.TrySpawn(2));
-            var canvas = game.Hud.HudCanvas.transform;
-            var guide = canvas.Find("GuiasColeccionables/Flecha_0").GetComponent<Image>();
-            var target = companions.PickupPosition(0) + Vector3.up;
-            var camera = game.GameplayCamera;
-            Vector3 originalPosition = camera.transform.position;
-            Quaternion originalRotation = camera.transform.rotation;
-            try
-            {
-                camera.transform.SetPositionAndRotation(target + new Vector3(-30f, 0f, -10f), Quaternion.identity);
-                map.Refresh();
-                Assert.IsTrue(guide.gameObject.activeInHierarchy);
-                Assert.AreEqual(FusionCatalog.ColorOf(2), guide.color);
-                Assert.Greater(guide.rectTransform.anchoredPosition.x, 0f);
-                Assert.Greater(Vector3.Dot(guide.rectTransform.localRotation * Vector3.up, Vector3.right), .99f);
-
-                game.Session.SetManualPause(true);
-                map.Refresh();
-                Assert.IsFalse(guide.gameObject.activeInHierarchy);
-                Assert.IsTrue(map.IsVisible);
-                game.Session.SetManualPause(false);
-
-                camera.transform.SetPositionAndRotation(target - Vector3.forward * 10f, Quaternion.identity);
-                map.Refresh();
-                Assert.IsFalse(guide.gameObject.activeInHierarchy);
-
-                camera.transform.SetPositionAndRotation(target + new Vector3(30f, 0f, -10f), Quaternion.identity);
-                map.Refresh();
-                Assert.IsTrue(guide.gameObject.activeInHierarchy);
-                Assert.Less(guide.rectTransform.anchoredPosition.x, 0f);
-                Assert.Greater(Vector3.Dot(guide.rectTransform.localRotation * Vector3.up, Vector3.left), .99f);
-                companions.Advance(CompanionSystem.PickupLifetime);
-                map.Refresh();
-                Assert.IsFalse(guide.gameObject.activeInHierarchy);
-            }
-            finally
-            {
-                game.Session.SetManualPause(false);
-                camera.transform.SetPositionAndRotation(originalPosition, originalRotation);
-            }
-            yield return null;
-        }
-
         private IEnumerator Capture()
         {
             yield return null;var camera=new GameObject("MinimapAudit").AddComponent<Camera>();camera.transform.SetPositionAndRotation(game.GameplayCamera.transform.position,game.GameplayCamera.transform.rotation);
