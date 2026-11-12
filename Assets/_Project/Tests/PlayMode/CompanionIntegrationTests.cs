@@ -115,6 +115,49 @@ namespace EchoScrap.Tests
             Assert.IsTrue(hud.gameObject.activeInHierarchy);
             Assert.IsFalse(hud.Find("PoderesActivos").gameObject.activeSelf);
         }
+        [UnityTest] public IEnumerator SoldierArmorCombinesWithOtherMitigationAndAppliesOnce()
+        {
+            const int soldier = 13;
+            station.ResetCollection();
+            station.CollectFromArena(soldier);
+            station.CollectFromArena(soldier);
+
+            Approach(0);
+            Assert.IsTrue(system.TryOpen());
+            Assert.IsTrue(system.Equip(0, soldier));
+            system.Close();
+            Assert.That(game.Stats.Armor, Is.EqualTo(.10f).Within(.0001f));
+
+            Approach(1);
+            Assert.IsTrue(system.TryOpen());
+            Assert.IsTrue(system.Equip(1, soldier));
+            system.Close();
+            Assert.That(game.Stats.Armor, Is.EqualTo(.10f).Within(.0001f));
+            Assert.That(game.Stats.MaxHealth, Is.EqualTo(115f).Within(.0001f));
+            Assert.That(game.Stats.CompanionDamageReduction, Is.EqualTo(.15f).Within(.0001f));
+
+            game.Stats.SetUpgradeTier("SCRAP_01", 1);
+            Assert.That(game.Stats.Armor, Is.EqualTo(.14f).Within(.0001f));
+            game.Stats.SetBonusMitigation(armor: .55f, evasion: 0f, blockChance: 0f);
+            Assert.That(game.Stats.Armor, Is.EqualTo(.60f).Within(.0001f));
+
+            game.ResetRun(false);
+            Assert.That(game.Stats.Armor, Is.EqualTo(.10f).Within(.0001f));
+            var hit = game.Player.TakeContactOrHazardDamage(40f, game.Player.transform.position + Vector3.forward);
+            Assert.That(hit.HealthLost, Is.EqualTo(30.6f).Within(.001f));
+
+            var release = station.GetComponent<VaultReleaseInteraction>();
+            game.Stats.SetUpgradeTier("SCRAP_01", 1);
+            Approach(1);
+            Assert.IsTrue(release.TryUnequip());
+            Assert.That(game.Stats.Armor, Is.EqualTo(.14f).Within(.0001f));
+            Approach(0);
+            Assert.IsTrue(release.TryUnequip());
+            Assert.That(game.Stats.Armor, Is.EqualTo(.04f).Within(.0001f));
+            Assert.That(game.Stats.CompanionDamageReduction, Is.Zero);
+            yield return null;
+        }
+
         [UnityTest] public IEnumerator EquipmentRoundTripsAndMalformedSaveIsRepaired(){
             var progress=new FusionProgress();for(int id=0;id<4;id++)progress.owned[id]=1;progress.equipped=new[]{0,1,2};var copy=JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(progress));copy.Validate();CollectionAssert.AreEqual(progress.equipped,copy.equipped);
             copy.equipped=new[]{4,0,0};copy.Validate();CollectionAssert.AreEqual(new[]{-1,0,-1},copy.equipped);

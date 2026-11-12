@@ -16,7 +16,7 @@ namespace EchoScrap.Combat
             "+20% velocidad de ataque · congela 2 s cada 12 s (ralentiza jefes)",
             "+8% daño", "Velocidad ×2 durante 2 s después del dash",
             "+1 de vida por cada 5 bajas", "Onda cada 8 s: 15 daño y ralentización de 40% durante 3 s",
-            "Onda cada 15 s: empuja y cura 5% de vida máxima", "+15 de vida máxima · −15% daño recibido",
+            "Onda cada 15 s: empuja y cura 5% de vida máxima", "+15 de vida máxima · −15% daño recibido · +10% armadura",
             "+15% velocidad de ataque"
         };
         public static readonly string[] HudDescriptions = {
@@ -24,7 +24,7 @@ namespace EchoScrap.Combat
             "CURA 2 / 5 S", "VIDA ×2 · SALVACIÓN", "+10% VELOCIDAD",
             "BLOQUEA 1 GOLPE / 20 S", "+20% ATAQUE · CONGELA", "+8% DAÑO",
             "DASH: VELOCIDAD ×2", "CURA 1 / 5 BAJAS", "ONDA: DAÑO Y LENTITUD",
-            "ONDA: EMPUJA Y CURA", "+15 VIDA · −15% DAÑO", "+15% VELOCIDAD DE ATAQUE"
+            "ONDA: EMPUJA Y CURA", "+15 VIDA · −15% DAÑO · +10% ARMADURA", "+15% VELOCIDAD DE ATAQUE"
         };
         private readonly bool[] equipped = new bool[FusionCatalog.Count];
         private readonly float[] cooldowns = new float[FusionCatalog.Count];
@@ -64,10 +64,15 @@ namespace EchoScrap.Combat
         }
         private void RefreshStats()
         {
-            game.Stats.SetCompanionBonuses((Has(0)?10:0)+(Has(13)?15:0),Has(4)?2:1,
-                (Has(2)?.15f:0)+(Has(8)?.08f:0)+(Has(4)?.2f:0),
-                (1+(Has(5)?.1f:0)+(Has(4)?.15f:0))*(speedBuff>0?2:1),
-                (Has(14)?.15f:0)+(Has(7)?.2f:0),Has(13)?.15f:0);
+            bool hasSoldier = Has(13);
+            game.Stats.SetCompanionBonuses(
+                health: (Has(0) ? 10 : 0) + (hasSoldier ? 15 : 0),
+                healthMultiplier: Has(4) ? 2 : 1,
+                damage: (Has(2) ? .15f : 0f) + (Has(8) ? .08f : 0f) + (Has(4) ? .2f : 0f),
+                speed: (1 + (Has(5) ? .1f : 0f) + (Has(4) ? .15f : 0f)) * (speedBuff > 0 ? 2 : 1),
+                attackSpeed: (Has(14) ? .15f : 0f) + (Has(7) ? .2f : 0f),
+                reduction: hasSoldier ? .15f : 0f,
+                armor: hasSoldier ? .10f : 0f);
         }
         private bool CanFight => game!=null && game.Player.IsAlive && !game.Session.IsPaused &&
             !game.Session.IsInWarehouse && game.Session.State==SessionState.Running;
