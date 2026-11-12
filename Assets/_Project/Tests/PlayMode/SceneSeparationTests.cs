@@ -175,7 +175,14 @@ namespace EchoScrap.Tests
             Assert.IsTrue(Game.Session.Effects.ReducedEffectsMode); Assert.AreEqual(StatsDisplayMode.Reduced, Game.Hud.StatsMode);
             Assert.IsTrue(SceneTransitionState.ShowCompanionPowers);
             Game.Hud.SetShakePercent(75); Game.Hud.SetReducedEffects(false);
-            Game.Flow.ShowMainMenu(); yield return Title();
+            Game.Session.SetManualPause(true);
+            Game.Hud.RefreshNow();
+            var pause = Game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause");
+            var mainMenu = pause.Find("Restart").GetComponent<Button>();
+            Assert.AreEqual("CONTINUAR", pause.Find("Resume/Label").GetComponent<Text>().text);
+            Assert.AreEqual("VOLVER AL MENÚ", mainMenu.GetComponentInChildren<Text>().text);
+            mainMenu.onClick.Invoke();
+            yield return Title();
             Assert.AreEqual(.75f, Menu.Effects.RawShakeIntensity, .001f); Assert.IsFalse(Menu.Effects.ReducedEffectsMode);
         }
         [UnityTest] public IEnumerator RepeatedExpeditionsStayInSameWorldAndResultsReturnToVault()
@@ -188,7 +195,17 @@ namespace EchoScrap.Tests
                 float deadline = Time.realtimeSinceStartup + 12;
                 while ((Game.Flow.IsLoading || Object.FindAnyObjectByType<ExpeditionIntro>().IsPlaying) && Time.realtimeSinceStartup < deadline) yield return null;
                 Assert.IsFalse(Game.Session.IsPaused);
-                Game.Session.SetManualPause(true); Game.Hud.RefreshNow(); Game.Flow.RequestAbandon(); Game.Flow.AcceptConfirmation();
+                Game.Session.SetManualPause(true);
+                Game.Hud.RefreshNow();
+                var pause = Game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause");
+                var returnToVault = pause.Find("Restart").GetComponent<Button>();
+                var label = returnToVault.GetComponentInChildren<Text>();
+                Assert.AreEqual("CONTINUAR", pause.Find("Resume/Label").GetComponent<Text>().text);
+                Assert.AreEqual("VOLVER A LA BÓVEDA", label.text);
+                Assert.That(label.preferredWidth, Is.LessThanOrEqualTo(label.rectTransform.rect.width));
+                returnToVault.onClick.Invoke();
+                Assert.IsTrue(Game.Flow.IsConfirming);
+                Game.Flow.AcceptConfirmation();
                 Assert.AreSame(original, Game); Assert.AreEqual(GameFlowState.Vault, Game.Flow.State);
             }
             Assert.AreEqual(2, station.Progress.owned[4]); Assert.AreEqual(0, Game.Session.GameplayTime);

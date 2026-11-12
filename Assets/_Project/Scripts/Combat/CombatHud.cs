@@ -398,8 +398,8 @@ namespace EchoScrap.Combat
             if (game.Flow != null)
             {
                 bool settings = game.Flow.IsConfiguring;
-                pauseSettings.SetPauseActions(settings ? "CONFIGURACIÓN" : "PAUSA", settings ? "VOLVER" : "REANUDAR",
-                    settings || game.Flow.State != GameFlowState.Expedition ? "MENÚ PRINCIPAL" : "ABANDONAR", !settings);
+                pauseSettings.SetPauseActions(settings ? "CONFIGURACIÓN" : "PAUSA", settings ? "VOLVER" : "CONTINUAR",
+                    game.Flow.State == GameFlowState.Expedition ? "VOLVER A LA BÓVEDA" : "VOLVER AL MENÚ", !settings);
             }
             bool wasVisible = modal.activeSelf;
             bool wasPaused = pauseSettings.gameObject.activeSelf;
@@ -521,7 +521,7 @@ namespace EchoScrap.Combat
             else game.Flow.ReturnFromResult();
         }
         public void SetShakePercent(float value) { if (game != null) game.Session.Effects.ShakeIntensity = value / 100f; }
-        public void SetDecorativePercent(float value) { if (game != null) game.Session.Effects.DecorativeIntensity = value / 100f; }
+        public void SetDecorativePercent(float value) => game?.Session.Effects.SetPauseDecorativePercent(value);
 
         public void SetVolumePercent(float value)
         {

@@ -113,7 +113,7 @@ namespace EchoScrap.Combat
             powerToggles[1] = CreatePowerToggle(powers, powerGroup, "No", -122, "NO", false);
 
             BackButton = CreatePauseButton(panel, "Resume", new Vector2(titleMenu ? 0 : 165, -208),
-                titleMenu ? "VOLVER" : "REANUDAR", "Presentation/ButtonBlue");
+                titleMenu ? "VOLVER" : "CONTINUAR", "Presentation/ButtonBlue");
             if (titleMenu) BackButton.transition = Selectable.Transition.ColorTint;
             BackButton.onClick.AddListener(onBack);
             resumeLabel = BackButton.transform.Find("Label").GetComponent<Text>();
@@ -122,6 +122,7 @@ namespace EchoScrap.Combat
                 secondaryButton = CreatePauseButton(panel, "Restart", new Vector2(-165, -208), "REINICIAR", "Presentation/ButtonRed");
                 secondaryButton.onClick.AddListener(onSecondary);
                 secondaryLabel = secondaryButton.transform.Find("Label").GetComponent<Text>();
+                secondaryLabel.fontSize = 22;
             }
             SelectPauseTab(0);
         }
@@ -198,7 +199,13 @@ namespace EchoScrap.Combat
         }
 
         public void SetShakePercent(float value) => preferences.ShakeIntensity = value / 100f;
-        public void SetDecorativePercent(float value) => preferences.DecorativeIntensity = value / 100f;
+        public void SetDecorativePercent(float value)
+        {
+            if (reducedEffectsToggle == null)
+                preferences.SetPauseDecorativePercent(value);
+            else
+                preferences.DecorativeIntensity = value / 100f;
+        }
         public void SetReducedEffects(bool value) => preferences.ReducedEffectsMode = value;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]

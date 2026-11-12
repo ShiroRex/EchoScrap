@@ -215,9 +215,19 @@ namespace EchoScrap.Tests
             game.Session.SetManualPause(true);
             game.Hud.RefreshNow();
             Assert.IsTrue(game.Hud.IsPauseVisible);
+            var slider = game.Hud.CanvasRoot.transform
+                .Find("PauseAndResultOverlay/Panel/Pause/General/EffectsSlider").GetComponent<UnityEngine.UI.Slider>();
+            slider.value = 99f;
+            Assert.IsTrue(game.Session.Effects.ReducedEffectsMode);
+            Assert.IsTrue(slider.interactable);
+            slider.value = 100f;
+            Assert.IsFalse(game.Session.Effects.ReducedEffectsMode);
+            Assert.AreEqual(1f, game.Session.Effects.DecorativeIntensity);
+            game.Hud.SetDecorativePercent(99.9f);
+            Assert.IsFalse(game.Session.Effects.ReducedEffectsMode);
             game.Hud.SetShakePercent(35f);
-            game.Hud.SetDecorativePercent(60f);
-            game.Hud.SetReducedEffects(true);
+            slider.value = 60f;
+            Assert.IsTrue(game.Session.Effects.ReducedEffectsMode);
             Assert.AreEqual(0.35f, game.Session.Effects.RawShakeIntensity, 0.001f);
             Assert.AreEqual(0.60f, game.Session.Effects.RawDecorativeIntensity, 0.001f);
             Assert.AreEqual(0f, game.Session.Effects.ShakeIntensity);

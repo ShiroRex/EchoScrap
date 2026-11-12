@@ -366,7 +366,7 @@ namespace EchoScrap.Tests
                         (canvasSize.y - 48f) / pauseSize.y), .1f, 1f);
                     Assert.That(content.localScale.x, Is.EqualTo(previousFit * .85f).Within(.001f));
                     foreach (string action in new[] { "Resume", "Restart" })
-                        Assert.That(((RectTransform)content.Find(action)).sizeDelta, Is.EqualTo(new Vector2(280f, 104f)));
+                        Assert.That(((RectTransform)content.Find(action)).sizeDelta, Is.EqualTo(new Vector2(248f, 64f)));
                     string[] controls={"Tabs","General/ShakeLabel","General/ShakeSlider","General/EffectsLabel","General/EffectsSlider","Resume","Restart"};
                     for(int a=0;a<controls.Length;a++)for(int b=a+1;b<controls.Length;b++)
                         Assert.IsFalse(WorldRect((RectTransform)content.Find(controls[a])).Overlaps(WorldRect((RectTransform)content.Find(controls[b]))),controls[a]+" overlaps "+controls[b]);

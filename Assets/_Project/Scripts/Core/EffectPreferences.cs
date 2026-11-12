@@ -40,14 +40,7 @@ namespace EchoScrap.Core
         public float DecorativeIntensity
         {
             get => reducedEffectsMode ? 0f : decorativeIntensity;
-            set
-            {
-                float clamped = Mathf.Clamp01(value);
-                if (Mathf.Approximately(decorativeIntensity, clamped))
-                    return;
-                decorativeIntensity = clamped;
-                OnPreferencesChanged?.Invoke();
-            }
+            set => SetDecorativeEffects(Mathf.Clamp01(value), reducedEffectsMode);
         }
 
         public float RawDecorativeIntensity => decorativeIntensity;
@@ -55,13 +48,21 @@ namespace EchoScrap.Core
         public bool ReducedEffectsMode
         {
             get => reducedEffectsMode;
-            set
-            {
-                if (reducedEffectsMode == value)
-                    return;
-                reducedEffectsMode = value;
-                OnPreferencesChanged?.Invoke();
-            }
+            set => SetDecorativeEffects(decorativeIntensity, value);
+        }
+
+        public void SetPauseDecorativePercent(float percent)
+        {
+            SetDecorativeEffects(Mathf.Clamp01(percent / 100f), percent < 99.9f);
+        }
+
+        private void SetDecorativeEffects(float intensity, bool reduced)
+        {
+            if (Mathf.Approximately(decorativeIntensity, intensity) && reducedEffectsMode == reduced)
+                return;
+            decorativeIntensity = intensity;
+            reducedEffectsMode = reduced;
+            OnPreferencesChanged?.Invoke();
         }
 
         public PresentationCondition CurrentCondition
