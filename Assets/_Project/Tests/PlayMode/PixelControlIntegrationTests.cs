@@ -309,7 +309,7 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator VaultArrowsShowGddSubtitlesAndLeadThroughTheRamp()
+        public IEnumerator VaultArrowsExplainFusionAndLeadThroughTheRamp()
         {
             var flow = game.gameObject.AddComponent<GameFlowController>();
             flow.Initialize(game, false);
@@ -325,7 +325,7 @@ namespace EchoScrap.Tests
             Assert.IsFalse(fusion.GetComponent<Image>().raycastTarget || equipment.GetComponent<Image>().raycastTarget);
             var fusionSubtitle = fusion.parent.Find("Subtitle").GetComponent<Text>();
             var equipmentSubtitle = equipment.parent.Find("Subtitle").GetComponent<Text>();
-            Assert.That(fusionSubtitle.text, Is.EqualTo("Combina 4 copias de la misma rareza"));
+            Assert.That(fusionSubtitle.text, Is.EqualTo("Combina 4 copias de varias rarezas"));
             Assert.That(equipmentSubtitle.text, Is.EqualTo("Puestos de equipo 1, 2 y 3"));
             Assert.That(fusionSubtitle.preferredWidth, Is.LessThanOrEqualTo(fusionSubtitle.rectTransform.rect.width));
             Assert.That(equipmentSubtitle.preferredWidth, Is.LessThanOrEqualTo(equipmentSubtitle.rectTransform.rect.width));

@@ -341,14 +341,27 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator ResultProbabilitiesAreDescendingAndReservedUnitsCannotBeReleased()
         {
-            station.ResetCollection();station.Progress.owned[6]=2;station.Progress.owned[11]=2;station.Progress.owned[0]=1;
-            yield return Approach();Assert.IsTrue(station.TryOpenMenu());var ui=station.GetComponent<FusionStationUI>();foreach(int id in new[]{6,0,11,6,11})ui.AddIngredient(id);
+            station.ResetCollection();station.Progress.owned[0]=2;station.Progress.owned[7]=1;station.Progress.owned[2]=1;
+            yield return Approach();
+            Assert.IsTrue(station.TryOpenMenu());
+            var ui = station.GetComponent<FusionStationUI>();
+            ui.AddIngredient(0);
+            ui.OpenPicker(1);
+            var mixedPicker = station.GetComponentInChildren<CollectibleUnitGrid>();
+            int legendary = Enumerable.Range(0, mixedPicker.VisibleUnits).Single(slot => mixedPicker.UnitId(slot) == 7);
+            mixedPicker.SelectUnit(legendary);
+            ui.AddIngredient(2);
+            ui.AddIngredient(0);
             Assert.AreEqual(4, ui.SelectedCount);
-            Assert.IsFalse(station.Progress.CanBegin(new[] { 6, 0, 11, 6 }));
+            Assert.IsTrue(station.Progress.CanBegin(new[] { 0, 7, 2, 0 }));
             var panel=station.GetComponentInChildren<Canvas>().transform.Find("InventarioFusion/Panel");
             var labels=panel.Find("Ingredientes/PosiblesFusiones").GetComponentsInChildren<UnityEngine.UI.Text>().OrderBy(t=>t.rectTransform.anchoredPosition.x).Select(t=>PlainResult(t.text)).ToArray();
-            StringAssert.StartsWith("Murciélago Cristal\nÉPICO\n60%",labels[0]);StringAssert.StartsWith("Sirena\nLEGENDARIO\n40%",labels[1]);StringAssert.StartsWith("Yanikua\nMÍTICO\n1%",labels[2]);yield return Capture("ProbabilidadesOrdenadas",true);
-            ui.OpenPicker(0);var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.IsFalse(grid.GetComponentsInChildren<UnityEngine.UI.Button>(true).Any(b=>b.name=="LIBERAR"));Assert.AreEqual(1,station.Progress.owned[0]);
+            StringAssert.StartsWith("Chico Emo\nRARO\n45%",labels[0]);StringAssert.StartsWith("Conde Alucard\nESPECIAL",labels[1]);StringAssert.StartsWith("Yanikua\nMÍTICO\n1%",labels[3]);yield return Capture("ProbabilidadesOrdenadas",true);
+            ui.OpenPicker(0);var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.IsFalse(grid.GetComponentsInChildren<UnityEngine.UI.Button>(true).Any(b=>b.name=="LIBERAR"));Assert.AreEqual(2,station.Progress.owned[0]);
+            ui.Back();
+            panel.Find("Ingredientes/Boton_CONFIRMAR").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.AreEqual(FusionPhase.Fusing, station.Progress.phase);
+            Assert.AreEqual(0, station.Progress.OwnedCount);
         }
         private static string PlainResult(string text) => System.Text.RegularExpressions.Regex.Replace(text,"<[^>]+>","");
 

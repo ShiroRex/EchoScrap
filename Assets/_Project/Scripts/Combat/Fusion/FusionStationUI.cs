@@ -82,7 +82,7 @@ namespace EchoScrap.Combat
             pickerCount=Label(picker.transform,"",new Vector2(765,45),new Vector2(285,35),19,TextAnchor.MiddleRight);
             var gridRoot=Panel("Unidades",picker.transform,new Vector2(0,85),new Vector2(1080,500),Color.clear);
             unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
-            unitGrid.Build(station,id=>MatchesRecipe(id, selectedSlot) ? AvailableIngredient(id,selectedSlot) : 0,SelectFusionUnit);
+            unitGrid.Build(station,id=>FusionRecipe.IsIngredient(id) ? AvailableIngredient(id,selectedSlot) : 0,SelectFusionUnit);
             unitGrid.UseFusionLayout(EquipmentSlotForCopy);
             removeIngredient=ButtonAt(picker.transform,"QUITAR INGREDIENTE",new Vector2(16,600),new Vector2(320,54),RemoveIngredient);
             backToReview=ButtonAt(picker.transform,"VOLVER",new Vector2(785,600),new Vector2(266,54),()=>ShowSelection(false));
@@ -133,7 +133,7 @@ namespace EchoScrap.Combat
         {
             if (!FusionRecipe.IsIngredient(id) || station.Progress.phase != FusionPhase.Idle) return;
             int slot = selectedSlot >= 0 ? selectedSlot : System.Array.IndexOf(ingredients,-1);
-            if (slot < 0 || copy < 0 || !MatchesRecipe(id, slot) || copy >= AvailableIngredient(id,slot)) return;
+            if (slot < 0 || copy < 0 || copy >= AvailableIngredient(id,slot)) return;
             selectedSlot = slot;
             equipmentSlots[slot] = EquipmentSlotForCopy(id,copy);
             ingredients[slot] = id;
@@ -156,13 +156,6 @@ namespace EchoScrap.Combat
                 if (copy-- == 0) return slot;
             }
             return -1;
-        }
-        private bool MatchesRecipe(int id, int ignoredSlot)
-        {
-            if (!FusionRecipe.IsIngredient(id)) return false;
-            for (int i = 0; i < ingredients.Length; i++)
-                if (i != ignoredSlot && ingredients[i] >= 0 && !FusionRecipe.IsSameRarity(ingredients[i], id)) return false;
-            return true;
         }
         public void Back()
         {

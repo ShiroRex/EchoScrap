@@ -243,7 +243,7 @@ namespace EchoScrap.Combat
             vaultDirections.anchorMin = vaultDirections.anchorMax = new Vector2(.5f, 1f);
             Sprite pointer = PixelControlArtwork.Load("VaultDirection");
             equipmentArrow = DirectionCard("Equipment", -193, pointer, "Puestos de equipo 1, 2 y 3", out equipmentGuide);
-            fusionArrow = DirectionCard("Fusion", 193, pointer, "Combina 4 copias de la misma rareza", out fusionGuide);
+            fusionArrow = DirectionCard("Fusion", 193, pointer, "Combina 4 copias de varias rarezas", out fusionGuide);
             vaultDirections.gameObject.SetActive(false);
         }
 
