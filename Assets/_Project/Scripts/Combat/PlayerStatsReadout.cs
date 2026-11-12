@@ -21,6 +21,7 @@ namespace EchoScrap.Combat
             public Text Value;
             public float Cached = float.NaN;
             public bool Changed;
+            public bool Primary;
             public ValueFormat Format;
         }
 
@@ -59,13 +60,13 @@ namespace EchoScrap.Combat
             readout.accent = AddImage(rect, "Accent", new Vector2(0f, -16f), new Vector2(2f, 644f), new Color(Bronze.r, Bronze.g, Bronze.b, .65f)).rectTransform;
             readout.title = AddText(rect, "Title", new Vector2(16f, -12f), new Vector2(328f, 32f), "ESTADÍSTICAS", strong, 22, TextAnchor.MiddleLeft, Bronze);
             readout.separator = AddImage(rect, "Separator", new Vector2(16f, -46f), new Vector2(328f, 1f), new Color(Bronze.r, Bronze.g, Bronze.b, .25f)).rectTransform;
-            readout.AddRow(0, "damage", "Daño por pulso", UpgradeIcon.Power, ValueFormat.Number, regular, strong, skin);
-            readout.AddRow(1, "attackSpeed", "Vel. ataque", UpgradeIcon.Cadence, ValueFormat.Multiplier, regular, strong, skin);
-            readout.AddRow(2, "range", "Alcance", UpgradeIcon.Lens, ValueFormat.Metres, regular, strong, skin);
+            readout.AddRow(0, "damage", "Daño por pulso", UpgradeIcon.Power, ValueFormat.Number, regular, strong, skin, primary: true);
+            readout.AddRow(1, "attackSpeed", "Vel. ataque", UpgradeIcon.Cadence, ValueFormat.Multiplier, regular, strong, skin, primary: true);
+            readout.AddRow(2, "range", "Alcance", UpgradeIcon.Lens, ValueFormat.Metres, regular, strong, skin, primary: true);
             readout.AddRow(3, "angle", "Apertura", UpgradeIcon.Lens, ValueFormat.Degrees, regular, strong, skin);
-            readout.AddRow(4, "critChance", "Prob. crítico", UpgradeIcon.Precision, ValueFormat.Percent, regular, strong, skin);
-            readout.AddRow(5, "critMultiplier", "Daño crítico", UpgradeIcon.Precision, ValueFormat.Multiplier, regular, strong, skin);
-            readout.AddRow(6, "moveSpeed", "Movimiento", UpgradeIcon.Dash, ValueFormat.Speed, regular, strong, skin);
+            readout.AddRow(4, "critChance", "Prob. crítico", UpgradeIcon.Precision, ValueFormat.Percent, regular, strong, skin, primary: true);
+            readout.AddRow(5, "critMultiplier", "Daño crítico", UpgradeIcon.Precision, ValueFormat.Multiplier, regular, strong, skin, primary: true);
+            readout.AddRow(6, "moveSpeed", "Movimiento", UpgradeIcon.Dash, ValueFormat.Speed, regular, strong, skin, primary: true);
             readout.AddRow(7, "armor", "Armadura", UpgradeIcon.Automation, ValueFormat.Percent, regular, strong, skin);
             readout.AddRow(8, "evasion", "Evasión", UpgradeIcon.Dash, ValueFormat.Percent, regular, strong, skin);
             readout.AddRow(9, "blockChance", "Bloqueo", UpgradeIcon.Vitality, ValueFormat.Percent, regular, strong, skin);
@@ -83,7 +84,7 @@ namespace EchoScrap.Combat
             return readout;
         }
 
-        private void AddRow(int index, string key, string label, UpgradeIcon family, ValueFormat format, Font regular, Font strong, UpgradeCardSkin skin)
+        private void AddRow(int index, string key, string label, UpgradeIcon family, ValueFormat format, Font regular, Font strong, UpgradeCardSkin skin, bool primary = false)
         {
             float y = -58f - index * 30f;
             RectTransform root = AddRect(transform, key + "Row", new Vector2(0f, y), new Vector2(360f, 30f));
@@ -95,7 +96,7 @@ namespace EchoScrap.Combat
             }
             Text name = AddText(root, key + "Label", new Vector2(50f, 0f), new Vector2(174f, 30f), label, regular, 21, TextAnchor.MiddleLeft, Muted);
             Text value = AddText(root, key + "Value", new Vector2(230f, 0f), new Vector2(112f, 30f), "—", strong, 22, TextAnchor.MiddleRight, Ivory);
-            rows[index] = new Row { Key = key, Root = root, Label = name, Value = value, Format = format };
+            rows[index] = new Row { Key = key, Root = root, Label = name, Value = value, Format = format, Primary = primary };
         }
 
         public void SetDisplayMode(StatsDisplayMode mode)
@@ -115,7 +116,7 @@ namespace EchoScrap.Combat
             for (int i = 0; i < rows.Length; i++)
             {
                 Row row = rows[i];
-                bool visible = displayMode == StatsDisplayMode.Full || (reduced && row.Changed);
+                bool visible = reduced ? row.Primary : displayMode == StatsDisplayMode.Full && row.Changed;
                 row.Root.gameObject.SetActive(visible);
                 if (!visible) continue;
                 row.Root.anchoredPosition = new Vector2(0f, -58f - VisibleRowCount * 30f);
@@ -201,7 +202,7 @@ namespace EchoScrap.Combat
             if (row.Changed != changed)
             {
                 row.Changed = changed;
-                layoutDirty = true;
+                layoutDirty |= displayMode == StatsDisplayMode.Full;
             }
             if (Mathf.Approximately(row.Cached, value)) return;
             row.Cached = value;

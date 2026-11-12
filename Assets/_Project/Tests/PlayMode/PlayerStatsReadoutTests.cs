@@ -82,7 +82,7 @@ namespace EchoScrap.Tests
             Assert.That(full.image.sprite, Is.SameAs(PixelControlArtwork.Load("StatsSelector/Normal")));
             full.onClick.Invoke();
             game.Hud.ResumeGame();
-            Assert.That(game.Hud.IsStatsVisible, Is.True, "Complete statistics include base values.");
+            Assert.That(game.Hud.IsStatsVisible, Is.False, "Complete statistics stay hidden until a value changes.");
             game.Stats.SetUpgradeTier("FLASH_01", 1);
             Assert.That(game.Hud.IsStatsVisible, Is.True);
             game.Session.SetManualPause(true);
@@ -130,28 +130,21 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void ModesShowFullOrChangedValuesAndReuseTheSameObjects()
+        public void ModesShowChangedOrPrimaryValuesAndReuseTheSameObjects()
         {
             string[] changed = { "range", "angle", "critChance", "armor" };
             game.Hud.SetStatsDisplayMode(StatsDisplayMode.Full);
             var readout = game.Hud.StatsReadout;
             int objects = readout.GetComponentsInChildren<Transform>(true).Length;
-            Assert.That(readout.VisibleRowCount, Is.EqualTo(20));
-            Assert.That(game.Hud.IsStatsVisible, Is.True);
+            Assert.That(readout.VisibleRowCount, Is.Zero);
+            Assert.That(game.Hud.IsStatsVisible, Is.False);
             game.Stats.SetUpgradeTier("FLASH_01", 3);
             game.Stats.SetUpgradeTier("CRIT_01", 2);
             game.Stats.SetUpgradeTier("SCRAP_01", 1);
             float fullHeight = ((RectTransform)readout.transform).rect.height;
-            Assert.That(readout.VisibleRowCount, Is.EqualTo(20));
-            Assert.That(readout.IsRowVisible("angle"), Is.True);
-            Assert.That(readout.IsRowVisible("armor"), Is.True);
-            Assert.That(readout.IsRowVisible("damage"), Is.True);
-            game.Hud.SetStatsDisplayMode(StatsDisplayMode.Reduced);
-            Assert.That(readout.DisplayMode, Is.EqualTo(StatsDisplayMode.Reduced));
             Assert.That(readout.VisibleRowCount, Is.EqualTo(4));
             foreach (string key in changed) Assert.That(readout.IsRowVisible(key), Is.True, key);
             Assert.That(readout.IsRowVisible("damage"), Is.False);
-            Assert.That(((RectTransform)readout.transform).rect.height, Is.EqualTo(fullHeight - 480f));
             var labels = readout.GetComponentsInChildren<Text>(true);
             float lastY = 0f, spacing = 0f;
             for (int i = 0; i < changed.Length; i++)
@@ -163,6 +156,14 @@ namespace EchoScrap.Tests
                 if (i > 1) Assert.That(lastY - y, Is.EqualTo(spacing).Within(.1f), "Hidden rows leave no gaps.");
                 lastY = y;
             }
+            game.Hud.SetStatsDisplayMode(StatsDisplayMode.Reduced);
+            Assert.That(readout.DisplayMode, Is.EqualTo(StatsDisplayMode.Reduced));
+            Assert.That(readout.VisibleRowCount, Is.EqualTo(6));
+            foreach (string key in new[] { "damage", "attackSpeed", "range", "critChance", "critMultiplier", "moveSpeed" })
+                Assert.That(readout.IsRowVisible(key), Is.True, key);
+            Assert.That(readout.IsRowVisible("angle"), Is.False);
+            Assert.That(readout.IsRowVisible("armor"), Is.False);
+            Assert.That(((RectTransform)readout.transform).rect.height, Is.EqualTo(fullHeight + 60f));
             Assert.That(readout.GetValue("range"), Is.EqualTo("10 m"));
             Assert.That(readout.GetValue("critChance"), Is.EqualTo("16%"));
             foreach (var mode in new[] { StatsDisplayMode.None, StatsDisplayMode.Full, StatsDisplayMode.Reduced })
@@ -170,7 +171,7 @@ namespace EchoScrap.Tests
                 game.Hud.SetStatsDisplayMode(mode);
                 game.ResetRun(false);
                 Assert.That(game.Hud.StatsMode, Is.EqualTo(mode), "The selected mode survives restarting the run.");
-                Assert.That(game.Hud.IsStatsVisible, Is.EqualTo(mode == StatsDisplayMode.Full));
+                Assert.That(game.Hud.IsStatsVisible, Is.EqualTo(mode == StatsDisplayMode.Reduced));
                 Assert.That(readout.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(objects));
             }
         }
@@ -186,7 +187,7 @@ namespace EchoScrap.Tests
             var hit = game.Player.TakeContactOrHazardDamage(10f, Vector3.back);
             Assert.That(hit.HealthLost, Is.EqualTo(8.8f).Within(.001f), "Removing the duplicate indicator must not alter armor mitigation.");
             game.Hud.SetStatsDisplayMode(StatsDisplayMode.Reduced);
-            Assert.That(game.Hud.StatsReadout.IsRowVisible("armor"), Is.True);
+            Assert.That(game.Hud.StatsReadout.IsRowVisible("armor"), Is.False);
             game.Hud.SetStatsDisplayMode(StatsDisplayMode.None);
             game.Hud.RefreshNow();
             Assert.That(game.Hud.IsStatsVisible, Is.False);
@@ -246,7 +247,7 @@ namespace EchoScrap.Tests
             Assert.That(readout.GetValue("range"), Is.EqualTo("11 m"), "Hidden changes must appear when enabled again.");
             game.ResetRun(false);
             Assert.That(game.Hud.ShowStats, Is.True);
-            Assert.That(game.Hud.IsStatsVisible, Is.True);
+            Assert.That(game.Hud.IsStatsVisible, Is.False);
             Assert.That(readout.GetValue("damage"), Is.EqualTo("3,75"));
             Assert.That(readout.GetValue("armor"), Is.EqualTo("0%"));
             Assert.That(readout.GetValue("regeneration"), Is.EqualTo("0/s"));
@@ -273,7 +274,7 @@ namespace EchoScrap.Tests
             Assert.That(game.Hud.IsResultVisible, Is.True);
             Assert.That(game.Hud.IsStatsVisible, Is.False);
             game.ResetRun(false);
-            Assert.That(game.Hud.IsStatsVisible, Is.True);
+            Assert.That(game.Hud.IsStatsVisible, Is.False);
             game.Hud.SetStatsVisible(false);
             game.ResetRun(false);
             Assert.That(game.Hud.ShowStats || game.Hud.IsStatsVisible, Is.False);
@@ -300,16 +301,15 @@ namespace EchoScrap.Tests
             double elapsedMs = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000d / System.Diagnostics.Stopwatch.Frequency;
             Debug.Log($"[Player stats] 1000 unchanged refreshes: {elapsedMs:0.###} ms CPU; managed allocations: {bytes} bytes.");
             game.Stats.SetCompanionBonuses(0f, 1f, 0f, 1f, 0f, 0f);
-            game.Hud.SetStatsDisplayMode(StatsDisplayMode.Reduced);
             Assert.That(readout.IsRowVisible("damage"), Is.False);
         }
 
         [UnityTest]
-        public IEnumerator StatsAndPauseRemainReadableAt720p1080pAndUltrawide()
+        public IEnumerator StatsAndPauseRemainReadableAcrossLandscapeAndPortraitSizes()
         {
             foreach (var card in UpgradeCatalog.Cards) game.Stats.SetUpgradeTier(card.Id, card.MaxTier);
             game.Hud.SetStatsVisible(true);
-            foreach (var size in new[] { new Vector2Int(1280, 720), new Vector2Int(1920, 1080), new Vector2Int(2560, 1080) })
+            foreach (var size in new[] { new Vector2Int(1280, 720), new Vector2Int(1920, 1080), new Vector2Int(2560, 1080), new Vector2Int(720, 1280) })
             {
                 game.Hud.SetStatsDisplayMode(StatsDisplayMode.Full);
                 game.Hud.ResumeGame();
@@ -342,6 +342,7 @@ namespace EchoScrap.Tests
                 canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = .5f;
                 Canvas.ForceUpdateCanvases();
                 yield return null; yield return null; yield return null;
+                game.Hud.RefreshNow();
                 Transform content = pause ? canvas.transform.Find("PauseAndResultOverlay/Panel/Pause") : game.Hud.StatsReadout.transform;
                 foreach (Text text in content.GetComponentsInChildren<Text>())
                 {
@@ -355,6 +356,16 @@ namespace EchoScrap.Tests
                     Assert.That(bounds.Contains(stats.min) && bounds.Contains(stats.max), Is.True, "Readout stays onscreen.");
                     foreach (string name in new[] { "Integrity", "Integrity/Artwork", "Dash", "Dash/Artwork", "AcquiredCards" })
                         Assert.That(stats.Overlaps(WorldRect((RectTransform)canvas.transform.Find(name))), Is.False, "Readout overlaps " + name);
+                    Rect xp = WorldRect((RectTransform)canvas.transform.Find("Experience/XPArtwork"));
+                    var cards = canvas.transform.Find("AcquiredCards");
+                    foreach (var card in UpgradeCatalog.Cards)
+                    {
+                        var tile = (RectTransform)cards.Find(card.Id);
+                        Assert.IsTrue(tile.gameObject.activeInHierarchy, card.Id);
+                        Rect tileBounds = WorldRect(tile);
+                        Assert.IsTrue(bounds.Contains(tileBounds.min) && bounds.Contains(tileBounds.max), card.Id);
+                        Assert.IsFalse(tileBounds.Overlaps(xp), card.Id + " overlaps XP.");
+                    }
                 }
                 else
                 {

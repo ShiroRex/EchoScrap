@@ -33,6 +33,7 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator ArenaPickupAddsCopyOnlyOnce(){
             var feedback=station.GetComponentInChildren<CollectiblePickupFeedback>();
+            game.Stats.SetUpgradeTier("FLASH_01", 1);
             game.Hud.SetStatsDisplayMode(StatsDisplayMode.Full);
             Assert.IsTrue(game.Hud.IsStatsVisible);
             Assert.AreEqual(0,feedback.SoundsPlayed);Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(0,feedback.NotificationsPlayed);

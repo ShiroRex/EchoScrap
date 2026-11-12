@@ -201,12 +201,21 @@ namespace EchoScrap.Tests
             game.Hud.RefreshNow();
             Assert.IsFalse(game.Hud.IsPauseVisible);
             Assert.IsTrue(game.DraftPresentation.CanvasRoot.activeSelf);
-            string acquired = game.Draft.Offers[0].Card.Name;
+            var acquired = game.Draft.Offers[0].Card;
             Assert.IsTrue(game.Draft.TryChoose(0));
             game.Hud.RefreshNow();
-            StringAssert.Contains(acquired, game.Hud.DisplayedCards);
+            var cards = game.Hud.CanvasRoot.transform.Find("AcquiredCards");
+            var tile = cards.Find(acquired.Id);
+            Assert.IsTrue(tile.gameObject.activeInHierarchy);
+            Assert.IsFalse(cards.Find("Empty").gameObject.activeSelf);
+            var skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            Assert.AreSame(skin.icons[(int)acquired.Icon], tile.Find("Icon").GetComponent<Image>().sprite);
+            Assert.AreEqual("1", tile.Find("Level").GetComponent<Text>().text);
             Assert.IsFalse(game.Draft.IsOpen);
             Assert.IsFalse(game.Session.IsPaused);
+            game.ResetRun(false);
+            Assert.IsFalse(tile.gameObject.activeSelf);
+            Assert.IsTrue(cards.Find("Empty").gameObject.activeInHierarchy);
         }
 
         [Test]
@@ -413,10 +422,10 @@ namespace EchoScrap.Tests
             game.Session.SetManualPause(false);
         }
         [UnityTest]
-        public IEnumerator HudPreview_CapturesReadable720pAnd1080p_WithAllEightAcquiredCards()
+        public IEnumerator HudPreview_CapturesReadable720pAnd1080p_WithAllAcquiredCards()
         {
             foreach (UpgradeCardDefinition card in UpgradeCatalog.Cards)
-                game.Stats.SetUpgradeTier(card.Id, 1);
+                game.Stats.SetUpgradeTier(card.Id, card.MaxTier);
             game.Weapon.ResetWeaponCycle();
             game.Player.TakeContactOrHazardDamage(22f, Vector3.right * 2f);
             game.Enemies.Spawn(EnemyArchetypeId.Residual, new Vector3(-3f, 1f, 6f));
@@ -425,6 +434,16 @@ namespace EchoScrap.Tests
             game.Pickups.SpawnExperience(new Vector3(2f, 0f, 3f), 10);
             game.Session.SetTacticalDraftPause(true);
             game.Hud.RefreshNow();
+            var cards = game.Hud.CanvasRoot.transform.Find("AcquiredCards");
+            foreach (var card in UpgradeCatalog.Cards)
+            {
+                var tile = cards.Find(card.Id);
+                Assert.IsTrue(tile.gameObject.activeInHierarchy, card.Id);
+                var level = tile.Find("Level").GetComponent<Text>();
+                Assert.AreEqual(card.MaxTier.ToString(), level.text);
+                Assert.That(level.preferredHeight, Is.LessThanOrEqualTo(level.rectTransform.rect.height), card.Id);
+                Assert.IsFalse(tile.Find("Icon").GetComponent<Image>().raycastTarget);
+            }
             foreach (Vector2Int size in new[] { new Vector2Int(1280, 720), new Vector2Int(1920, 1080) })
             {
                 Camera camera = game.GameplayCamera;

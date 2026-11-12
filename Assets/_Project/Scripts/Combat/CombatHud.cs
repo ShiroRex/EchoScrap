@@ -1,4 +1,3 @@
-using System.Text;
 using EchoScrap.Core;
 using EchoScrap.Player;
 using UnityEngine;
@@ -29,6 +28,9 @@ namespace EchoScrap.Combat
         private const float DefeatPulseDuration = 2f * DefeatPulsePeriod;
         private const float ObjectiveHintSeconds = 5f;
         private const float DashReadySeconds = 2f;
+        private const int AcquiredCardColumns = 7;
+        private const float AcquiredCardStep = 46f;
+        private static readonly Vector2 AcquiredCardsPosition = new Vector2(-206f, 182f);
         private CombatGameBootstrap game;
         private CombatSession subscribedSession;
         private PlayerRuntimeStats subscribedStats;
@@ -67,7 +69,9 @@ namespace EchoScrap.Combat
         private Text experienceText;
         private Text killsText;
         private Text dashText;
-        private Text cardsText;
+        private RectTransform acquiredCards;
+        private Text emptyCardsLabel;
+        private readonly Text[] acquiredCardLevels = new Text[UpgradeCatalog.Cards.Count];
         private Text bossHealthText;
         private Text phaseText;
         private Text resultTitle;
@@ -77,7 +81,6 @@ namespace EchoScrap.Combat
         private PlayerStatsReadout statsReadout;
         private StatsDisplayMode statsMode;
         private Button resultRestartButton;
-        private readonly StringBuilder cardsBuilder = new StringBuilder(512);
         private int kills;
         private int previousSecond = -1;
         private int previousHealth = -1;
@@ -119,7 +122,6 @@ namespace EchoScrap.Combat
         public string DisplayedHealth => healthText != null ? healthText.text : string.Empty;
         public string DisplayedSummary => resultSummary != null
             ? resultDescription.text + "\n\n" + resultSummary.text : string.Empty;
-        public string DisplayedCards => cardsText != null ? cardsText.text : string.Empty;
         public string DisplayedBossName => bossHealthText != null ? bossHealthText.text : string.Empty;
         public bool ShowStats => statsMode != StatsDisplayMode.None;
         public bool IsHudDetailHeld => Keyboard.current?.qKey.isPressed == true || Gamepad.current?.selectButton.isPressed == true;
@@ -288,6 +290,9 @@ namespace EchoScrap.Combat
             dashText.gameObject.SetActive(!hubMode && (dashReady || dashDenied));
             dashFill.fillAmount = game.Motor.IsDashing ? 0f : Mathf.Clamp01(1f - game.Motor.DashCooldownRemaining / Mathf.Max(0.05f, game.Motor.ActiveDashCooldownDuration));
             if (cardsDirty) RefreshCards();
+            // On narrow screens the centered XP bar reaches into the upgrades column.
+            var cardsPosition = AcquiredCardsPosition + (canvasRect.rect.width < 1530f ? Vector2.up * 64f : Vector2.zero);
+            if (acquiredCards.anchoredPosition != cardsPosition) acquiredCards.anchoredPosition = cardsPosition;
             RefreshBoss();
             RefreshModal();
             RefreshStats();
@@ -317,29 +322,21 @@ namespace EchoScrap.Combat
         private void RefreshCards()
         {
             cardsDirty = false;
-            cardsBuilder.Clear();
             int count = 0;
-            foreach (UpgradeCardDefinition card in UpgradeCatalog.Cards)
+            for (int i = 0; i < acquiredCardLevels.Length; i++)
             {
-                int tier = game.Stats.GetUpgradeTier(card.Id);
+                Text level = acquiredCardLevels[i];
+                var tile = (RectTransform)level.transform.parent;
+                int tier = game.Stats.GetUpgradeTier(UpgradeCatalog.Cards[i].Id);
+                tile.gameObject.SetActive(tier > 0);
                 if (tier <= 0) continue;
-                if (count++ > 0) cardsBuilder.Append('\n');
-                cardsBuilder.Append(card.Name).Append("  ").Append(tier).Append('/').Append(card.MaxTier);
+                int column = count % AcquiredCardColumns;
+                int row = count / AcquiredCardColumns;
+                tile.anchoredPosition = new Vector2(144f - column * AcquiredCardStep, 103f - row * AcquiredCardStep);
+                level.text = tier.ToString();
+                count++;
             }
-            if (count > 8)
-            {
-                cardsBuilder.Clear();
-                for(int group=0;group<10;group++)
-                {
-                    int owned=0,levels=0;
-                    foreach(var card in UpgradeCatalog.Cards) if((int)card.Icon==group && game.Stats.GetUpgradeTier(card.Id)>0) {owned++;levels+=game.Stats.GetUpgradeTier(card.Id);}
-                    if(owned==0)continue;
-                    if(cardsBuilder.Length>0)cardsBuilder.Append('\n');
-                    cardsBuilder.Append(UpgradeCatalog.TypeName((UpgradeIcon)group)).Append("  ").Append(owned).Append(" mejoras · ").Append(levels).Append(" niveles");
-                }
-                cardsText.fontSize=18;
-            } else cardsText.fontSize=22;
-            cardsText.text = count == 0 ? "Sin mejoras" : cardsBuilder.ToString();
+            emptyCardsLabel.gameObject.SetActive(count == 0);
         }
 
         private void RefreshBoss()
@@ -603,10 +600,10 @@ namespace EchoScrap.Combat
             healthText.alignment=TextAnchor.MiddleRight;
             dashText.rectTransform.anchoredPosition=new Vector2(30,-38); dashText.fontSize=20;
             healthText.transform.SetAsLastSibling(); dashText.transform.SetAsLastSibling();
-            statsReadout = PlayerStatsReadout.Create(canvasRect, font, Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin"));
+            var cardSkin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            statsReadout = PlayerStatsReadout.Create(canvasRect, font, cardSkin);
             statsReadout.gameObject.SetActive(false);
-            AnchorLabel(canvasRect, "UpgradeHeading", new Vector2(1f, 0f), new Vector2(-275f, 326f), new Vector2(470f, 32f), "MEJORAS", 22, TextAnchor.MiddleRight, Apollo);
-            cardsText = AnchorLabel(canvasRect, "AcquiredCards", new Vector2(1f, 0f), new Vector2(-275f, 182f), new Vector2(470f, 250f), "Sin mejoras", 22, TextAnchor.UpperRight, new Color(0.73f, 0.78f, 0.77f));
+            BuildAcquiredCards(cardSkin);
 
             bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -180f), new Vector2(512f, 96f)).gameObject;
             bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 42f), new Vector2(360f, 36f), "GÓLGORA", 20, TextAnchor.MiddleCenter, Apollo);
@@ -627,6 +624,33 @@ namespace EchoScrap.Combat
             Image direction = ImageRect(directionalRoot, "DirectionMark", new Vector2(0f, 116f), new Vector2(48f, 5f), Color.clear);
             hurt.AssignUiReferences(healthFill, recentHealthFill, border, directionalRoot, direction, heal);
             BuildModal();
+        }
+
+        private void BuildAcquiredCards(UpgradeCardSkin skin)
+        {
+            var anchor = new Vector2(1f, 0f);
+            acquiredCards = Rect(canvasRect, "AcquiredCards", anchor, AcquiredCardsPosition, new Vector2(332f, 250f));
+            Label(acquiredCards, "UpgradeHeading", new Vector2(0f, 144f), new Vector2(332f, 32f),
+                "MEJORAS", 22, TextAnchor.MiddleRight, Apollo);
+            emptyCardsLabel = Label(acquiredCards, "Empty", new Vector2(0f, 110f), new Vector2(332f, 30f),
+                "Sin mejoras", 22, TextAnchor.MiddleRight, new Color(.73f, .78f, .77f));
+            var frame = PixelControlArtwork.Load("Pause/Inset");
+            for (int i = 0; i < acquiredCardLevels.Length; i++)
+            {
+                var card = UpgradeCatalog.Cards[i];
+                var tile = ImageRect(acquiredCards, card.Id, Vector2.zero, Vector2.one * 42f, Color.white);
+                tile.sprite = frame;
+                tile.type = Image.Type.Sliced;
+                tile.pixelsPerUnitMultiplier = 1f;
+                var icon = ImageRect(tile.transform, "Icon", new Vector2(-3f, 3f), Vector2.one * 29f, UpgradeCatalog.RarityColor(card.Rarity));
+                icon.sprite = skin.icons[(int)card.Icon];
+                icon.preserveAspect = true;
+                var badgePosition = new Vector2(11f, -10f);
+                ImageRect(tile.transform, "LevelBadge", badgePosition, Vector2.one * 16f, Ink);
+                acquiredCardLevels[i] = Label(tile.transform, "Level", badgePosition, new Vector2(16f, 24f), "",
+                    15, TextAnchor.MiddleCenter, Pale);
+                tile.gameObject.SetActive(false);
+            }
         }
 
         private void BuildModal()
