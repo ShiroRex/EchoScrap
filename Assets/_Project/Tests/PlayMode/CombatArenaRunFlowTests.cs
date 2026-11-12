@@ -422,6 +422,57 @@ namespace EchoScrap.Tests
             game.Session.SetManualPause(false);
         }
         [UnityTest]
+        public IEnumerator AcquiredCardHoverShowsCurrentDetailsAndDismissesOnExitAndPause()
+        {
+            game.Stats.SetUpgradeTier("FLASH_01", 1);
+            game.Hud.RefreshNow();
+            yield return null;
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+
+            var cards = game.Hud.CanvasRoot.transform.Find("AcquiredCards");
+            var tile = cards.Find("FLASH_01").gameObject;
+            var tooltip = cards.Find("UpgradeTooltip");
+            var pointer = new PointerEventData(EventSystem.current)
+            {
+                position = RectTransformUtility.WorldToScreenPoint(null, tile.transform.position)
+            };
+            var hits = new System.Collections.Generic.List<RaycastResult>();
+            EventSystem.current.RaycastAll(pointer, hits);
+            Assert.That(hits.Exists(hit => hit.gameObject == tile), Is.True,
+                $"The icon receives a UI raycast at {pointer.position} within {Screen.width}×{Screen.height}.");
+            Assert.That(tooltip.gameObject.activeSelf, Is.False);
+
+            ExecuteEvents.Execute(tile, pointer, ExecuteEvents.pointerEnterHandler);
+            Assert.That(tooltip.gameObject.activeInHierarchy, Is.True);
+            Assert.That(tooltip.Find("Name").GetComponent<Text>().text, Is.EqualTo("Más alcance"));
+            Assert.That(tooltip.Find("Description").GetComponent<Text>().text, Is.EqualTo("Tu luz llega más lejos"));
+            var metadata = tooltip.Find("Metadata").GetComponent<Text>();
+            var detail = tooltip.Find("Detail").GetComponent<Text>();
+            StringAssert.Contains("NIVEL 1/5", metadata.text);
+            StringAssert.Contains("8 m", detail.text);
+            foreach (Graphic graphic in tooltip.GetComponentsInChildren<Graphic>())
+                Assert.IsFalse(graphic.raycastTarget, graphic.name);
+
+            game.Stats.SetUpgradeTier("FLASH_01", 2);
+            game.Hud.RefreshNow();
+            StringAssert.Contains("NIVEL 2/5", metadata.text);
+            StringAssert.Contains("9 m", detail.text);
+            ExecuteEvents.Execute(tile, pointer, ExecuteEvents.pointerExitHandler);
+            Assert.That(tooltip.gameObject.activeSelf, Is.False);
+
+            ExecuteEvents.Execute(tile, pointer, ExecuteEvents.pointerEnterHandler);
+            game.Session.SetManualPause(true);
+            yield return null;
+            yield return null;
+            Assert.That(tooltip.gameObject.activeSelf, Is.False);
+            game.Hud.ResumeGame();
+            ExecuteEvents.Execute(tile, pointer, ExecuteEvents.pointerEnterHandler);
+            game.ResetRun(false);
+            Assert.That(tooltip.gameObject.activeSelf, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator HudPreview_CapturesReadable720pAnd1080p_WithAllAcquiredCards()
         {
             foreach (UpgradeCardDefinition card in UpgradeCatalog.Cards)

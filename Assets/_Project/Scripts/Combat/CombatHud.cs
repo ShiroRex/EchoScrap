@@ -30,6 +30,7 @@ namespace EchoScrap.Combat
         private const float DashReadySeconds = 2f;
         private const int AcquiredCardColumns = 7;
         private const float AcquiredCardStep = 46f;
+        private const float AcquiredCardRightColumn = 144f;
         private static readonly Vector2 AcquiredCardsPosition = new Vector2(-206f, 182f);
         private CombatGameBootstrap game;
         private CombatSession subscribedSession;
@@ -71,7 +72,12 @@ namespace EchoScrap.Combat
         private Text dashText;
         private RectTransform acquiredCards;
         private Text emptyCardsLabel;
+        private int visibleAcquiredCards;
         private readonly Text[] acquiredCardLevels = new Text[UpgradeCatalog.Cards.Count];
+        private RectTransform cardTooltip, hoveredCardTile;
+        private UpgradeCardDefinition hoveredCard;
+        private Image cardTooltipFrame, cardTooltipIcon;
+        private Text cardTooltipName, cardTooltipMetadata, cardTooltipDescription, cardTooltipDetail;
         private Text bossHealthText;
         private Text phaseText;
         private Text resultTitle;
@@ -105,6 +111,7 @@ namespace EchoScrap.Combat
         public void SetHubMode(bool active)
         {
             hubMode = active;
+            if (active) HideCardTooltip();
             foreach (Transform child in canvasRect)
                 if (child.gameObject != modal) child.gameObject.SetActive(!active);
             if (!active) { bossPanel.SetActive(false); bossArrow.gameObject.SetActive(false); }
@@ -145,7 +152,11 @@ namespace EchoScrap.Combat
             if (game != null) Subscribe();
         }
 
-        private void OnDisable() => Unsubscribe();
+        private void OnDisable()
+        {
+            HideCardTooltip();
+            Unsubscribe();
+        }
         private void OnDestroy()
         {
             Unsubscribe();
@@ -194,7 +205,7 @@ namespace EchoScrap.Combat
         {
             if (!death.IsPlayer) { kills++; RefreshKills(); }
         }
-        private void HandleReset() { kills = 0; ResetReadouts(); RefreshNow(); }
+        private void HandleReset() { kills = 0; HideCardTooltip(); ResetReadouts(); RefreshNow(); }
 
         private void HandleDashRequested()
         {
@@ -242,6 +253,11 @@ namespace EchoScrap.Combat
         private void LateUpdate()
         {
             if (game != null) UpdateBossArrow();
+            if (hoveredCardTile != null)
+            {
+                if (CanShowCardTooltip()) PositionCardTooltip();
+                else HideCardTooltip();
+            }
             if (IsStatsVisible) statsReadout.FitToCanvas();
             if (IsPauseVisible) FitPauseToCanvas();
             else if (IsResultVisible)
@@ -332,11 +348,89 @@ namespace EchoScrap.Combat
                 if (tier <= 0) continue;
                 int column = count % AcquiredCardColumns;
                 int row = count / AcquiredCardColumns;
-                tile.anchoredPosition = new Vector2(144f - column * AcquiredCardStep, 103f - row * AcquiredCardStep);
+                tile.anchoredPosition = new Vector2(AcquiredCardRightColumn - column * AcquiredCardStep, 103f - row * AcquiredCardStep);
                 level.text = tier.ToString();
                 count++;
             }
+            visibleAcquiredCards = count;
             emptyCardsLabel.gameObject.SetActive(count == 0);
+            if (hoveredCardTile != null)
+            {
+                if (CanShowCardTooltip()) RefreshCardTooltip();
+                else HideCardTooltip();
+            }
+        }
+
+        private bool CanShowCardTooltip() =>
+            isActiveAndEnabled && !hubMode && hoveredCardTile.gameObject.activeInHierarchy &&
+            !game.Session.IsPaused && !game.Draft.IsOpen && game.Player.IsAlive;
+
+        private void ShowCardTooltip(RectTransform tile, UpgradeCardDefinition card, UpgradeCardSkin skin)
+        {
+            hoveredCardTile = tile;
+            if (!CanShowCardTooltip())
+            {
+                HideCardTooltip();
+                return;
+            }
+
+            hoveredCard = card;
+            Color rarityColor = UpgradeCatalog.RarityColor(card.Rarity);
+            cardTooltipFrame.sprite = skin.frames[(int)card.Rarity];
+            cardTooltipFrame.color = rarityColor;
+            cardTooltipIcon.sprite = skin.icons[(int)card.Icon];
+            cardTooltipIcon.color = rarityColor;
+            cardTooltipMetadata.color = rarityColor;
+            cardTooltipName.text = card.Name;
+            cardTooltip.gameObject.SetActive(true);
+            RefreshCardTooltip();
+        }
+
+        private void RefreshCardTooltip()
+        {
+            int tier = game.Stats.GetUpgradeTier(hoveredCard.Id);
+            cardTooltipMetadata.text = $"{UpgradeCatalog.RarityName(hoveredCard.Rarity)} · NIVEL {tier}/{hoveredCard.MaxTier}";
+            cardTooltipDescription.text = hoveredCard.Description;
+            string effect = $"{UpgradeCatalog.PrimaryLabel(hoveredCard.Id)} · {UpgradeCatalog.PrimaryValue(hoveredCard.Id, game.Stats, tier)}";
+            string detail = UpgradeCatalog.QuickDetail(hoveredCard.Id, game.Stats, tier, tier);
+            cardTooltipDetail.text = string.IsNullOrEmpty(detail) ? effect : effect + "\n" + detail.Replace('\n', ' ');
+
+            var descriptionRect = cardTooltipDescription.rectTransform;
+            float descriptionHeight = Mathf.Ceil(cardTooltipDescription.preferredHeight) + 4f;
+            descriptionRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, descriptionHeight);
+            var detailRect = cardTooltipDetail.rectTransform;
+            float detailTop = descriptionRect.anchoredPosition.y - descriptionHeight - 10f;
+            float detailHeight = Mathf.Ceil(cardTooltipDetail.preferredHeight) + 4f;
+            detailRect.anchoredPosition = new Vector2(0f, detailTop);
+            detailRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, detailHeight);
+            cardTooltip.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, -detailTop + detailHeight + 20f);
+            PositionCardTooltip();
+        }
+
+        private void PositionCardTooltip()
+        {
+            const float margin = 12f;
+            Rect bounds = canvasRect.rect;
+            Vector2 tileCenter = canvasRect.InverseTransformPoint(hoveredCardTile.position);
+            Vector2 size = cardTooltip.rect.size;
+            float scale = Mathf.Min(1f, Mathf.Min((bounds.width - 2f * margin) / size.x, (bounds.height - 2f * margin) / size.y));
+            cardTooltip.localScale = Vector3.one * Mathf.Max(.01f, scale);
+            Vector2 halfSize = size * (.5f * cardTooltip.localScale.x);
+            float offset = hoveredCardTile.rect.width * .5f + margin + halfSize.x;
+            float gridCenter = canvasRect.InverseTransformPoint(acquiredCards.position).x;
+            int columns = Mathf.Min(visibleAcquiredCards, AcquiredCardColumns);
+            float firstColumn = gridCenter + AcquiredCardRightColumn - (columns - 1) * AcquiredCardStep;
+            float x = firstColumn - offset;
+            if (x - halfSize.x < bounds.xMin + margin) x = tileCenter.x + offset;
+            x = Mathf.Clamp(x, bounds.xMin + margin + halfSize.x, bounds.xMax - margin - halfSize.x);
+            float y = Mathf.Clamp(tileCenter.y, bounds.yMin + margin + halfSize.y, bounds.yMax - margin - halfSize.y);
+            cardTooltip.position = canvasRect.TransformPoint(new Vector3(x, y, 0f));
+        }
+
+        private void HideCardTooltip()
+        {
+            hoveredCardTile = null;
+            if (cardTooltip != null) cardTooltip.gameObject.SetActive(false);
         }
 
         private void RefreshBoss()
@@ -642,6 +736,17 @@ namespace EchoScrap.Combat
                 tile.sprite = frame;
                 tile.type = Image.Type.Sliced;
                 tile.pixelsPerUnitMultiplier = 1f;
+                tile.raycastTarget = true;
+                var trigger = tile.gameObject.AddComponent<EventTrigger>();
+                var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+                enter.callback.AddListener(_ => ShowCardTooltip(tile.rectTransform, card, skin));
+                trigger.triggers.Add(enter);
+                var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+                exit.callback.AddListener(_ =>
+                {
+                    if (hoveredCardTile == tile.rectTransform) HideCardTooltip();
+                });
+                trigger.triggers.Add(exit);
                 var icon = ImageRect(tile.transform, "Icon", new Vector2(-3f, 3f), Vector2.one * 29f, UpgradeCatalog.RarityColor(card.Rarity));
                 icon.sprite = skin.icons[(int)card.Icon];
                 icon.preserveAspect = true;
@@ -651,6 +756,36 @@ namespace EchoScrap.Combat
                     15, TextAnchor.MiddleCenter, Pale);
                 tile.gameObject.SetActive(false);
             }
+            BuildCardTooltip(skin);
+        }
+
+        private void BuildCardTooltip(UpgradeCardSkin skin)
+        {
+            var top = new Vector2(.5f, 1f);
+            cardTooltip = Rect(acquiredCards, "UpgradeTooltip", Vector2.one * .5f, Vector2.zero, new Vector2(348f, 232f));
+            FullScreenImage(cardTooltip, "Background", new Color(.035f, .04f, .06f, .98f));
+            cardTooltipFrame = FullScreenImage(cardTooltip, "Frame", Color.white);
+            cardTooltipFrame.type = Image.Type.Sliced;
+            cardTooltipFrame.fillCenter = false;
+            cardTooltipFrame.pixelsPerUnitMultiplier = .5f;
+            cardTooltipIcon = ImageRect(cardTooltip, "Icon", new Vector2(-121f, -55f), Vector2.one * 48f, Color.white);
+            cardTooltipIcon.rectTransform.anchorMin = cardTooltipIcon.rectTransform.anchorMax = top;
+            cardTooltipIcon.preserveAspect = true;
+            cardTooltipMetadata = AnchorLabel(cardTooltip, "Metadata", top, new Vector2(34f, -35f), new Vector2(228f, 25f),
+                "", 16, TextAnchor.MiddleLeft, Pale);
+            cardTooltipName = AnchorLabel(cardTooltip, "Name", top, new Vector2(34f, -64f), new Vector2(228f, 42f),
+                "", 25, TextAnchor.MiddleLeft, Pale);
+            cardTooltipName.font = skin.semibold != null ? skin.semibold : font;
+            cardTooltipName.resizeTextForBestFit = true;
+            cardTooltipName.resizeTextMinSize = 19;
+            cardTooltipName.resizeTextMaxSize = 25;
+            cardTooltipDescription = AnchorLabel(cardTooltip, "Description", top, new Vector2(0f, -94f), new Vector2(292f, 36f),
+                "", 21, TextAnchor.UpperLeft, new Color(.91f, .84f, .69f));
+            cardTooltipDescription.rectTransform.pivot = top;
+            cardTooltipDetail = AnchorLabel(cardTooltip, "Detail", top, Vector2.zero, new Vector2(292f, 72f),
+                "", 18, TextAnchor.UpperLeft, new Color(.73f, .78f, .78f));
+            cardTooltipDetail.rectTransform.pivot = top;
+            cardTooltip.gameObject.SetActive(false);
         }
 
         private void BuildModal()
