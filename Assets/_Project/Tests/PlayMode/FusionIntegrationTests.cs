@@ -401,10 +401,11 @@ namespace EchoScrap.Tests
             var grid=station.GetComponentInChildren<CollectibleUnitGrid>();var card=grid.transform.Find("Unidad_0");Assert.AreEqual(0,card.GetComponent<UnityEngine.UI.Image>().color.a);Assert.AreEqual(0,card.GetComponent<RectTransform>().anchoredPosition.x);Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,card.Find("Detalle").GetComponent<UnityEngine.UI.Text>().font);yield return Capture("InventarioUnaUnidad",true);
             station.Progress.owned[10]=10;grid.Refresh(true);Assert.AreEqual(10,grid.VisibleUnits);yield return Capture("InventarioDiezUnidades",true);
         }
-        [UnityTest] public IEnumerator VaultMachineAgainstWallIndexByRarityAndWorldPropsGrounded()
+        [UnityTest] public IEnumerator VaultMachineInCentralAisleAndIndexByRarity()
         {
-            Assert.That(station.transform.position.x,Is.EqualTo(189.0f).Within(0.05f));
-            Assert.That(station.transform.position.z,Is.EqualTo(28.88f).Within(0.05f));
+            var floor = station.transform.parent.Find("SueloContinuo");
+            Assert.That(station.transform.position.x, Is.EqualTo(floor.position.x).Within(.05f));
+            Assert.That(station.transform.position.z, Is.EqualTo(floor.position.z + 6f).Within(.05f));
             Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
             station.ResetCollection();
             station.Progress.TryCollect(0);

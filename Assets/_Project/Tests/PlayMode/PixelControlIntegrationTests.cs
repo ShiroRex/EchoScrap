@@ -309,7 +309,7 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator VaultArrowsLeadThroughTheStairsAndHideOutsideExploration()
+        public IEnumerator VaultArrowsShowGddSubtitlesAndLeadThroughTheRamp()
         {
             var flow = game.gameObject.AddComponent<GameFlowController>();
             flow.Initialize(game, false);
@@ -323,6 +323,12 @@ namespace EchoScrap.Tests
             Assert.That(((RectTransform)fusion.parent).anchoredPosition.x, Is.GreaterThan(0f));
             Assert.IsTrue(fusion.gameObject.activeInHierarchy && equipment.gameObject.activeInHierarchy);
             Assert.IsFalse(fusion.GetComponent<Image>().raycastTarget || equipment.GetComponent<Image>().raycastTarget);
+            var fusionSubtitle = fusion.parent.Find("Subtitle").GetComponent<Text>();
+            var equipmentSubtitle = equipment.parent.Find("Subtitle").GetComponent<Text>();
+            Assert.That(fusionSubtitle.text, Is.EqualTo("Combina 4 copias de la misma rareza"));
+            Assert.That(equipmentSubtitle.text, Is.EqualTo("Puestos de equipo 1, 2 y 3"));
+            Assert.That(fusionSubtitle.preferredWidth, Is.LessThanOrEqualTo(fusionSubtitle.rectTransform.rect.width));
+            Assert.That(equipmentSubtitle.preferredWidth, Is.LessThanOrEqualTo(equipmentSubtitle.rectTransform.rect.width));
             yield return Capture("Boveda_Flechas_720", 1280, 720);
 
             var station = Object.FindAnyObjectByType<FusionStation>();
@@ -345,7 +351,7 @@ namespace EchoScrap.Tests
                 Assert.That(Vector3.Dot(expected, arrow.localRotation * Vector3.up), Is.GreaterThan(.98f), arrow.parent.name);
             }
 
-            Place(new Vector3(180, 1, 8));
+            Place(new Vector3(172, 1, 8));
             yield return null;
             AssertBearing(equipment, new Vector3(160, 0, -.5f));
             AssertBearing(fusion, station.InteractionPoint.position);
