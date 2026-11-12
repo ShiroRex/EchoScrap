@@ -17,7 +17,12 @@ namespace EchoScrap.Combat
             bool lowRam = ram > 0 && ram <= (mobile ? 6144 : 4608);
             bool smallGpu = vram > 0 && vram <= 2048;
             bool forced = Array.IndexOf(Environment.GetCommandLineArgs(), "-lowMemory") >= 0;
-            if (!lowRam && !smallGpu && !forced) return;
+            bool lowMemory = lowRam || smallGpu || forced;
+            // A slow frame must not schedule sixteen physics updates before the next image.
+            // Keep the normal 50 Hz simulation; limit catch-up after a stall.
+            int catchUpSteps = lowMemory ? 2 : 4;
+            Time.maximumDeltaTime = Mathf.Min(Time.maximumDeltaTime, Time.fixedDeltaTime * catchUpSteps);
+            if (!lowMemory) return;
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             if (pipeline == null) return;
