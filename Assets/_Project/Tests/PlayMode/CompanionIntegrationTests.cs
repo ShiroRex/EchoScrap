@@ -175,6 +175,49 @@ namespace EchoScrap.Tests
             Assert.IsFalse(marker.gameObject.activeSelf);
             Assert.IsFalse(system.TryCollectNearest());
         }
+        [UnityTest] public IEnumerator EpicAndLegendarySparksMatchRarityAndFollowPickupLifetime()
+        {
+            Assert.IsTrue(system.TrySpawn(5));
+            Assert.IsTrue(system.TrySpawn(6));
+            Assert.IsTrue(system.TrySpawn(7));
+            Assert.IsNull(GameObject.Find("ColeccionableArena_Basket").GetComponentInChildren<ParticleSystem>());
+            var epic = GameObject.Find("ColeccionableArena_Hada").GetComponentInChildren<ParticleSystem>();
+            var legendary = GameObject.Find("ColeccionableArena_Lisa").GetComponentInChildren<ParticleSystem>();
+            Assert.AreEqual(FusionCatalog.ColorOf(6), epic.main.startColor.colorMin);
+            Assert.AreEqual(FusionCatalog.ColorOf(7), legendary.main.startColor.colorMin);
+            Assert.AreSame(epic.GetComponent<ParticleSystemRenderer>().sharedMaterial,
+                legendary.GetComponent<ParticleSystemRenderer>().sharedMaterial);
+            Assert.Greater(legendary.emission.rateOverTime.constant, epic.emission.rateOverTime.constant);
+            Assert.Greater(legendary.main.startSize.constantMax, epic.main.startSize.constantMax);
+            system.Advance(.35f);
+            Assert.Greater(epic.particleCount, 0);
+            Assert.Greater(legendary.particleCount, epic.particleCount);
+
+            float sparkTime = epic.time;
+            game.Session.SetManualPause(true);
+            system.Advance(.5f);
+            yield return null;
+            Assert.AreEqual(sparkTime, epic.time);
+            game.Session.Effects.ReducedEffectsMode = true;
+            Assert.IsFalse(epic.emission.enabled);
+            Assert.AreEqual(0, epic.particleCount);
+            Assert.AreEqual(0, legendary.particleCount);
+            game.Session.Effects.ReducedEffectsMode = false;
+            game.Session.SetManualPause(false);
+            system.Advance(.5f);
+            Assert.Greater(legendary.particleCount, 0);
+
+            Vector3 playerPosition = epic.transform.parent.position + Vector3.up;
+            game.Player.transform.position = playerPosition;
+            game.Player.GetComponent<Rigidbody>().position = playerPosition;
+            Physics.SyncTransforms();
+            Assert.IsTrue(system.TryCollectNearest());
+            Assert.IsFalse(epic.gameObject.activeInHierarchy);
+            system.Advance(CompanionSystem.PickupLifetime);
+            yield return null;
+            Assert.IsTrue(legendary == null);
+        }
+
         [UnityTest] public IEnumerator TenCapsulesAndOwnedOnlyEquipmentAtIndividualStation()
         {
             Assert.AreEqual(10,station.DisplaySlots.Length);station.ResetCollection();station.CollectFromArena(0);station.CollectFromArena(6);

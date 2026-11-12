@@ -3,6 +3,7 @@ using System.Linq;
 using EchoScrap.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 
 namespace EchoScrap.Combat
 {
@@ -17,6 +18,7 @@ namespace EchoScrap.Combat
         {
             public int Id;
             public CollectibleDisplay Display;
+            public ParticleSystem Sparks;
             public Vector3 Ground;
             public float Life = PickupLifetime;
         }
@@ -25,6 +27,7 @@ namespace EchoScrap.Combat
         private CombatGameBootstrap game;
         private CompanionView view;
         private CollectiblePickupFeedback pickupFeedback;
+        private Material pickupSparkMaterial;
         private float elapsed;
         public bool AutoTick = true;
         public int ActivePickups => pickups.Count;
@@ -51,7 +54,9 @@ namespace EchoScrap.Combat
             Abilities=game.Player.gameObject.AddComponent<CompanionPowerRuntime>();Abilities.Initialize(game);
             view=gameObject.AddComponent<CompanionView>();view.Build(this,station,game);
             pickupFeedback=GetComponentInChildren<CollectiblePickupFeedback>();
-            game.Session.SessionReset+=ResetRun;RefreshEquipment();
+            game.Session.SessionReset+=ResetRun;
+            game.Session.Effects.OnPreferencesChanged += RefreshPickupSparks;
+            RefreshEquipment();
         }
         private void Update()
         {
@@ -90,11 +95,13 @@ namespace EchoScrap.Combat
         public void Advance(float seconds)
         {
             if(seconds<=0 || float.IsNaN(seconds) || float.IsInfinity(seconds) || game.Session.IsPaused || game.Session.IsInWarehouse || game.Session.State!=SessionState.Running || !game.Player.IsAlive)return;
+            bool animateSparks = game.Session.Effects.DecorativeIntensity > 0f;
             for(int i=pickups.Count-1;i>=0;i--){
                 var p=pickups[i];p.Life-=seconds;
                 if(p.Life<=0){RemovePickup(i);continue;}
                 p.Display.transform.position=p.Ground+Vector3.up*(.18f+Mathf.Sin((PickupLifetime-p.Life)*3f)*.15f);
                 p.Display.SetPickupTimeRemaining(p.Life);
+                if (animateSparks && p.Sparks != null) p.Sparks.Simulate(seconds, false, false, false);
             }
             elapsed+=seconds;
             while(elapsed>=SpawnInterval){elapsed-=SpawnInterval;int count=Random.Range(1,4);
@@ -128,12 +135,86 @@ namespace EchoScrap.Combat
                 glow.Priority = 2f + rarity * .5f;
                 glow.Bind(game.Session);
 
-                pickups.Add(new Pickup { Id = id, Display = display, Ground = o.transform.position });
+                var pickup = new Pickup { Id = id, Display = display, Ground = o.transform.position };
+                if (rarity == (int)CollectibleRarity.Epic || rarity == (int)CollectibleRarity.Legendary)
+                    pickup.Sparks = CreatePickupSparks(o.transform, id, rarity == (int)CollectibleRarity.Legendary);
+                pickups.Add(pickup);
                 view.AnnounceSpawn();
                 return true;
             }
             return false;
         }
+        private ParticleSystem CreatePickupSparks(Transform parent, int id, bool legendary)
+        {
+            if (pickupSparkMaterial == null)
+            {
+                pickupSparkMaterial = new Material(Resources.Load<Material>("Upgrades/Vfx/Materials/MetalSparkGlow"));
+                pickupSparkMaterial.SetFloat("_VisualKind", 7f);
+                pickupSparkMaterial.SetFloat("_Glow", 1.45f);
+            }
+
+            var emitter = new GameObject("ChispasRareza");
+            emitter.transform.SetParent(parent, false);
+            emitter.transform.localPosition = Vector3.up * .2f;
+            emitter.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            var sparks = emitter.AddComponent<ParticleSystem>();
+            sparks.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+            sparks.useAutoRandomSeed = false;
+            sparks.randomSeed = (uint)(8301 + id);
+
+            var main = sparks.main;
+            main.playOnAwake = false;
+            main.loop = true;
+            main.simulationSpace = ParticleSystemSimulationSpace.Local;
+            main.maxParticles = legendary ? 44 : 24;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(.85f, 1.45f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(.75f, 1.45f);
+            main.startSize = legendary ? new ParticleSystem.MinMaxCurve(.25f, .42f) : new ParticleSystem.MinMaxCurve(.18f, .32f);
+            Color rarityColor = FusionCatalog.ColorOf(id);
+            main.startColor = new ParticleSystem.MinMaxGradient(rarityColor, Color.Lerp(rarityColor, Color.white, .45f));
+
+            var shape = sparks.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = 11f;
+            shape.radius = legendary ? 1.42f : 1.18f;
+            shape.radiusThickness = .22f;
+
+            var velocity = sparks.velocityOverLifetime;
+            velocity.enabled = true;
+            velocity.orbitalZ = legendary ? 2.4f : 1.35f;
+            var color = sparks.colorOverLifetime;
+            color.enabled = true;
+            var fade = new Gradient();
+            fade.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, .18f), new GradientAlphaKey(0f, 1f) });
+            color.color = fade;
+
+            var renderer = sparks.GetComponent<ParticleSystemRenderer>();
+            renderer.sharedMaterial = pickupSparkMaterial;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            float density = game.Session.Effects.DecorativeIntensity;
+            SetSparkDensity(sparks, legendary, density);
+            if (density > 0f) sparks.Simulate(.65f, false, true, false);
+            return sparks;
+        }
+
+        private void RefreshPickupSparks()
+        {
+            float density = game.Session.Effects.DecorativeIntensity;
+            foreach (var pickup in pickups)
+                if (pickup.Sparks != null)
+                    SetSparkDensity(pickup.Sparks, FusionCatalog.Rarities[pickup.Id] == CollectibleRarity.Legendary, density);
+        }
+
+        private static void SetSparkDensity(ParticleSystem sparks, bool legendary, float density)
+        {
+            var emission = sparks.emission;
+            emission.enabled = density > 0f;
+            emission.rateOverTime = (legendary ? 20f : 10f) * density;
+            if (density <= 0f) sparks.Clear(false);
+        }
+
         private int NearestPickup()
         {
             if(game==null || game.Session.IsPaused || game.Session.IsInWarehouse || game.Session.State!=SessionState.Running || !game.Player.IsAlive)return -1;
@@ -170,6 +251,14 @@ namespace EchoScrap.Combat
         {
             for (int i = pickups.Count - 1; i >= 0; i--) RemovePickup(i);
         }
-        private void OnDestroy(){ClearPickups();if(game!=null){game.Session.SessionReset-=ResetRun;game.Session.Clock.SetPause(PauseReason.CompanionMenu,false);}}
+        private void OnDestroy()
+        {
+            ClearPickups();
+            if (pickupSparkMaterial != null) Destroy(pickupSparkMaterial);
+            if (game == null) return;
+            game.Session.SessionReset -= ResetRun;
+            game.Session.Effects.OnPreferencesChanged -= RefreshPickupSparks;
+            game.Session.Clock.SetPause(PauseReason.CompanionMenu, false);
+        }
     }
 }
