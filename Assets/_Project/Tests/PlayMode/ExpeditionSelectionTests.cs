@@ -93,6 +93,40 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0, game.Session.GameplayTime);
         }
 
+        [UnityTest] public IEnumerator WalkingIntoEitherSideOfTheVaultPortalOpensRoundSelection()
+        {
+            var keyboard = InputSystem.AddDevice<Keyboard>();
+            device = keyboard;
+            var body = game.Player.GetComponent<Rigidbody>();
+            var portal = GameObject.Find("BovedaModular").transform.Find("PortalVortex");
+            game.Motor.MovementReference = null;
+
+            // Let the vault arrival cooldown expire before walking into the portal.
+            yield return new WaitForSeconds(1.05f);
+            foreach (int side in new[] { -1, 1 })
+            {
+                body.position = ArenaSurface.OnGround(portal.position + Vector3.forward * (4.5f * side), 1f);
+                game.Motor.Stop();
+                Physics.SyncTransforms();
+                yield return new WaitForFixedUpdate();
+                Assert.IsFalse(flow.IsSelectingExpedition, "Standing clear of the portal must leave the menu closed.");
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(side < 0 ? Key.W : Key.S));
+                float deadline = Time.realtimeSinceStartup + 1.5f;
+                while (!flow.IsSelectingExpedition && Time.realtimeSinceStartup < deadline) yield return null;
+
+                Assert.IsTrue(flow.IsSelectingExpedition, side < 0 ? "Rear approach" : "Front approach");
+                Assert.IsTrue(flow.View.IsExpeditionSelectionVisible);
+                Assert.IsTrue(game.Session.IsInWarehouse);
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                flow.View.ExitExpeditionButton.onClick.Invoke();
+                yield return new WaitForFixedUpdate();
+                yield return null;
+                Assert.IsFalse(flow.IsSelectingExpedition, "Cancel must leave the menu closed while still touching the portal.");
+            }
+        }
+
         [UnityTest] public IEnumerator ExitKeepsCollectionFusionAndRunAndDoesNotReopenWhileTouchingPortal()
         {
             var travel = Object.FindAnyObjectByType<WarehouseTravel>();
