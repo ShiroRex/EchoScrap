@@ -765,9 +765,9 @@ namespace EchoScrap.Combat
             powerToggles[0] = CreatePowerToggle(powers, powerGroup, "Yes", -257, "SÍ", true);
             powerToggles[1] = CreatePowerToggle(powers, powerGroup, "No", -122, "NO", false);
 
-            resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(165, -208), "REANUDAR", pauseSkin != null ? pauseSkin.blueButton : null);
+            resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(165, -208), "REANUDAR", "Presentation/ButtonBlue");
             resumeButton.onClick.AddListener(ResumeGame);
-            pauseRestartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(-165, -208), "REINICIAR", pauseSkin != null ? pauseSkin.redButton : null);
+            pauseRestartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(-165, -208), "REINICIAR", "Presentation/ButtonRed");
             pauseRestartButton.onClick.AddListener(PauseSecondaryAction);
             resumeLabel = resumeButton.transform.Find("Label").GetComponent<Text>();
             pauseSecondaryLabel = pauseRestartButton.transform.Find("Label").GetComponent<Text>();
@@ -1003,19 +1003,19 @@ namespace EchoScrap.Combat
             button.onClick.AddListener(onClick);
             return button;
         }
-        private Button CreatePauseButton(Transform parent, string name, Vector2 position, string value, Sprite sprite)
+        private Button CreatePauseButton(Transform parent, string name, Vector2 position, string value, string artwork)
         {
             Button button = CreateButton(parent, name, position, value, Color.white);
-            button.image.rectTransform.sizeDelta = new Vector2(280f, 104f);
+            button.image.rectTransform.sizeDelta = new Vector2(248f, 64f);
             var label = button.transform.Find("Label").GetComponent<Text>();
-            label.rectTransform.sizeDelta = new Vector2(244f, 72f);
-            if (sprite == null || pauseSkin == null) return button;
+            label.rectTransform.sizeDelta = new Vector2(224f, 56f);
+            Sprite sprite = PixelControlArtwork.Load(artwork);
             button.image.sprite = sprite;
             button.image.type = Image.Type.Sliced;
             button.image.pixelsPerUnitMultiplier = 0.5f;
             button.transition = Selectable.Transition.SpriteSwap;
             SpriteState states = button.spriteState;
-            states.highlightedSprite = states.selectedSprite = pauseSkin.blueButton;
+            states.highlightedSprite = states.selectedSprite = PixelControlArtwork.Load("Presentation/ButtonBlue");
             states.pressedSprite = states.disabledSprite = sprite;
             button.spriteState = states;
             return button;
