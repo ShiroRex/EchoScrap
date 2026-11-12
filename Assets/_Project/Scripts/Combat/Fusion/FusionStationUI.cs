@@ -14,6 +14,7 @@ namespace EchoScrap.Combat
         public string HeaderTime=>headerTime.text;
         public Font HeaderFont=>headerTitle.font;
         private GameObject picker;private int selectedSlot=-1;private readonly Image[] slotArt=new Image[4],slotCross=new Image[4],possibleArt=new Image[FusionCatalog.Count];private readonly Text[] slotText=new Text[4],possibleText=new Text[FusionCatalog.Count];
+        private readonly Text[] equippedSlotLabels = new Text[4];
         public int SelectedCount=>ingredients.Count(id=>id>=0);
         public bool PickerIsOpen=>picker!=null&&picker.activeSelf;
         private GameObject modal,inventory,result;private Text odds,status,resultTitle,resultDescription;
@@ -56,8 +57,12 @@ namespace EchoScrap.Combat
                 card.name="Espacio_"+i;
                 var cardImage=card.GetComponent<Image>();cardImage.sprite=cuadroSprite;cardImage.type=Image.Type.Sliced;cardImage.pixelsPerUnitMultiplier=0.25f;cardImage.color=Color.white;
                 slotCross[i]=Portrait(card.transform,new Vector2(81.5f,67f),new Vector2(82f,96f));slotCross[i].name="Cruz";slotCross[i].sprite=cruzSprite;
-                slotArt[i]=Portrait(card.transform,new Vector2(65,14),new Vector2(115,140));
-                slotText[i]=Label(card.transform,"",new Vector2(8,150),new Vector2(229,70),25,TextAnchor.MiddleCenter);
+                slotArt[i] = Portrait(card.transform, new Vector2(65, 12), new Vector2(115, 120));
+                slotText[i] = Label(card.transform, "", new Vector2(8, 132), new Vector2(229, 52), 20, TextAnchor.MiddleCenter);
+                slotText[i].font = strongFont;
+                equippedSlotLabels[i] = Label(card.transform, "", new Vector2(8, 184), new Vector2(229, 24), 17, TextAnchor.MiddleCenter);
+                equippedSlotLabels[i].name = "PuestoEquipado";
+                equippedSlotLabels[i].font = strongFont;
             }
             Label(inventory.transform,"POSIBLES RESULTADOS",new Vector2(38,294),new Vector2(1048,38),26);
             var possible=Panel("PosiblesFusiones",inventory.transform,new Vector2(38,335),new Vector2(1034,168),new Color(.07f,.11f,.14f));Frame(possible.GetComponent<Image>(),false);
@@ -152,10 +157,12 @@ namespace EchoScrap.Combat
                 int id=ingredients[i];
                 slotArt[i].gameObject.SetActive(id>=0);slotArt[i].sprite=id>=0?CollectibleDisplay.CardPortrait(id):null;
                 if(slotCross[i]!=null)slotCross[i].gameObject.SetActive(id<0);
-                slotText[i].text=id>=0?FusionCatalog.Names[id]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]]
-                    +(equipmentSlots[i]>=0?$"\nEN EQUIPO {equipmentSlots[i]+1}":""):"";
-                Rect(slotText[i].rectTransform,id>=0?new Vector2(8,150):new Vector2(8,35),id>=0?new Vector2(229,70):new Vector2(229,160));
-                slotText[i].font=strongFont;slotText[i].fontSize=id>=0?20:64;slotText[i].color=id>=0?FusionCatalog.ColorOf(id):Pale;
+                slotText[i].text = id >= 0 ? FusionCatalog.Names[id] + "\n" + FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[id]] : "";
+                slotText[i].color = id >= 0 ? FusionCatalog.ColorOf(id) : Pale;
+                bool equipped = id >= 0 && equipmentSlots[i] >= 0;
+                var equippedLabel = equippedSlotLabels[i];
+                equippedLabel.gameObject.SetActive(equipped);
+                if (equipped) equippedLabel.text = $"EN EQUIPO {equipmentSlots[i] + 1}";
             }
             var chosen=ingredients.Where(id=>id>=0).ToArray();bool preview=FusionRecipe.TryPreview(chosen,out var recipe);
             bool valid=FusionRecipe.TryCreate(ingredients,out var final);if(valid)recipe=final;start.interactable=valid&&station.Progress.CanBegin(ingredients,equipmentSlots);

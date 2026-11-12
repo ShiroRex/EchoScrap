@@ -92,8 +92,25 @@ namespace EchoScrap.Combat
             bool opening = Progress.phase == FusionPhase.Opening && game.Session.Clock.HasPauseReason(PauseReason.FusionMenu);
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && (IsMenuOpen || opening)) CloseMenu();
             else if(keyboard!=null&&keyboard.eKey.wasPressedThisFrame){if(IsMenuOpen)CloseMenu();else TryOpenMenu();}
-            if(!game.Session.IsPaused && (game.Session.State==SessionState.Running||game.Session.IsInWarehouse)) Advance(Time.deltaTime);
-            if(Progress.phase==FusionPhase.Opening&&game.Session.Clock.HasPauseReason(PauseReason.FusionMenu)&&!game.Session.Clock.HasPauseReason(PauseReason.Manual)) Advance(Time.unscaledDeltaTime);
+            if (Progress.phase == FusionPhase.Fusing)
+            {
+                float seconds = Time.unscaledDeltaTime;
+                Advance(seconds);
+                saveClock += seconds;
+                if (Progress.phase == FusionPhase.Fusing && saveClock >= 5f)
+                {
+                    saveClock = 0f;
+                    Save();
+                }
+            }
+            else if (Progress.phase == FusionPhase.Opening)
+            {
+                if (!game.Session.IsPaused && (game.Session.State == SessionState.Running || game.Session.IsInWarehouse))
+                    Advance(Time.deltaTime);
+                else if (game.Session.Clock.HasPauseReason(PauseReason.FusionMenu) &&
+                         !game.Session.Clock.HasPauseReason(PauseReason.Manual))
+                    Advance(Time.unscaledDeltaTime);
+            }
             float target=Progress.phase==FusionPhase.Opening?Progress.opening:Progress.phase==FusionPhase.AwaitingDecision?1:0;
             float previousDoorAmount = doorAmount;
             doorAmount=Mathf.MoveTowards(doorAmount,target,Time.unscaledDeltaTime*1.8f);
@@ -105,11 +122,6 @@ namespace EchoScrap.Combat
                     slats[i].position = new Vector3(closed[i].x, Mathf.Min(y, doorTop), closed[i].z);
                     slatRenderers[i].enabled = y < doorTop;
                 }
-            }
-            if (Progress.phase == FusionPhase.Fusing && !game.Session.IsPaused)
-            {
-                saveClock += Time.deltaTime;
-                if (saveClock >= 5f) { saveClock = 0; Save(); }
             }
         }
         public bool TryOpenMenu()
@@ -124,6 +136,7 @@ namespace EchoScrap.Combat
         {
             if(!IsMenuOpen||!CanInteract)return false;
             if(!Progress.Begin(ingredients,UnityEngine.Random.Range(0,10000),UnityEngine.Random.Range(0,2),equipmentSlots))return false;
+            saveClock = 0f;
             resultAudioPlayed = false;
             var companions = GetComponent<CompanionSystem>();
             if (equipmentSlots != null && Array.Exists(equipmentSlots, slot => slot >= 0) && companions != null)

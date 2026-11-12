@@ -142,11 +142,30 @@ namespace EchoScrap.Tests
             game.Session.SetManualPause(false);display.Configure(0,station.DisplayHeight,true);yield return null;
             yield return Capture("RotulosCapsulas",false,true);
         }
-        [UnityTest] public IEnumerator PausingFreezesFusionAndClosingMenuKeepsOtherPauseReasons()
+        [UnityTest] public IEnumerator FusionFinishesDuringPauseAndClosingMenuKeepsOtherPauseReasons()
         {
-            station.Progress.Begin(new[]{0,0,0,0},9999,0);game.Session.SetManualPause(true);float remaining=station.Progress.remaining;
-            yield return new WaitForSecondsRealtime(.15f);Assert.AreEqual(remaining,station.Progress.remaining);game.Session.SetManualPause(false);
-            station.Advance(60);yield return Approach();Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);game.Session.SetManualPause(true);station.CloseMenu();Assert.IsTrue(game.Session.IsPaused);game.Session.SetManualPause(false);Assert.IsFalse(game.Session.IsPaused);
+            Assert.IsTrue(station.Progress.Begin(new[] { 0, 0, 0, 0 }, 9999, 0));
+            game.Session.SetManualPause(true);
+            float remaining = station.Progress.remaining;
+            yield return new WaitForSecondsRealtime(.2f);
+            Assert.That(station.Progress.remaining, Is.LessThan(remaining - .1f));
+            Assert.AreEqual(0f, Time.timeScale);
+
+            station.Progress.remaining = .1f;
+            yield return new WaitForSecondsRealtime(.3f);
+            Assert.AreEqual(FusionPhase.Ready, station.Progress.phase);
+            Assert.IsTrue(game.Session.IsPaused);
+            Assert.IsFalse(station.IsMenuOpen);
+
+            game.Session.SetManualPause(false);
+            yield return Approach();
+            Assert.IsTrue(station.TryOpenMenu());
+            station.Advance(1.3f);
+            game.Session.SetManualPause(true);
+            station.CloseMenu();
+            Assert.IsTrue(game.Session.IsPaused);
+            game.Session.SetManualPause(false);
+            Assert.IsFalse(game.Session.IsPaused);
         }
         [UnityTest] public IEnumerator HeaderUsesCardFontAndParticlesSurroundMachine()
         {
@@ -343,6 +362,14 @@ namespace EchoScrap.Tests
             Assert.AreEqual(4,ui.SelectedCount);
             Assert.IsFalse(station.StartFusion(new[]{0,0,1,1},new[]{0,0,-1,-1}));
             Assert.AreEqual(0,station.Progress.equipped[0]);Assert.AreEqual(2,station.Progress.owned[0]);
+            var slot = panel.Find("Ingredientes/Espacio_0");
+            var equippedLabel = slot.Find("PuestoEquipado").GetComponent<UnityEngine.UI.Text>();
+            Assert.IsTrue(equippedLabel.gameObject.activeInHierarchy);
+            Assert.AreEqual("EN EQUIPO 1", equippedLabel.text);
+            Assert.That(equippedLabel.preferredHeight, Is.LessThanOrEqualTo(equippedLabel.rectTransform.rect.height));
+            float labelBottom = -equippedLabel.rectTransform.anchoredPosition.y + equippedLabel.rectTransform.rect.height;
+            Assert.That(labelBottom, Is.LessThanOrEqualTo(((RectTransform)slot).rect.height - 20f));
+            Assert.IsFalse(panel.Find("Ingredientes/Espacio_1/PuestoEquipado").gameObject.activeSelf);
             yield return Capture("Fusion_Confirmar_Equipada",true);
             panel.Find("Ingredientes/Boton_CONFIRMAR").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             Assert.AreEqual(FusionPhase.Fusing,station.Progress.phase);
