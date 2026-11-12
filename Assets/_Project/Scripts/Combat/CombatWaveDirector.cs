@@ -458,6 +458,23 @@ namespace EchoScrap.Combat
             return true;
         }
 
+        // Positions cannot change during a synchronous formation search. Capture native
+        // transform/collider data once even if several candidate formations are rejected.
+        private readonly System.Collections.Generic.List<Vector4> occupiedBodies = new System.Collections.Generic.List<Vector4>(256);
+
+        private void CaptureOccupiedBodies()
+        {
+            occupiedBodies.Clear();
+            var active = EnemyActor.ActiveEnemies;
+            for (int i = 0; i < active.Count; i++)
+            {
+                var actor = active[i];
+                if (actor == null || !actor.IsAlive || !actor.gameObject.activeInHierarchy) continue;
+                Vector3 center = actor.transform.position;
+                occupiedBodies.Add(new Vector4(center.x, center.y, center.z, actor.HitRadius));
+            }
+        }
+
         private bool TryPlanGroup(int size, out DiscardReason failure)
         {
             failure = DiscardReason.InvalidCamera;
@@ -466,6 +483,7 @@ namespace EchoScrap.Combat
             if (arenaGround == null || !arenaGround.enabled || !arenaGround.gameObject.activeInHierarchy) return false;
             Vector3 origin = player.transform.position;
             origin.y = EnemySpawnGeometry.RootHeight;
+            CaptureOccupiedBodies();
             float maxRadius = 0f;
             for (int i = 0; i < size; i++) maxRadius = Mathf.Max(maxRadius, groupGeometry[i].Radius);
             float spacing = 2f * maxRadius + Mathf.Max(0f, Settings.SpawnClearance);
@@ -616,12 +634,10 @@ namespace EchoScrap.Combat
             failure = DiscardReason.Obstructed;
             float radius = geometry.Radius;
             float clearance = Mathf.Max(0f, Settings.SpawnClearance);
-            var active = EnemyActor.ActiveEnemies;
-            for (int i = 0; i < active.Count; i++)
+            for (int i = 0; i < occupiedBodies.Count; i++)
             {
-                EnemyActor actor = active[i];
-                if (actor == null || !actor.IsAlive || !actor.gameObject.activeInHierarchy) continue;
-                if (TooClose(position, actor.transform.position, radius + actor.HitRadius + clearance)) return false;
+                Vector4 occupied = occupiedBodies[i];
+                if (TooClose(position, occupied, radius + occupied.w + clearance)) return false;
             }
             for (int i = 0; i < reservationCount; i++)
                 if (TooClose(position, reservationPositions[i], radius + reservationRadii[i] + clearance)) return false;
