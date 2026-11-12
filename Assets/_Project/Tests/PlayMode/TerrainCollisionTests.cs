@@ -361,6 +361,23 @@ namespace EchoScrap.Tests
             foreach(var lava in Object.FindObjectsByType<LavaHazard>(FindObjectsSortMode.None))
                 Assert.IsFalse(lava.Contains(Vector3.zero,22f),"Existing lava must stay outside the caldera.");
         }
+        [Test] public void PortalRailsBlockEntryFromAboveAndFromBothOutsideEdges()
+        {
+            var passage = GameObject.Find("WarehouseConnection/PasilloDescendente").transform;
+            foreach (var wall in new[] { "MuroOeste", "MuroEste" })
+            {
+                var collider = passage.Find(wall).GetComponent<BoxCollider>();
+                float side = Mathf.Sign(collider.bounds.center.x);
+                foreach (float z in new[] { 59f, 63f, 70f, 78f })
+                {
+                    var from = new Vector3(side * 10f, 2f, z);
+                    Assert.IsTrue(collider.Raycast(new Ray(from, Vector3.left * side), out _, 6f), wall + " exterior " + z);
+                    from.x = 0f;
+                    Assert.IsTrue(collider.Raycast(new Ray(from, Vector3.right * side), out var hit, 5f), wall + " interior " + z);
+                    Assert.That(Mathf.Abs(hit.point.x), Is.InRange(4.5f, 4.7f));
+                }
+            }
+        }
         [Test] public void RightPortalRailStopsShotsAtTheSameInnerEdgeAsTheLeft()
         {
             foreach(float z in new[]{63f,66f,68f,70f,71f})
