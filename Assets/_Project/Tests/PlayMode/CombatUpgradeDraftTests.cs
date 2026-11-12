@@ -529,8 +529,8 @@ namespace EchoScrap.Tests
                 InputSystem.Update();
                 view.StepInput(0.016f);
                 Canvas.ForceUpdateCanvases();
-                firstCard = (RectTransform)view.CanvasRoot.transform.Find("UpgradeCard_1");
-                mouseState.position = RectTransformUtility.WorldToScreenPoint(null, firstCard.position);
+                var chooseButton = view.CanvasRoot.transform.Find("UpgradeCard_1/Panel/ChooseButton");
+                mouseState.position = RectTransformUtility.WorldToScreenPoint(null, chooseButton.position);
                 mouseState = mouseState.WithButton(MouseButton.Left);
                 selected = draft.Offers[0].Card.Id;
                 previousTier = stats.GetUpgradeTier(selected);
@@ -1002,6 +1002,8 @@ namespace EchoScrap.Tests
         public IEnumerator CardCentersAndButtonsRemainSymmetricWithProportionalSelection()
         {
             var view=draft.gameObject.AddComponent<UpgradeDraftPresentation>();view.BindReferences(session,draft);progression.AddExperience(100);
+            var skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+            Assert.That(view.CanvasRoot.transform.Find("Backdrop").GetComponent<Image>().color.a, Is.EqualTo(.98f));
             stats.SetUpgradeTier("SCRAP_02",1);stats.SetUpgradeTier("GREED_04",2);
             SetVisualOffers("SCRAP_02","GREED_04","CRIT_04");view.RefreshOffers();view.StepPresentation(.8f);Canvas.ForceUpdateCanvases();
             for(int selection=0;selection<3;selection++)
@@ -1017,7 +1019,12 @@ namespace EchoScrap.Tests
                     Assert.That(root.localScale.x,Is.EqualTo(scale).Within(.0001));
                     Assert.That(root.localScale.y,Is.EqualTo(scale).Within(.0001));
                     Assert.That(root.GetComponent<CanvasGroup>().alpha, Is.EqualTo(i == selection ? 1f : .55f));
-                    Assert.That(root.Find("Panel/ChooseButton"), Is.Null);
+                    var chooseButton = root.Find("Panel/ChooseButton").GetComponent<Image>();
+                    Assert.That(chooseButton.sprite, Is.SameAs(skin.chooseButton));
+                    Assert.That(chooseButton.transform.Find("Label").GetComponent<Text>().text, Is.EqualTo("ELEGIR"));
+                    var buttonRect = chooseButton.rectTransform;
+                    Assert.That(buttonRect.anchoredPosition.x, Is.Zero);
+                    Assert.That(buttonRect.anchoredPosition.y - buttonRect.rect.height * .5f, Is.GreaterThan(-root.rect.height * .5f));
                     if (i == selection) Assert.That(root.Find("Selection").GetComponent<Text>().text, Does.Contain("ENFOCADA"));
                     foreach(string centered in new[]{"RarityTier","TypeIcon","Type","Name","Description","PrimaryLabel","ComparisonArrow","Detail"})
                     {
@@ -1109,7 +1116,7 @@ namespace EchoScrap.Tests
                 }
                 foreach(var text in panel.GetComponentsInChildren<Text>())
                     Assert.That(text.preferredHeight,Is.LessThanOrEqualTo(text.rectTransform.rect.height+.5f),card.Id+" tier "+tier+" / "+text.name+" / "+text.text);
-                foreach(var pair in new[]{("Type","Name"),("Name","Description"),("Description","PrimaryLabel"),("PrimaryLabel","Before"),("Before","Detail")})
+                foreach(var pair in new[]{("Type","Name"),("Name","Description"),("Description","PrimaryLabel"),("PrimaryLabel","Before"),("Before","Detail"),("Detail","ChooseButton")})
                 {
                     var upper=(RectTransform)panel.Find(pair.Item1);var lower=(RectTransform)panel.Find(pair.Item2);
                     Assert.That(upper.anchoredPosition.y-upper.rect.height*.5f,Is.GreaterThanOrEqualTo(lower.anchoredPosition.y+lower.rect.height*.5f),card.Id+" overlap "+pair);

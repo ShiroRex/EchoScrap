@@ -33,12 +33,15 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator ArenaPickupAddsCopyOnlyOnce(){
             var feedback=station.GetComponentInChildren<CollectiblePickupFeedback>();
+            game.Hud.SetStatsDisplayMode(StatsDisplayMode.Full);
+            Assert.IsTrue(game.Hud.IsStatsVisible);
             Assert.AreEqual(0,feedback.SoundsPlayed);Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(0,feedback.NotificationsPlayed);
             Assert.IsTrue(system.TrySpawn(2));var pickup=Object.FindObjectsByType<CollectibleDisplay>(FindObjectsSortMode.None).Single(v=>v.name=="ColeccionableArena_Demonio");
             int before=station.Progress.owned[2];game.Player.GetComponent<Rigidbody>().position=pickup.transform.position+Vector3.up;
             game.Player.transform.position=pickup.transform.position+Vector3.up;Physics.SyncTransforms();system.Advance(.1f);Assert.AreEqual(before,station.Progress.owned[2]);Assert.IsTrue(system.TryCollectNearest());Assert.AreEqual(before+1,station.Progress.owned[2]);
             system.Advance(.1f);Assert.AreEqual(before+1,station.Progress.owned[2]);Assert.AreEqual(0,system.ActivePickups);
             Assert.AreEqual(1,feedback.NotificationsPlayed);Assert.AreEqual(1,feedback.SoundsPlayed);Assert.AreEqual(2,feedback.DisplayedId);
+            Assert.IsFalse(game.Hud.IsStatsVisible);
             Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(1,feedback.SoundsPlayed);
             yield return new WaitForSeconds(.15f);Assert.IsTrue(feedback.IsVisible);
             var notification = feedback.transform.Find("ColeccionableRecogido");
@@ -47,11 +50,14 @@ namespace EchoScrap.Tests
             game.Session.SetManualPause(true);Assert.IsFalse(feedback.IsVisible);yield return null;
             Assert.IsFalse(feedback.GetComponent<AudioSource>().isPlaying);
             game.Session.SetManualPause(false);yield return null;Assert.IsTrue(feedback.IsVisible);
+            Assert.IsFalse(game.Hud.IsStatsVisible);
             yield return Capture("ColeccionableRecogido");
             yield return new WaitForSeconds(3.6f);
             Assert.IsTrue(notification.Find("Confirmacion").gameObject.activeSelf);
             Assert.IsFalse(notification.Find("Nuevo").gameObject.activeSelf);
             yield return new WaitForSeconds(2);Assert.IsFalse(feedback.IsVisible);
+            Assert.IsTrue(game.Hud.IsStatsVisible);
+            Assert.AreEqual(StatsDisplayMode.Full, game.Hud.StatsMode);
             feedback.Show(0);feedback.Show(2);game.ResetRun(false);yield return null;
             Assert.IsFalse(feedback.IsVisible);Assert.AreEqual(-1,feedback.DisplayedId);
         }
@@ -109,6 +115,49 @@ namespace EchoScrap.Tests
             Assert.IsTrue(hud.gameObject.activeInHierarchy);
             Assert.IsFalse(hud.Find("PoderesActivos").gameObject.activeSelf);
         }
+        [UnityTest] public IEnumerator SoldierArmorCombinesWithOtherMitigationAndAppliesOnce()
+        {
+            const int soldier = 13;
+            station.ResetCollection();
+            station.CollectFromArena(soldier);
+            station.CollectFromArena(soldier);
+
+            Approach(0);
+            Assert.IsTrue(system.TryOpen());
+            Assert.IsTrue(system.Equip(0, soldier));
+            system.Close();
+            Assert.That(game.Stats.Armor, Is.EqualTo(.10f).Within(.0001f));
+
+            Approach(1);
+            Assert.IsTrue(system.TryOpen());
+            Assert.IsTrue(system.Equip(1, soldier));
+            system.Close();
+            Assert.That(game.Stats.Armor, Is.EqualTo(.10f).Within(.0001f));
+            Assert.That(game.Stats.MaxHealth, Is.EqualTo(115f).Within(.0001f));
+            Assert.That(game.Stats.CompanionDamageReduction, Is.EqualTo(.15f).Within(.0001f));
+
+            game.Stats.SetUpgradeTier("SCRAP_01", 1);
+            Assert.That(game.Stats.Armor, Is.EqualTo(.14f).Within(.0001f));
+            game.Stats.SetBonusMitigation(armor: .55f, evasion: 0f, blockChance: 0f);
+            Assert.That(game.Stats.Armor, Is.EqualTo(.60f).Within(.0001f));
+
+            game.ResetRun(false);
+            Assert.That(game.Stats.Armor, Is.EqualTo(.10f).Within(.0001f));
+            var hit = game.Player.TakeContactOrHazardDamage(40f, game.Player.transform.position + Vector3.forward);
+            Assert.That(hit.HealthLost, Is.EqualTo(30.6f).Within(.001f));
+
+            var release = station.GetComponent<VaultReleaseInteraction>();
+            game.Stats.SetUpgradeTier("SCRAP_01", 1);
+            Approach(1);
+            Assert.IsTrue(release.TryUnequip());
+            Assert.That(game.Stats.Armor, Is.EqualTo(.14f).Within(.0001f));
+            Approach(0);
+            Assert.IsTrue(release.TryUnequip());
+            Assert.That(game.Stats.Armor, Is.EqualTo(.04f).Within(.0001f));
+            Assert.That(game.Stats.CompanionDamageReduction, Is.Zero);
+            yield return null;
+        }
+
         [UnityTest] public IEnumerator EquipmentRoundTripsAndMalformedSaveIsRepaired(){
             var progress=new FusionProgress();for(int id=0;id<4;id++)progress.owned[id]=1;progress.equipped=new[]{0,1,2};var copy=JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(progress));copy.Validate();CollectionAssert.AreEqual(progress.equipped,copy.equipped);
             copy.equipped=new[]{4,0,0};copy.Validate();CollectionAssert.AreEqual(new[]{-1,0,-1},copy.equipped);
@@ -116,14 +165,102 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator PickupsAreLabeledFloatExpireAndShowOnMinimap()
         {
-            Assert.IsTrue(system.TrySpawn(5));var display=Object.FindObjectsByType<CollectibleDisplay>(FindObjectsSortMode.None).Single(v=>v.name=="ColeccionableArena_Basket");
-            Vector3 original=display.transform.position;system.Advance(.5f);yield return null;
-            Assert.AreNotEqual(original.y,display.transform.position.y);Assert.AreEqual(2,display.GetComponentsInChildren<Text>().Length);
-            var texts=display.GetComponentsInChildren<Text>().Select(t=>t.text).ToArray();CollectionAssert.AreEquivalent(new[]{"Basket","COMÚN"},texts);
-            var map=game.Hud.GetComponent<CombatMinimap>();map.Refresh();var marker=game.Hud.HudCanvas.transform.Find("Minimap/Interior/MapaArena/Coleccionable_0");Assert.IsTrue(marker.gameObject.activeSelf);Assert.AreEqual(0,marker.childCount);Assert.AreEqual(Vector2.one*16,marker.GetComponent<RectTransform>().sizeDelta);Assert.IsNotNull(marker.GetComponent<Image>().sprite);
-            game.Session.SetManualPause(true);system.Advance(10);Assert.AreEqual(1,system.ActivePickups);game.Session.SetManualPause(false);
-            system.Advance(9.5f);yield return null;map.Refresh();Assert.AreEqual(0,system.ActivePickups);Assert.IsFalse(marker.gameObject.activeSelf);Assert.IsFalse(system.TryCollectNearest());
+            Assert.IsTrue(system.TrySpawn(5));
+            Assert.IsTrue(system.TrySpawn(7));
+            var displays = Object.FindObjectsByType<CollectibleDisplay>(FindObjectsSortMode.None);
+            var display = displays.Single(v => v.name == "ColeccionableArena_Basket");
+            var legendary = displays.Single(v => v.name == "ColeccionableArena_Lisa");
+            var commonGlow = display.GetComponent<CombatGlowSource>();
+            var legendaryGlow = legendary.GetComponent<CombatGlowSource>();
+            Assert.AreEqual(FusionCatalog.ColorOf(5), commonGlow.Color);
+            Assert.AreEqual(FusionCatalog.ColorOf(7), legendaryGlow.Color);
+            Assert.Greater(legendaryGlow.Intensity, commonGlow.Intensity);
+            Assert.Greater(legendaryGlow.Range, commonGlow.Range);
+
+            var camera = game.GameplayCamera;
+            Vector3 originalCameraPosition = camera.transform.position;
+            Quaternion originalCameraRotation = camera.transform.rotation;
+            camera.transform.SetPositionAndRotation(legendary.transform.position - Vector3.forward * 8f, Quaternion.identity);
+            var lightPool = game.Session.GetComponent<CombatReadabilityLights>();
+            lightPool.RefreshLights();
+            Assert.IsTrue(lightPool.GetComponentsInChildren<Light>().Any(light =>
+                light.enabled && light.color == legendaryGlow.Color && Mathf.Approximately(light.intensity, legendaryGlow.Intensity)));
+            camera.transform.SetPositionAndRotation(originalCameraPosition, originalCameraRotation);
+
+            var timer = display.transform.Find("NombreRareza/TiempoRestante").GetComponent<Text>();
+            Assert.AreEqual("10 s", timer.text);
+            Vector3 original = display.transform.position;
+            system.Advance(1.1f);
+            yield return null;
+            Assert.AreNotEqual(original.y, display.transform.position.y);
+            var texts = display.GetComponentsInChildren<Text>().Select(t => t.text).ToArray();
+            CollectionAssert.AreEquivalent(new[] { "Basket", "COMÚN", "9 s" }, texts);
+
+            var map = game.Hud.GetComponent<CombatMinimap>();
+            map.Refresh();
+            var marker = game.Hud.HudCanvas.transform.Find("Minimap/Interior/MapaArena/Coleccionable_0");
+            Assert.IsTrue(marker.gameObject.activeSelf);
+            Assert.AreEqual(Vector2.one * 36f, ((RectTransform)marker).sizeDelta);
+            Assert.Greater(marker.GetSiblingIndex(), map.PlayerMarker.GetSiblingIndex());
+            Assert.IsNotNull(marker.GetComponent<Outline>());
+            Assert.IsNotNull(marker.GetComponent<Image>().sprite);
+            game.Session.SetManualPause(true);
+            system.Advance(CompanionSystem.PickupLifetime);
+            Assert.AreEqual(2, system.ActivePickups);
+            Assert.AreEqual("9 s", timer.text);
+            game.Session.SetManualPause(false);
+
+            system.Advance(9f);
+            yield return null;
+            map.Refresh();
+            Assert.AreEqual(0, system.ActivePickups);
+            Assert.IsTrue(commonGlow == null && legendaryGlow == null);
+            Assert.IsFalse(marker.gameObject.activeSelf);
+            Assert.IsFalse(system.TryCollectNearest());
         }
+        [UnityTest] public IEnumerator EpicAndLegendarySparksMatchRarityAndFollowPickupLifetime()
+        {
+            Assert.IsTrue(system.TrySpawn(5));
+            Assert.IsTrue(system.TrySpawn(6));
+            Assert.IsTrue(system.TrySpawn(7));
+            Assert.IsNull(GameObject.Find("ColeccionableArena_Basket").GetComponentInChildren<ParticleSystem>());
+            var epic = GameObject.Find("ColeccionableArena_Hada").GetComponentInChildren<ParticleSystem>();
+            var legendary = GameObject.Find("ColeccionableArena_Lisa").GetComponentInChildren<ParticleSystem>();
+            Assert.AreEqual(FusionCatalog.ColorOf(6), epic.main.startColor.colorMin);
+            Assert.AreEqual(FusionCatalog.ColorOf(7), legendary.main.startColor.colorMin);
+            Assert.AreSame(epic.GetComponent<ParticleSystemRenderer>().sharedMaterial,
+                legendary.GetComponent<ParticleSystemRenderer>().sharedMaterial);
+            Assert.Greater(legendary.emission.rateOverTime.constant, epic.emission.rateOverTime.constant);
+            Assert.Greater(legendary.main.startSize.constantMax, epic.main.startSize.constantMax);
+            system.Advance(.35f);
+            Assert.Greater(epic.particleCount, 0);
+            Assert.Greater(legendary.particleCount, epic.particleCount);
+
+            float sparkTime = epic.time;
+            game.Session.SetManualPause(true);
+            system.Advance(.5f);
+            yield return null;
+            Assert.AreEqual(sparkTime, epic.time);
+            game.Session.Effects.ReducedEffectsMode = true;
+            Assert.IsFalse(epic.emission.enabled);
+            Assert.AreEqual(0, epic.particleCount);
+            Assert.AreEqual(0, legendary.particleCount);
+            game.Session.Effects.ReducedEffectsMode = false;
+            game.Session.SetManualPause(false);
+            system.Advance(.5f);
+            Assert.Greater(legendary.particleCount, 0);
+
+            Vector3 playerPosition = epic.transform.parent.position + Vector3.up;
+            game.Player.transform.position = playerPosition;
+            game.Player.GetComponent<Rigidbody>().position = playerPosition;
+            Physics.SyncTransforms();
+            Assert.IsTrue(system.TryCollectNearest());
+            Assert.IsFalse(epic.gameObject.activeInHierarchy);
+            system.Advance(CompanionSystem.PickupLifetime);
+            yield return null;
+            Assert.IsTrue(legendary == null);
+        }
+
         [UnityTest] public IEnumerator TenCapsulesAndOwnedOnlyEquipmentAtIndividualStation()
         {
             Assert.AreEqual(10,station.DisplaySlots.Length);station.ResetCollection();station.CollectFromArena(0);station.CollectFromArena(6);
@@ -157,10 +294,23 @@ namespace EchoScrap.Tests
         {
             for(int id=0;id<FusionCatalog.Count;id++){station.Progress.owned[id]=1;Assert.IsNotNull(CollectibleDisplay.CardPortrait(id),FusionCatalog.Names[id]);}
             var ids=new[]{13,14,4};
-            for(int slot=0;slot<3;slot++){Approach(slot);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(slot,ids[slot]));
-                var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
+            var panel = station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
+            var title = panel.Find("Titulo").GetComponent<Text>();
+            var subtitle = panel.Find("Subtitulo").GetComponent<Text>();
+            Assert.That(subtitle.text, Is.EqualTo("ELIGE UNA ENTIDAD DESCUBIERTA PARA ESTE PUESTO"));
+            for (int slot = 0; slot < 3; slot++)
+            {
+                Approach(slot);
+                Assert.IsTrue(system.TryOpen());
+                Assert.That(title.text, Is.EqualTo($"PUESTO DE EQUIPO {slot + 1}"));
+                Assert.That(title.preferredHeight, Is.LessThanOrEqualTo(title.rectTransform.rect.height));
+                Assert.That(subtitle.preferredHeight, Is.LessThanOrEqualTo(subtitle.rectTransform.rect.height));
+                Assert.That(subtitle.preferredWidth, Is.LessThanOrEqualTo(subtitle.rectTransform.rect.width));
+                Assert.IsTrue(system.Equip(slot, ids[slot]));
+                Assert.That(title.text, Is.EqualTo($"PUESTO DE EQUIPO {slot + 1}"));
                 var available=Enumerable.Range(0,FusionCatalog.Count).Where(id=>station.Progress.Available(id)>0).ToArray();var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(Mathf.Min(10,available.Length),grid.VisibleUnits);for(int i=0;i<grid.VisibleUnits;i++){var art=panel.Find("Unidades/Unidad_"+i+"/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(available[i]),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}
-                system.Close();}
+                system.Close();
+            }
             game.ResetRun(false);game.Session.ResumeAllUserPauses();yield return null;
             var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
             var powers=hud.Find("PoderesActivos").GetComponent<Text>();

@@ -28,6 +28,7 @@ namespace EchoScrap.Combat
             "Combina cuatro coleccionables en la máquina de fusión."
         };
         private static readonly Color VaultGold = new Color(.98f, .78f, .46f);
+        private const float VaultDirectionTop = 132f;
         private readonly Image[] tipDots = new Image[VaultTips.Length];
         private GameObject vaultTips;
         private FusionStation vaultStation;
@@ -238,23 +239,26 @@ namespace EchoScrap.Combat
                 vaultStairs = stairs;
             }
 
-            vaultDirections = Rect(root, "VaultDirections", new Vector2(0, -124), Vector2.zero);
+            vaultDirections = Rect(root, "VaultDirections", new Vector2(0, -VaultDirectionTop), Vector2.zero);
             vaultDirections.anchorMin = vaultDirections.anchorMax = new Vector2(.5f, 1f);
             Sprite pointer = PixelControlArtwork.Load("VaultDirection");
-            fusionArrow = DirectionCard("Fusion", -152, pointer, out fusionGuide);
-            equipmentArrow = DirectionCard("Equipment", 152, pointer, out equipmentGuide);
+            equipmentArrow = DirectionCard("Equipment", -193, pointer, "Puestos de equipo 1, 2 y 3", out equipmentGuide);
+            fusionArrow = DirectionCard("Fusion", 193, pointer, "Combina 4 copias de la misma rareza", out fusionGuide);
             vaultDirections.gameObject.SetActive(false);
         }
 
-        private RectTransform DirectionCard(string name, float x, Sprite pointer, out Text guide)
+        private RectTransform DirectionCard(string name, float x, Sprite pointer, string caption, out Text guide)
         {
-            var card = Rect(vaultDirections, name, new Vector2(x, 0), new Vector2(290, 48));
+            var card = Rect(vaultDirections, name, new Vector2(x, 0), new Vector2(374, 62));
             VaultPlate(card);
-            var arrow = Rect(card, "Arrow", new Vector2(-111, 0), new Vector2(36, 36)).gameObject.AddComponent<Image>();
+            var arrow = Rect(card, "Arrow", new Vector2(-155, 0), new Vector2(36, 36)).gameObject.AddComponent<Image>();
             arrow.sprite = pointer;
             arrow.raycastTarget = false;
-            guide = Label(card, "", new Vector2(24, 0), new Vector2(220, 36), 19, VaultGold);
+            guide = Label(card, "", new Vector2(23, 11), new Vector2(304, 24), 19, VaultGold);
             guide.alignment = TextAnchor.MiddleLeft;
+            var subtitle = Label(card, caption, new Vector2(23, -12), new Vector2(304, 22), 16, new Color(.88f, .79f, .70f));
+            subtitle.name = "Subtitle";
+            subtitle.alignment = TextAnchor.MiddleLeft;
             return arrow.rectTransform;
         }
 
@@ -266,7 +270,7 @@ namespace EchoScrap.Combat
             if (vaultDirections.gameObject.activeSelf != visible) vaultDirections.gameObject.SetActive(visible);
             if (!visible) return;
 
-            vaultDirections.anchoredPosition = new Vector2(0, flow.State == GameFlowState.Vault ? -124 : -176);
+            vaultDirections.anchoredPosition = new Vector2(0, -VaultDirectionTop - (flow.State == GameFlowState.Vault ? 0 : 52));
             Vector3 player = game.Player.transform.position;
             Vector3 fusion = vaultStation.InteractionPoint.position;
             Transform[] slots = vaultStation.DisplaySlots;

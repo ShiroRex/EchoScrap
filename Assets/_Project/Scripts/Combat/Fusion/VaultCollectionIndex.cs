@@ -20,14 +20,39 @@ namespace EchoScrap.Combat
             .OrderBy(id => (int)FusionCatalog.Rarities[id])
             .ThenBy(id => id)
             .ToArray();
+        private static readonly int[][] RarityGroups = Enumerable.Range(0, FusionCatalog.RarityNames.Length)
+            .Select(rarity => RarityOrder.Where(id => (int)FusionCatalog.Rarities[id] == rarity).ToArray())
+            .ToArray();
 
+        private const int AllRarities = -1;
+        private const float RarityCardRowStep = 237f;
+        private const float RarityCardHeight = 221f;
+        private const string LockedDescription = "Aún no has registrado esta entidad. Encuéntrala en la arena o mediante la máquina de fusión para revelar su retrato y su efecto de compañero.";
         private static readonly Color Pale = new Color(0.92f, 0.95f, 1f, 1f);
         private static readonly Color Muted = new Color(0.56f, 0.62f, 0.74f, 1f);
-        private static readonly Color SilhouetteBlack = Color.black;
+        private static readonly Color SilhouetteBlack = new Color(.03f, .03f, .04f, .96f);
         private static readonly Color BookInk = new Color(.19f, .095f, .075f);
         private static readonly Color BookGold = new Color(.99f, .89f, .70f);
         private static readonly Vector2 BookSize = new Vector2(1215f, 885f);
         private static readonly string[] TabInitials = { "COM", "RAR", "ESP", "ÉPI", "LEG", "MÍT" };
+        private static readonly string[] InspectorPowers =
+        {
+            "+10 HP máximos.",
+            "Lanza un proyectil mágico perforante de 18 de daño base cada 10 s.",
+            "+15% de daño y 30% de probabilidad de aplicar quemadura de 4 de daño base por segundo durante 3 s.",
+            "Cura 2 HP cada 5 s.",
+            "Duplica la salud máxima (×2). Da +20% de daño y +15% de velocidad de movimiento. Una vez por expedición, evita un golpe letal, restaura el 30% de la salud máxima y concede 3 s de invulnerabilidad. No puede usarse como ingrediente de fusión.",
+            "+10% de velocidad de movimiento.",
+            "Bloquea por completo 1 golpe cada 20 s.",
+            "+20% de cadencia de ataque. Cada 12 s congela durante 2 s en un radio de 8 m. A Gólgora lo ralentiza hasta su tope del 25%.",
+            "+8% de daño.",
+            "Duplica la velocidad de movimiento durante 2 s al terminar el dash.",
+            "Cura 1 HP por cada 5 bajas enemigas.",
+            "Cada 8 s emite una onda de 15 de daño base en un radio de 8 m que ralentiza un 40% durante 3 s.",
+            "Cada 15 s emite una onda en un radio de 8 m que empuja 4 m y cura el 5% de la salud máxima.",
+            "+15 HP máximos, −15% de daño recibido y +10% de armadura.",
+            "+15% de cadencia de ataque."
+        };
 
         [Serializable] private sealed class StoryEntry { public string key; public string story; }
         [Serializable] private sealed class StoryCatalog { public StoryEntry[] entries; }
@@ -47,7 +72,10 @@ namespace EchoScrap.Combat
         private Button byRarityTabButton;
         private Button inVaultTabButton;
         private readonly Button[] rarityFilterButtons = new Button[6];
+        private Button allRaritiesButton;
         private Text rarityHeading;
+        private ScrollRect rarityScroll;
+        private Scrollbar rarityScrollbar;
         private Button previousCollectible, nextCollectible;
         private Sprite bookFrame;
         private readonly Dictionary<string, string> stories = new Dictionary<string, string>();
@@ -91,7 +119,9 @@ namespace EchoScrap.Combat
 
         public bool IsOpen => modal != null && modal.activeSelf;
         public IndexTab ActiveTab { get; private set; } = IndexTab.ByRarity;
-        public int SelectedRarityFilter { get; private set; } = 0;
+        public int SelectedRarityFilter { get; private set; } = AllRarities;
+        private int[] FilteredRarityIds => SelectedRarityFilter == AllRarities
+            ? RarityOrder : RarityGroups[SelectedRarityFilter];
         public int VisibleRarityCardsCount { get; private set; }
         public int VisibleVaultCardsCount => displayedVaultUnits.Count;
         public IReadOnlyList<int> GetDisplayedVaultUnitIds() => displayedVaultUnits;
@@ -275,7 +305,7 @@ namespace EchoScrap.Combat
             subtitleLabel = BookLabel(window, "", new Vector2(92, 96), new Vector2(475, 28), 17, TextAnchor.MiddleCenter);
             byRarityTabButton = BookButton(window, "PorRarezas", "POR RAREZAS", new Vector2(110, 134), new Vector2(210, 44), "ButtonRed", () => SelectTab(IndexTab.ByRarity));
             inVaultTabButton = BookButton(window, "EnTuBoveda", "EN TU BÓVEDA", new Vector2(336, 134), new Vector2(210, 44), "ButtonBlue", () => SelectTab(IndexTab.InVault));
-            BookButton(window, "CerrarIndice", "X", new Vector2(1113, 38), new Vector2(46, 44), "ButtonRed", Close);
+            BookButton(window, "CerrarIndice", "X   CERRAR · [I]", new Vector2(963, 38), new Vector2(196, 44), "ButtonRed", Close);
 
             raritySection = Panel("SeccionPorRarezas", window, Vector2.zero, BookSize, Color.clear).gameObject;
             raritySection.GetComponent<Image>().raycastTarget = false;
@@ -292,6 +322,8 @@ namespace EchoScrap.Combat
         private void BuildRaritySection(Transform parent)
         {
             rarityHeading = BookLabel(parent, "", new Vector2(93, 189), new Vector2(473, 38), 23, TextAnchor.MiddleCenter);
+            allRaritiesButton = BookButton(parent, "Todas", "TODAS", new Vector2(101, 191), new Vector2(94, 34), "ButtonBlue",
+                () => SetRarityFilter(AllRarities));
             for (int i = 0; i < FusionCatalog.RarityNames.Length; i++)
             {
                 int filter = i;
@@ -301,13 +333,35 @@ namespace EchoScrap.Combat
             previousCollectible = BookButton(parent, "Anterior", "<", new Vector2(102, 734), new Vector2(58, 48), "ButtonBlue", () => MoveSelection(-1));
             nextCollectible = BookButton(parent, "Siguiente", ">", new Vector2(504, 734), new Vector2(58, 48), "ButtonBlue", () => MoveSelection(1));
 
+            var viewport = Panel("VistaRarezas", parent, new Vector2(101, 236), new Vector2(462, 474), Color.clear);
+            viewport.gameObject.AddComponent<RectMask2D>();
+            var content = Panel("CartasRareza", viewport, Vector2.zero, viewport.sizeDelta, Color.clear);
+            content.GetComponent<Image>().raycastTarget = false;
+            rarityScroll = viewport.gameObject.AddComponent<ScrollRect>();
+            rarityScroll.viewport = viewport;
+            rarityScroll.content = content;
+            rarityScroll.horizontal = false;
+            rarityScroll.movementType = ScrollRect.MovementType.Clamped;
+            rarityScroll.scrollSensitivity = 60f;
+
+            var track = Panel("DesplazamientoRarezas", parent, new Vector2(571, 236), new Vector2(10, 474), new Color(.19f, .095f, .075f, .22f));
+            var handle = Panel("Control", track, Vector2.zero, track.sizeDelta, BookInk);
+            handle.anchorMin = Vector2.zero;
+            handle.anchorMax = Vector2.one;
+            handle.offsetMin = handle.offsetMax = Vector2.zero;
+            rarityScrollbar = track.gameObject.AddComponent<Scrollbar>();
+            rarityScrollbar.handleRect = handle;
+            rarityScrollbar.targetGraphic = handle.GetComponent<Image>();
+            rarityScrollbar.direction = Scrollbar.Direction.BottomToTop;
+            rarityScroll.verticalScrollbar = rarityScrollbar;
+
             for (int idx = 0; idx < RarityOrder.Length; idx++)
             {
                 int id = RarityOrder[idx];
                 var card = BuildPixelCollectibleCard(
-                    parent,
+                    content,
                     $"CartaRareza_{id}_{FusionCatalog.ResourceKeys[id]}",
-                    new Vector2(220, 221),
+                    new Vector2(220, RarityCardHeight),
                     out rarityCardFrames[id],
                     out var portraitFrame,
                     out rarityPortraits[id],
@@ -450,18 +504,20 @@ namespace EchoScrap.Combat
             Rect(detailPortrait.rectTransform, new Vector2(14, 14), new Vector2(206, 206));
             detailRarityBadge = BookLabel(inspector, "", new Vector2(257, 82), new Vector2(260, 31), 19);
             detailOrigin = BookLabel(inspector, "", new Vector2(257, 120), new Vector2(260, 60), 19, TextAnchor.UpperLeft);
-            detailOwned = BookLabel(inspector, "", new Vector2(257, 178), new Vector2(260, 33), 18);
-            BookLabel(inspector, "QUÉ OTORGA", new Vector2(257, 216), new Vector2(260, 31), 20);
-            detailPowerBody = BookLabel(inspector, "", new Vector2(257, 252), new Vector2(260, 113), 19, TextAnchor.UpperLeft);
+            detailOwned = BookLabel(inspector, "", new Vector2(257, 178), new Vector2(260, 33), 24);
+            BookLabel(inspector, "QUÉ OTORGA", new Vector2(0, 319), new Vector2(517, 31), 20);
+            detailPowerBody = BookLabel(inspector, "", new Vector2(0, 351), new Vector2(517, 121), 19, TextAnchor.UpperLeft);
+            detailPowerBody.gameObject.name = "TextoPoder";
+            detailOwned.gameObject.name = "CopiasEnPosesion";
 
-            var storyFrame = Panel("MiniHistoria", inspector, new Vector2(0, 376), new Vector2(517, 339), Color.white).GetComponent<Image>();
+            var storyFrame = Panel("MiniHistoria", inspector, new Vector2(0, 479), new Vector2(517, 236), Color.white).GetComponent<Image>();
             storyFrame.sprite = bookFrame;
             storyFrame.type = Image.Type.Sliced;
             storyFrame.raycastTarget = false;
             BookLabel(storyFrame.transform, "HISTORIA DE ORIGEN", new Vector2(20, 12), new Vector2(477, 35), 22);
-            var viewport = Panel("PaginaHistoria", storyFrame.transform, new Vector2(20, 54), new Vector2(477, 263), Color.clear);
+            var viewport = Panel("PaginaHistoria", storyFrame.transform, new Vector2(20, 54), new Vector2(477, 160), Color.clear);
             viewport.gameObject.AddComponent<RectMask2D>();
-            detailStory = BookLabel(viewport, "", Vector2.zero, new Vector2(477, 263), 21, TextAnchor.UpperLeft);
+            detailStory = BookLabel(viewport, "", Vector2.zero, viewport.sizeDelta, 21, TextAnchor.UpperLeft);
             detailStory.gameObject.name = "TextoHistoria";
             detailStory.verticalOverflow = VerticalWrapMode.Overflow;
             storyScroll = viewport.gameObject.AddComponent<ScrollRect>();
@@ -544,17 +600,21 @@ namespace EchoScrap.Combat
         public void SelectTab(IndexTab tab)
         {
             ActiveTab = tab;
-            if (tab == IndexTab.ByRarity && (int)FusionCatalog.Rarities[selectedCollectibleId] != SelectedRarityFilter)
-                selectedCollectibleId = RarityOrder.First(id => (int)FusionCatalog.Rarities[id] == SelectedRarityFilter);
+            if (tab == IndexTab.ByRarity && !FilteredRarityIds.Contains(selectedCollectibleId))
+                selectedCollectibleId = FilteredRarityIds[0];
             Refresh(true);
+            if (tab == IndexTab.ByRarity)
+                RevealRaritySelection();
         }
 
         public void SetRarityFilter(int rarityIndex)
         {
             ActiveTab = IndexTab.ByRarity;
-            SelectedRarityFilter = Mathf.Clamp(rarityIndex, 0, 5);
-            selectedCollectibleId = RarityOrder.First(id => (int)FusionCatalog.Rarities[id] == SelectedRarityFilter);
+            SelectedRarityFilter = Mathf.Clamp(rarityIndex, AllRarities, RarityGroups.Length - 1);
+            selectedCollectibleId = FilteredRarityIds[0];
             Refresh(true);
+            rarityScroll.StopMovement();
+            rarityScroll.verticalNormalizedPosition = 1f;
         }
 
         public void InspectCollectible(int id)
@@ -573,10 +633,26 @@ namespace EchoScrap.Combat
 
         private void MoveSelection(int offset)
         {
-            var ids = RarityOrder.Where(id => (int)FusionCatalog.Rarities[id] == SelectedRarityFilter).ToArray();
+            var ids = FilteredRarityIds;
             if (ids.Length <= 1) return;
             int index = Array.IndexOf(ids, selectedCollectibleId);
             InspectCollectible(ids[(index + offset + ids.Length) % ids.Length]);
+            RevealRaritySelection();
+        }
+
+        private void RevealRaritySelection()
+        {
+            if (!rarityScroll.vertical)
+                return;
+
+            var card = rarityCards[selectedCollectibleId];
+            float top = -card.anchoredPosition.y;
+            float height = rarityScroll.viewport.rect.height;
+            float maxOffset = rarityScroll.content.rect.height - height;
+            float currentOffset = rarityScroll.content.anchoredPosition.y;
+            float targetOffset = Mathf.Clamp(currentOffset, top + card.rect.height - height, top);
+            rarityScroll.StopMovement();
+            rarityScroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(targetOffset / maxOffset);
         }
 
         public void Refresh(bool force = false)
@@ -612,9 +688,14 @@ namespace EchoScrap.Combat
 
         private void RefreshRaritySection()
         {
-            for (int r = 0; r < 6; r++)
+            bool showAll = SelectedRarityFilter == AllRarities;
+            allRaritiesButton.GetComponentInChildren<Text>().color = showAll ? BookGold : Pale;
+            if (showAll)
+                rarityHeading.text = $"COLECCIÓN · {station.Progress.DiscoveredCount} / {FusionCatalog.Count}";
+
+            for (int r = 0; r < RarityGroups.Length; r++)
             {
-                var ids = RarityOrder.Where(id => (int)FusionCatalog.Rarities[id] == r).ToArray();
+                var ids = RarityGroups[r];
                 int found = ids.Count(id => station.Progress.IsDiscovered(id));
                 var button = rarityFilterButtons[r];
                 var label = button.GetComponentInChildren<Text>();
@@ -630,7 +711,7 @@ namespace EchoScrap.Combat
             {
                 int id = RarityOrder[idx];
                 CollectibleRarity rarity = FusionCatalog.Rarities[id];
-                bool matchesFilter = (int)rarity == SelectedRarityFilter;
+                bool matchesFilter = showAll || (int)rarity == SelectedRarityFilter;
                 var card = rarityCards[id];
                 card.gameObject.SetActive(matchesFilter);
                 if (matchesFilter)
@@ -638,7 +719,7 @@ namespace EchoScrap.Combat
                     int slot = VisibleRarityCardsCount++;
                     int col = slot % 2;
                     int row = slot / 2;
-                    Rect(card, new Vector2(101 + col * 242, 236 + row * 237), new Vector2(220, 221));
+                    Rect(card, new Vector2(col * 242, row * RarityCardRowStep), new Vector2(220, RarityCardHeight));
                 }
 
                 bool discovered = station.Progress.IsDiscovered(id);
@@ -654,7 +735,6 @@ namespace EchoScrap.Combat
                 }
                 else
                 {
-                    // Undiscovered characters render in pure black silhouette inside the pixel-art frame
                     rarityPortraits[id].sprite = CollectibleDisplay.FrontSprite(id) ?? CollectibleDisplay.CardPortrait(id);
                     rarityPortraits[id].color = SilhouetteBlack;
                     rarityNameLabels[id].text = "???";
@@ -663,6 +743,10 @@ namespace EchoScrap.Combat
                     rarityStatusLabels[id].color = BookGold;
                 }
             }
+            float cardsHeight = ((VisibleRarityCardsCount - 1) / 2) * RarityCardRowStep + RarityCardHeight;
+            rarityScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(rarityScroll.viewport.rect.height, cardsHeight));
+            rarityScroll.vertical = showAll;
+            rarityScrollbar.gameObject.SetActive(showAll);
             previousCollectible.gameObject.SetActive(VisibleRarityCardsCount > 1);
             nextCollectible.gameObject.SetActive(VisibleRarityCardsCount > 1);
             RefreshRaritySelection();
@@ -751,14 +835,14 @@ namespace EchoScrap.Combat
             detailOrigin.text = fromArena ? "OBTENCIÓN · ARENA DE COMBATE" : "OBTENCIÓN · MÁQUINA DE FUSIÓN";
 
             int ownedCount = station.Progress.owned[id];
-            detailOwned.text = $"{ownedCount} {(ownedCount == 1 ? "COPIA" : "COPIAS")} EN BÓVEDA";
+            detailOwned.text = $"×{ownedCount}";
 
             if (discovered)
             {
                 detailPortrait.sprite = CollectibleDisplay.CardPortrait(id) ?? CollectibleDisplay.FrontSprite(id);
                 detailPortrait.color = Color.white;
                 detailTitle.text = FusionCatalog.Names[id].ToUpperInvariant();
-                detailPowerBody.text = CompanionSystem.PowerNames[id];
+                detailPowerBody.text = InspectorPowers[id];
                 SetStory(stories[FusionCatalog.ResourceKeys[id]]);
             }
             else
@@ -766,7 +850,7 @@ namespace EchoScrap.Combat
                 detailPortrait.sprite = CollectibleDisplay.FrontSprite(id) ?? CollectibleDisplay.CardPortrait(id);
                 detailPortrait.color = SilhouetteBlack;
                 detailTitle.text = "???";
-                detailPowerBody.text = "SILUETA BLOQUEADA";
+                detailPowerBody.text = "SILUETA BLOQUEADA\n" + LockedDescription;
                 SetStory("Descubre a este personaje para leer su historia.");
             }
         }

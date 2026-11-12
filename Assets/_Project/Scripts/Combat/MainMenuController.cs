@@ -29,8 +29,7 @@ namespace EchoScrap.Combat
             }
             View = gameObject.AddComponent<GameMenuView>();
             View.Build(this);
-            Settings = gameObject.AddComponent<MenuSettingsView>();
-            Settings.Build(View.Canvas.transform, this);
+            Settings = MenuSettingsView.CreateForMainMenu((RectTransform)View.Canvas.transform, this);
             View.Refresh();
             MenuMusic.Play();
         }
@@ -70,7 +69,13 @@ namespace EchoScrap.Combat
             if (IsLoading || IsConfirming || IsConfiguring) return;
             IsConfiguring = true; View.Refresh(); Settings.Show();
         }
-        public void CloseConfiguration() { IsConfiguring = false; Settings.Hide(); View.Refresh(); }
+        public void CloseConfiguration()
+        {
+            IsConfiguring = false;
+            Settings.Hide();
+            PlayerPrefs.Save();
+            View.Refresh();
+        }
         public bool BeginExpedition() => false;
         public void ShowMainMenu() { if (!IsLoading) { IsConfiguring = IsConfirming = false; Settings.Hide(); View.Refresh(); } }
         public void QuitGame()

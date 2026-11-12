@@ -103,7 +103,12 @@ namespace EchoScrap.Combat
             var shade=Panel("EquipoBoveda",canvas.transform,Vector2.zero,Vector2.zero,new Color(0,0,0,.8f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;shade.GetComponent<Image>().raycastTarget=true;modal=shade.gameObject;
             var panel=Panel("Panel",shade,Vector2.zero,new Vector2(1160,740),new Color(.045f,.06f,.09f));
             CollectionMenuStyle.Frame(panel);
-            title=Label(panel,"Titulo","",new Vector2(0,325),new Vector2(990,60),30);title.font=strong;
+            title = Label(panel, "Titulo", "", new Vector2(0, 333), new Vector2(990, 40), 30);
+            title.font = strong;
+            var subtitle = Label(panel, "Subtitulo", "ELIGE UNA ENTIDAD DESCUBIERTA PARA ESTE PUESTO",
+                new Vector2(0, 299), new Vector2(990, 26), 18);
+            subtitle.font = strong;
+            subtitle.color = new Color(.84f, .85f, .9f);
             for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);slots[i].font=strong;ReadablePowerNumbers.Attach(slots[i]);}
             var gridRoot=Panel("Unidades",panel,new Vector2(0,-60),new Vector2(1080,470),Color.clear);
             unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
@@ -118,7 +123,13 @@ namespace EchoScrap.Combat
             modal.SetActive(false);Refresh();
         }
         private int AvailableForSlot(int id)=>station.Progress.Available(id);
-        public void Show(bool value){modal.SetActive(value);Refresh();}
+        public void Show(bool value)
+        {
+            if (value)
+                title.text = $"PUESTO DE EQUIPO {selected + 1}";
+            modal.SetActive(value);
+            Refresh();
+        }
         public void Refresh()
         {
             if (modal == null || game == null || !game.IsInitialized) return;
@@ -158,7 +169,6 @@ namespace EchoScrap.Combat
             if(!IsOpen)return;
             bool occupied = selected >= 0 && station.Progress.equipped[selected] >= 0;
             removeButton.interactable = releaseButton.interactable = occupied;
-            title.text = $"PUESTO {selected + 1} · " + (occupied ? "EDITAR EQUIPO" : "ELIGE UN COMPAÑERO");
             unitGrid.Refresh();
         }
 

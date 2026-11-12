@@ -21,6 +21,7 @@ namespace EchoScrap.Combat
             public Image Icon;
             public Image NewBadge;
             public Image UpgradeArrow;
+            public Image ChooseButton;
             public Text Level;
             public Text LevelBefore;
             public Text LevelAfter;
@@ -371,6 +372,8 @@ namespace EchoScrap.Combat
                 cards[i].Border.color = i == selectedIndex ? Color.white : new Color(0.78f, 0.78f, 0.78f);
                 cards[i].Number.text = i == selectedIndex ? $"[ {i + 1} ]  ENFOCADA" : $"[ {i + 1} ]";
                 cards[i].Number.color = i == selectedIndex ? color : new Color(0.6f, 0.65f, 0.7f);
+                float brightness = i == selectedIndex ? 1f : .82f;
+                cards[i].ChooseButton.color = new Color(color.r * brightness, color.g * brightness, color.b * brightness);
             }
         }
 
@@ -391,7 +394,7 @@ namespace EchoScrap.Combat
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 1f;
             canvasRect = (RectTransform)canvasRoot.transform;
-            RectTransform shade = ImageRect(canvasRect, "Backdrop", Vector2.zero, Vector2.zero, new Color(.02f, .035f, .06f, .4f));
+            RectTransform shade = ImageRect(canvasRect, "Backdrop", Vector2.zero, Vector2.zero, new Color(.02f, .035f, .06f, .98f));
             shade.anchorMin = Vector2.zero; shade.anchorMax = Vector2.one; shade.offsetMin = Vector2.zero; shade.offsetMax = Vector2.zero;
             title = TextRect(canvasRect, "Title", new Vector2(0f, 470f), new Vector2(1300f, 65f), 48, FontStyle.Bold, TextAnchor.MiddleCenter);
             title.color = new Color(0.91f, 0.84f, 0.70f);
@@ -442,8 +445,17 @@ namespace EchoScrap.Combat
             Image arrow = ImageRect(inner, "ComparisonArrow", new Vector2(0f, -142f), new Vector2(22f, 22f), Color.white).GetComponent<Image>();
             view.ComparisonArrow = arrow;
             arrow.sprite = skin.upgradeArrow; arrow.transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
-            view.Detail = TextRect(inner, "Detail", new Vector2(0f, -228f), new Vector2(288f, 128f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
+            view.Detail = TextRect(inner, "Detail", new Vector2(0f, -207f), new Vector2(296f, 90f), 22, FontStyle.Normal, TextAnchor.MiddleCenter);
             view.Detail.color = new Color(0.73f, 0.78f, 0.78f);
+
+            view.ChooseButton = ImageRect(inner, "ChooseButton", new Vector2(0f, -272f), new Vector2(280f, 40f), Color.white).GetComponent<Image>();
+            view.ChooseButton.sprite = skin.chooseButton;
+            view.ChooseButton.type = Image.Type.Sliced;
+            view.ChooseButton.pixelsPerUnitMultiplier = .5f;
+            var chooseLabel = TextRect(view.ChooseButton.transform, "Label", Vector2.zero, new Vector2(260f, 38f), 22, FontStyle.Bold, TextAnchor.MiddleCenter);
+            chooseLabel.text = "ELEGIR";
+            chooseLabel.color = new Color(.035f, .045f, .07f);
+
             view.Confirmation = ImageRect(view.Root, "ConfirmationFlash", Vector2.zero, new Vector2(400f, 620f), Color.clear, true).GetComponent<Image>();
             NineSlice(view.Confirmation);
             var sheen = new GameObject("SurfaceSheen", typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();

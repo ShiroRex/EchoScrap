@@ -9,6 +9,8 @@ namespace EchoScrap.Combat
         private float elapsed;private int frame;private float height;
         private Camera cameraView;private Canvas label,equipmentLabel;private Text nameText,rarityText;
         private float spriteScale;private bool showTitle;private CombatGameBootstrap game;
+        private Text pickupTimer;
+        private int displayedSeconds = -1;
         private readonly Vector3[] labelCorners = new Vector3[4];
         public int CollectibleId {get;private set;}=-1;
         public static Sprite FrontSprite(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/000"):null;
@@ -53,6 +55,21 @@ namespace EchoScrap.Combat
                 rarityText.color=FusionCatalog.ColorOf(id);
             } else if(label!=null)label.gameObject.SetActive(false);
         }
+        internal void SetPickupTimeRemaining(float seconds)
+        {
+            if (pickupTimer == null)
+            {
+                var skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
+                pickupTimer = Title(label, "TiempoRestante", -55f, 25, skin.semibold);
+                ((RectTransform)label.transform).sizeDelta = new Vector2(400f, 176f);
+            }
+            int remaining = Mathf.CeilToInt(seconds);
+            if (remaining == displayedSeconds) return;
+            displayedSeconds = remaining;
+            pickupTimer.text = $"{remaining} s";
+            pickupTimer.color = remaining <= 3 ? new Color(1f, .73f, .39f) : Color.white;
+        }
+
         private void BuildLabel()
         {
             label=new GameObject("NombreRareza",typeof(RectTransform),typeof(Canvas)).GetComponent<Canvas>();
@@ -103,7 +120,7 @@ namespace EchoScrap.Combat
                 if(label!=null){
                     if(game==null)game=FindAnyObjectByType<CombatGameBootstrap>();
                     label.transform.rotation=cameraView.transform.rotation;
-                    label.transform.position=transform.position+Vector3.up*(height+.35f);
+                    label.transform.position=transform.position+Vector3.up*(height+(pickupTimer != null ? .8f : .35f));
                     label.gameObject.SetActive(showTitle && (game==null || (!game.Session.IsPaused && game.Player.IsAlive))
                         && (equipmentLabel == null || FitsViewport(label,cameraView)));
                 }

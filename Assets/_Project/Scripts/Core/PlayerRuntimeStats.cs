@@ -22,12 +22,13 @@ namespace EchoScrap.Core
         public float CompanionDamageMultiplier { get; private set; } = 1f;
         public float CompanionMoveMultiplier { get; private set; } = 1f;
         public float CompanionDamageReduction { get; private set; }
-        private float companionAttackSpeed;
-        public void SetCompanionBonuses(float health, float healthMultiplier, float damage, float speed, float attackSpeed, float reduction)
+        private float companionAttackSpeed, companionArmor;
+        public void SetCompanionBonuses(float health, float healthMultiplier, float damage, float speed, float attackSpeed, float reduction, float armor = 0f)
         {
             companionHealth = health; companionHealthMultiplier = healthMultiplier;
             CompanionDamageMultiplier = 1f + damage; CompanionMoveMultiplier = speed;
             companionAttackSpeed = attackSpeed; CompanionDamageReduction = Mathf.Clamp01(reduction);
+            companionArmor = armor;
             OnStatsChanged?.Invoke();
         }
 
@@ -65,7 +66,9 @@ namespace EchoScrap.Core
         public float MaxHealth => (Settings.MaxHealth + bonusMaxHealth + (bioAlloyTier * 20f) + GetUpgradeTier(UpgradeId.SCRAP_01) * Upgrades.armorHealthPerTier + companionHealth) * companionHealthMultiplier;
         public float DamageProtectionDuration => Settings.DamageProtectionDuration;
 
-        public float Armor => Mathf.Clamp(Settings.InitialArmor + bonusArmor + GetUpgradeTier(UpgradeId.SCRAP_01) * Upgrades.armorPerTier, 0f, Settings.MaxArmor);
+        public float Armor => Mathf.Clamp(
+            Settings.InitialArmor + bonusArmor + companionArmor + GetUpgradeTier(UpgradeId.SCRAP_01) * Upgrades.armorPerTier,
+            0f, Settings.MaxArmor);
         public float Evasion => Mathf.Clamp(Settings.InitialEvasion + bonusEvasion, 0f, Settings.MaxEvasion);
         public float BlockChance => Mathf.Clamp(Settings.InitialBlockChance + bonusBlockChance, 0f, Settings.MaxBlockChance);
         public float BlockDamageReduction => Settings.BlockDamageReduction;

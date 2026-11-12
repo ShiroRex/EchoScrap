@@ -91,6 +91,7 @@ namespace EchoScrap.Tests
         public IEnumerator HudUsesTheNativeClockMinimapAndInteractionArt()
         {
             var hud = game.Hud.CanvasRoot.transform;
+            Assert.IsNull(hud.Find("Controls"), "Movement instructions must stay off the combat HUD.");
             var typography = Resources.Load<UpgradeCardSkin>("UI/PixelPortal/Typography");
             foreach (var text in hud.GetComponentsInChildren<Text>(true))
                 Assert.IsTrue(text.font == typography.regular || text.font == typography.semibold, text.name + " must use the shared UI typography.");
@@ -101,7 +102,8 @@ namespace EchoScrap.Tests
             Assert.Greater(hud.Find("Clock").GetComponent<Text>().cachedTextGenerator.vertexCount, 4, "The clock must generate visible glyphs inside its artwork.");
             var map = game.Hud.GetComponent<CombatMinimap>(); map.Refresh();
             Assert.AreSame(PixelControlArtwork.Load("MinimapFrame/Frame"), hud.Find("Minimap/Artwork").GetComponent<Image>().sprite);
-            Assert.AreSame(PixelControlArtwork.Load("MinimapMarkers/North"), hud.Find("Minimap/Interior/Norte").GetComponent<Image>().sprite);
+            Assert.IsNull(hud.Find("Minimap/Interior/Norte"));
+            Assert.IsNull(hud.Find("GuiasColeccionables"));
             Assert.AreSame(PixelControlArtwork.Load("BossPointer/Up"), hud.Find("BossOffscreenArrow/Artwork").GetComponent<Image>().sprite);
             var station = Object.FindAnyObjectByType<FusionStation>();
             var companions = station.GetComponent<CompanionSystem>();
@@ -222,17 +224,63 @@ namespace EchoScrap.Tests
             yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
             var menu = Object.FindAnyObjectByType<MainMenuController>();
             bool previous = menu.Effects.ReducedEffectsMode;
+            const string masterKey = "EchoScrap.Audio.MasterVolume", musicKey = "EchoScrap.Audio.MusicVolume";
+            bool hadMaster = PlayerPrefs.HasKey(masterKey), hadMusic = PlayerPrefs.HasKey(musicKey);
+            float oldMaster = AudioListener.volume, oldMusic = CombatMusicPlayer.MusicVolume;
+            float storedMaster = PlayerPrefs.GetFloat(masterKey), storedMusic = PlayerPrefs.GetFloat(musicKey);
             try
             {
-                menu.OpenConfiguration(); menu.Settings.SetReducedEffects(true);
-                var panel = menu.View.Canvas.transform.Find("MenuSettings/Panel");
-                var slider = panel.Find("ShakeSlider").GetComponent<Slider>();
+                var canvas = menu.View.Canvas.transform;
+                var settings = canvas.Find("MainMenu/TitleFrame/Settings").GetComponent<Button>();
+                settings.onClick.Invoke();
+                var panel = canvas.Find("MenuSettings/Panel");
+                Assert.IsTrue(menu.IsConfiguring);
+                Assert.IsTrue(panel.Find("General").gameObject.activeInHierarchy);
+                Assert.IsNull(panel.Find("Restart"));
+                var back = panel.Find("Resume").GetComponent<Button>();
+                Assert.AreSame(back.gameObject, EventSystem.current.currentSelectedGameObject);
+                Assert.AreSame(PixelControlArtwork.Load("Presentation/ButtonBlue"), back.image.sprite);
+
+                var slider = panel.Find("General/ShakeSlider").GetComponent<Slider>();
+                var reduced = panel.Find("General/ReducedEffects").GetComponent<Toggle>();
+                reduced.isOn = true;
                 Assert.IsFalse(slider.interactable);
                 Assert.AreSame(PixelControlArtwork.Load("Slider/Handle_Disabled"), ((Image)slider.targetGraphic).sprite);
                 Assert.AreSame(PixelControlArtwork.Load("Slider/Track_Disabled"), slider.transform.Find("Background").GetComponent<Image>().sprite);
+                reduced.isOn = false;
                 yield return Capture("Configuracion", 1920, 1080);
+
+                panel.Find("Tabs/Interface").GetComponent<Button>().onClick.Invoke();
+                Assert.IsFalse(panel.Find("General").gameObject.activeInHierarchy);
+                Assert.IsTrue(panel.Find("Interface").gameObject.activeInHierarchy);
+                yield return Capture("Configuracion_Interfaz", 1280, 720);
+
+                panel.Find("Tabs/Sound").GetComponent<Button>().onClick.Invoke();
+                Assert.IsTrue(panel.Find("Sound").gameObject.activeInHierarchy);
+                panel.Find("Sound/VolumeSlider").GetComponent<Slider>().value = 37;
+                panel.Find("Sound/MusicSlider").GetComponent<Slider>().value = 26;
+                Assert.AreEqual(.37f, AudioListener.volume, .001f);
+                Assert.AreEqual(.37f, PlayerPrefs.GetFloat(masterKey), .001f);
+                Assert.AreEqual(.26f, PlayerPrefs.GetFloat(musicKey), .001f);
+                var menuMusic = GameObject.Find("MenuMusic").GetComponent<AudioSource>();
+                Assert.AreEqual(.13f, menuMusic.volume, .001f);
+                yield return Capture("Configuracion_Sonido", 1280, 720);
+
+                back.onClick.Invoke();
+                Assert.IsFalse(menu.IsConfiguring);
+                settings.onClick.Invoke();
+                Assert.IsTrue(panel.Find("General").gameObject.activeInHierarchy);
             }
-            finally { menu.Settings.SetReducedEffects(previous); }
+            finally
+            {
+                menu.Settings.SetReducedEffects(previous);
+                AudioListener.volume = oldMaster;
+                CombatMusicPlayer.SetMusicVolume(oldMusic);
+                MenuMusic.Play();
+                if (hadMaster) PlayerPrefs.SetFloat(masterKey, storedMaster); else PlayerPrefs.DeleteKey(masterKey);
+                if (hadMusic) PlayerPrefs.SetFloat(musicKey, storedMusic); else PlayerPrefs.DeleteKey(musicKey);
+                PlayerPrefs.Save();
+            }
         }
 
         private static string ReviewPath(string name)
@@ -261,7 +309,7 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator VaultArrowsLeadThroughTheStairsAndHideOutsideExploration()
+        public IEnumerator VaultArrowsShowGddSubtitlesAndLeadThroughTheRamp()
         {
             var flow = game.gameObject.AddComponent<GameFlowController>();
             flow.Initialize(game, false);
@@ -271,8 +319,16 @@ namespace EchoScrap.Tests
             var directions = flow.View.Canvas.transform.Find("VaultDirections");
             var fusion = (RectTransform)directions.Find("Fusion/Arrow");
             var equipment = (RectTransform)directions.Find("Equipment/Arrow");
+            Assert.That(((RectTransform)equipment.parent).anchoredPosition.x, Is.LessThan(0f));
+            Assert.That(((RectTransform)fusion.parent).anchoredPosition.x, Is.GreaterThan(0f));
             Assert.IsTrue(fusion.gameObject.activeInHierarchy && equipment.gameObject.activeInHierarchy);
             Assert.IsFalse(fusion.GetComponent<Image>().raycastTarget || equipment.GetComponent<Image>().raycastTarget);
+            var fusionSubtitle = fusion.parent.Find("Subtitle").GetComponent<Text>();
+            var equipmentSubtitle = equipment.parent.Find("Subtitle").GetComponent<Text>();
+            Assert.That(fusionSubtitle.text, Is.EqualTo("Combina 4 copias de la misma rareza"));
+            Assert.That(equipmentSubtitle.text, Is.EqualTo("Puestos de equipo 1, 2 y 3"));
+            Assert.That(fusionSubtitle.preferredWidth, Is.LessThanOrEqualTo(fusionSubtitle.rectTransform.rect.width));
+            Assert.That(equipmentSubtitle.preferredWidth, Is.LessThanOrEqualTo(equipmentSubtitle.rectTransform.rect.width));
             yield return Capture("Boveda_Flechas_720", 1280, 720);
 
             var station = Object.FindAnyObjectByType<FusionStation>();
@@ -295,7 +351,7 @@ namespace EchoScrap.Tests
                 Assert.That(Vector3.Dot(expected, arrow.localRotation * Vector3.up), Is.GreaterThan(.98f), arrow.parent.name);
             }
 
-            Place(new Vector3(180, 1, 8));
+            Place(new Vector3(172, 1, 8));
             yield return null;
             AssertBearing(equipment, new Vector3(160, 0, -.5f));
             AssertBearing(fusion, station.InteractionPoint.position);

@@ -36,12 +36,12 @@ namespace EchoScrap.Tests
             Assert.IsTrue(map.IsExplored(previous));Assert.IsTrue(map.IsExplored(game.Player.transform.position));Assert.IsFalse(map.IsExplored(new Vector3(-95,0,-95)));Assert.Greater(map.VisibleRadius,30);
             var canvas=game.Hud.HudCanvas.transform;var frame=(RectTransform)canvas.Find("Minimap");var kills=(RectTransform)canvas.Find("Kills");
             Assert.AreEqual(new Vector2(1,1),frame.anchorMax);
-            Assert.AreEqual(288,frame.sizeDelta.x);Assert.IsNotNull(frame.Find("Interior").GetComponent<UnityEngine.UI.Mask>());
+            Assert.AreEqual(336,frame.sizeDelta.x);Assert.IsNotNull(frame.Find("Interior").GetComponent<UnityEngine.UI.Mask>());
             Assert.AreSame(PixelControlArtwork.Load("MinimapFrame/Frame"),frame.Find("Artwork").GetComponent<UnityEngine.UI.Image>().sprite);
             Assert.AreSame(PixelControlArtwork.Load("MinimapFrame/Mask"),frame.Find("Interior").GetComponent<UnityEngine.UI.Image>().sprite);
             Assert.AreSame(PixelControlArtwork.Load("MinimapMarkers/Portal"),frame.Find("Interior/MapaArena/Portal").GetComponent<UnityEngine.UI.Image>().sprite);
             Assert.AreSame(Resources.Load<Texture2D>("Hud/PortraitAtlas"),map.PlayerMarker.GetComponent<UnityEngine.UI.Image>().sprite.texture);
-            Assert.LessOrEqual(map.MapPosition(new Vector3(10000,0,10000)).magnitude,72.3f);Assert.Less(kills.anchoredPosition.y+kills.sizeDelta.y*.5f,frame.anchoredPosition.y-frame.sizeDelta.y*.5f);
+            Assert.LessOrEqual(map.MapPosition(new Vector3(10000,0,10000)).magnitude,84f);Assert.Less(kills.anchoredPosition.y+kills.sizeDelta.y*.5f,frame.anchoredPosition.y-frame.sizeDelta.y*.5f);
             Assert.IsNotNull(frame.Find("Interior/MapaArena/Portal"));
             var stone=GameObject.Find("roca_baja_-1_41").GetComponentInChildren<Renderer>();Assert.AreEqual(ArenaSurface.Height(stone.bounds.center),stone.bounds.min.y,.15f);Assert.Less(stone.bounds.max.x,-6);
             var old=RenderTexture.active;RenderTexture.active=map.MapTexture;var sample=new Texture2D(256,256,TextureFormat.RGB24,false);sample.ReadPixels(new Rect(0,0,256,256),0,0);sample.Apply();RenderTexture.active=old;

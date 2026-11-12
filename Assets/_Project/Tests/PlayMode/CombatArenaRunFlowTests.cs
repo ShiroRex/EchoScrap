@@ -467,7 +467,9 @@ namespace EchoScrap.Tests
             PauseMenuSkin skin = Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin");
             Assert.IsNotNull(skin);
             Assert.That(skin.frame.rect.size, Is.EqualTo(new Vector2(113, 87)));
-            foreach (Sprite sprite in new[] { skin.frame, skin.blueButton, skin.redButton, skin.greenButton })
+            Sprite blueButton = PixelControlArtwork.Load("Presentation/ButtonBlue");
+            Sprite redButton = PixelControlArtwork.Load("Presentation/ButtonRed");
+            foreach (Sprite sprite in new[] { skin.frame, blueButton, redButton, skin.greenButton })
                 Assert.That(sprite.texture.filterMode, Is.EqualTo(FilterMode.Point));
             Assert.That(skin.greenButton.border, Is.EqualTo(Vector4.one * 14f));
             game.Progression.AddExperience(20);
@@ -489,8 +491,8 @@ namespace EchoScrap.Tests
                     decoration.rectTransform.rect.width / decoration.rectTransform.rect.height, .001f,
                     ornament + " must keep the original art proportions.");
             }
-            Assert.That(resume.image.sprite, Is.SameAs(skin.blueButton));
-            Assert.That(restart.image.sprite, Is.SameAs(skin.redButton));
+            Assert.That(resume.image.sprite, Is.SameAs(blueButton));
+            Assert.That(restart.image.sprite, Is.SameAs(redButton));
             Assert.That(restart.transform.localPosition.x, Is.LessThan(resume.transform.localPosition.x));
             EventSystem.current.SetSelectedGameObject(null);
             yield return null;
@@ -498,8 +500,8 @@ namespace EchoScrap.Tests
                 yield return CapturePauseArtwork(size, "Pause");
             EventSystem.current.SetSelectedGameObject(restart.gameObject);
             yield return null;
-            Assert.That(restart.image.overrideSprite, Is.SameAs(skin.blueButton));
-            Assert.That(resume.image.overrideSprite, Is.SameAs(skin.blueButton));
+            Assert.That(restart.image.overrideSprite, Is.SameAs(blueButton));
+            Assert.That(resume.image.overrideSprite, Is.SameAs(blueButton));
             yield return CapturePauseArtwork(new Vector2Int(1920, 1080), "Pause_Focus");
             ExecuteEvents.Execute(restart.gameObject, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left }, ExecuteEvents.pointerClickHandler);
             Assert.That(game.Progression.TotalXp, Is.Zero, "The red navigation button still restarts the run.");
