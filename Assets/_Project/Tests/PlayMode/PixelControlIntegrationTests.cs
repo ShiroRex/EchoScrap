@@ -222,17 +222,63 @@ namespace EchoScrap.Tests
             yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
             var menu = Object.FindAnyObjectByType<MainMenuController>();
             bool previous = menu.Effects.ReducedEffectsMode;
+            const string masterKey = "EchoScrap.Audio.MasterVolume", musicKey = "EchoScrap.Audio.MusicVolume";
+            bool hadMaster = PlayerPrefs.HasKey(masterKey), hadMusic = PlayerPrefs.HasKey(musicKey);
+            float oldMaster = AudioListener.volume, oldMusic = CombatMusicPlayer.MusicVolume;
+            float storedMaster = PlayerPrefs.GetFloat(masterKey), storedMusic = PlayerPrefs.GetFloat(musicKey);
             try
             {
-                menu.OpenConfiguration(); menu.Settings.SetReducedEffects(true);
-                var panel = menu.View.Canvas.transform.Find("MenuSettings/Panel");
-                var slider = panel.Find("ShakeSlider").GetComponent<Slider>();
+                var canvas = menu.View.Canvas.transform;
+                var settings = canvas.Find("MainMenu/TitleFrame/Settings").GetComponent<Button>();
+                settings.onClick.Invoke();
+                var panel = canvas.Find("MenuSettings/Panel");
+                Assert.IsTrue(menu.IsConfiguring);
+                Assert.IsTrue(panel.Find("General").gameObject.activeInHierarchy);
+                Assert.IsNull(panel.Find("Restart"));
+                var back = panel.Find("Resume").GetComponent<Button>();
+                Assert.AreSame(back.gameObject, EventSystem.current.currentSelectedGameObject);
+                Assert.AreSame(PixelControlArtwork.Load("Presentation/ButtonBlue"), back.image.sprite);
+
+                var slider = panel.Find("General/ShakeSlider").GetComponent<Slider>();
+                var reduced = panel.Find("General/ReducedEffects").GetComponent<Toggle>();
+                reduced.isOn = true;
                 Assert.IsFalse(slider.interactable);
                 Assert.AreSame(PixelControlArtwork.Load("Slider/Handle_Disabled"), ((Image)slider.targetGraphic).sprite);
                 Assert.AreSame(PixelControlArtwork.Load("Slider/Track_Disabled"), slider.transform.Find("Background").GetComponent<Image>().sprite);
+                reduced.isOn = false;
                 yield return Capture("Configuracion", 1920, 1080);
+
+                panel.Find("Tabs/Interface").GetComponent<Button>().onClick.Invoke();
+                Assert.IsFalse(panel.Find("General").gameObject.activeInHierarchy);
+                Assert.IsTrue(panel.Find("Interface").gameObject.activeInHierarchy);
+                yield return Capture("Configuracion_Interfaz", 1280, 720);
+
+                panel.Find("Tabs/Sound").GetComponent<Button>().onClick.Invoke();
+                Assert.IsTrue(panel.Find("Sound").gameObject.activeInHierarchy);
+                panel.Find("Sound/VolumeSlider").GetComponent<Slider>().value = 37;
+                panel.Find("Sound/MusicSlider").GetComponent<Slider>().value = 26;
+                Assert.AreEqual(.37f, AudioListener.volume, .001f);
+                Assert.AreEqual(.37f, PlayerPrefs.GetFloat(masterKey), .001f);
+                Assert.AreEqual(.26f, PlayerPrefs.GetFloat(musicKey), .001f);
+                var menuMusic = GameObject.Find("MenuMusic").GetComponent<AudioSource>();
+                Assert.AreEqual(.13f, menuMusic.volume, .001f);
+                yield return Capture("Configuracion_Sonido", 1280, 720);
+
+                back.onClick.Invoke();
+                Assert.IsFalse(menu.IsConfiguring);
+                settings.onClick.Invoke();
+                Assert.IsTrue(panel.Find("General").gameObject.activeInHierarchy);
             }
-            finally { menu.Settings.SetReducedEffects(previous); }
+            finally
+            {
+                menu.Settings.SetReducedEffects(previous);
+                AudioListener.volume = oldMaster;
+                CombatMusicPlayer.SetMusicVolume(oldMusic);
+                MenuMusic.Play();
+                if (hadMaster) PlayerPrefs.SetFloat(masterKey, storedMaster); else PlayerPrefs.DeleteKey(masterKey);
+                if (hadMusic) PlayerPrefs.SetFloat(musicKey, storedMusic); else PlayerPrefs.DeleteKey(musicKey);
+                PlayerPrefs.Save();
+            }
         }
 
         private static string ReviewPath(string name)

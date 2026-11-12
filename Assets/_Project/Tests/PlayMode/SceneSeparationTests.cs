@@ -9,6 +9,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace EchoScrap.Tests
 {
@@ -150,20 +151,29 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator SettingsWorkWithoutArenaAndSurviveBothSceneDirections()
         {
             Menu.OpenConfiguration(); Assert.IsTrue(Menu.IsConfiguring); Assert.IsNull(Game);
-            Menu.Settings.SetShakePercent(35); Menu.Settings.SetDecorativePercent(45);
+            Transform panel = Menu.Settings.transform;
+            panel.Find("General/ShakeSlider").GetComponent<Slider>().value = 35;
+            panel.Find("General/EffectsSlider").GetComponent<Slider>().value = 45;
             Canvas.ForceUpdateCanvases();
-            foreach (var slider in Menu.Settings.GetComponentsInChildren<UnityEngine.UI.Slider>())
+            foreach (var slider in Menu.Settings.GetComponentsInChildren<Slider>())
                 Assert.AreEqual(slider.normalizedValue * ((RectTransform)slider.fillRect.parent).rect.width, slider.fillRect.rect.width, .1f, "Slider fill must fit its track at the actual percentage.");
-            var modes = Menu.Settings.GetComponentsInChildren<UnityEngine.UI.Button>();
-            System.Array.Find(modes, button => button.name == "COMPLETA").onClick.Invoke();
+            panel.Find("General/ReducedEffects").GetComponent<Toggle>().isOn = true;
+            panel.Find("Tabs/Interface").GetComponent<Button>().onClick.Invoke();
+            panel.Find("Interface/StatsDisplayMode/Full").GetComponent<Button>().onClick.Invoke();
             Assert.AreEqual(StatsDisplayMode.Full, SceneTransitionState.StatsMode);
-            System.Array.Find(modes, button => button.name == "REDUCIDA").onClick.Invoke();
+            panel.Find("Interface/StatsDisplayMode/Reduced").GetComponent<Button>().onClick.Invoke();
             Assert.AreEqual(StatsDisplayMode.Reduced, SceneTransitionState.StatsMode);
-            Menu.Settings.SetReducedEffects(true);
-            Menu.CloseConfiguration(); yield return NewCollection();
+            panel.Find("Interface/CompanionPowers/Yes").GetComponent<Toggle>().isOn = true;
+            Assert.IsTrue(SceneTransitionState.ShowCompanionPowers);
+
+            var back = panel.Find("Resume").GetComponent<Button>();
+            ExecuteEvents.Execute(back.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.IsFalse(Menu.IsConfiguring);
+            yield return NewCollection();
             Assert.AreEqual(.35f, Game.Session.Effects.RawShakeIntensity, .001f);
             Assert.AreEqual(.45f, Game.Session.Effects.RawDecorativeIntensity, .001f);
             Assert.IsTrue(Game.Session.Effects.ReducedEffectsMode); Assert.AreEqual(StatsDisplayMode.Reduced, Game.Hud.StatsMode);
+            Assert.IsTrue(SceneTransitionState.ShowCompanionPowers);
             Game.Hud.SetShakePercent(75); Game.Hud.SetReducedEffects(false);
             Game.Flow.ShowMainMenu(); yield return Title();
             Assert.AreEqual(.75f, Menu.Effects.RawShakeIntensity, .001f); Assert.IsFalse(Menu.Effects.ReducedEffectsMode);

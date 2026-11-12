@@ -17,11 +17,6 @@ namespace EchoScrap.Combat
         private static readonly Color Apollo = new Color(0.91f, 0.76f, 0.44f);
         private static readonly Color Ink = new Color(0.055f, 0.065f, 0.085f, 0.96f);
         private static readonly Color Pale = new Color(0.92f, 0.94f, 0.92f);
-        private static readonly Color Copper = new Color32(151, 92, 68, 255);
-        private static readonly Color CopperShadow = new Color32(83, 50, 50, 255);
-        private static readonly Color TabMuted = new Color32(203, 184, 175, 255);
-        private const string VolumePreference = "EchoScrap.Audio.MasterVolume";
-        private static readonly Vector2 PauseSize = new Vector2(900f, 680f);
         private static readonly Vector2 ResultSize = new Vector2(760f, 900f);
         private static readonly Vector2 ResultArtworkPosition = new Vector2(0f, 265f);
         private static readonly Color ResultBackdrop = new Color32(16, 14, 24, 255);
@@ -32,7 +27,6 @@ namespace EchoScrap.Combat
         private const float ResultCounterDuration = .92f;
         private const float DefeatPulsePeriod = .78f;
         private const float DefeatPulseDuration = 2f * DefeatPulsePeriod;
-        private const float PausePresentationScale = .85f;
         private const float ObjectiveHintSeconds = 5f;
         private const float DashReadySeconds = 2f;
         private CombatGameBootstrap game;
@@ -49,7 +43,7 @@ namespace EchoScrap.Combat
         private Canvas canvas;
         private RectTransform canvasRect;
         private GameObject modal;
-        private GameObject pauseContent;
+        private MenuSettingsView pauseSettings;
         private GameObject resultContent;
         private CanvasGroup resultCanvasGroup;
         private Image resultArtwork;
@@ -79,26 +73,10 @@ namespace EchoScrap.Combat
         private Text resultTitle;
         private Text resultDescription;
         private Text resultSummary;
-        private Text shakeLabel;
-        private Text decorativeLabel;
-        private Text volumeLabel;
-        private Text musicLabel;
         private Text controlsHint;
-        private Slider shakeSlider;
-        private Slider decorativeSlider;
-        private Slider volumeSlider;
-        private Slider musicSlider;
-        private readonly Button[] statsModeButtons = new Button[3];
-        private readonly Toggle[] powerToggles = new Toggle[2];
-        private readonly Button[] pauseTabs = new Button[3];
-        private readonly Image[] pauseTabIcons = new Image[3];
-        private readonly GameObject[] pausePages = new GameObject[3];
-        private int pauseTab;
         private bool detailWasHeld;
         private PlayerStatsReadout statsReadout;
         private StatsDisplayMode statsMode;
-        private Button resumeButton;
-        private Button pauseRestartButton;
         private Button resultRestartButton;
         private readonly StringBuilder cardsBuilder = new StringBuilder(512);
         private int kills;
@@ -119,7 +97,7 @@ namespace EchoScrap.Combat
         private bool resultAnimating;
         private bool victoryResult;
         private bool hubMode;
-        private Text pauseTitle, resumeLabel, pauseSecondaryLabel, resultActionLabel;
+        private Text resultActionLabel;
 
         public void SetHubMode(bool active)
         {
@@ -127,12 +105,12 @@ namespace EchoScrap.Combat
             foreach (Transform child in canvasRect)
                 if (child.gameObject != modal) child.gameObject.SetActive(!active);
             if (!active) { bossPanel.SetActive(false); bossArrow.gameObject.SetActive(false); }
-            SyncStatsModeControls();
+            pauseSettings?.UpdateStatsMode(statsMode);
         }
 
         public GameObject CanvasRoot => canvas != null ? canvas.gameObject : null;
         public Canvas HudCanvas => canvas;
-        public bool IsPauseVisible => modal != null && modal.activeSelf && pauseContent.activeSelf;
+        public bool IsPauseVisible => modal != null && modal.activeSelf && pauseSettings.gameObject.activeSelf;
         public bool IsResultVisible => modal != null && modal.activeSelf && resultContent.activeSelf;
         public bool IsBossArrowVisible => bossArrow != null && bossArrow.gameObject.activeSelf;
         public int KillCount => kills;
@@ -154,6 +132,7 @@ namespace EchoScrap.Combat
             Unsubscribe();
             game = bootstrap;
             BuildInterface(hurt);
+            pauseSettings.BindPreferences(game.Session.Effects);
             Subscribe();
             ResetReadouts();
             RefreshNow();
@@ -185,7 +164,6 @@ namespace EchoScrap.Combat
             subscribedSession.Events.OnActorDied += HandleDeath;
             subscribedSession.Events.OnSessionStateChanged += HandleSessionState;
             subscribedSession.SessionReset += HandleReset;
-            subscribedSession.Effects.OnPreferencesChanged += SyncPreferences;
             subscribedStats.OnStatsChanged += HandleStatsChanged;
             subscribedProgression.OnExperienceChanged += HandleExperienceChanged;
         }
@@ -197,7 +175,6 @@ namespace EchoScrap.Combat
                 subscribedSession.Events.OnActorDied -= HandleDeath;
                 subscribedSession.Events.OnSessionStateChanged -= HandleSessionState;
                 subscribedSession.SessionReset -= HandleReset;
-                subscribedSession.Effects.OnPreferencesChanged -= SyncPreferences;
             }
             if (subscribedStats != null) subscribedStats.OnStatsChanged -= HandleStatsChanged;
             if (subscribedProgression != null) subscribedProgression.OnExperienceChanged -= HandleExperienceChanged;
@@ -231,7 +208,7 @@ namespace EchoScrap.Combat
             cardsDirty = experienceDirty = true;
             refreshTimer = 0f;
             RefreshKills();
-            SyncPreferences();
+            pauseSettings.RefreshPreferences();
         }
 
         private void RefreshKills()
@@ -414,13 +391,11 @@ namespace EchoScrap.Combat
             if (game.Flow != null)
             {
                 bool settings = game.Flow.IsConfiguring;
-                pauseTitle.text = settings ? "CONFIGURACIÓN" : "PAUSA";
-                resumeLabel.text = settings ? "VOLVER" : "REANUDAR";
-                pauseSecondaryLabel.text = settings || game.Flow.State != GameFlowState.Expedition ? "MENÚ PRINCIPAL" : "ABANDONAR";
-                pauseRestartButton.interactable = !settings;
+                pauseSettings.SetPauseActions(settings ? "CONFIGURACIÓN" : "PAUSA", settings ? "VOLVER" : "REANUDAR",
+                    settings || game.Flow.State != GameFlowState.Expedition ? "MENÚ PRINCIPAL" : "ABANDONAR", !settings);
             }
             bool wasVisible = modal.activeSelf;
-            bool wasPaused = pauseContent.activeSelf;
+            bool wasPaused = pauseSettings.gameObject.activeSelf;
             bool hadResult = IsResultVisible;
             bool openingResult = showResult && (!hadResult || state != previousState);
             if (openingResult) BeginResult(state);
@@ -429,18 +404,17 @@ namespace EchoScrap.Combat
                 resultConfetti.gameObject.SetActive(false);
                 resultPulse.gameObject.SetActive(false);
             }
-            pauseContent.SetActive(showPause);
+            pauseSettings.gameObject.SetActive(showPause);
             resultContent.SetActive(showResult);
             modal.SetActive(showPause || showResult);
             modalPanel.color = showPause && pauseSkin == null ? Ink : Color.clear;
             modalBackdrop.color = showResult ? ResultBackdrop : new Color(.02f, .025f, .04f, .54f);
-            if (showPause && !wasPaused) SelectPauseTab(0);
-            if (showPause) LinkPauseControls();
+            if (showPause && !wasPaused) pauseSettings.Open();
             if (showPause) FitPauseToCanvas();
             else if (showResult) FitResultToCanvas();
             modalAccent.gameObject.SetActive(showPause && pauseSkin == null);
             if (modal.activeSelf && (!wasVisible || state != previousState || openingResult))
-                EventSystem.current?.SetSelectedGameObject(showResult ? resultRestartButton.gameObject : resumeButton.gameObject);
+                EventSystem.current?.SetSelectedGameObject(showResult ? resultRestartButton.gameObject : pauseSettings.BackButton.gameObject);
             else if (!modal.activeSelf && wasVisible && EventSystem.current != null)
                 EventSystem.current.SetSelectedGameObject(null);
             previousState = state;
@@ -518,14 +492,7 @@ namespace EchoScrap.Combat
             game?.Session.ResumeAllUserPauses();
             RefreshNow();
         }
-        private void FitPauseToCanvas()
-        {
-            float fit = Mathf.Clamp(Mathf.Min((canvasRect.rect.width - 48f) / PauseSize.x,
-                (canvasRect.rect.height - 48f) / PauseSize.y), .1f, 1f);
-            float scale = fit * PausePresentationScale;
-            pauseContent.transform.localScale=Vector3.one*scale;
-            modalPanel.rectTransform.sizeDelta=PauseSize*scale;
-        }
+        private void FitPauseToCanvas() => modalPanel.rectTransform.sizeDelta = pauseSettings.FitToCanvas(canvasRect);
 
         private void FitResultToCanvas()
         {
@@ -549,70 +516,18 @@ namespace EchoScrap.Combat
         public void SetShakePercent(float value) { if (game != null) game.Session.Effects.ShakeIntensity = value / 100f; }
         public void SetDecorativePercent(float value) { if (game != null) game.Session.Effects.DecorativeIntensity = value / 100f; }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void LoadMasterVolume()
-        {
-            AudioListener.volume = Mathf.Clamp01(PlayerPrefs.GetFloat(VolumePreference, .85f));
-        }
-
         public void SetVolumePercent(float value)
         {
-            AudioListener.volume = Mathf.Clamp01(value / 100f);
-            PlayerPrefs.SetFloat(VolumePreference,AudioListener.volume);
-            if (volumeLabel != null) volumeLabel.text = Percent(AudioListener.volume);
+            MenuSettingsView.ApplyMasterVolumePercent(value);
+            pauseSettings?.RefreshPreferences();
         }
         public void SetReducedEffects(bool value) { if (game != null) game.Session.Effects.ReducedEffectsMode = value; }
-        private void SetMusicPercent(float value)
-        {
-            CombatMusicPlayer.SetMusicVolume(value / 100f);
-            musicLabel.text = Percent(CombatMusicPlayer.MusicVolume);
-        }
-        private static string Percent(float value) => $"{Mathf.RoundToInt(value * 100f)}%";
         public void SetStatsVisible(bool value) => SetStatsDisplayMode(value ? StatsDisplayMode.Full : StatsDisplayMode.None);
         public void SetStatsDisplayMode(StatsDisplayMode value)
         {
             statsMode = value == StatsDisplayMode.Full || value == StatsDisplayMode.Reduced ? value : StatsDisplayMode.None;
-            SyncStatsModeControls();
+            pauseSettings?.UpdateStatsMode(statsMode);
             RefreshStats();
-        }
-
-        private void SyncStatsModeControls()
-        {
-            for (int i = 0; i < statsModeButtons.Length; i++)
-            {
-                var mode = (StatsDisplayMode)i;
-                Button button = statsModeButtons[i];
-                if (button == null) continue;
-                bool active = statsMode == mode;
-                PixelControlArtwork.SetChoiceActive(button, active);
-                button.transform.Find("Label").GetComponent<Text>().color = Pale;
-            }
-            for (int i = 0; i < powerToggles.Length; i++)
-            {
-                Toggle toggle = powerToggles[i];
-                toggle.SetIsOnWithoutNotify(SceneTransitionState.ShowCompanionPowers == (i == 0));
-                PixelControlArtwork.Refresh(toggle);
-            }
-            LinkPauseControls();
-        }
-
-        private void SyncPreferences()
-        {
-            if (game == null || shakeSlider == null) return;
-            var preferences = game.Session.Effects;
-            volumeSlider.SetValueWithoutNotify(AudioListener.volume * 100f);
-            volumeLabel.text = Percent(AudioListener.volume);
-            shakeSlider.SetValueWithoutNotify(preferences.RawShakeIntensity * 100f);
-            decorativeSlider.SetValueWithoutNotify(preferences.RawDecorativeIntensity * 100f);
-            musicSlider.SetValueWithoutNotify(CombatMusicPlayer.MusicVolume * 100f);
-            musicLabel.text = Percent(CombatMusicPlayer.MusicVolume);
-            PixelControlArtwork.Refresh(volumeSlider);
-            PixelControlArtwork.Refresh(shakeSlider);
-            PixelControlArtwork.Refresh(decorativeSlider);
-            PixelControlArtwork.Refresh(musicSlider);
-            SyncStatsModeControls();
-            shakeLabel.text = Percent(preferences.RawShakeIntensity);
-            decorativeLabel.text = Percent(preferences.RawDecorativeIntensity);
         }
 
         private void BuildInterface(PlayerHurtPresentation hurt)
@@ -725,53 +640,11 @@ namespace EchoScrap.Combat
             Image panel = modalPanel = ImageRect(modal.transform, "Panel", Vector2.zero, new Vector2(760f, 720f), Ink);
             panel.raycastTarget = true;
             modalAccent = ImageRect(panel.transform, "TopAccent", new Vector2(0f, 357f), new Vector2(760f, 4f), Apollo);
-            pauseContent = Rect(panel.transform, "Pause", Vector2.one * 0.5f, Vector2.zero, PauseSize).gameObject;
-            if (pauseSkin != null)
-            {
-                Image artwork = ImageRect(pauseContent.transform, "Artwork", Vector2.zero, PauseSize, Color.white);
-                artwork.sprite = pauseSkin.frame;
-                artwork.type = Image.Type.Sliced;
-                artwork.pixelsPerUnitMultiplier = .25f;
-                if(pauseSkin.topCrest!=null)ImageRect(pauseContent.transform,"TopCrest",new Vector2(0,312),new Vector2(72,56),Color.white).sprite=pauseSkin.topCrest;
-                if(pauseSkin.bottomCrest!=null)ImageRect(pauseContent.transform,"BottomCrest",new Vector2(0,-314),new Vector2(80,52),Color.white).sprite=pauseSkin.bottomCrest;
-                if(pauseSkin.sideOrnament!=null)ImageRect(pauseContent.transform,"SideOrnament",new Vector2(432,0),new Vector2(36,144),Color.white).sprite=pauseSkin.sideOrnament;
-            }
-            pauseTitle = Label(pauseContent.transform, "Title", new Vector2(0, 219), new Vector2(640, 72), "PAUSA", 50, TextAnchor.MiddleCenter, Apollo);
-            pauseTitle.font = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin")?.semibold ?? font;
-            ImageRect(pauseContent.transform, "LeftTitleRule", new Vector2(-222, 217), new Vector2(144, 3), CopperShadow);
-            ImageRect(pauseContent.transform, "RightTitleRule", new Vector2(222, 217), new Vector2(144, 3), CopperShadow);
-            ImageRect(pauseContent.transform, "LeftTitleRivet", new Vector2(-150, 217), new Vector2(6, 6), Copper);
-            ImageRect(pauseContent.transform, "RightTitleRivet", new Vector2(150, 217), new Vector2(6, 6), Copper);
-            PausePlate(pauseContent.transform, "SettingsInset", new Vector2(0, -20), new Vector2(714, 236));
-            ImageRect(pauseContent.transform, "SettingDivider", new Vector2(0, -20), new Vector2(640, 2), CopperShadow);
-            BuildPauseTabs();
-            Transform general = pausePages[0].transform;
-            Transform layout = pausePages[1].transform;
-            Transform sound = pausePages[2].transform;
+            pauseSettings = Rect(panel.transform, "Pause", Vector2.one * .5f, Vector2.zero, MenuSettingsView.PanelSize)
+                .gameObject.AddComponent<MenuSettingsView>();
+            pauseSettings.Build(pauseSkin, ResumeGame, PauseSecondaryAction);
+            pauseSettings.StatsModeChanged += SetStatsDisplayMode;
 
-            (volumeSlider, volumeLabel) = CreatePauseSlider(sound, "Volume", "Volumen general", 48, SetVolumePercent);
-            (musicSlider, musicLabel) = CreatePauseSlider(sound, "Music", "Música", -48, SetMusicPercent);
-            (shakeSlider, shakeLabel) = CreatePauseSlider(general, "Shake", "Movimiento de cámara", 48, SetShakePercent);
-            (decorativeSlider, decorativeLabel) = CreatePauseSlider(general, "Effects", "Efectos decorativos", -48, SetDecorativePercent);
-
-            Label(layout, "StatsLabel", new Vector2(0, 67), new Vector2(640, 32), "Estadísticas generales", 26, TextAnchor.MiddleLeft, Pale).font = pauseTitle.font;
-            var statsModes = Rect(layout, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0, 17), new Vector2(640, 52));
-            statsModeButtons[(int)StatsDisplayMode.Full] = CreatePauseChoice(statsModes, "Full", -240, "COMPLETAS", () => SetStatsDisplayMode(StatsDisplayMode.Full));
-            statsModeButtons[(int)StatsDisplayMode.Reduced] = CreatePauseChoice(statsModes, "Reduced", -68, "REDUCIDAS", () => SetStatsDisplayMode(StatsDisplayMode.Reduced));
-            statsModeButtons[(int)StatsDisplayMode.None] = CreatePauseChoice(statsModes, "None", 104, "OCULTAS", () => SetStatsDisplayMode(StatsDisplayMode.None));
-            Label(layout, "PowersLabel", new Vector2(0, -43), new Vector2(640, 34), "Atributos de coleccionables", 26, TextAnchor.MiddleLeft, Pale).font = pauseTitle.font;
-            var powers = Rect(layout, "CompanionPowers", Vector2.one * .5f, new Vector2(0, -86), new Vector2(640, 48));
-            var powerGroup = powers.gameObject.AddComponent<ToggleGroup>();
-            powerToggles[0] = CreatePowerToggle(powers, powerGroup, "Yes", -257, "SÍ", true);
-            powerToggles[1] = CreatePowerToggle(powers, powerGroup, "No", -122, "NO", false);
-
-            resumeButton = CreatePauseButton(pauseContent.transform, "Resume", new Vector2(165, -208), "REANUDAR", "Presentation/ButtonBlue");
-            resumeButton.onClick.AddListener(ResumeGame);
-            pauseRestartButton = CreatePauseButton(pauseContent.transform, "Restart", new Vector2(-165, -208), "REINICIAR", "Presentation/ButtonRed");
-            pauseRestartButton.onClick.AddListener(PauseSecondaryAction);
-            resumeLabel = resumeButton.transform.Find("Label").GetComponent<Text>();
-            pauseSecondaryLabel = pauseRestartButton.transform.Find("Label").GetComponent<Text>();
-            SelectPauseTab(0);
             BuildResult(panel.transform);
             modal.SetActive(false);
         }
@@ -801,127 +674,6 @@ namespace EchoScrap.Combat
             resultActionLabel.color = ResultText;
             resultRestartButton.onClick.AddListener(ResultAction);
             resultContent.SetActive(false);
-        }
-
-        private void BuildPauseTabs()
-        {
-            Transform parent = pauseContent.transform;
-            var tabs = Rect(parent, "Tabs", Vector2.one * .5f, new Vector2(0, 132), new Vector2(714, 66));
-            string[] names = { "General", "Interface", "Sound" };
-            string[] labels = { "General", "Interfaz", "Sonido" };
-            for (int i = 0; i < pauseTabs.Length; i++)
-            {
-                int tab = i;
-                Button button = CreateButton(tabs, names[i], new Vector2((i - 1) * 240, 0), labels[i], Color.white);
-                button.image.rectTransform.sizeDelta = new Vector2(228, 66);
-                button.image.type = Image.Type.Sliced;
-                button.image.pixelsPerUnitMultiplier = .5f;
-                var label = button.transform.Find("Label").GetComponent<Text>();
-                label.rectTransform.anchoredPosition = new Vector2(20, 1);
-                label.rectTransform.sizeDelta = new Vector2(154, 50);
-                label.fontSize = 29;
-                var icon = ImageRect(button.transform, "Icon", new Vector2(-71, 1), new Vector2(29, 29), TabMuted);
-                icon.sprite = PixelControlArtwork.Load("Pause/" + names[i] + "Icon");
-                icon.preserveAspect = true;
-                pauseTabIcons[i] = icon;
-                var colors = button.colors;
-                colors.selectedColor = colors.highlightedColor = new Color(1.3f, 1.18f, 1.08f);
-                colors.pressedColor = new Color(.76f, .69f, .65f);
-                button.colors = colors;
-                button.onClick.AddListener(() => SelectPauseTab(tab));
-                pauseTabs[i] = button;
-                pausePages[i] = Rect(parent, names[i], Vector2.one * .5f, new Vector2(0, -18), new Vector2(640, 234)).gameObject;
-            }
-        }
-
-        private void SelectPauseTab(int tab)
-        {
-            pauseTab = tab;
-            for (int i = 0; i < pauseTabs.Length; i++)
-            {
-                bool active = i == tab;
-                pausePages[i].SetActive(active);
-                pauseTabs[i].image.sprite = PixelControlArtwork.Load(active ? "Pause/TabActive" : "Pause/Tab");
-                pauseTabs[i].transform.Find("Label").GetComponent<Text>().color = active ? Apollo : TabMuted;
-                pauseTabIcons[i].color = active ? Apollo : TabMuted;
-            }
-            LinkPauseControls();
-        }
-
-        private void SetCompanionPowers(bool visible)
-        {
-            SceneTransitionState.ShowCompanionPowers = visible;
-            SyncStatsModeControls();
-        }
-
-        private Image PausePlate(Transform parent, string name, Vector2 position, Vector2 size)
-        {
-            var plate = ImageRect(parent, name, position, size, Color.white);
-            plate.sprite = PixelControlArtwork.Load("Pause/Inset");
-            plate.type = Image.Type.Sliced;
-            plate.pixelsPerUnitMultiplier = .5f;
-            return plate;
-        }
-
-        private (Slider Slider, Text Value) CreatePauseSlider(Transform parent, string name, string label, float y,
-            UnityEngine.Events.UnityAction<float> onChange)
-        {
-            Label(parent, name + "Label", new Vector2(-56, y), new Vector2(528, 34), label, 26, TextAnchor.MiddleLeft, Pale);
-            Image badge = PausePlate(parent, name + "Badge", new Vector2(273, y), new Vector2(94, 34));
-            Text value = Label(badge.transform, "Value", Vector2.zero, new Vector2(84, 30), "", 23, TextAnchor.MiddleCenter, Apollo);
-            Slider slider = CreateSlider(parent, name + "Slider", new Vector2(0, y - 39));
-            slider.onValueChanged.AddListener(onChange);
-            return (slider, value);
-        }
-
-        private Toggle CreatePowerToggle(Transform parent, ToggleGroup group, string name, float x, string value, bool showPowers)
-        {
-            Image hitArea = ImageRect(parent, name, new Vector2(x, 0), new Vector2(118, 48), Color.clear);
-            hitArea.raycastTarget = true;
-            Image box = ImageRect(hitArea.transform, "Box", new Vector2(25, 0), new Vector2(40, 40), Color.white);
-            Image check = ImageRect(box.transform, "Check", Vector2.zero, new Vector2(40, 40), Color.white);
-            Label(hitArea.transform, "Label", new Vector2(-24, 0), new Vector2(56, 42), value, 23, TextAnchor.MiddleLeft, Pale);
-            var toggle = hitArea.gameObject.AddComponent<Toggle>();
-            toggle.targetGraphic = box;
-            toggle.graphic = check;
-            toggle.group = group;
-            PixelControlArtwork.StyleToggle(toggle);
-            toggle.onValueChanged.AddListener(selected => { if (selected) SetCompanionPowers(showPowers); });
-            return toggle;
-        }
-
-        private void LinkPauseControls()
-        {
-            if (resumeButton == null || pauseTabs[0] == null) return;
-            Button tab = pauseTabs[pauseTab];
-            Selectable top;
-            Selectable bottom;
-            bool configuring = game != null && game.Flow != null && game.Flow.IsConfiguring;
-            Button leftAction = configuring ? resumeButton : pauseRestartButton;
-            if (pauseTab == 1)
-            {
-                Button full = statsModeButtons[(int)StatsDisplayMode.Full];
-                Button reduced = statsModeButtons[(int)StatsDisplayMode.Reduced];
-                Button none = statsModeButtons[(int)StatsDisplayMode.None];
-                top = statsModeButtons[(int)statsMode];
-                bottom = powerToggles[SceneTransitionState.ShowCompanionPowers ? 0 : 1];
-                SetNavigation(full, tab, powerToggles[0], none, reduced);
-                SetNavigation(reduced, tab, powerToggles[1], full, none);
-                SetNavigation(none, tab, powerToggles[1], reduced, full);
-                SetNavigation(powerToggles[0], full, leftAction, powerToggles[1], powerToggles[1]);
-                SetNavigation(powerToggles[1], reduced, resumeButton, powerToggles[0], powerToggles[0]);
-            }
-            else
-            {
-                top = pauseTab == 0 ? shakeSlider : volumeSlider;
-                bottom = pauseTab == 0 ? decorativeSlider : musicSlider;
-                SetNavigation(top, tab, bottom);
-                SetNavigation(bottom, top, resumeButton);
-            }
-            for (int i = 0; i < pauseTabs.Length; i++)
-                SetNavigation(pauseTabs[i], leftAction, top, pauseTabs[(i + 2) % 3], pauseTabs[(i + 1) % 3]);
-            SetNavigation(resumeButton, bottom, tab, leftAction, leftAction);
-            SetNavigation(pauseRestartButton, bottom, tab, resumeButton, resumeButton);
         }
 
         private void CreateBorderSprite()
@@ -991,62 +743,6 @@ namespace EchoScrap.Combat
             var colors = button.colors; colors.highlightedColor = new Color(1.15f, 1.15f, 1.15f); colors.selectedColor = new Color(1.15f, 1.15f, 1.15f); colors.pressedColor = new Color(0.72f, 0.72f, 0.72f); button.colors = colors;
             Label(panel.transform, "Label", Vector2.zero, new Vector2(600f, 60f), value, 27, TextAnchor.MiddleCenter, color == Apollo ? Ink : Pale);
             return button;
-        }
-        private Button CreatePauseChoice(Transform parent, string name, float x, string value, UnityEngine.Events.UnityAction onClick)
-        {
-            Button button = CreateButton(parent, name, new Vector2(x, 0), value, new Color(.15f, .19f, .22f));
-            button.image.rectTransform.sizeDelta = new Vector2(144, 48);
-            var label = button.transform.Find("Label").GetComponent<Text>();
-            label.rectTransform.sizeDelta = new Vector2(132, 36);
-            label.fontSize = 22;
-            PixelControlArtwork.StyleChoice(button);
-            button.onClick.AddListener(onClick);
-            return button;
-        }
-        private Button CreatePauseButton(Transform parent, string name, Vector2 position, string value, string artwork)
-        {
-            Button button = CreateButton(parent, name, position, value, Color.white);
-            button.image.rectTransform.sizeDelta = new Vector2(248f, 64f);
-            var label = button.transform.Find("Label").GetComponent<Text>();
-            label.rectTransform.sizeDelta = new Vector2(224f, 56f);
-            Sprite sprite = PixelControlArtwork.Load(artwork);
-            button.image.sprite = sprite;
-            button.image.type = Image.Type.Sliced;
-            button.image.pixelsPerUnitMultiplier = 0.5f;
-            button.transition = Selectable.Transition.SpriteSwap;
-            SpriteState states = button.spriteState;
-            states.highlightedSprite = states.selectedSprite = PixelControlArtwork.Load("Presentation/ButtonBlue");
-            states.pressedSprite = states.disabledSprite = sprite;
-            button.spriteState = states;
-            return button;
-        }
-        private Slider CreateSlider(Transform parent, string name, Vector2 position)
-        {
-            RectTransform rect = Rect(parent, name, Vector2.one * 0.5f, position, new Vector2(640f, 34f));
-            Image hitArea = rect.gameObject.AddComponent<Image>();
-            hitArea.sprite = whiteSprite; hitArea.color = Color.clear; hitArea.raycastTarget = true;
-            Slider slider = rect.gameObject.AddComponent<Slider>();
-            slider.minValue = 0f; slider.maxValue = 100f; slider.wholeNumbers = true;
-            Image background = ImageRect(rect, "Background", Vector2.zero, new Vector2(640f, 7f), new Color(0.19f, 0.24f, 0.27f));
-            background.raycastTarget = true;
-            RectTransform fillArea = Rect(rect, "FillArea", Vector2.one * 0.5f, Vector2.zero, new Vector2(618f, 7f));
-            Image fill = FullScreenImage(fillArea, "Fill", Apollo);
-            RectTransform handleArea = Rect(rect, "HandleArea", Vector2.one * 0.5f, Vector2.zero, new Vector2(618f, 34f));
-            Image handle = ImageRect(handleArea, "Handle", Vector2.zero, new Vector2(20f, 30f), Pale);
-            handle.raycastTarget = true;
-            slider.fillRect = fill.rectTransform; slider.handleRect = handle.rectTransform; slider.targetGraphic = handle;
-            PixelControlArtwork.StyleSlider(slider);
-            return slider;
-        }
-
-        private static void SetNavigation(Selectable control, Selectable up, Selectable down,
-            Selectable left = null, Selectable right = null)
-        {
-            control.navigation = new Navigation
-            {
-                mode = Navigation.Mode.Explicit,
-                selectOnUp = up, selectOnDown = down, selectOnLeft = left, selectOnRight = right
-            };
         }
         private static void Stretch(RectTransform rect)
         {

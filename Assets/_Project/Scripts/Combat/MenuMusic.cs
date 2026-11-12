@@ -23,8 +23,13 @@ namespace EchoScrap.Combat
                 source.playOnAwake = false;
                 source.spatialBlend = 0f;
             }
-            source.volume = Volume * CombatMusicPlayer.MusicVolume;
+            RefreshVolume();
             if (!source.isPlaying) source.Play();
+        }
+
+        internal static void RefreshVolume()
+        {
+            if (source != null) source.volume = Volume * CombatMusicPlayer.MusicVolume;
         }
 
         public static void Stop()
