@@ -240,7 +240,15 @@ namespace EchoScrap.Tests
             Assert.AreSame(PixelControlArtwork.Load("Fusion/Marco_Fusion"),panel.Find("MarcoFusion").GetComponent<UnityEngine.UI.Image>().sprite);
             Assert.AreSame(PixelControlArtwork.Load("Fusion/Cuadro_Fusion"),panel.Find("Ingredientes/Espacio_0").GetComponent<UnityEngine.UI.Image>().sprite);
             Assert.AreSame(PixelControlArtwork.Load("Fusion/Cruz"),panel.Find("Ingredientes/Espacio_0/Cruz").GetComponent<UnityEngine.UI.Image>().sprite);
+            var ingredients = panel.Find("Ingredientes");
+            for (int i = 0; i < 4; i++)
+            {
+                var slot = (RectTransform)ingredients.Find($"Espacio_{i}");
+                Assert.AreEqual(new Vector2(38 + 263 * i, -54), slot.anchoredPosition);
+                Assert.AreEqual(new Vector2(245, 230), slot.sizeDelta);
+            }
             var possible=panel.Find("Ingredientes/PosiblesFusiones");Assert.IsNotNull(possible.Find("BordeFusion"));
+            Assert.AreEqual(new Vector2(38, -335), ((RectTransform)possible).anchoredPosition);
             Assert.AreEqual(0,possible.GetComponentsInChildren<UnityEngine.UI.Text>().Length);
             var close=panel.Find("Boton_X").GetComponent<UnityEngine.UI.Button>();Assert.AreSame(Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin").blueButton,close.image.sprite);Assert.AreSame(skin.regular,close.GetComponentInChildren<UnityEngine.UI.Text>().font);
             Assert.AreSame(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont,panel.GetComponentInChildren<UnityEngine.UI.Text>().font);
@@ -377,7 +385,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual("EN EQUIPO 1", equippedLabel.text);
             Assert.That(equippedLabel.preferredHeight, Is.LessThanOrEqualTo(equippedLabel.rectTransform.rect.height));
             float labelBottom = -equippedLabel.rectTransform.anchoredPosition.y + equippedLabel.rectTransform.rect.height;
-            Assert.That(labelBottom, Is.LessThanOrEqualTo(((RectTransform)slot).rect.height - 5f));
+            Assert.That(labelBottom, Is.LessThanOrEqualTo(((RectTransform)slot).rect.height - 20f));
             Assert.IsFalse(panel.Find("Ingredientes/Espacio_1/PuestoEquipado").gameObject.activeSelf);
             yield return Capture("Fusion_Confirmar_Equipada",true);
             panel.Find("Ingredientes/Boton_CONFIRMAR").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
@@ -452,7 +460,7 @@ namespace EchoScrap.Tests
             Assert.IsTrue(station.IsMenuOpen);
             var events = UnityEngine.EventSystems.EventSystem.current;
             var first = events.currentSelectedGameObject;
-            yield return PressPad(GamepadButton.DpadDown);
+            yield return PressPad(GamepadButton.DpadRight);
             Assert.AreNotSame(first, events.currentSelectedGameObject);
             yield return PressPad(GamepadButton.South);
             var ui = station.GetComponent<FusionStationUI>();

@@ -53,28 +53,27 @@ namespace EchoScrap.Combat
             close = ButtonAt(panel,"X",new Vector2(1032,21),new Vector2(50,50),station.CloseMenu);
             inventory=Panel("Ingredientes",panel,new Vector2(0,85),new Vector2(1120,650),Color.clear).gameObject;
             Label(inventory.transform,"INGREDIENTES",new Vector2(38,0),new Vector2(1048,42),26);
-            Vector2[] crossSlots = { new(203, 45), new(22, 213), new(384, 213), new(203, 381) };
             for(int i=0;i<4;i++){
                 int slot = i;
-                var card = ingredientButtons[i] = ButtonAt(inventory.transform, "", crossSlots[i], new Vector2(176, 160), () => OpenPicker(slot));
+                var card = ingredientButtons[i] = ButtonAt(inventory.transform, "", new Vector2(38 + i * 263, 54), new Vector2(245, 230), () => OpenPicker(slot));
                 card.name="Espacio_"+i;
                 var cardImage=card.GetComponent<Image>();cardImage.sprite=cuadroSprite;cardImage.type=Image.Type.Sliced;cardImage.pixelsPerUnitMultiplier=0.25f;cardImage.color=Color.white;
-                slotCross[i]=Portrait(card.transform,new Vector2(55f,47f),new Vector2(66f,66f));slotCross[i].name="Cruz";slotCross[i].sprite=cruzSprite;
-                slotArt[i] = Portrait(card.transform, new Vector2(53, 5), new Vector2(70, 70));
-                slotText[i] = Label(card.transform, "", new Vector2(5, 76), new Vector2(166, 49), 17, TextAnchor.MiddleCenter);
+                slotCross[i]=Portrait(card.transform,new Vector2(81.5f,67f),new Vector2(82f,96f));slotCross[i].name="Cruz";slotCross[i].sprite=cruzSprite;
+                slotArt[i] = Portrait(card.transform, new Vector2(65, 12), new Vector2(115, 120));
+                slotText[i] = Label(card.transform, "", new Vector2(8, 132), new Vector2(229, 52), 20, TextAnchor.MiddleCenter);
                 slotText[i].font = strongFont;
-                equippedSlotLabels[i] = Label(card.transform, "", new Vector2(5, 129), new Vector2(166, 24), 16, TextAnchor.MiddleCenter);
+                equippedSlotLabels[i] = Label(card.transform, "", new Vector2(8, 184), new Vector2(229, 24), 17, TextAnchor.MiddleCenter);
                 equippedSlotLabels[i].name = "PuestoEquipado";
                 equippedSlotLabels[i].font = strongFont;
             }
-            Label(inventory.transform,"POSIBLES RESULTADOS",new Vector2(598,144),new Vector2(468,38),26);
-            var possible=Panel("PosiblesFusiones",inventory.transform,new Vector2(598,191),new Vector2(468,210),new Color(.07f,.11f,.14f));Frame(possible.GetComponent<Image>(),false);
+            Label(inventory.transform,"POSIBLES RESULTADOS",new Vector2(38,294),new Vector2(1048,38),26);
+            var possible=Panel("PosiblesFusiones",inventory.transform,new Vector2(38,335),new Vector2(1034,168),new Color(.07f,.11f,.14f));Frame(possible.GetComponent<Image>(),false);
             for(int i=0;i<FusionCatalog.Count;i++){
                 possibleArt[i]=Portrait(possible,new Vector2(48+i*202,8),new Vector2(100,90));
                 possibleArt[i].sprite=CollectibleDisplay.CardPortrait(i);
                 possibleText[i]=Label(possible,FusionCatalog.Names[i],new Vector2(8+i*202,100),new Vector2(184,48),19,TextAnchor.MiddleCenter);
             }
-            odds=Label(inventory.transform,"",new Vector2(598,416),new Vector2(468,40),22);
+            odds=Label(inventory.transform,"",new Vector2(38,516),new Vector2(1048,40),24);
             clear = ButtonAt(inventory.transform,"VACIAR",new Vector2(38,600),new Vector2(220,54),ClearSelection);
             start=ButtonAt(inventory.transform,"CONFIRMAR",new Vector2(805,600),new Vector2(266,54),()=>station.StartFusion(ingredients,equipmentSlots));
             start.image.sprite=Resources.Load<PauseMenuSkin>("UI/PauseMenuSkin").greenButton;
@@ -195,7 +194,7 @@ namespace EchoScrap.Combat
                 possibleText[i].color=FusionCatalog.ColorOf(i);
                 possibleText[i].text=visible?FusionCatalog.Names[i]+"\n"+FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[i]]
                     +"\n<size=27><color=#F9E0B3>"+recipe.DisplayPercent(i)+"%</color></size>":"";
-                if(visible){float spacing=Mathf.Min(170,456f/visibleCount);float startX=(468f-visibleCount*spacing)*.5f;float x=startX+(index+++.5f)*spacing;Rect(possibleArt[i].rectTransform,new Vector2(x-40,4),new Vector2(80,76));Rect(possibleText[i].rectTransform,new Vector2(x-spacing*.5f,80),new Vector2(spacing,122));}
+                if(visible){float spacing=Mathf.Min(202,1000f/visibleCount);float startX=(1034f-visibleCount*spacing)*.5f;float x=startX+(index+++.5f)*spacing;Rect(possibleArt[i].rectTransform,new Vector2(x-40,4),new Vector2(80,76));Rect(possibleText[i].rectTransform,new Vector2(x-spacing*.5f,80),new Vector2(spacing,82));}
             }
             string time = preview ? $"{recipe.Seconds / 60:00}:{recipe.Seconds % 60:00}" : "—";
             odds.text = $"TIEMPO DE FUSIÓN  {time}" + (preview && !valid ? " · ESTIMADO" : "");
