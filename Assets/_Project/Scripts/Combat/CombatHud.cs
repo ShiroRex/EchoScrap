@@ -73,7 +73,6 @@ namespace EchoScrap.Combat
         private Text resultTitle;
         private Text resultDescription;
         private Text resultSummary;
-        private Text controlsHint;
         private bool detailWasHeld;
         private PlayerStatsReadout statsReadout;
         private StatsDisplayMode statsMode;
@@ -287,7 +286,6 @@ namespace EchoScrap.Combat
             dashText.text = dashDenied ? "AÚN NO" : "LISTO";
             dashText.gameObject.SetActive(!hubMode && (dashReady || dashDenied));
             dashFill.fillAmount = game.Motor.IsDashing ? 0f : Mathf.Clamp01(1f - game.Motor.DashCooldownRemaining / Mathf.Max(0.05f, game.Motor.ActiveDashCooldownDuration));
-            controlsHint.gameObject.SetActive(!hubMode && second < 12);
             if (cardsDirty) RefreshCards();
             RefreshBoss();
             RefreshModal();
@@ -600,7 +598,6 @@ namespace EchoScrap.Combat
             statsReadout.gameObject.SetActive(false);
             AnchorLabel(canvasRect, "UpgradeHeading", new Vector2(1f, 0f), new Vector2(-275f, 326f), new Vector2(470f, 32f), "MEJORAS", 22, TextAnchor.MiddleRight, Apollo);
             cardsText = AnchorLabel(canvasRect, "AcquiredCards", new Vector2(1f, 0f), new Vector2(-275f, 182f), new Vector2(470f, 250f), "Sin mejoras", 22, TextAnchor.UpperRight, new Color(0.73f, 0.78f, 0.77f));
-            controlsHint = AnchorLabel(canvasRect, "Controls", new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(1080f, 35f), "WASD / FLECHAS / STICK   MOVER    ·    ESPACIO / BOTÓN SUR   DASH", 21, TextAnchor.MiddleCenter, new Color(0.72f, 0.77f, 0.75f));
 
             bossPanel = Rect(canvasRect, "BossHealth", new Vector2(0.5f, 1f), new Vector2(0f, -180f), new Vector2(512f, 96f)).gameObject;
             bossHealthText = Label(bossPanel.transform, "BossName", new Vector2(0f, 42f), new Vector2(360f, 36f), "GÓLGORA", 20, TextAnchor.MiddleCenter, Apollo);
