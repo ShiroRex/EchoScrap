@@ -23,6 +23,7 @@ namespace EchoScrap.Combat
             public UpgradeEffectPool.View View;
         }
         private enum DeviceKind { Mine, Decoy, Turret }
+        private const int MaxActiveTurrets = 2;
         private sealed class Device
         {
             public bool Active, Fresh;
@@ -439,6 +440,30 @@ namespace EchoScrap.Combat
                 ActiveDeviceCount++;return;
             }
         }
+
+        private void SpawnTurret()
+        {
+            Device oldest = null;
+            int count = 0;
+            foreach (var device in devices)
+            {
+                if (!device.Active || device.Kind != DeviceKind.Turret) continue;
+                count++;
+                if (oldest == null || device.Life < oldest.Life) oldest = device;
+            }
+            if (count >= MaxActiveTurrets) ReleaseDevice(oldest);
+            DeviceAt(DeviceKind.Turret, player.WorldCenter, tuning.turretDuration, tuning.turretDamage);
+        }
+
+        private void ReleaseDevice(Device device)
+        {
+            if (device.Kind == DeviceKind.Decoy) activeDecoys--;
+            device.Active = false;
+            effects.Release(device.View);
+            device.View = null;
+            ActiveDeviceCount--;
+        }
+
         public void Step(float dt)
         {
             if(!bound || dt<=0 || session.IsPaused || session.State == SessionState.BossIntro || !session.IsGameplayFlowActive() || !player.IsAlive || !isActiveAndEnabled) return;
@@ -451,7 +476,16 @@ namespace EchoScrap.Combat
             if(tier>0) {mineTimer+=dt;while(mineTimer>=At(tuning.mineInterval,tier)) {mineTimer-=At(tuning.mineInterval,tier);DeviceAt(DeviceKind.Mine,player.WorldCenter,float.PositiveInfinity,At(tuning.mineDamage,tier));}} else mineTimer=0;
             tier=Tier(UpgradeId.CRYO_03);
             if(tier>0) {blizzardTimer+=dt;while(blizzardTimer>=At(tuning.blizzardInterval,tier)) {blizzardTimer-=At(tuning.blizzardInterval,tier);QueueBlast(player.WorldCenter,At(tuning.blizzardDamage,tier),tuning.blizzardRadius,freeze:tuning.blizzardFreeze,source:DamageSourceType.UpgradeFrost);}} else blizzardTimer=0;
-            if(Tier(UpgradeId.SCRAP_04)>0) {turretTimer+=dt;while(turretTimer>=tuning.turretInterval) {turretTimer-=tuning.turretInterval;DeviceAt(DeviceKind.Turret,player.WorldCenter,tuning.turretDuration,tuning.turretDamage);}} else turretTimer=0;
+            if (Tier(UpgradeId.SCRAP_04) > 0)
+            {
+                turretTimer += dt;
+                while (turretTimer >= tuning.turretInterval)
+                {
+                    turretTimer -= tuning.turretInterval;
+                    SpawnTurret();
+                }
+            }
+            else turretTimer = 0f;
             StepDevices(dt); StepProjectiles(dt); StepVoltaicChains(dt); StepSaws(); StepBlasts(dt); StepStatusViews();
             if(player.UpgradeProtectionRemaining>0)
             {
@@ -480,8 +514,8 @@ namespace EchoScrap.Combat
                 if(expired)
                 {
                     if(d.Kind!=DeviceKind.Turret) QueueBlast(d.Position,d.Damage,d.Kind==DeviceKind.Mine?tuning.mineRadius:tuning.decoyExplosionRadius,implosion:d.Kind==DeviceKind.Decoy,damageType:d.Kind==DeviceKind.Decoy?DamageType.Supernatural:DamageType.Physical);
-                    if(d.Kind==DeviceKind.Decoy)activeDecoys--;
-                    d.Active=false;effects.Release(d.View);d.View=null;ActiveDeviceCount--;continue;
+                    ReleaseDevice(d);
+                    continue;
                 }
                 if(d.Kind!=DeviceKind.Turret) continue;
                 var tracked=Nearest(d.Position,tuning.turretRange);
@@ -496,7 +530,7 @@ namespace EchoScrap.Combat
                         var turret=d.View!=null?d.View.Turret:null;
                         turret?.AimAt(target.WorldCenter);
                         Vector3 muzzle=turret!=null?turret.MuzzleWorldPosition:d.Position+Vector3.up*.8f;
-                        Fire(muzzle,target.WorldCenter-muzzle,d.Damage,tuning.plasmaSpeed,1,DamageSourceType.UpgradeTurret,target);
+                        Fire(muzzle,target.WorldCenter-muzzle,d.Damage,tuning.turretProjectileSpeed,1,DamageSourceType.UpgradeTurret,target);
                         effects.Impact(muzzle,Amber);
                         turret?.Fire();
                     }

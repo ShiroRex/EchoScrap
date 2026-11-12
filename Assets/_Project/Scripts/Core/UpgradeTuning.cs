@@ -44,8 +44,8 @@ namespace EchoScrap.Core
         public Vector3 sawCounts = new Vector3(2, 3, 4);
         public Vector3 sawDamage = new Vector3(18, 28, 40);
         public float sawRadius = 2.5f, sawAngularSpeed = 180f, sawHitInterval = .3f, sawPush = 4f;
-        public float turretInterval = 10f, turretDuration = 8f, turretBurstInterval = .6f;
-        public float turretShotInterval = .08f, turretDamage = 35f, turretRange = 8f;
+        public float turretInterval = 10f, turretDuration = 12f, turretBurstInterval = .6f;
+        public float turretShotInterval = .08f, turretDamage = 10f, turretRange = 12f, turretProjectileSpeed = 28f;
         public int turretBurstCount = 3;
         [Header("Supervivencia")]
         public Vector3 regeneration = new Vector3(1, 2, 3);

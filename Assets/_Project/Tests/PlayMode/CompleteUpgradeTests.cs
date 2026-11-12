@@ -148,10 +148,33 @@ namespace EchoScrap.Tests
         {
             Set("DEMO_03",3);upgrades.Step(2.5f);Assert.That(upgrades.ActiveDeviceCount,Is.EqualTo(1));
             var e=Enemy(0,1);upgrades.Step(.01f);Assert.That(upgrades.ActiveDeviceCount,Is.Zero);Assert.That(e.CurrentHealth,Is.EqualTo(840));
-            stats.SetUpgradeTier("DEMO_03",0);Set("SCRAP_04");upgrades.Step(10);Assert.That(upgrades.ActiveDeviceCount,Is.EqualTo(1));
-            int fired=upgrades.ProjectilesFired;for(int i=0;i<9;i++)upgrades.Step(.02f);
-            Assert.That(upgrades.ProjectilesFired-fired,Is.EqualTo(2),"The first shot fired on turret placement; two more complete the burst.");
-            Assert.That(e.CurrentHealth,Is.LessThan(840));
+            stats.SetUpgradeTier("DEMO_03", 0);
+            e.Body.position = e.transform.position = new Vector3(0, 1, 10);
+            Set("SCRAP_04");
+            upgrades.Step(9.875f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.Zero);
+            upgrades.Step(.125f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.EqualTo(1));
+            Assert.That(upgrades.ProjectilesFired, Is.EqualTo(1), "The turret detects a target beyond the former 8 m range.");
+            for (int i = 0; i < 25; i++) upgrades.Step(.02f);
+            Assert.That(upgrades.ProjectilesFired, Is.EqualTo(3));
+            Assert.That(e.CurrentHealth, Is.EqualTo(810f).Within(.01f));
+        }
+
+        [Test]
+        public void PeriodicTurretsLastTwelveSecondsAndRespectTheTwoTurretLimit()
+        {
+            Set("SCRAP_04");
+            upgrades.Step(10f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.EqualTo(1));
+            upgrades.Step(10f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.EqualTo(2));
+            upgrades.Step(1.875f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.EqualTo(2));
+            upgrades.Step(.25f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.EqualTo(1));
+            upgrades.Step(40f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.EqualTo(2));
         }
         [Test]
         public void TurretTracksWithItsCannonKeepsItsBaseFixedAndReusesItsLitParts()

@@ -61,11 +61,12 @@ MonoBehaviour:
   sawHitInterval: .3
   sawPush: 4
   turretInterval: 10
-  turretDuration: 8
+  turretDuration: 12
   turretBurstInterval: .6
   turretShotInterval: .08
-  turretDamage: 35
-  turretRange: 8
+  turretDamage: 10
+  turretRange: 12
+  turretProjectileSpeed: 28
   turretBurstCount: 3
   regeneration: {x: 1, y: 2, z: 3}
   regenerationInterval: 2.5
