@@ -96,7 +96,17 @@ namespace EchoScrap.Core
 
         public Transform OrientationRoot => orientationRoot;
         public Transform PresentationPivot => presentationPivot;
-        public Transform FlashlightPivot => flashlightPivot;
+        public Transform FlashlightPivot
+        {
+            get
+            {
+                if (flashlightPivot != null) return flashlightPivot;
+                flashlightPivot = transform.Find("FlashlightPivot");
+                if (flashlightPivot == null && orientationRoot != null)
+                    flashlightPivot = orientationRoot.Find("FlashlightPivot");
+                return flashlightPivot;
+            }
+        }
         public bool IsFlashActive => flashApplied && flashRemaining > 0f;
         public bool IsHitStopActive => hitStopRemaining > 0f;
         public float HitStopRemaining => Mathf.Max(0f, hitStopRemaining);
@@ -148,14 +158,6 @@ namespace EchoScrap.Core
                     }
                 }
                 presentationPivot = foundPivot;
-            }
-
-            if (flashlightPivot == null)
-            {
-                Transform foundFlashlight = transform.Find("FlashlightPivot");
-                if (foundFlashlight == null && orientationRoot != null)
-                    foundFlashlight = orientationRoot.Find("FlashlightPivot");
-                flashlightPivot = foundFlashlight;
             }
 
             flashBlock ??= new MaterialPropertyBlock();

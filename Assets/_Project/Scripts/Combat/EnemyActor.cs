@@ -167,7 +167,8 @@ namespace EchoScrap.Combat
             get
             {
                 EnsureInitialized();
-                float scaleXZ = Mathf.Max(transform.lossyScale.x, transform.lossyScale.z);
+                Vector3 scale = transform.lossyScale;
+                float scaleXZ = Mathf.Max(scale.x, scale.z);
                 return (bodyCollider != null ? bodyCollider.radius : runtimeArchetype.ColliderRadius) * scaleXZ;
             }
         }
@@ -911,16 +912,16 @@ namespace EchoScrap.Combat
             int checkedNeighbors = 0;
             for (int i = 0; i < (indexed?neighborCandidates.Count:activeEnemies.Count) && checkedNeighbors < 16; i++)
             {
-                EnemyActor other = activeEnemies[indexed?neighborCandidates[i]:i];
-                if (other == null || other == this || !other.IsAlive)
-                    continue;
-
-                Vector3 diff = myPos - other.transform.position;
+                int index = indexed ? neighborCandidates[i] : i;
+                Vector3 diff = myPos - neighborIndex.PositionAt(index);
                 diff.y = 0f;
                 float distSqr = diff.sqrMagnitude;
                 if (distSqr >= minSepSqr)
                     continue;
 
+                EnemyActor other = activeEnemies[index];
+                if (other == null || other == this || !other.IsAlive)
+                    continue;
                 checkedNeighbors++;
                 if (distSqr < 0.0001f)
                 {

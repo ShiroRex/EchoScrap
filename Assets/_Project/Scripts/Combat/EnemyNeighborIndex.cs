@@ -12,6 +12,7 @@ namespace EchoScrap.Combat
         private readonly List<Vector3> positions=new List<Vector3>();
         public int LastCandidatesExamined {get;private set;}
         private static Vector2Int Cell(Vector3 p)=>new Vector2Int(Mathf.FloorToInt(p.x/CellSize),Mathf.FloorToInt(p.z/CellSize));
+        public Vector3 PositionAt(int index) => positions[index];
         public bool IsDense(Vector3 position)=>cells.TryGetValue(Cell(position),out var bucket)&&bucket.Count>=32;
         public void Clear(){foreach(var bucket in cells.Values){bucket.Clear();spare.Push(bucket);}cells.Clear();positions.Clear();}
         public void Add(Vector3 position)

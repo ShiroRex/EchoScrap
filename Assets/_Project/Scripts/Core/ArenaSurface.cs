@@ -241,26 +241,36 @@ namespace EchoScrap.Core
             Vector3 position,
             float radius)
         {
-            float h = Height(position);
-
             float sample = radius * 0.6f;
-            float sphereRise = radius * 0.2f;
+            var vault = VaultFloorSurface.Active;
+            var stairs = WalkableStairs.Active;
+            bool special = vault != null && vault.IntersectsFootprint(position, sample);
+            if (!special && stairs != null && stairs.Surface != null)
+            {
+                var bounds = stairs.Surface.bounds;
+                var min = bounds.min;
+                var max = bounds.max;
+                special = position.x + sample >= min.x && position.x - sample <= max.x &&
+                          position.z + sample >= min.z && position.z - sample <= max.z;
+            }
 
-            h = Mathf.Max(
-                h,
-                Mathf.Max(
-                    Height(position + Vector3.right * sample),
-                    Height(position - Vector3.right * sample)
-                ) - sphereRise
-            );
+            var terrain = Active;
+            float size = terrain != null ? terrain.WorldSize : 0f;
+            if (!special && size >= 200f && sample <= 22f)
+            {
+                float flatRadius = 22f - sample;
+                if (position.x * position.x + position.z * position.z <= flatRadius * flatRadius)
+                    return 0f;
+            }
 
-            return Mathf.Max(
-                h,
-                Mathf.Max(
-                    Height(position + Vector3.forward * sample),
-                    Height(position - Vector3.forward * sample)
-                ) - sphereRise
-            );
+            // Outside the vault and stair footprint all five probes use the analytic terrain.
+            float Probe(float x, float z) => special ? Height(new Vector3(x, position.y, z))
+                : size > 0f ? Profile(x, z, size) : 0f;
+            float h = Probe(position.x, position.z);
+            float rim = Mathf.Max(Probe(position.x + sample, position.z), Probe(position.x - sample, position.z));
+            rim = Mathf.Max(rim, Probe(position.x, position.z + sample));
+            rim = Mathf.Max(rim, Probe(position.x, position.z - sample));
+            return Mathf.Max(h, rim - radius * 0.2f);
         }
 
         // =====================================================
@@ -277,22 +287,26 @@ namespace EchoScrap.Core
                 return;
 
             // Permitir movimiento vertical para seguir el relieve.
-            body.constraints &=
-                ~RigidbodyConstraints.FreezePositionY;
+            var constraints = body.constraints;
+            if ((constraints & RigidbodyConstraints.FreezePositionY) != 0)
+                body.constraints = constraints & ~RigidbodyConstraints.FreezePositionY;
 
             Vector3 velocity = body.linearVelocity;
 
             // El movimiento vertical se calcula mediante
             // la superficie del escenario.
-            velocity.y = 0f;
-
-            body.linearVelocity = velocity;
+            if (velocity.y != 0f)
+            {
+                velocity.y = 0f;
+                body.linearVelocity = velocity;
+            }
 
             Vector3 position = body.position;
+            float previousHeight = position.y;
 
             // Anticipar la siguiente posición.
             Vector3 ahead =
-                position + body.linearVelocity * deltaTime;
+                position + velocity * deltaTime;
 
             position.y =
                 SupportHeight(ahead, radius) + rootHeight;
@@ -317,7 +331,7 @@ namespace EchoScrap.Core
                 );
             }
 
-            body.position = position;
+            if (position.y != previousHeight) body.position = position;
         }
     }
 }

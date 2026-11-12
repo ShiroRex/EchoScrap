@@ -31,14 +31,20 @@ namespace EchoScrap.Core
         }
         private void OnDisable() { if (Active == this) Active = null; }
 
-        public bool TryHeight(Vector3 position, out float height)
+        internal bool IntersectsFootprint(Vector3 position, float padding)
         {
-            height = float.NegativeInfinity;
             if (Surfaces == null) return false;
             if (boundsFrame != Time.frameCount || boundsStep != Time.fixedTimeAsDouble || sampled != Surfaces)
                 RefreshFootprint();
-            if (position.x < footprint.min.x || position.x > footprint.max.x ||
-                position.z < footprint.min.z || position.z > footprint.max.z) return false;
+            var min = footprint.min;
+            var max = footprint.max;
+            return position.x + padding >= min.x && position.x - padding <= max.x &&
+                   position.z + padding >= min.z && position.z - padding <= max.z;
+        }
+        public bool TryHeight(Vector3 position, out float height)
+        {
+            height = float.NegativeInfinity;
+            if (!IntersectsFootprint(position, 0f)) return false;
             foreach (var surface in Surfaces)
             {
                 if (surface == null || !surface.enabled) continue;
