@@ -96,6 +96,7 @@ namespace EchoScrap.Combat
         private bool resultAnimating;
         private bool victoryResult;
         private bool hubMode;
+        private bool pickupFeedbackVisible;
         private Text resultActionLabel;
 
         public void SetHubMode(bool active)
@@ -292,12 +293,20 @@ namespace EchoScrap.Combat
             RefreshStats();
         }
 
+        internal void SetPickupFeedbackVisible(bool visible)
+        {
+            if (pickupFeedbackVisible == visible) return;
+            pickupFeedbackVisible = visible;
+            RefreshStats();
+        }
+
         private void RefreshStats()
         {
             if (statsReadout == null || game == null) return;
             var state = game.Session.State;
             StatsDisplayMode display = IsHudDetailHeld ? StatsDisplayMode.Full : statsMode;
-            bool visible = !hubMode && display != StatsDisplayMode.None && !game.Session.IsPaused && !game.Draft.IsOpen &&
+            bool visible = !hubMode && !pickupFeedbackVisible && display != StatsDisplayMode.None &&
+                !game.Session.IsPaused && !game.Draft.IsOpen &&
                 (state == SessionState.Running || state == SessionState.BossIntro);
             statsReadout.SetDisplayMode(display);
             statsReadout.PlaceBelowCompanions(SceneTransitionState.ShowCompanionPowers || IsHudDetailHeld);
@@ -561,7 +570,7 @@ namespace EchoScrap.Combat
             timerText.verticalOverflow = VerticalWrapMode.Overflow;
             phaseText = AnchorLabel(canvasRect, "Phase", new Vector2(0.5f, 1f), new Vector2(0f, -128f), new Vector2(600f, 34f), "VERTEDERO  /  SOBREVIVE", 22, TextAnchor.MiddleCenter, Apollo);
 
-            killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), new Vector2(-168f, -338f), new Vector2(180f, 36f), "0", 27, TextAnchor.MiddleCenter, Pale);
+            killsText = AnchorLabel(canvasRect, "Kills", new Vector2(1f, 1f), CombatMinimap.KillsCounterPosition, new Vector2(180f, 36f), "0", 27, TextAnchor.MiddleCenter, Pale);
 
             gameObject.AddComponent<CombatMinimap>().Build(game, canvasRect, font);
             var killsTexture=Resources.Load<Texture2D>("Hud/Kills/Icono_Kills");

@@ -12,7 +12,14 @@ namespace EchoScrap.Combat
         public static readonly string[] PowerNames = CompanionPowerRuntime.Descriptions;
         public CompanionPowerRuntime Abilities { get; private set; }
         public const float PickupLifetime = 10f;
-        private sealed class Pickup { public int Id; public GameObject Object; public Vector3 Ground; public float Life = PickupLifetime; }
+        internal const int PickupCapacity = 12;
+        private sealed class Pickup
+        {
+            public int Id;
+            public CollectibleDisplay Display;
+            public Vector3 Ground;
+            public float Life = PickupLifetime;
+        }
         private readonly List<Pickup> pickups = new List<Pickup>();
         private FusionStation station;
         private CombatGameBootstrap game;
@@ -85,17 +92,18 @@ namespace EchoScrap.Combat
             if(seconds<=0 || float.IsNaN(seconds) || float.IsInfinity(seconds) || game.Session.IsPaused || game.Session.IsInWarehouse || game.Session.State!=SessionState.Running || !game.Player.IsAlive)return;
             for(int i=pickups.Count-1;i>=0;i--){
                 var p=pickups[i];p.Life-=seconds;
-                if(p.Life<=0){Destroy(p.Object);pickups.RemoveAt(i);continue;}
-                p.Object.transform.position=p.Ground+Vector3.up*(.18f+Mathf.Sin((PickupLifetime-p.Life)*3f)*.15f);
+                if(p.Life<=0){RemovePickup(i);continue;}
+                p.Display.transform.position=p.Ground+Vector3.up*(.18f+Mathf.Sin((PickupLifetime-p.Life)*3f)*.15f);
+                p.Display.SetPickupTimeRemaining(p.Life);
             }
             elapsed+=seconds;
             while(elapsed>=SpawnInterval){elapsed-=SpawnInterval;int count=Random.Range(1,4);
-                for(int i=0;i<count&&pickups.Count<12;i++)TrySpawn(RollSpawn(Random.Range(0,100)));
+                for(int i=0;i<count&&pickups.Count<PickupCapacity;i++)TrySpawn(RollSpawn(Random.Range(0,100)));
             }
         }
         public bool TrySpawn(int id)
         {
-            if(!FusionCatalog.CanSpawn(id)||pickups.Count>=12||game.Session.IsInWarehouse||game.Session.IsPaused||game.Session.State!=SessionState.Running)return false;
+            if(!FusionCatalog.CanSpawn(id)||pickups.Count>=PickupCapacity||game.Session.IsInWarehouse||game.Session.IsPaused||game.Session.State!=SessionState.Running)return false;
             for(int attempt=0;attempt<64;attempt++){
                 float limit=(ArenaSurface.Active!=null?ArenaSurface.Active.WorldSize:200)*.5f-4;
                 var p=new Vector3(Random.Range(-limit,limit),0,Random.Range(-limit,limit));
@@ -107,8 +115,22 @@ namespace EchoScrap.Combat
                     .Any(c=>ArenaSurface.Active==null||c!=ArenaSurface.Active.GroundCollider);
                 if(blocked)continue;
                 var o=new GameObject("ColeccionableArena_"+FusionCatalog.Names[id]);o.transform.position=p-Vector3.up*.85f;
-                o.AddComponent<CollectibleDisplay>().Configure(id,2.2f,true);
-                pickups.Add(new Pickup{Id=id,Object=o,Ground=o.transform.position});view.AnnounceSpawn();return true;
+                var display = o.AddComponent<CollectibleDisplay>();
+                display.Configure(id, 2.2f, true);
+                display.SetPickupTimeRemaining(PickupLifetime);
+
+                int rarity = (int)FusionCatalog.Rarities[id];
+                var glow = o.AddComponent<CombatGlowSource>();
+                glow.Color = FusionCatalog.ColorOf(id);
+                glow.Offset = Vector3.up * 1.1f;
+                glow.Range = 3.2f + rarity * .65f;
+                glow.Intensity = 1.5f + rarity * .85f;
+                glow.Priority = 2f + rarity * .5f;
+                glow.Bind(game.Session);
+
+                pickups.Add(new Pickup { Id = id, Display = display, Ground = o.transform.position });
+                view.AnnounceSpawn();
+                return true;
             }
             return false;
         }
@@ -131,9 +153,23 @@ namespace EchoScrap.Combat
             if(!station.Progress.HasSpace){pickupFeedback.Reject();return false;}
             bool isNew = !station.Progress.IsDiscovered(item.Id);
             if(!station.CollectFromArena(item.Id))return false;
-            Destroy(item.Object);pickups.RemoveAt(index);view.AnnounceCollected(item.Id, isNew);return true;
+            RemovePickup(index);
+            view.AnnounceCollected(item.Id, isNew);
+            return true;
         }
-        private void ClearPickups(){foreach(var p in pickups)if(p.Object!=null)Destroy(p.Object);pickups.Clear();}
+        private void RemovePickup(int index)
+        {
+            var display = pickups[index].Display;
+            pickups.RemoveAt(index);
+            if (display == null) return;
+            display.gameObject.SetActive(false);
+            Destroy(display.gameObject);
+        }
+
+        private void ClearPickups()
+        {
+            for (int i = pickups.Count - 1; i >= 0; i--) RemovePickup(i);
+        }
         private void OnDestroy(){ClearPickups();if(game!=null){game.Session.SessionReset-=ResetRun;game.Session.Clock.SetPause(PauseReason.CompanionMenu,false);}}
     }
 }

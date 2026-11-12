@@ -102,7 +102,8 @@ namespace EchoScrap.Tests
             Assert.Greater(hud.Find("Clock").GetComponent<Text>().cachedTextGenerator.vertexCount, 4, "The clock must generate visible glyphs inside its artwork.");
             var map = game.Hud.GetComponent<CombatMinimap>(); map.Refresh();
             Assert.AreSame(PixelControlArtwork.Load("MinimapFrame/Frame"), hud.Find("Minimap/Artwork").GetComponent<Image>().sprite);
-            Assert.AreSame(PixelControlArtwork.Load("MinimapMarkers/North"), hud.Find("Minimap/Interior/Norte").GetComponent<Image>().sprite);
+            Assert.IsNull(hud.Find("Minimap/Interior/Norte"));
+            Assert.AreSame(PixelControlArtwork.Load("MinimapMarkers/North"), hud.Find("GuiasColeccionables/Flecha_0").GetComponent<Image>().sprite);
             Assert.AreSame(PixelControlArtwork.Load("BossPointer/Up"), hud.Find("BossOffscreenArrow/Artwork").GetComponent<Image>().sprite);
             var station = Object.FindAnyObjectByType<FusionStation>();
             var companions = station.GetComponent<CompanionSystem>();

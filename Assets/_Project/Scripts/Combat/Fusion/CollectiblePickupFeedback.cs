@@ -102,9 +102,16 @@ namespace EchoScrap.Combat
             if(rejectionVoice.clip!=null)rejectionVoice.Play();
             if(showBanner){rejectionAge=0;rejectionRoot.gameObject.SetActive(true);rejectionGroup.alpha=1;}
         }
+        private void SetNotificationVisible(bool visible)
+        {
+            if (root == null || root.gameObject.activeSelf == visible) return;
+            root.gameObject.SetActive(visible);
+            if (game != null && game.Hud != null) game.Hud.SetPickupFeedbackVisible(visible);
+        }
+
         private void Next()
         {
-            if(pending.Count == 0) { root.gameObject.SetActive(false);DisplayedId = -1;return; }
+            if(pending.Count == 0) { SetNotificationVisible(false);DisplayedId = -1;return; }
             var notification = pending.Dequeue();
             DisplayedId = notification.Id;
             displayedIsNew = notification.IsNew;
@@ -115,7 +122,7 @@ namespace EchoScrap.Combat
             rarityLabel.text = FusionCatalog.RarityNames[(int)FusionCatalog.Rarities[DisplayedId]];
             rarityLabel.color = nameLabel.color;
             foreach(var spark in sparks) spark.GetComponent<Image>().color = nameLabel.color;
-            root.gameObject.SetActive(true);ApplyPresentation();
+            SetNotificationVisible(true);ApplyPresentation();
         }
 
         private void Update()
@@ -130,14 +137,14 @@ namespace EchoScrap.Combat
             // Manual pause also changes Session.State; preserve the notification before testing Running.
             if(game != null && game.Session.IsPaused && game.Player.IsAlive && !game.Session.IsInWarehouse &&
                 game.Session.State != SessionState.Victory && game.Session.State != SessionState.Defeat)
-            { root.gameObject.SetActive(false);rejectionRoot.gameObject.SetActive(false);return; }
+            { SetNotificationVisible(false);rejectionRoot.gameObject.SetActive(false);return; }
             if(!CanShow) {
                 ClearSuccess();rejectionAge=2;rejectionRoot.gameObject.SetActive(false);
                 if(game==null||!game.Player.IsAlive||!game.Session.Clock.HasPauseReason(PauseReason.FusionMenu))rejectionVoice.Stop();
                 return;
             }
             if(age >= Duration) return;
-            root.gameObject.SetActive(true);age += Time.deltaTime;
+            SetNotificationVisible(true);age += Time.deltaTime;
             if(age >= Duration) { Next();return; }
             ApplyPresentation();
         }
@@ -164,8 +171,8 @@ namespace EchoScrap.Combat
 
         private void PauseChanged(PauseReason reasons, bool paused)
         {
-            if(paused) { voice.Stop();rejectionVoice.Stop();root.gameObject.SetActive(false);rejectionRoot.gameObject.SetActive(false); }
-            else if(CanShow && age < Duration) { root.gameObject.SetActive(true);ApplyPresentation(); }
+            if(paused) { voice.Stop();rejectionVoice.Stop();SetNotificationVisible(false);rejectionRoot.gameObject.SetActive(false); }
+            else if(CanShow && age < Duration) { SetNotificationVisible(true);ApplyPresentation(); }
         }
         public void Clear()
         {
@@ -177,7 +184,7 @@ namespace EchoScrap.Combat
         private void ClearSuccess()
         {
             pending.Clear();age = Duration;DisplayedId = -1;
-            if(root != null) root.gameObject.SetActive(false);
+            SetNotificationVisible(false);
             if(voice != null) voice.Stop();
         }
         private void OnDisable() => Clear();

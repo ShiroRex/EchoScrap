@@ -33,12 +33,15 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator ArenaPickupAddsCopyOnlyOnce(){
             var feedback=station.GetComponentInChildren<CollectiblePickupFeedback>();
+            game.Hud.SetStatsDisplayMode(StatsDisplayMode.Full);
+            Assert.IsTrue(game.Hud.IsStatsVisible);
             Assert.AreEqual(0,feedback.SoundsPlayed);Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(0,feedback.NotificationsPlayed);
             Assert.IsTrue(system.TrySpawn(2));var pickup=Object.FindObjectsByType<CollectibleDisplay>(FindObjectsSortMode.None).Single(v=>v.name=="ColeccionableArena_Demonio");
             int before=station.Progress.owned[2];game.Player.GetComponent<Rigidbody>().position=pickup.transform.position+Vector3.up;
             game.Player.transform.position=pickup.transform.position+Vector3.up;Physics.SyncTransforms();system.Advance(.1f);Assert.AreEqual(before,station.Progress.owned[2]);Assert.IsTrue(system.TryCollectNearest());Assert.AreEqual(before+1,station.Progress.owned[2]);
             system.Advance(.1f);Assert.AreEqual(before+1,station.Progress.owned[2]);Assert.AreEqual(0,system.ActivePickups);
             Assert.AreEqual(1,feedback.NotificationsPlayed);Assert.AreEqual(1,feedback.SoundsPlayed);Assert.AreEqual(2,feedback.DisplayedId);
+            Assert.IsFalse(game.Hud.IsStatsVisible);
             Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(1,feedback.SoundsPlayed);
             yield return new WaitForSeconds(.15f);Assert.IsTrue(feedback.IsVisible);
             var notification = feedback.transform.Find("ColeccionableRecogido");
@@ -47,11 +50,14 @@ namespace EchoScrap.Tests
             game.Session.SetManualPause(true);Assert.IsFalse(feedback.IsVisible);yield return null;
             Assert.IsFalse(feedback.GetComponent<AudioSource>().isPlaying);
             game.Session.SetManualPause(false);yield return null;Assert.IsTrue(feedback.IsVisible);
+            Assert.IsFalse(game.Hud.IsStatsVisible);
             yield return Capture("ColeccionableRecogido");
             yield return new WaitForSeconds(3.6f);
             Assert.IsTrue(notification.Find("Confirmacion").gameObject.activeSelf);
             Assert.IsFalse(notification.Find("Nuevo").gameObject.activeSelf);
             yield return new WaitForSeconds(2);Assert.IsFalse(feedback.IsVisible);
+            Assert.IsTrue(game.Hud.IsStatsVisible);
+            Assert.AreEqual(StatsDisplayMode.Full, game.Hud.StatsMode);
             feedback.Show(0);feedback.Show(2);game.ResetRun(false);yield return null;
             Assert.IsFalse(feedback.IsVisible);Assert.AreEqual(-1,feedback.DisplayedId);
         }
@@ -116,13 +122,58 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator PickupsAreLabeledFloatExpireAndShowOnMinimap()
         {
-            Assert.IsTrue(system.TrySpawn(5));var display=Object.FindObjectsByType<CollectibleDisplay>(FindObjectsSortMode.None).Single(v=>v.name=="ColeccionableArena_Basket");
-            Vector3 original=display.transform.position;system.Advance(.5f);yield return null;
-            Assert.AreNotEqual(original.y,display.transform.position.y);Assert.AreEqual(2,display.GetComponentsInChildren<Text>().Length);
-            var texts=display.GetComponentsInChildren<Text>().Select(t=>t.text).ToArray();CollectionAssert.AreEquivalent(new[]{"Basket","COMÚN"},texts);
-            var map=game.Hud.GetComponent<CombatMinimap>();map.Refresh();var marker=game.Hud.HudCanvas.transform.Find("Minimap/Interior/MapaArena/Coleccionable_0");Assert.IsTrue(marker.gameObject.activeSelf);Assert.AreEqual(0,marker.childCount);Assert.AreEqual(Vector2.one*16,marker.GetComponent<RectTransform>().sizeDelta);Assert.IsNotNull(marker.GetComponent<Image>().sprite);
-            game.Session.SetManualPause(true);system.Advance(10);Assert.AreEqual(1,system.ActivePickups);game.Session.SetManualPause(false);
-            system.Advance(9.5f);yield return null;map.Refresh();Assert.AreEqual(0,system.ActivePickups);Assert.IsFalse(marker.gameObject.activeSelf);Assert.IsFalse(system.TryCollectNearest());
+            Assert.IsTrue(system.TrySpawn(5));
+            Assert.IsTrue(system.TrySpawn(7));
+            var displays = Object.FindObjectsByType<CollectibleDisplay>(FindObjectsSortMode.None);
+            var display = displays.Single(v => v.name == "ColeccionableArena_Basket");
+            var legendary = displays.Single(v => v.name == "ColeccionableArena_Lisa");
+            var commonGlow = display.GetComponent<CombatGlowSource>();
+            var legendaryGlow = legendary.GetComponent<CombatGlowSource>();
+            Assert.AreEqual(FusionCatalog.ColorOf(5), commonGlow.Color);
+            Assert.AreEqual(FusionCatalog.ColorOf(7), legendaryGlow.Color);
+            Assert.Greater(legendaryGlow.Intensity, commonGlow.Intensity);
+            Assert.Greater(legendaryGlow.Range, commonGlow.Range);
+
+            var camera = game.GameplayCamera;
+            Vector3 originalCameraPosition = camera.transform.position;
+            Quaternion originalCameraRotation = camera.transform.rotation;
+            camera.transform.SetPositionAndRotation(legendary.transform.position - Vector3.forward * 8f, Quaternion.identity);
+            var lightPool = game.Session.GetComponent<CombatReadabilityLights>();
+            lightPool.RefreshLights();
+            Assert.IsTrue(lightPool.GetComponentsInChildren<Light>().Any(light =>
+                light.enabled && light.color == legendaryGlow.Color && Mathf.Approximately(light.intensity, legendaryGlow.Intensity)));
+            camera.transform.SetPositionAndRotation(originalCameraPosition, originalCameraRotation);
+
+            var timer = display.transform.Find("NombreRareza/TiempoRestante").GetComponent<Text>();
+            Assert.AreEqual("10 s", timer.text);
+            Vector3 original = display.transform.position;
+            system.Advance(1.1f);
+            yield return null;
+            Assert.AreNotEqual(original.y, display.transform.position.y);
+            var texts = display.GetComponentsInChildren<Text>().Select(t => t.text).ToArray();
+            CollectionAssert.AreEquivalent(new[] { "Basket", "COMÚN", "9 s" }, texts);
+
+            var map = game.Hud.GetComponent<CombatMinimap>();
+            map.Refresh();
+            var marker = game.Hud.HudCanvas.transform.Find("Minimap/Interior/MapaArena/Coleccionable_0");
+            Assert.IsTrue(marker.gameObject.activeSelf);
+            Assert.AreEqual(Vector2.one * 36f, ((RectTransform)marker).sizeDelta);
+            Assert.Greater(marker.GetSiblingIndex(), map.PlayerMarker.GetSiblingIndex());
+            Assert.IsNotNull(marker.GetComponent<Outline>());
+            Assert.IsNotNull(marker.GetComponent<Image>().sprite);
+            game.Session.SetManualPause(true);
+            system.Advance(CompanionSystem.PickupLifetime);
+            Assert.AreEqual(2, system.ActivePickups);
+            Assert.AreEqual("9 s", timer.text);
+            game.Session.SetManualPause(false);
+
+            system.Advance(9f);
+            yield return null;
+            map.Refresh();
+            Assert.AreEqual(0, system.ActivePickups);
+            Assert.IsTrue(commonGlow == null && legendaryGlow == null);
+            Assert.IsFalse(marker.gameObject.activeSelf);
+            Assert.IsFalse(system.TryCollectNearest());
         }
         [UnityTest] public IEnumerator TenCapsulesAndOwnedOnlyEquipmentAtIndividualStation()
         {
