@@ -11,6 +11,8 @@ namespace EchoScrap.Combat
         private CombatGameBootstrap game;
         private GameObject prompt,modal;
         private Text question;
+        private Button confirmButton;
+        private int openedFrame;
         private PixelInteractionPrompt interactionPrompt;
         private Font font;
         private int pendingSlot=-1,pendingId=-1;
@@ -41,15 +43,26 @@ namespace EchoScrap.Combat
             var panel=Panel(shade,"Panel",Vector2.zero,new Vector2(780,360),new Color(.05f,.06f,.1f));
             CollectionMenuStyle.Frame(panel);
             question=Label(panel,new Vector2(0,65),new Vector2(740,160),28);
-            Button(panel,"CANCELAR",new Vector2(-170,-100),Close);Button(panel,"LIBERAR",new Vector2(170,-100),()=>ConfirmRelease());
+            Button(panel,"CANCELAR",new Vector2(-170,-100),Close);
+            confirmButton = Button(panel,"LIBERAR",new Vector2(170,-100),()=>ConfirmRelease());
             modal.SetActive(false);prompt.SetActive(false);game.Session.SessionReset+=Close;
         }
         private void Update()
         {
-            var keyboard=Keyboard.current;int slot=NearestSlot;
-            if(IsOpen){if(slot!=pendingSlot||!game.Player.IsAlive||keyboard!=null&&(keyboard.escapeKey.wasPressedThisFrame||keyboard.eKey.wasPressedThisFrame))Close();}
-            else if(slot>=3&&keyboard!=null&&keyboard.eKey.wasPressedThisFrame)TryOpen();
-            else if(keyboard!=null&&keyboard.tKey.wasPressedThisFrame)TryUnequip();
+            var keyboard = Keyboard.current;
+            var pad = Gamepad.current;
+            int slot = NearestSlot;
+            bool interact = keyboard?.eKey.wasPressedThisFrame == true || pad?.buttonWest.wasPressedThisFrame == true;
+            bool cancel = keyboard?.escapeKey.wasPressedThisFrame == true || pad?.buttonEast.wasPressedThisFrame == true;
+            if (IsOpen)
+            {
+                if (slot != pendingSlot || !game.Player.IsAlive || cancel) Close();
+                else if (Time.frameCount != openedFrame && (keyboard?.eKey.wasPressedThisFrame == true ||
+                    keyboard?.enterKey.wasPressedThisFrame == true || keyboard?.numpadEnterKey.wasPressedThisFrame == true ||
+                    keyboard?.spaceKey.wasPressedThisFrame == true)) ConfirmRelease();
+            }
+            else if (slot >= 3 && interact) TryOpen();
+            else if (keyboard?.tKey.wasPressedThisFrame == true || pad?.buttonNorth.wasPressedThisFrame == true) TryUnequip();
             slot=NearestSlot;
             bool visible=!IsOpen&&!game.Session.IsPaused&&slot>=3&&game.Session.State==SessionState.Running;
             prompt.SetActive(visible);
@@ -61,19 +74,22 @@ namespace EchoScrap.Combat
             pendingSlot=slot;pendingId=station.DisplayedId(slot);game.Motor.CancelDashAndRestoreState();game.Motor.Stop();game.Session.Clock.SetPause(PauseReason.CompanionMenu,true);
             string rarityColor = ColorUtility.ToHtmlStringRGB(FusionCatalog.ColorOf(pendingId));
             question.text = $"¿Seguro que quieres liberar a\n<color=#{rarityColor}>{FusionCatalog.Names[pendingId]}</color>?\nEsta unidad desaparecerá de tu colección.";
-            modal.SetActive(true);return true;
+            openedFrame = Time.frameCount;
+            modal.SetActive(true);
+            CollectionMenuStyle.Focus(confirmButton);
+            return true;
         }
         public bool ConfirmRelease()
         {
             if(!IsOpen||NearestSlot!=pendingSlot||station.DisplayedId(pendingSlot)!=pendingId){Close();return false;}
-            if(pendingSlot<3){station.EquipCompanion(pendingSlot,-1);station.GetComponent<CompanionSystem>().RefreshEquipment();}
+            if(pendingSlot<3 && station.Progress.equipped[pendingSlot]==pendingId){station.EquipCompanion(pendingSlot,-1);station.GetComponent<CompanionSystem>().RefreshEquipment();}
             bool released=station.ReleaseCollectible(pendingId);Close();return released;
         }
-        public bool TryUnequip(){int slot=NearestSlot;if(IsOpen||game.Session.IsPaused||slot<0||slot>=3)return false;if(!station.EquipCompanion(slot,-1))return false;station.GetComponent<CompanionSystem>().RefreshEquipment();return true;}
-        public void Close(){if(modal!=null)modal.SetActive(false);if(pendingSlot>=0&&game!=null)game.Session.Clock.SetPause(PauseReason.CompanionMenu,false);pendingSlot=pendingId=-1;}
+        public bool TryUnequip(){int slot=NearestSlot;if(IsOpen||game.Session.IsPaused||slot<0||slot>=3||station.Progress.equipped[slot]<0)return false;if(!station.EquipCompanion(slot,-1))return false;station.GetComponent<CompanionSystem>().RefreshEquipment();return true;}
+        public void Close(){CollectionMenuStyle.ClearFocus(modal);if(modal!=null)modal.SetActive(false);if(pendingSlot>=0&&game!=null)game.Session.Clock.SetPause(PauseReason.CompanionMenu,false);pendingSlot=pendingId=-1;}
         private void OnDestroy(){Close();if(game!=null)game.Session.SessionReset-=Close;}
         private RectTransform Panel(Transform parent,string name,Vector2 pos,Vector2 size,Color color){var r=new GameObject(name,typeof(RectTransform),typeof(Image)).GetComponent<RectTransform>();r.SetParent(parent,false);r.anchoredPosition=pos;r.sizeDelta=size;r.GetComponent<Image>().color=color;return r;}
         private Text Label(Transform parent,Vector2 pos,Vector2 size,int points){var t=new GameObject("Texto",typeof(RectTransform),typeof(Text)).GetComponent<Text>();t.transform.SetParent(parent,false);t.rectTransform.anchoredPosition=pos;t.rectTransform.sizeDelta=size;t.font=font;t.fontSize=points;t.color=Color.white;t.alignment=TextAnchor.MiddleCenter;t.raycastTarget=false;return t;}
-        private void Button(Transform parent,string title,Vector2 pos,UnityEngine.Events.UnityAction action){var r=Panel(parent,title,pos,new Vector2(280,50),new Color(.2f,.24f,.33f));var button=r.gameObject.AddComponent<Button>();CollectionMenuStyle.Button(button);button.onClick.AddListener(action);Label(r,Vector2.zero,r.sizeDelta,22).text=title;}
+        private Button Button(Transform parent,string title,Vector2 pos,UnityEngine.Events.UnityAction action){var r=Panel(parent,title,pos,new Vector2(280,50),new Color(.2f,.24f,.33f));var button=r.gameObject.AddComponent<Button>();CollectionMenuStyle.Button(button);button.onClick.AddListener(action);Label(r,Vector2.zero,r.sizeDelta,22).text=title;return button;}
     }
 }

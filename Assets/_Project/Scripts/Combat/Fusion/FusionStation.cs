@@ -15,6 +15,8 @@ namespace EchoScrap.Combat
         public float DisplayHeight=5.5f;
         public bool PersistProgress=true;
         public const string SaveKey="EchoScrap.Collection.Production.v1";
+        private const string LegacySaveKey = "EchoScrap.Collection.v1";
+        public static bool HasSave => PlayerPrefs.HasKey(SaveKey) || PlayerPrefs.HasKey(LegacySaveKey);
         public FusionProgress Progress {get;private set;}
         public VaultCollectionIndex Index {get;private set;}
         public bool WorldLabelsAllowed=>game!=null&&!game.Session.IsPaused&&game.Player.IsAlive&&(Index==null||!Index.IsOpen);
@@ -53,9 +55,22 @@ namespace EchoScrap.Combat
         {
             game=FindAnyObjectByType<CombatGameBootstrap>();
             PersistProgress = PersistProgress && SceneTransitionState.SaveProgress;
-            Progress=new FusionProgress();
-            if(PersistProgress&&PlayerPrefs.HasKey(SaveKey))try{Progress=JsonUtility.FromJson<FusionProgress>(PlayerPrefs.GetString(SaveKey))??new FusionProgress();}catch(Exception){Progress=new FusionProgress();}
-            Progress.Validate();
+            Progress = new FusionProgress();
+            bool migrate = PersistProgress && !PlayerPrefs.HasKey(SaveKey) && PlayerPrefs.HasKey(LegacySaveKey);
+            if (PersistProgress && (migrate || PlayerPrefs.HasKey(SaveKey)))
+            {
+                try
+                {
+                    var saved = JsonUtility.FromJson<FusionProgress>(PlayerPrefs.GetString(migrate ? LegacySaveKey : SaveKey));
+                    if (saved != null)
+                    {
+                        if (migrate && saved.owned != null) saved.version = 4;
+                        Progress = saved;
+                    }
+                }
+                catch (ArgumentException) { migrate = false; }
+            }
+            Progress.RestoreAfterLoading();
             slatRenderers=Door.GetComponentsInChildren<MeshRenderer>().OrderBy(r=>r.transform.position.y).ToArray();slats=slatRenderers.Select(r=>r.transform).ToArray();closed=slats.Select(t=>t.position).ToArray();
             doorTop=slats.Length==0?Door.position.y+4.3f:slats.Max(t=>t.GetComponent<Renderer>().bounds.max.y);
             resultView=new GameObject("ResultadoFusion").AddComponent<CollectibleDisplay>();resultView.transform.SetParent(transform,false);resultView.transform.position=ResultPoint.position;
@@ -72,6 +87,7 @@ namespace EchoScrap.Combat
             ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);
             Index=gameObject.AddComponent<VaultCollectionIndex>();Index.Initialize(this,game);
             RefreshDisplays();UpdateResult();
+            if (migrate) Save();
             if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);gameObject.AddComponent<VaultReleaseInteraction>().Initialize(this,game);gameObject.AddComponent<EventLeaderboardSync>().Initialize(game,this);}
         }
 
@@ -90,8 +106,19 @@ namespace EchoScrap.Combat
             if(IsMenuOpen&&(!CanInteract||!game.Player.IsAlive))CloseMenu();
             var keyboard = Keyboard.current;
             bool opening = Progress.phase == FusionPhase.Opening && game.Session.Clock.HasPauseReason(PauseReason.FusionMenu);
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && (IsMenuOpen || opening)) CloseMenu();
-            else if(keyboard!=null&&keyboard.eKey.wasPressedThisFrame){if(IsMenuOpen)CloseMenu();else TryOpenMenu();}
+            var pad = Gamepad.current;
+            bool interact = keyboard?.eKey.wasPressedThisFrame == true || pad?.buttonWest.wasPressedThisFrame == true;
+            if (keyboard?.escapeKey.wasPressedThisFrame == true && (IsMenuOpen || opening)) CloseMenu();
+            else if (pad?.buttonEast.wasPressedThisFrame == true && (IsMenuOpen || opening))
+            {
+                if (IsMenuOpen) ui.Back();
+                else CloseMenu();
+            }
+            else if (interact)
+            {
+                if (IsMenuOpen) CloseMenu();
+                else TryOpenMenu();
+            }
             if (Progress.phase == FusionPhase.Fusing)
             {
                 float seconds = Time.unscaledDeltaTime;
@@ -126,10 +153,20 @@ namespace EchoScrap.Combat
         }
         public bool TryOpenMenu()
         {
-            if(!CanInteract || game.Session.IsPaused || game.Session.State!=SessionState.Running || Progress.phase==FusionPhase.Fusing || Progress.phase==FusionPhase.Opening)return false;
+            if(!CanInteract || game.Session.IsPaused || game.Session.State!=SessionState.Running || Progress.phase==FusionPhase.Opening)return false;
             game.Motor.CancelDashAndRestoreState();game.Motor.Stop();game.Session.Clock.SetPause(PauseReason.FusionMenu,true);
-            if(Progress.OpenReady()){openingAudio.Play();smoke.Play(ResultPoint.position);UpdateResult();Save();return true;}
-            ShowMenu();return true;
+            if (!BeginReveal()) ShowMenu();
+            return true;
+        }
+        private bool BeginReveal()
+        {
+            if (!Progress.OpenReady()) return false;
+            ui.Hide();
+            openingAudio.Play();
+            smoke.Play(ResultPoint.position);
+            UpdateResult();
+            Save();
+            return true;
         }
         public void CloseMenu(){if(ui!=null)ui.Hide();if(game!=null&&(Index==null||!Index.IsOpen))game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}
         public bool StartFusion(int[] ingredients, int[] equipmentSlots = null)
@@ -159,8 +196,9 @@ namespace EchoScrap.Combat
             if (!Progress.Advance(seconds)) return;
             UpdateResult();
             Save();
-            if (Progress.phase == FusionPhase.AwaitingDecision && CanInteract && game.Session.Clock.HasPauseReason(PauseReason.FusionMenu))
-                ShowMenu();
+            if (!CanInteract || !game.Session.Clock.HasPauseReason(PauseReason.FusionMenu)) return;
+            if (Progress.phase == FusionPhase.Ready && IsMenuOpen) BeginReveal();
+            else if (Progress.phase == FusionPhase.AwaitingDecision) ShowMenu();
         }
         public bool Resolve(bool collect)
         {
@@ -181,16 +219,36 @@ namespace EchoScrap.Combat
         {
             var restored=JsonUtility.FromJson<FusionProgress>(snapshot);
             if(restored==null)return;
-            restored.Validate();Progress=restored;
+            restored.RestoreAfterLoading();Progress=restored;
             resultAudio.Stop();
             resultAudioPlayed = false;
             RefreshDisplays();UpdateResult();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
 
-        public void RefreshDisplays(){if(displays==null)return;Progress?.Validate();var gallery=Enumerable.Range(0,FusionCatalog.Count).SelectMany(id=>Enumerable.Repeat(id,Progress.Available(id))).OrderByDescending(id=>FusionCatalog.Rarities[id]).ToArray();for(int i=0;i<displays.Length;i++){
-            int id=i<3?Progress.equipped[i]:i-3<gallery.Length?gallery[i-3]:-1;
-            displays[i].Configure(FusionCatalog.Valid(id)&&Progress.owned[id]>0?id:-1,DisplayHeight,true);
-        }if(Index!=null&&Index.IsOpen)Index.Refresh(true);}
+        public void RefreshDisplays()
+        {
+            if (displays == null) return;
+            Progress.Validate();
+            var gallery = Enumerable.Range(0, FusionCatalog.Count)
+                .OrderByDescending(id => FusionCatalog.Rarities[id])
+                .SelectMany(id => Enumerable.Repeat(id, Mathf.Min(FusionProgress.Capacity, Progress.Available(id))))
+                .Take(FusionProgress.Capacity).ToArray();
+            int reserve = 0;
+            for (int i = 3; i < displays.Length; i++)
+                SetDisplay(i, reserve < gallery.Length ? gallery[reserve++] : -1);
+            for (int i = 0; i < 3; i++)
+            {
+                int equipped = Progress.equipped[i];
+                SetDisplay(i, equipped >= 0 ? equipped : reserve < gallery.Length ? gallery[reserve++] : -1);
+            }
+            if (Index != null && Index.IsOpen) Index.Refresh(true);
+        }
+        private void SetDisplay(int slot, int id)
+        {
+            Progress.displays[slot] = id;
+            displays[slot].SetEquipmentReserve(slot < 3 && id >= 0 && Progress.equipped[slot] < 0);
+            displays[slot].Configure(id, DisplayHeight, true);
+        }
         public int DisplayedId(int slot)=>displays!=null&&slot>=0&&slot<displays.Length?displays[slot].CollectibleId:-1;
         public bool ReleaseCollectible(int id)
         {
@@ -220,7 +278,7 @@ namespace EchoScrap.Combat
             openingAudio.Stop();resultAudio.Stop();resultAudioPlayed=false;CloseMenu();Index?.Close();Notice="";Progress=new FusionProgress();Progress.Validate();
             RefreshDisplays();UpdateResult();Save();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
-        private void OnSessionReset(){openingAudio.Stop();resultAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.phase=FusionPhase.Ready;Progress.opening=0;UpdateResult();}CloseMenu();Index?.Close();}
+        private void OnSessionReset(){openingAudio.Stop();resultAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.RestoreAfterLoading();UpdateResult();Save();}CloseMenu();Index?.Close();}
         private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}
         private void OnApplicationPause(bool paused){if(paused)Save();}
         private void OnApplicationQuit(){Save();}

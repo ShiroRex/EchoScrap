@@ -119,16 +119,19 @@ namespace EchoScrap.Combat
             });
             removeButton=Button(panel,"Quitar",new Vector2(-270,-330),new Vector2(250,45),()=>system.Equip(selected,-1));Label(removeButton.transform,"Texto","QUITAR DEL PUESTO",Vector2.zero,new Vector2(240,45),20);
             releaseButton=Button(panel,"Liberar",new Vector2(0,-330),new Vector2(250,45),system.RequestRelease);Label(releaseButton.transform,"Texto","LIBERAR COPIA",Vector2.zero,new Vector2(240,45),20);
-            var close=Button(panel,"Cerrar",new Vector2(270,-330),new Vector2(250,45),system.Close);Label(close.transform,"Texto","CERRAR · E / ESC",Vector2.zero,new Vector2(240,45),20);
+            closeButton=Button(panel,"Cerrar",new Vector2(270,-330),new Vector2(250,45),system.Close);Label(closeButton.transform,"Texto","CERRAR · E / ESC",Vector2.zero,new Vector2(240,45),20);
             modal.SetActive(false);Refresh();
         }
+        private Button closeButton;
         private int AvailableForSlot(int id)=>station.Progress.Available(id);
         public void Show(bool value)
         {
             if (value)
                 title.text = $"PUESTO DE EQUIPO {selected + 1}";
+            if (!value) CollectionMenuStyle.ClearFocus(modal);
             modal.SetActive(value);
             Refresh();
+            if (value) CollectionMenuStyle.Focus(unitGrid.FirstButton ?? closeButton);
         }
         public void Refresh()
         {

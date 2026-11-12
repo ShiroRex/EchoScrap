@@ -33,7 +33,7 @@ namespace EchoScrap.Combat
         public static StatsDisplayMode StatsMode { get; set; }
         public static bool ShowCompanionPowers { get; set; }
         public static bool HasCollection => SaveProgress
-            ? PlayerPrefs.HasKey(GameFlowController.ProfileKey) || PlayerPrefs.HasKey(FusionStation.SaveKey)
+            ? PlayerPrefs.HasKey(GameFlowController.ProfileKey) || FusionStation.HasSave
             : HasTransientCollection;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

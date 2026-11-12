@@ -61,9 +61,19 @@ namespace EchoScrap.Combat
         private void Update()
         {
             if(game==null)return;
-            var keyboard=Keyboard.current;
-            if(IsOpen && (!CanEquip || keyboard!=null && (keyboard.escapeKey.wasPressedThisFrame || keyboard.eKey.wasPressedThisFrame))) Close();
-            else if(!IsOpen && keyboard!=null && keyboard.eKey.wasPressedThisFrame){if(game.Session.IsInWarehouse)TryOpen();else TryCollectNearest();}
+            var keyboard = Keyboard.current;
+            var pad = Gamepad.current;
+            bool interact = keyboard?.eKey.wasPressedThisFrame == true || pad?.buttonWest.wasPressedThisFrame == true;
+            bool cancel = keyboard?.escapeKey.wasPressedThisFrame == true || pad?.buttonEast.wasPressedThisFrame == true;
+            if (IsOpen)
+            {
+                if (!CanEquip || cancel || interact) Close();
+            }
+            else if (interact)
+            {
+                if (game.Session.IsInWarehouse) TryOpen();
+                else TryCollectNearest();
+            }
             if(AutoTick) Advance(Time.deltaTime);
             view.Refresh();
         }

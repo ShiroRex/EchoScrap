@@ -1,9 +1,21 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 namespace EchoScrap.Combat
 {
     public static class CollectionMenuStyle
     {
+        public static void Focus(Selectable target)
+        {
+            if (target != null) EventSystem.current?.SetSelectedGameObject(target.gameObject);
+        }
+        public static void ClearFocus(GameObject panel)
+        {
+            var events = EventSystem.current;
+            var selected = events?.currentSelectedGameObject;
+            if (panel != null && selected != null && selected.transform.IsChildOf(panel.transform))
+                events.SetSelectedGameObject(null);
+        }
         public static Font ButtonFont=>Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin").regular;
         public static void Button(Button button)
         {

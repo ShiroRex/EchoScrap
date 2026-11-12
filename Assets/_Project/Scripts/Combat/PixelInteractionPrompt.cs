@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 
 namespace EchoScrap.Combat
 {
@@ -8,7 +9,8 @@ namespace EchoScrap.Combat
     {
         private RectTransform root, canvasRect;
         private Canvas canvas;
-        private Text label;
+        private Text label, padGlyph;
+        private Image keyboardGlyph;
         private const float Height = 42f;
         private const float LeftInset = 54f;
         private const float RightInset = 22f;
@@ -28,12 +30,22 @@ namespace EchoScrap.Combat
             var cap = NewImage(root, "InteractionKey", PixelControlArtwork.Load("InteractionPrompt/Keycap_Normal"), new Vector2(36f, 36f));
             cap.rectTransform.anchorMin = cap.rectTransform.anchorMax = new Vector2(0f, .5f);
             cap.rectTransform.anchoredPosition = new Vector2(21f, 0f);
-            NewImage(cap.transform, "Glyph", PixelControlArtwork.Load("InteractionPrompt/Glyph_E"), new Vector2(18f, 18f));
+            view.keyboardGlyph = NewImage(cap.transform, "Glyph", PixelControlArtwork.Load("InteractionPrompt/Glyph_E"), new Vector2(18f, 18f));
+            var padKey = new GameObject("GamepadGlyph", typeof(RectTransform), typeof(Text));
+            padKey.transform.SetParent(cap.transform, false);
+            view.padGlyph = padKey.GetComponent<Text>();
+            view.padGlyph.alignment = TextAnchor.MiddleCenter;
+            view.padGlyph.rectTransform.sizeDelta = new Vector2(36f, 36f);
+            view.padGlyph.color = Color.white;
+            view.padGlyph.fontSize = 18;
+            view.padGlyph.raycastTarget = false;
+            view.padGlyph.gameObject.SetActive(false);
             var label = new GameObject("Texto", typeof(RectTransform), typeof(Text)).GetComponent<Text>();
             label.transform.SetParent(root, false);
             view.label = label;
             label.font = Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro").AnnouncementFont;
             label.fontSize = 20;
+            view.padGlyph.font = label.font;
             label.color = Color.white;
             label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -57,6 +69,16 @@ namespace EchoScrap.Combat
 
         public void PlaceNear(Camera camera, Vector3 worldPosition)
         {
+            var pad = Gamepad.current;
+            bool useGamepad = pad != null && pad.lastUpdateTime > (Keyboard.current?.lastUpdateTime ?? double.NegativeInfinity)
+                && pad.lastUpdateTime > (Mouse.current?.lastUpdateTime ?? double.NegativeInfinity);
+            keyboardGlyph.enabled = !useGamepad;
+            if (padGlyph.gameObject.activeSelf != useGamepad) padGlyph.gameObject.SetActive(useGamepad);
+            if (useGamepad)
+            {
+                string button = pad.buttonWest.shortDisplayName;
+                padGlyph.text = !string.IsNullOrEmpty(button) && button.Length == 1 && char.IsLetterOrDigit(button[0]) ? button : "X";
+            }
             Vector3 screen = camera.WorldToScreenPoint(worldPosition);
             if (screen.z <= 0f) { root.gameObject.SetActive(false); return; }
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen,

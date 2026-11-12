@@ -114,7 +114,7 @@ namespace EchoScrap.Combat
                 selectionInput = expeditionSelection.AddComponent<CanvasGroup>();
                 var frame = Frame(expeditionSelection.transform, "SelectionFrame");
                 selectionFrame = frame.gameObject.AddComponent<CanvasGroup>();
-                Label(frame, "¿QUIERES ENTRAR A LA ARENA?", new Vector2(0, 218), new Vector2(800, 88), 34, new Color(.91f, .76f, .44f));
+                Label(frame, "ELIGE LA RONDA", new Vector2(0, 218), new Vector2(800, 88), 34, new Color(.91f, .76f, .44f));
                 Label(frame, "Elige una ronda para comenzar.", new Vector2(0, 150), new Vector2(700, 48), 24, Color.white);
                 demoButton = ButtonAt(frame, "DemoRound", "RONDA DEMO", new Vector2(0, 44), new Vector2(500, 100), artwork.Green, () => worldFlow.SelectExpedition(false));
                 completeButton = ButtonAt(frame, "CompleteRound", "RONDA COMPLETA", new Vector2(0, -70), new Vector2(500, 100), artwork.Blue, () => worldFlow.SelectExpedition(true));

@@ -24,6 +24,7 @@ namespace EchoScrap.Combat
         private bool fusionLayout;
         private Func<int, int, int> equipmentSlotForCopy;
         public int VisibleUnits {get;private set;}
+        public Button FirstButton => VisibleUnits > 0 ? cards[0] : null;
         public int UnitId(int slot)=>ids[slot];
         public void Build(FusionStation owner,Func<int,int> availableCopies,Action<int,int> choose,Action<int> preview=null)
         {
@@ -32,7 +33,7 @@ namespace EchoScrap.Combat
             for(int i=0;i<PageSize;i++){
                 int slot=i;var card=Box("Unidad_"+i,transform,Vector2.zero,new Vector2(184,170),Color.clear);
                 cards[i]=card.gameObject.AddComponent<Button>();cards[i].onClick.AddListener(()=>SelectUnit(slot));
-                portraits[i]=Box("Retrato",card,new Vector2(0,28),new Vector2(104,104),Color.white).GetComponent<Image>();portraits[i].preserveAspect=true;portraits[i].raycastTarget=false;cards[i].targetGraphic=portraits[i];var colors=cards[i].colors;colors.highlightedColor=new Color(1,.88f,.65f);colors.pressedColor=new Color(.7f,.6f,.85f);cards[i].colors=colors;
+                portraits[i]=Box("Retrato",card,new Vector2(0,28),new Vector2(104,104),Color.white).GetComponent<Image>();portraits[i].preserveAspect=true;portraits[i].raycastTarget=false;cards[i].targetGraphic=portraits[i];var colors=cards[i].colors;colors.highlightedColor=new Color(1,.88f,.65f);colors.selectedColor=colors.highlightedColor;colors.pressedColor=new Color(.7f,.6f,.85f);cards[i].colors=colors;
                 labels[i]=Label(card,"Detalle",new Vector2(0,-57),new Vector2(184,54),18);
             }
             previous=MakeButton(transform,"‹",new Vector2(-170,-190),new Vector2(60,30),()=>ChangePage(-1));

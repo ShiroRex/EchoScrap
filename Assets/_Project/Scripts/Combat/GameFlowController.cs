@@ -35,7 +35,7 @@ namespace EchoScrap.Combat
         public bool IsConfiguring { get; private set; }
         public bool OwnsOverlay => State == GameFlowState.MainMenu || IsConfirming || IsSelectingExpedition || IsLoading;
         public bool HasCollection => persist
-            ? PlayerPrefs.HasKey(ProfileKey) || PlayerPrefs.HasKey(FusionStation.SaveKey) : transientProfile;
+            ? PlayerPrefs.HasKey(ProfileKey) || FusionStation.HasSave : transientProfile;
         public GameMenuView View => view;
         public bool ShowEquipmentHint => station?.Progress is FusionProgress progress
             && progress.OwnedCount > 0 && !progress.hasEquippedCompanion;

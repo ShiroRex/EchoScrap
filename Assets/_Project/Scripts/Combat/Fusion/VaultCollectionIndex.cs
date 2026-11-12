@@ -544,19 +544,18 @@ namespace EchoScrap.Combat
                 return;
             }
 
-            if (Keyboard.current != null)
+            var keyboard = Keyboard.current;
+            var pad = Gamepad.current;
+            bool toggle = keyboard?.iKey.wasPressedThisFrame == true || pad?.selectButton.wasPressedThisFrame == true;
+            if (IsOpen && (toggle || keyboard?.escapeKey.wasPressedThisFrame == true || pad?.buttonEast.wasPressedThisFrame == true))
             {
-                if (IsOpen && (Keyboard.current.escapeKey.wasPressedThisFrame || Keyboard.current.iKey.wasPressedThisFrame))
-                {
-                    Close();
-                    return;
-                }
-
-                if (hudVisible && Keyboard.current.iKey.wasPressedThisFrame)
-                {
-                    Open(ActiveTab);
-                    return;
-                }
+                Close();
+                return;
+            }
+            if (hudVisible && toggle)
+            {
+                Open(ActiveTab);
+                return;
             }
 
             if (IsOpen)
@@ -580,6 +579,7 @@ namespace EchoScrap.Combat
             modal.SetActive(true);
             FitBook();
             SelectTab(tab);
+            CollectionMenuStyle.Focus(tab == IndexTab.ByRarity ? byRarityTabButton : inVaultTabButton);
         }
 
         private void FitBook()
@@ -591,6 +591,7 @@ namespace EchoScrap.Combat
 
         public void Close()
         {
+            CollectionMenuStyle.ClearFocus(modal);
             if (modal != null)
                 modal.SetActive(false);
             if (game != null && (station == null || !station.IsMenuOpen))

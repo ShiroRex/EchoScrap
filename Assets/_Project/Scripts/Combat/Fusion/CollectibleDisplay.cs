@@ -7,7 +7,8 @@ namespace EchoScrap.Combat
         [System.Serializable] private sealed class Timing {public float[] durations;}
         private SpriteRenderer visual;private Sprite[] frames;private float[] times;
         private float elapsed;private int frame;private float height;
-        private Camera cameraView;private Canvas label,equipmentLabel;private Text nameText,rarityText;
+        private Camera cameraView;private Canvas label,equipmentLabel;private Text nameText,rarityText,equipmentText;
+        private int equipmentNumber;
         private float spriteScale;private bool showTitle;private CombatGameBootstrap game;
         private Text pickupTimer;
         private int displayedSeconds = -1;
@@ -15,6 +16,12 @@ namespace EchoScrap.Combat
         public int CollectibleId {get;private set;}=-1;
         public static Sprite FrontSprite(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/000"):null;
         public static Sprite CardPortrait(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/CardPortrait"):null;
+        public void SetEquipmentReserve(bool reserve)
+        {
+            if (equipmentText == null) return;
+            equipmentText.fontSize = reserve ? 24 : 36;
+            equipmentText.text = reserve ? $"EQUIPO {equipmentNumber} · RESERVA" : $"EQUIPO {equipmentNumber}";
+        }
         public void MarkEquipmentSlot(int number,CombatGameBootstrap owner)
         {
             game=owner;
@@ -28,9 +35,10 @@ namespace EchoScrap.Combat
             background.color=new Color(.045f,.06f,.08f,.96f);
             background.raycastTarget=false;
             var skin=Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
-            var text=Title(equipmentLabel,"Equipo",0,36,skin.semibold);
-            text.text=$"EQUIPO {number}";
-            text.color=new Color(1f,.81f,.47f);
+            equipmentNumber = number;
+            equipmentText = Title(equipmentLabel,"Equipo",0,36,skin.semibold);
+            SetEquipmentReserve(false);
+            equipmentText.color=new Color(1f,.81f,.47f);
             equipmentLabel.gameObject.SetActive(false);
         }
         public void Configure(int id,float displayHeight,bool showLabel)
