@@ -418,7 +418,7 @@ namespace EchoScrap.Tests
             Assert.IsTrue(station.Index.IsOpen);
             Assert.AreEqual(VaultCollectionIndex.IndexTab.ByRarity,station.Index.ActiveTab);
             Assert.AreEqual(Color.white,station.Index.GetRarityCardPortrait(0).color);
-            Assert.AreEqual(Color.black,station.Index.GetRarityCardPortrait(1).color);
+            Assert.AreEqual(new Color(.03f,.03f,.04f,.96f),station.Index.GetRarityCardPortrait(1).color);
             Assert.AreEqual("???",station.Index.GetRarityCardName(1).text);
             Assert.AreEqual(FilterMode.Point,station.Index.GetRarityCardFrame(0).sprite.texture.filterMode);
             station.Index.SelectTab(VaultCollectionIndex.IndexTab.InVault);
@@ -441,7 +441,7 @@ namespace EchoScrap.Tests
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.T));yield return null;yield return null;
             Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(1,station.Progress.owned[0]);Assert.AreEqual(0,game.Stats.GetUpgradeTier(UpgradeId.DASH_01));
         }
-        [UnityTest] public IEnumerator IndexSeparatesSixRaritiesAndDisplaysTenIndividualUnits()
+        [UnityTest] public IEnumerator IndexShowsAllEntitiesSixRaritiesAndTenIndividualUnits()
         {
             station.ResetCollection();
             foreach(int id in new[]{0,0,1,2,3,4,6,7,8,9}) Assert.IsTrue(station.Progress.TryCollect(id));
@@ -452,6 +452,20 @@ namespace EchoScrap.Tests
             var canvas=station.transform.Find("VaultIndexCanvas").GetComponent<Canvas>();
             var hud=canvas.transform.Find("BotonIndiceBoveda").GetComponent<RectTransform>();
             Assert.AreEqual(0,hud.anchorMin.x);Assert.Greater(hud.anchoredPosition.x,0);
+            var book = canvas.transform.Find("ModalIndiceBoveda/VentanaIndice");
+            var raritySection = book.Find("SeccionPorRarezas");
+            var all = raritySection.Find("Todas").GetComponent<UnityEngine.UI.Button>();
+            var previous = raritySection.Find("Anterior").GetComponent<UnityEngine.UI.Button>();
+            var scroll = raritySection.Find("VistaRarezas").GetComponent<UnityEngine.UI.ScrollRect>();
+            var inspector = book.Find("PanelDetalleIndice");
+            var owned = inspector.Find("CopiasEnPosesion").GetComponent<UnityEngine.UI.Text>();
+            var power = inspector.Find("TextoPoder").GetComponent<UnityEngine.UI.Text>();
+            Assert.AreEqual(FusionCatalog.Count,index.VisibleRarityCardsCount);
+            Assert.AreEqual("×2",owned.text);
+            previous.onClick.Invoke();
+            StringAssert.Contains("3 s de invulnerabilidad",power.text);
+            Assert.LessOrEqual(power.preferredHeight,power.rectTransform.rect.height);
+            Assert.That(scroll.verticalNormalizedPosition, Is.EqualTo(0f).Within(.01f));
             for(int rarity=0;rarity<6;rarity++)
             {
                 index.SetRarityFilter(rarity);
@@ -459,13 +473,19 @@ namespace EchoScrap.Tests
                 for(int id=0;id<FusionCatalog.Count;id++)
                     Assert.AreEqual((int)FusionCatalog.Rarities[id]==rarity,index.GetRarityCardFrame(id).gameObject.activeSelf);
             }
+            all.onClick.Invoke();
+            Assert.AreEqual(FusionCatalog.Count,index.VisibleRarityCardsCount);
+            Assert.That(scroll.verticalNormalizedPosition, Is.EqualTo(1f).Within(.01f));
+            for(int id=0;id<FusionCatalog.Count;id++)
+                Assert.IsTrue(index.GetRarityCardFrame(id).gameObject.activeInHierarchy);
             index.SetRarityFilter(1);
-            var book = canvas.transform.Find("ModalIndiceBoveda/VentanaIndice");
             Assert.AreSame(PixelControlArtwork.Load("Presentation/BookOpen"), book.GetComponent<UnityEngine.UI.Image>().sprite);
             var story = book.GetComponentsInChildren<UnityEngine.UI.Text>().Single(t=>t.name=="TextoHistoria");
             StringAssert.StartsWith("Hechicero veterano", story.text);
-            book.Find("SeccionPorRarezas/Anterior").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            StringAssert.Contains("18 de daño base cada 10 s",power.text);
+            previous.onClick.Invoke();
             StringAssert.Contains("Descubre", story.text);
+            StringAssert.Contains("Aún no has registrado esta entidad",power.text);
             book.Find("SeccionPorRarezas/Siguiente").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             StringAssert.StartsWith("Hechicero veterano", story.text);
             yield return Capture("IndiceRarezas",true,false,canvas);
@@ -476,7 +496,9 @@ namespace EchoScrap.Tests
             Assert.AreEqual(10,cards.Length);
             foreach(var card in cards) Assert.That(-card.anchoredPosition.y+card.rect.height,Is.LessThanOrEqualTo(766));
             yield return Capture("IndiceTuBoveda",true,false,canvas);
-            book.Find("CerrarIndice").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            var close = book.Find("CerrarIndice").GetComponent<UnityEngine.UI.Button>();
+            Assert.AreEqual("X   CERRAR · [I]",close.GetComponentInChildren<UnityEngine.UI.Text>().text);
+            close.onClick.Invoke();
             Assert.IsFalse(index.IsOpen);
         }
         private IEnumerator VaultCapture()
