@@ -23,6 +23,7 @@ namespace EchoScrap.Core
         [Header("Dash")]
         [SerializeField, Min(0.1f)] private float dashSpeed = 22f;
         [SerializeField, Min(0.01f)] private float dashDuration = 0.15f;
+        [SerializeField, Min(0f)] private float dashInvulnerability = 0.22f;
         [SerializeField, Min(0f)] private float dashCooldown = 1.0f;
 
         [Header("Linterna de 4 Pulsos")]
@@ -62,6 +63,7 @@ namespace EchoScrap.Core
 
         public float DashSpeed => Mathf.Max(0.1f, dashSpeed);
         public float DashDuration => Mathf.Max(0.01f, dashDuration);
+        public float DashInvulnerability => Mathf.Max(0f, dashInvulnerability);
         public float DashCooldown => Mathf.Max(0f, dashCooldown);
 
         public float FlashlightRange => Mathf.Max(0.5f, flashlightRange);

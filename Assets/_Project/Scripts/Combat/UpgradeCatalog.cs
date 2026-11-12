@@ -189,7 +189,7 @@ namespace EchoScrap.Combat
         public static string QuickDetail(string id, PlayerRuntimeStats stats, int current, int next) => id switch
         {
             "FLASH_01" => "Tu cono de luz también se\nensancha 10° por nivel.",
-            "FLASH_02" => "Reduce la espera entre disparos\ny entre ráfagas.",
+            "FLASH_02" => "Reduce la espera entre disparos\ny aumenta un " + Number(stats.Upgrades.rapidPulseMovementPerTier * 100f) + "% tu velocidad\nde movimiento por nivel.",
             "FLASH_04" => current == 0 ? "Golpeas y empujas más,\npero tu luz abarca menos." : "Golpeas y empujas más.\nTu luz conserva su anchura.",
             "FLASH_05" => "Tu luz llega a " + Number(stats.Settings.SolarBaseRange + stats.LensTier) + " m.\nHace 2.5 veces el daño\ny todos los pulsos empujan.",
             "DASH_01" => stats.GetUpgradeTier(UpgradeId.DASH_04)>0 ? "Esquivas un 8% más rápido.\nCon Cataclismo, la espera\nsigue siendo de 0.5 s." : "Esquivas un 8% más rápido\ny esperas un 10% menos\npara volver a esquivar.",

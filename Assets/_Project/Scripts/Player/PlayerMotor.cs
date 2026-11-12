@@ -26,6 +26,7 @@ namespace EchoScrap.Player
         private Vector3 dashDirection = Vector3.forward;
         private float activeDashSpeed = 22f;
         private float dashTimeRemaining;
+        private float dashInvulnerabilityRemaining;
         private float cooldownRemaining;
         private float activeCooldownDuration = 1f;
         private bool wallBlockedThisDash;
@@ -46,7 +47,7 @@ namespace EchoScrap.Player
         }
 
         public bool IsDashing => isDashing;
-        public bool IsDashInvulnerable => isDashing;
+        public bool IsDashInvulnerable => isDashing || dashInvulnerabilityRemaining > 0.0001f;
         public bool IsDashAvailable => !isDashing && cooldownRemaining <= 0.0001f && isActiveAndEnabled && (input == null || input.CanRead);
         public float DashTimeRemaining => Mathf.Max(0f, dashTimeRemaining);
         public float DashCooldownRemaining => Mathf.Max(0f, cooldownRemaining);
@@ -125,6 +126,7 @@ namespace EchoScrap.Player
             }
 
             float dt = Time.fixedDeltaTime;
+            dashInvulnerabilityRemaining = Mathf.Max(0f, dashInvulnerabilityRemaining - dt);
 
             // Si el dash activo completó su duración exacta en el paso anterior, cerrarlo ahora
             if (isDashing && dashTimeRemaining <= 0.00001f)
@@ -168,7 +170,7 @@ namespace EchoScrap.Player
             if (moveDirection.sqrMagnitude > 0.0001f)
                 FacingDirection = moveDirection.normalized;
 
-            Vector3 target = moveDirection * settings.MoveSpeed * (ResolveRuntimeStats()?.CompanionMoveMultiplier ?? 1f);
+            Vector3 target = moveDirection * settings.MoveSpeed * (ResolveRuntimeStats()?.MoveSpeedMultiplier ?? 1f);
             float rate = moveDirection.sqrMagnitude > 0.0001f
                 ? settings.Acceleration : settings.Deceleration;
 
@@ -199,6 +201,7 @@ namespace EchoScrap.Player
             FacingDirection = dashDirection;
             activeDashSpeed = EffectiveDashSpeed;
             dashTimeRemaining = EffectiveDashDuration;
+            dashInvulnerabilityRemaining = ResolveRuntimeStats()?.DashInvulnerability ?? dashTimeRemaining;
             activeCooldownDuration = EffectiveDashCooldown;
             wallBlockedThisDash = false;
             isDashing = true;
@@ -242,6 +245,7 @@ namespace EchoScrap.Player
             bool wasDashing = isDashing;
             isDashing = false;
             dashTimeRemaining = 0f;
+            dashInvulnerabilityRemaining = 0f;
             wallBlockedThisDash = false;
             if (resetCooldown)
                 cooldownRemaining = 0f;

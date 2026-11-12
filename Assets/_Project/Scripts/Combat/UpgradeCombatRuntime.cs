@@ -29,8 +29,9 @@ namespace EchoScrap.Combat
             public bool Active, Fresh;
             public DeviceKind Kind;
             public Vector3 Position;
-            public float Life, Damage, ShotTimer, BurstTimer;
+            public float Life, Damage, ShotTimer, BurstTimer, PlacedAt;
             public int Shots;
+            public ulong PlacementOrder;
             public UpgradeEffectPool.View View;
         }
         private struct Blast
@@ -77,11 +78,11 @@ namespace EchoScrap.Combat
         private readonly int[] attackTiers = new int[UpgradeRules.Count];
         private readonly List<EnemyActor> targets = new List<EnemyActor>(512);
         private readonly HashSet<int> selectedTargets = new HashSet<int>();
-        private readonly Dictionary<int,float> sawNextHit = new Dictionary<int,float>(512);
         private readonly UpgradeEffectPool.View[] sawViews = new UpgradeEffectPool.View[4];
         private UpgradeEffectPool.View shield;
-        private float time, mineTimer, blizzardTimer, turretTimer, regenTimer, emergencyReady, overheal;
+        private float time, blizzardTimer, turretTimer, regenTimer, emergencyReady, overheal;
         private int gems, activeDecoys;
+        private ulong nextPlacementOrder;
         private bool bound, collecting;
         private static readonly Color Amber = new Color(1f,.66f,.22f);
         private static readonly Color Plasma = new Color(.35f,.94f,1f);
@@ -171,8 +172,9 @@ namespace EchoScrap.Combat
             foreach(var d in devices) {d.Active=false;d.View=null;}
             foreach(var s in statuses) {s.Actor=null;s.View=null;}
             for(int i=0;i<4;i++) sawViews[i]=null;
-            shield=null; blastCount=0; time=mineTimer=blizzardTimer=turretTimer=regenTimer=emergencyReady=overheal=0f;
-            gems=activeDecoys=0; collecting=false; sawNextHit.Clear(); targets.Clear(); selectedTargets.Clear();
+            shield=null; blastCount=0; time=blizzardTimer=turretTimer=regenTimer=emergencyReady=overheal=0f;
+            nextPlacementOrder = 0;
+            gems=activeDecoys=0; collecting=false; targets.Clear(); selectedTargets.Clear();
             ActiveProjectileCount=ActiveDeviceCount=ExplosionsResolved=ProjectilesFired=0;
             ChainsTriggered=ChainHitsResolved=ChainTargetsInvalidated=ChainOverflowResolutions=0;
             stats.CopyUpgradeTiers(attackTiers);
@@ -352,6 +354,9 @@ namespace EchoScrap.Combat
             if(dash.Started)
             {
                 int decoy=Tier(UpgradeId.DASH_03);
+                int mine = Tier(UpgradeId.DEMO_03);
+                if (mine > 0)
+                    PlaceDevice(DeviceKind.Mine, tuning.mineLimit, dash.Position, float.PositiveInfinity, At(tuning.mineDamage, mine));
                 if(decoy>0) DeviceAt(DeviceKind.Decoy,dash.Position,At(tuning.decoyDuration,decoy),At(tuning.decoyDamage,decoy));
                 if(Tier(UpgradeId.DASH_04)>0) QueueBlast(dash.Position,tuning.cataclysmDamage,tuning.cataclysmRadius);
             }
@@ -365,7 +370,6 @@ namespace EchoScrap.Combat
         public void EnemyDied(EnemyActor enemy, Vector3 position)
         {
             if(!bound) return;
-            sawNextHit.Remove(enemy.TargetId);
             if(enemy.IsFrozen && Tier(UpgradeId.CRYO_04)>0)
                 for(int i=0;i<tuning.shatterCount;i++)
                 {
@@ -432,7 +436,7 @@ namespace EchoScrap.Combat
             for(int i=0;i<devices.Length;i++)
             {
                 var d=devices[i];if(d.Active) continue;
-                d.Active=true;d.Fresh=true;d.Kind=kind;d.Position=position;d.Life=life;d.Damage=damage;d.BurstTimer=d.ShotTimer=0;d.Shots=0;
+                d.Active=true;d.Fresh=true;d.Kind=kind;d.Position=position;d.Life=life;d.Damage=damage;d.PlacedAt=time;d.PlacementOrder=++nextPlacementOrder;d.BurstTimer=d.ShotTimer=0;d.Shots=0;
                 var shape=kind==DeviceKind.Mine?UpgradeEffectPool.Shape.Mine:kind==DeviceKind.Decoy?UpgradeEffectPool.Shape.Decoy:UpgradeEffectPool.Shape.Turret;
                 var p=position;if(kind!=DeviceKind.Decoy)p.y=ArenaSurface.Height(position)+(kind==DeviceKind.Turret?.025f:.15f);
                 d.View=effects.Acquire(shape,p,kind==DeviceKind.Decoy?Plasma:Amber,kind==DeviceKind.Mine?.65f:1f);
@@ -441,18 +445,18 @@ namespace EchoScrap.Combat
             }
         }
 
-        private void SpawnTurret()
+        private void PlaceDevice(DeviceKind kind, int limit, Vector3 position, float lifetime, float damage)
         {
             Device oldest = null;
             int count = 0;
             foreach (var device in devices)
             {
-                if (!device.Active || device.Kind != DeviceKind.Turret) continue;
+                if (!device.Active || device.Kind != kind) continue;
                 count++;
-                if (oldest == null || device.Life < oldest.Life) oldest = device;
+                if (oldest == null || device.PlacementOrder < oldest.PlacementOrder) oldest = device;
             }
-            if (count >= MaxActiveTurrets) ReleaseDevice(oldest);
-            DeviceAt(DeviceKind.Turret, player.WorldCenter, tuning.turretDuration, tuning.turretDamage);
+            if (count >= Mathf.Max(1, limit)) ReleaseDevice(oldest);
+            DeviceAt(kind, position, lifetime, damage);
         }
 
         private void ReleaseDevice(Device device)
@@ -472,8 +476,6 @@ namespace EchoScrap.Combat
             for(int i=0;i<targets.Count;i++) targets[i].StepUpgradeStatus(dt);
             int tier=Tier(UpgradeId.BIO_03);
             if(tier>0) {regenTimer+=dt;while(regenTimer>=tuning.regenerationInterval) {regenTimer-=tuning.regenerationInterval;player.Heal(At(tuning.regeneration,tier));}} else regenTimer=0;
-            tier=Tier(UpgradeId.DEMO_03);
-            if(tier>0) {mineTimer+=dt;while(mineTimer>=At(tuning.mineInterval,tier)) {mineTimer-=At(tuning.mineInterval,tier);DeviceAt(DeviceKind.Mine,player.WorldCenter,float.PositiveInfinity,At(tuning.mineDamage,tier));}} else mineTimer=0;
             tier=Tier(UpgradeId.CRYO_03);
             if(tier>0) {blizzardTimer+=dt;while(blizzardTimer>=At(tuning.blizzardInterval,tier)) {blizzardTimer-=At(tuning.blizzardInterval,tier);QueueBlast(player.WorldCenter,At(tuning.blizzardDamage,tier),tuning.blizzardRadius,freeze:tuning.blizzardFreeze,source:DamageSourceType.UpgradeFrost);}} else blizzardTimer=0;
             if (Tier(UpgradeId.SCRAP_04) > 0)
@@ -482,7 +484,7 @@ namespace EchoScrap.Combat
                 while (turretTimer >= tuning.turretInterval)
                 {
                     turretTimer -= tuning.turretInterval;
-                    SpawnTurret();
+                    PlaceDevice(DeviceKind.Turret, MaxActiveTurrets, player.WorldCenter, tuning.turretDuration, tuning.turretDamage);
                 }
             }
             else turretTimer = 0f;
@@ -510,10 +512,14 @@ namespace EchoScrap.Combat
             {
                 var d=devices[i];if(!d.Active)continue;float elapsed=d.Fresh?0:dt;d.Fresh=false;d.Life-=elapsed;
                 bool expired=d.Life<=0;
-                if(d.Kind==DeviceKind.Mine && Nearest(d.Position,tuning.mineTriggerRadius)!=null) expired=true;
+                if (d.Kind == DeviceKind.Mine && time - d.PlacedAt >= tuning.mineArmDelay && Nearest(d.Position, tuning.mineTriggerRadius) != null)
+                    expired = true;
                 if(expired)
                 {
-                    if(d.Kind!=DeviceKind.Turret) QueueBlast(d.Position,d.Damage,d.Kind==DeviceKind.Mine?tuning.mineRadius:tuning.decoyExplosionRadius,implosion:d.Kind==DeviceKind.Decoy,damageType:d.Kind==DeviceKind.Decoy?DamageType.Supernatural:DamageType.Physical);
+                    if (d.Kind == DeviceKind.Mine)
+                        QueueBlast(d.Position, d.Damage, tuning.mineRadius, push: tuning.minePushDistance, damageType: DamageType.Physical);
+                    else if (d.Kind == DeviceKind.Decoy)
+                        QueueBlast(d.Position, d.Damage, tuning.decoyExplosionRadius, implosion: true, damageType: DamageType.Supernatural);
                     ReleaseDevice(d);
                     continue;
                 }
@@ -596,7 +602,8 @@ namespace EchoScrap.Combat
                     if(b.Freeze>0)enemy.ApplyFreeze(b.Freeze);
                     if(b.Stun>0)enemy.ApplyStun(b.Stun);
                     if(b.Push>0)enemy.PushDistance(delta,b.Push);
-                    if(b.Implosion)enemy.ApplyKnockback(-Flat(delta)*tuning.implosionPullSpeed);
+                    if (b.Echo) enemy.PushDistance(-delta, Mathf.Min(delta.magnitude, b.Radius * tuning.implosionPullRadiusFraction));
+                    else if (b.Implosion) enemy.ApplyKnockback(-Flat(delta) * tuning.implosionPullSpeed);
                 }
                 if(b.Source==DamageSourceType.UpgradeExplosion)
                 {
@@ -620,8 +627,8 @@ namespace EchoScrap.Combat
                 for(int e=0;e<targets.Count;e++)
                 {
                     var enemy=targets[e];var delta=enemy.WorldCenter-p;delta.y=0;
-                    if(delta.sqrMagnitude>(enemy.HitRadius+.55f)*(enemy.HitRadius+.55f) || (sawNextHit.TryGetValue(enemy.TargetId,out float next)&&time<next)) continue;
-                    sawNextHit[enemy.TargetId]=time+tuning.sawHitInterval;
+                    float hitRadius = enemy.HitRadius + tuning.sawHitRadius;
+                    if (delta.sqrMagnitude > hitRadius * hitRadius) continue;
                     var sawHit=Deal(enemy,At(tuning.sawDamage,tier),p,DamageSourceType.UpgradeSaw);
                     if(sawHit.AppliedRealDamage)effects.Impact(enemy.WorldCenter,Amber);
                     if(enemy.IsAlive)enemy.ApplyKnockback(Flat(enemy.WorldCenter-player.WorldCenter)*tuning.sawPush);

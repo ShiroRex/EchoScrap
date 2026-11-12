@@ -43,22 +43,25 @@ MonoBehaviour:
   chainChance: {x: .25, y: .4, z: .55}
   chainDamage: {x: 35, y: 60, z: 90}
   chainRadius: 3
-  mineInterval: {x: 4, y: 3.2, z: 2.5}
-  mineDamage: {x: 70, y: 110, z: 160}
-  mineRadius: 4
+  mineDamage: {x: 45, y: 70, z: 100}
+  mineRadius: 3
   mineTriggerRadius: 1.25
+  mineArmDelay: 0.25
+  minePushDistance: 5
+  mineLimit: 5
   implosionDelay: .4
   implosionFraction: .75
   implosionPullSpeed: 12
-  armorPerTier: .04
+  implosionPullRadiusFraction: 0.45
+  armorPerTier: 0.1
   armorHealthPerTier: 10
   assemblerGemCount: 15
   assemblerDamage: {x: 40, y: 70, z: 105}
-  sawCounts: {x: 2, y: 3, z: 4}
+  sawCounts: {x: 1, y: 2, z: 3}
   sawDamage: {x: 18, y: 28, z: 40}
   sawRadius: 2.5
   sawAngularSpeed: 180
-  sawHitInterval: .3
+  sawHitRadius: 0.65
   sawPush: 4
   turretInterval: 10
   turretDuration: 12
@@ -68,6 +71,7 @@ MonoBehaviour:
   turretRange: 12
   turretProjectileSpeed: 28
   turretBurstCount: 3
+  rapidPulseMovementPerTier: 0.04
   regeneration: {x: 1, y: 2, z: 3}
   regenerationInterval: 2.5
   emergencyThreshold: .2

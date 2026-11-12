@@ -157,7 +157,7 @@ namespace EchoScrap.Combat
             SetValue(3, stats.FlashlightAngle, Mathf.Clamp(settings.FlashlightAngle, 10f, 180f));
             SetValue(4, stats.CritChance * 100f, settings.InitialCritChance * 100f);
             SetValue(5, stats.CritMultiplier, settings.CritMultiplier);
-            SetValue(6, moveSpeed * stats.CompanionMoveMultiplier, moveSpeed);
+            SetValue(6, moveSpeed * stats.MoveSpeedMultiplier, moveSpeed);
             SetValue(7, stats.Armor * 100f, settings.InitialArmor * 100f);
             SetValue(8, stats.Evasion * 100f, settings.InitialEvasion * 100f);
             SetValue(9, stats.BlockChance * 100f, settings.InitialBlockChance * 100f);

@@ -138,7 +138,7 @@ namespace EchoScrap.Tests
             Assert.That(game.Stats.CompanionDamageReduction, Is.EqualTo(.15f).Within(.0001f));
 
             game.Stats.SetUpgradeTier("SCRAP_01", 1);
-            Assert.That(game.Stats.Armor, Is.EqualTo(.14f).Within(.0001f));
+            Assert.That(game.Stats.Armor, Is.EqualTo(.20f).Within(.0001f));
             game.Stats.SetBonusMitigation(armor: .55f, evasion: 0f, blockChance: 0f);
             Assert.That(game.Stats.Armor, Is.EqualTo(.60f).Within(.0001f));
 
@@ -151,10 +151,10 @@ namespace EchoScrap.Tests
             game.Stats.SetUpgradeTier("SCRAP_01", 1);
             Approach(1);
             Assert.IsTrue(release.TryUnequip());
-            Assert.That(game.Stats.Armor, Is.EqualTo(.14f).Within(.0001f));
+            Assert.That(game.Stats.Armor, Is.EqualTo(.20f).Within(.0001f));
             Approach(0);
             Assert.IsTrue(release.TryUnequip());
-            Assert.That(game.Stats.Armor, Is.EqualTo(.04f).Within(.0001f));
+            Assert.That(game.Stats.Armor, Is.EqualTo(.10f).Within(.0001f));
             Assert.That(game.Stats.CompanionDamageReduction, Is.Zero);
             yield return null;
         }

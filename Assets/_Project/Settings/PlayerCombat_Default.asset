@@ -25,6 +25,7 @@ MonoBehaviour:
   critMultiplier: 1.75
   dashSpeed: 22
   dashDuration: 0.15
+  dashInvulnerability: 0.22
   dashCooldown: 1
   flashlightRange: 7
   solarBaseRange: 14

@@ -72,7 +72,7 @@ namespace EchoScrap.Tests
         public void NewPassiveStatsAndTierLimitsAreAppliedAndReset()
         {
             Set("SCRAP_01",99);Set("CRIT_01",99);Set("CRIT_02",99);Set("CRIT_05");Set("GREED_02",5);Set("DEMO_01",5);Set("DASH_04");
-            Assert.That(stats.MaxHealth,Is.EqualTo(150));Assert.That(stats.Armor,Is.EqualTo(.2f).Within(.0001));
+            Assert.That(stats.MaxHealth,Is.EqualTo(150));Assert.That(stats.Armor,Is.EqualTo(.5f).Within(.0001));
             Assert.That(stats.CritChance,Is.EqualTo(.6f).Within(.0001));Assert.That(stats.CritMultiplier,Is.EqualTo(2.75f));
             Assert.That(stats.ExperienceMultiplier,Is.EqualTo(1.75f));Assert.That(stats.ExplosionDamageMultiplier,Is.EqualTo(1.6f));Assert.That(stats.ExplosionRadiusMultiplier,Is.EqualTo(1.75f));
             Assert.That(stats.DashCooldown,Is.EqualTo(.5f));
@@ -146,8 +146,17 @@ namespace EchoScrap.Tests
         [Test]
         public void MinesTriggerOnContactAndTurretsFireThreeShotBursts()
         {
-            Set("DEMO_03",3);upgrades.Step(2.5f);Assert.That(upgrades.ActiveDeviceCount,Is.EqualTo(1));
-            var e=Enemy(0,1);upgrades.Step(.01f);Assert.That(upgrades.ActiveDeviceCount,Is.Zero);Assert.That(e.CurrentHealth,Is.EqualTo(840));
+            Set("DEMO_03", 3);
+            upgrades.Step(2.5f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.Zero);
+            Dash(true, false, Vector3.up);
+            var e = Enemy(0, 1);
+            upgrades.Step(.125f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.EqualTo(1));
+            Assert.That(e.CurrentHealth, Is.EqualTo(1000f));
+            upgrades.Step(.125f);
+            Assert.That(upgrades.ActiveDeviceCount, Is.Zero);
+            Assert.That(e.CurrentHealth, Is.EqualTo(900f));
             stats.SetUpgradeTier("DEMO_03", 0);
             e.Body.position = e.transform.position = new Vector3(0, 1, 10);
             Set("SCRAP_04");
@@ -158,7 +167,24 @@ namespace EchoScrap.Tests
             Assert.That(upgrades.ProjectilesFired, Is.EqualTo(1), "The turret detects a target beyond the former 8 m range.");
             for (int i = 0; i < 25; i++) upgrades.Step(.02f);
             Assert.That(upgrades.ProjectilesFired, Is.EqualTo(3));
-            Assert.That(e.CurrentHealth, Is.EqualTo(810f).Within(.01f));
+            Assert.That(e.CurrentHealth, Is.EqualTo(870f).Within(.01f));
+        }
+
+        [Test]
+        public void SixthMineReplacesTheOldestWithoutDetonatingIt()
+        {
+            Set("DEMO_03");
+            for (int i = 0; i < 6; i++)
+            {
+                Dash(true, false, new Vector3(i * 5f, 1f, 0f));
+                upgrades.Step(.3f);
+            }
+            Assert.That(upgrades.ActiveDeviceCount, Is.EqualTo(5));
+            var oldTarget = Enemy(0, 0);
+            var latestTarget = Enemy(25, 0);
+            upgrades.Step(.3f);
+            Assert.That(oldTarget.CurrentHealth, Is.EqualTo(1000f));
+            Assert.That(latestTarget.CurrentHealth, Is.EqualTo(955f));
         }
 
         [Test]
@@ -322,13 +348,22 @@ namespace EchoScrap.Tests
             upgrades.Step(2);Assert.That(upgrades.ActiveProjectileCount,Is.Zero);
         }
         [Test]
-        public void OrbitalSawsDealContactDamageWithCooldownAndPush()
+        public void OrbitalSawsDealDamageAndPushEveryStepWhileOverlapping()
         {
             Set("SCRAP_03",3);var e=Enemy(2.5f,0);upgrades.Step(.001f);
             Assert.That(e.CurrentHealth,Is.EqualTo(960));Assert.That(e.KnockbackAppliedCount,Is.EqualTo(1));
-            upgrades.Step(.001f);Assert.That(e.CurrentHealth,Is.EqualTo(960));
-            Assert.That(upgrades.ActiveVisualCount,Is.GreaterThanOrEqualTo(4));
+            upgrades.Step(.001f);Assert.That(e.CurrentHealth,Is.EqualTo(920));
+            Assert.That(e.KnockbackAppliedCount, Is.EqualTo(2));
+            Assert.That(upgrades.ActiveVisualCount,Is.GreaterThanOrEqualTo(3));
         }
+        [Test]
+        public void RapidPulseAddsMovementSpeedWithoutChangingTheBaseSpeed()
+        {
+            Set("FLASH_02", 3);
+            Assert.That(stats.MoveSpeedMultiplier, Is.EqualTo(1.12f).Within(.001f));
+            Assert.That(stats.AttackSpeedMultiplier, Is.EqualTo(1.45f).Within(.001f));
+        }
+
         [Test]
         public void RerollsAreLimitedPerRunAndDependenciesUnlockDraftCards()
         {

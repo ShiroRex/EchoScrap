@@ -77,6 +77,8 @@ namespace EchoScrap.Core
 
         public float DashSpeed => Settings.DashSpeed * (1f + 0.08f * dashServosTier);
         public float DashDuration => Settings.DashDuration;
+        public float DashInvulnerability => Settings.DashInvulnerability;
+        public float MoveSpeedMultiplier => CompanionMoveMultiplier * (1f + ballastTier * Upgrades.rapidPulseMovementPerTier);
         public float DashCooldown => GetUpgradeTier(UpgradeId.DASH_04) > 0 ? Upgrades.cataclysmCooldown : Mathf.Max(0.05f, Settings.DashCooldown * (1f - 0.10f * dashServosTier));
         public float ExperienceMultiplier => 1f + GetUpgradeTier(UpgradeId.GREED_02) * Upgrades.experiencePerTier;
         public float ExplosionDamageMultiplier => 1f + GetUpgradeTier(UpgradeId.DEMO_01) * Upgrades.explosionDamagePerTier;
@@ -224,7 +226,7 @@ namespace EchoScrap.Core
                 BlockDamageReduction,
                 CritChance,
                 CritMultiplier,
-                (moveSpeed + bonusMoveSpeed) * CompanionMoveMultiplier,
+                (moveSpeed + bonusMoveSpeed) * MoveSpeedMultiplier,
                 DashSpeed,
                 DashDuration,
                 DashCooldown,

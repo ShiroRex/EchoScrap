@@ -33,20 +33,21 @@ namespace EchoScrap.Core
         public Vector3 chainChance = new Vector3(.25f, .4f, .55f);
         public Vector3 chainDamage = new Vector3(35, 60, 90);
         public float chainRadius = 3f;
-        public Vector3 mineInterval = new Vector3(4, 3.2f, 2.5f);
-        public Vector3 mineDamage = new Vector3(70, 110, 160);
-        public float mineRadius = 4f, mineTriggerRadius = 1.25f;
-        public float implosionDelay = .4f, implosionFraction = .75f, implosionPullSpeed = 12f;
+        public Vector3 mineDamage = new Vector3(45, 70, 100);
+        public float mineRadius = 3f, mineTriggerRadius = 1.25f, mineArmDelay = .25f, minePushDistance = 5f;
+        public int mineLimit = 5;
+        public float implosionDelay = .4f, implosionFraction = .75f, implosionPullSpeed = 12f, implosionPullRadiusFraction = .45f;
         [Header("Automatismos")]
-        public float armorPerTier = .04f, armorHealthPerTier = 10f;
+        public float armorPerTier = .10f, armorHealthPerTier = 10f;
         public int assemblerGemCount = 15;
         public Vector3 assemblerDamage = new Vector3(40, 70, 105);
-        public Vector3 sawCounts = new Vector3(2, 3, 4);
+        public Vector3 sawCounts = new Vector3(1, 2, 3);
         public Vector3 sawDamage = new Vector3(18, 28, 40);
-        public float sawRadius = 2.5f, sawAngularSpeed = 180f, sawHitInterval = .3f, sawPush = 4f;
+        public float sawRadius = 2.5f, sawAngularSpeed = 180f, sawHitRadius = .65f, sawPush = 4f;
         public float turretInterval = 10f, turretDuration = 12f, turretBurstInterval = .6f;
         public float turretShotInterval = .08f, turretDamage = 10f, turretRange = 12f, turretProjectileSpeed = 28f;
         public int turretBurstCount = 3;
+        public float rapidPulseMovementPerTier = .04f;
         [Header("Supervivencia")]
         public Vector3 regeneration = new Vector3(1, 2, 3);
         public float regenerationInterval = 2.5f, emergencyThreshold = .2f;
