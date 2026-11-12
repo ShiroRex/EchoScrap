@@ -294,10 +294,23 @@ namespace EchoScrap.Tests
         {
             for(int id=0;id<FusionCatalog.Count;id++){station.Progress.owned[id]=1;Assert.IsNotNull(CollectibleDisplay.CardPortrait(id),FusionCatalog.Names[id]);}
             var ids=new[]{13,14,4};
-            for(int slot=0;slot<3;slot++){Approach(slot);Assert.IsTrue(system.TryOpen());Assert.IsTrue(system.Equip(slot,ids[slot]));
-                var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
+            var panel = station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
+            var title = panel.Find("Titulo").GetComponent<Text>();
+            var subtitle = panel.Find("Subtitulo").GetComponent<Text>();
+            Assert.That(subtitle.text, Is.EqualTo("ELIGE UNA ENTIDAD DESCUBIERTA PARA ESTE PUESTO"));
+            for (int slot = 0; slot < 3; slot++)
+            {
+                Approach(slot);
+                Assert.IsTrue(system.TryOpen());
+                Assert.That(title.text, Is.EqualTo($"PUESTO DE EQUIPO {slot + 1}"));
+                Assert.That(title.preferredHeight, Is.LessThanOrEqualTo(title.rectTransform.rect.height));
+                Assert.That(subtitle.preferredHeight, Is.LessThanOrEqualTo(subtitle.rectTransform.rect.height));
+                Assert.That(subtitle.preferredWidth, Is.LessThanOrEqualTo(subtitle.rectTransform.rect.width));
+                Assert.IsTrue(system.Equip(slot, ids[slot]));
+                Assert.That(title.text, Is.EqualTo($"PUESTO DE EQUIPO {slot + 1}"));
                 var available=Enumerable.Range(0,FusionCatalog.Count).Where(id=>station.Progress.Available(id)>0).ToArray();var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(Mathf.Min(10,available.Length),grid.VisibleUnits);for(int i=0;i<grid.VisibleUnits;i++){var art=panel.Find("Unidades/Unidad_"+i+"/Retrato").GetComponent<Image>();Assert.AreSame(CollectibleDisplay.CardPortrait(available[i]),art.sprite);Assert.AreEqual(Color.white,art.color);Assert.IsTrue(art.preserveAspect);}
-                system.Close();}
+                system.Close();
+            }
             game.ResetRun(false);game.Session.ResumeAllUserPauses();yield return null;
             var hud=station.transform.Find("CompanionCanvas/CompanerosEquipados");Assert.IsTrue(hud.gameObject.activeSelf);
             var powers=hud.Find("PoderesActivos").GetComponent<Text>();
