@@ -241,8 +241,8 @@ namespace EchoScrap.Combat
             vaultDirections = Rect(root, "VaultDirections", new Vector2(0, -124), Vector2.zero);
             vaultDirections.anchorMin = vaultDirections.anchorMax = new Vector2(.5f, 1f);
             Sprite pointer = PixelControlArtwork.Load("VaultDirection");
-            fusionArrow = DirectionCard("Fusion", -152, pointer, out fusionGuide);
-            equipmentArrow = DirectionCard("Equipment", 152, pointer, out equipmentGuide);
+            equipmentArrow = DirectionCard("Equipment", -152, pointer, out equipmentGuide);
+            fusionArrow = DirectionCard("Fusion", 152, pointer, out fusionGuide);
             vaultDirections.gameObject.SetActive(false);
         }
 

@@ -271,6 +271,8 @@ namespace EchoScrap.Tests
             var directions = flow.View.Canvas.transform.Find("VaultDirections");
             var fusion = (RectTransform)directions.Find("Fusion/Arrow");
             var equipment = (RectTransform)directions.Find("Equipment/Arrow");
+            Assert.That(((RectTransform)equipment.parent).anchoredPosition.x, Is.LessThan(0f));
+            Assert.That(((RectTransform)fusion.parent).anchoredPosition.x, Is.GreaterThan(0f));
             Assert.IsTrue(fusion.gameObject.activeInHierarchy && equipment.gameObject.activeInHierarchy);
             Assert.IsFalse(fusion.GetComponent<Image>().raycastTarget || equipment.GetComponent<Image>().raycastTarget);
             yield return Capture("Boveda_Flechas_720", 1280, 720);
