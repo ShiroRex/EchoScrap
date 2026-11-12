@@ -188,9 +188,10 @@ namespace EchoScrap.Tests
             hazards.StepPool(.01f); Assert.AreEqual(75f, player.CurrentHealth);
             Assert.AreEqual(3, hazards.ActivePuddleCount);
             Assert.AreEqual(CorrosivePuddlePool.HazardStyle.BossMagma, hazards.GetPuddleBySequenceId(1).Style);
-            AdvanceHealth(.5f); hazards.StepPool(.5f); Assert.AreEqual(70f, player.CurrentHealth);
+            AdvanceHealth(.5f); hazards.StepPool(.5f); Assert.AreEqual(71f, player.CurrentHealth);
             MovePlayer(new Vector3(0f, 1f, 30f)); boss.Step(1f); Assert.AreEqual(GolgoraState.Pursuing, boss.State);
             boss.Step(6.29f); Assert.AreEqual(GolgoraState.Pursuing, boss.State);
+            MovePlayer(new Vector3(0f, 1f, 12f));
             boss.Step(.011f); Assert.AreEqual(GolgoraState.BarrageWindup, boss.State);
             }
             finally { Object.Destroy(isolated); }
@@ -229,7 +230,8 @@ namespace EchoScrap.Tests
         {
             GolgoraActor boss = SpawnBoss(); boss.ActivateCombat();
             int starts = 0, completes = 0; boss.CercoStarted += () => starts++; boss.CercoCompleted += () => completes++;
-            boss.Step(12f); Assert.AreEqual(GolgoraState.CercoReposition, boss.State); Assert.AreEqual(1, starts);
+            boss.Step(12f); Assert.AreEqual(GolgoraState.CercoWindup, boss.State); Assert.AreEqual(1, starts);
+            boss.Step(boss.CurrentPhaseDuration); Assert.AreEqual(GolgoraState.CercoReposition, boss.State);
             float gap = boss.NextCercoGapAngleDegrees;
             MovePlayer(new Vector3(Mathf.Sin(gap * Mathf.Deg2Rad) * 12f, 1f, Mathf.Cos(gap * Mathf.Deg2Rad) * 12f));
             boss.Step(boss.Settings.CercoJumpDuration); Assert.AreEqual(1, boss.CercoPulsesEmitted); Assert.AreEqual(1, boss.RingPool.ActiveCount);
@@ -243,6 +245,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(1, completes);
             var half = new DamageRequest(1, DamageSourceType.SolarPulse, Vector3.zero, Vector3.forward, boss.MaxHealth*.5f); boss.ReceiveDamage(in half);
             boss.Step(.01f); Assert.AreEqual(GolgoraState.PhaseTransition, boss.State);
+            boss.Step(boss.CurrentPhaseDuration); Assert.AreEqual(GolgoraState.CercoWindup, boss.State);
             boss.Step(boss.CurrentPhaseDuration); Assert.AreEqual(GolgoraState.CercoReposition, boss.State);
             boss.Step(boss.Settings.CercoJumpDuration); Assert.AreEqual(1, boss.CercoPulsesEmitted);
             boss.Step(1.29f); Assert.AreEqual(1, boss.CercoPulsesEmitted);
@@ -271,6 +274,7 @@ namespace EchoScrap.Tests
             boss.ReceiveDamage(in half);
             Assert.AreEqual(GolgoraState.PhaseTransition, boss.State); Assert.IsFalse(boss.IsControlLocked);
             boss.ApplyStun(10f); boss.ApplyFreeze(10f); Assert.IsFalse(boss.IsControlLocked);
+            boss.Step(boss.CurrentPhaseDuration); Assert.AreEqual(GolgoraState.CercoWindup, boss.State);
             boss.Step(boss.CurrentPhaseDuration); Assert.IsTrue(boss.IsAirborne);
             boss.ApplyFreeze(10f); boss.Step(boss.Settings.CercoJumpDuration);
             Assert.AreEqual(GolgoraState.CercoActive, boss.State);

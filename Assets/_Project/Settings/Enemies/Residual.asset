@@ -23,7 +23,7 @@ MonoBehaviour:
     XpReward: 10
     IsEliteDropTier: 0
     KnockbackSusceptibility: 1
-    KnockbackBraking: 18
+    KnockbackBraking: 28
     VisualScale: {x: 1, y: 1, z: 1}
     ColliderRadius: 0.45
     ColliderHeight: 1.8

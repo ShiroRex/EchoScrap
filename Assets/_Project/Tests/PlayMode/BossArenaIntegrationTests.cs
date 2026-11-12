@@ -124,7 +124,7 @@ namespace EchoScrap.Tests
             game.Session.SetManualPause(true);boss.Step(10);game.Encounter.Step(10);
             Assert.AreEqual(GolgoraState.PhaseTransition,boss.State);
             game.Session.SetManualPause(false);boss.Step(.02f*.5f);
-            Assert.AreEqual(GolgoraState.CercoReposition,boss.State);
+            Assert.AreEqual(GolgoraState.CercoWindup,boss.State);
             Assert.IsFalse(roar.IsRoaring);Assert.IsFalse(game.Player.IsBossCinematicProtected);
             Assert.AreEqual(SessionState.Running,game.Session.State);
             game.ResetRun(false);Assert.IsFalse(roar.IsRoaring);Assert.IsFalse(game.Player.IsBossCinematicProtected);
@@ -136,6 +136,7 @@ namespace EchoScrap.Tests
             Activate();var boss=game.Encounter.Boss;
             boss.Body.position=boss.transform.position=game.BossArena.Center+new Vector3(6,1,0);
             boss.Step(boss.Settings.FirstCercoTime);
+            boss.Step(boss.CurrentPhaseDuration);
             Assert.IsTrue(boss.IsAirborne);Assert.IsFalse(boss.BodyCollider.enabled);
             boss.Step(boss.Settings.CercoJumpDuration*.58f);
             Assert.Greater(boss.JumpHeight,20f);Assert.AreEqual(0,boss.CercoPulsesEmitted);
@@ -149,7 +150,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(0,boss.JumpHeight);Assert.AreEqual(1,boss.CercoPulsesEmitted);
             Assert.Less(Vector3.Distance(ArenaSurface.OnGround(boss.WorldCenter),boss.ArenaCenter),.01f);
             Assert.AreEqual(1,boss.RingPool.ActiveCount);
-            Assert.AreEqual(playerHealth-boss.Settings.RingDamage,game.Player.CurrentHealth);
+            Assert.AreEqual(playerHealth-boss.Settings.CercoLandingDamage,game.Player.CurrentHealth);
             game.ResetRun(false);Assert.IsFalse(game.Player.IsBossCinematicProtected);
             Activate();Assert.AreEqual(0,game.Encounter.Boss.JumpHeight);
             Assert.Less(view.Model.position.y,game.Encounter.Boss.WorldCenter.y+2f);
@@ -284,7 +285,7 @@ namespace EchoScrap.Tests
             boss.Body.position=boss.transform.position=ArenaSurface.OnGround(boss.ArenaCenter+Vector3.back*20,1);
             game.Player.GetComponent<Rigidbody>().position=game.Player.transform.position=ArenaSurface.OnGround(boss.ArenaCenter+Vector3.forward*21,1);
             for(int i=0;i<60;i++)yield return null;
-            boss.Step(boss.Settings.FirstCercoTime);boss.Step(boss.Settings.CercoJumpDuration*.58f);
+            boss.Step(boss.Settings.FirstCercoTime);boss.Step(boss.CurrentPhaseDuration);boss.Step(boss.Settings.CercoJumpDuration*.58f);
             yield return null;yield return null;
             var point=game.GameplayCamera.WorldToViewportPoint(boss.GetComponent<MataColeccionistaView>().Model.position);
             Assert.IsTrue(point.y>1.05f || point.z<0,"The model must leave the frame even when starting near its lower edge.");
@@ -425,6 +426,7 @@ namespace EchoScrap.Tests
             Assert.IsTrue(game.Encounter.Boss.IsAlive);
             Assert.AreEqual(bossHealth, game.Encounter.Boss.CurrentHealth);
             Assert.AreEqual(0, game.Director.SpawnBossMinionWave());
+            game.Encounter.Boss.Step(game.Encounter.Boss.CurrentPhaseDuration);
             game.Encounter.Boss.Step(game.Encounter.Boss.Settings.CercoJumpDuration);
             game.Encounter.Boss.Step(5f);
             game.Encounter.Boss.Step(game.Encounter.Boss.Settings.CercoRecovery);

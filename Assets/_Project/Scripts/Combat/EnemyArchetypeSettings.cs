@@ -103,7 +103,7 @@ namespace EchoScrap.Combat
                         XpReward = 10,
                         IsEliteDropTier = false,       // 4% botiquín base
                         KnockbackSusceptibility = 1.0f,
-                        KnockbackBraking = 18f,
+                        KnockbackBraking = 28f,
                         VisualScale = Vector3.one,
                         ColliderRadius = 0.45f,
                         ColliderHeight = 1.8f,
@@ -113,11 +113,7 @@ namespace EchoScrap.Combat
                     };
 
                 case EnemyArchetypeId.Interceptor:
-                    // NOTA DE DISEÑO REGISTRADA (Sección 1 y 2.5):
-                    // El texto del GDD menciona mayor vulnerabilidad al empuje para el Interceptor,
-                    // pero la fórmula vigente del prototipo Arena le aplica susceptibilidad = 1.0 (impulso completo)
-                    // con un frenado menor (12 m/s² frente a 18 m/s² del Residual), por lo que desliza más lejos.
-                    // Se conserva deliberadamente este comportamiento de Arena y queda editable en este ajuste.
+                    // Recibe el mismo impulso que el Residual, pero su frenado menor prolonga el deslizamiento.
                     return new EnemyArchetypeData
                     {
                         ArchetypeId = EnemyArchetypeId.Interceptor,
@@ -130,7 +126,7 @@ namespace EchoScrap.Combat
                         XpReward = 10,
                         IsEliteDropTier = false,       // 4% botiquín base
                         KnockbackSusceptibility = 1.0f,
-                        KnockbackBraking = 12f,
+                        KnockbackBraking = 18f,
                         VisualScale = new Vector3(0.75f, 0.75f, 1.10f),
                         ColliderRadius = 0.36f,
                         ColliderHeight = 1.5f,
@@ -174,8 +170,8 @@ namespace EchoScrap.Combat
                         ContactCooldown = 0.50f,
                         XpReward = 25,
                         IsEliteDropTier = true,        // 25% botiquín base
-                        KnockbackSusceptibility = 0.8f,
-                        KnockbackBraking = 18f,
+                        KnockbackSusceptibility = 0.7f,
+                        KnockbackBraking = 24f,
                         VisualScale = new Vector3(1.15f, 1.05f, 1.15f),
                         ColliderRadius = 0.48f,
                         ColliderHeight = 1.8f,
@@ -197,7 +193,7 @@ namespace EchoScrap.Combat
                         XpReward = 15,
                         IsEliteDropTier = false,       // 4% botiquín base
                         KnockbackSusceptibility = 1.0f,
-                        KnockbackBraking = 18f,
+                        KnockbackBraking = 22f,
                         VisualScale = new Vector3(0.85f, 0.85f, 0.85f),
                         ColliderRadius = 0.38f,
                         ColliderHeight = 1.4f,
@@ -215,7 +211,7 @@ namespace EchoScrap.Combat
                         MaxHealth = copper ? 160f : 110f, BaseMoveSpeed = copper ? 1.7f : 2.8f,
                         ContactDamage = 0f, ContactCooldown = .5f, XpReward = copper ? 80 : 65,
                         IsEliteDropTier = true, KnockbackSusceptibility = copper ? 0f : .35f,
-                        KnockbackBraking = 24f, VisualScale = copper ? new Vector3(1.2f, 1f, 1.2f) : Vector3.one,
+                        KnockbackBraking = copper ? 24f : 28f, VisualScale = copper ? new Vector3(1.2f, 1f, 1.2f) : Vector3.one,
                         ColliderRadius = .5f, ColliderHeight = 2f, IsHeavyMass = copper,
                         PrimaryColor = copper ? new Color(.67f,.38f,.2f) : new Color(.3f,.65f,.8f),
                         SecondaryColor = copper ? new Color(.95f,.7f,.3f) : new Color(.65f,.95f,1f),

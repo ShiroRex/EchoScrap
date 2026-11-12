@@ -18,7 +18,7 @@ namespace EchoScrap.Combat
         public const float BarrageWindupDuration = .7f;
         [SerializeField] private GolgoraCombatSettings combatSettings;
         private readonly EnemyActor[] collateralTargets = new EnemyActor[256];
-        private readonly Vector3[] barrageTargets = new Vector3[3];
+        private readonly Vector3[] barrageTargets = new Vector3[5];
         public const int PatternProjectileCount = 5;
         private readonly Vector3[] patternTargets = new Vector3[PatternProjectileCount];
         private float nextFissureTime, nextRainTime;
@@ -47,6 +47,7 @@ namespace EchoScrap.Combat
         public bool EnragedVisual => IsPhaseTwo || CurrentHealth > 0f && CurrentHealth <= MaxHealth * Settings.PhaseTwoHealthFraction;
         public int StompsExecuted { get; private set; }
         public int SweepsExecuted { get; private set; }
+        public int BarrageProjectileCount => IsPhaseTwo ? 5 : 3;
         public int BarragesExecuted { get; private set; }
         public int FissuresExecuted { get; private set; }
         public int RainsExecuted { get; private set; }
@@ -61,6 +62,7 @@ namespace EchoScrap.Combat
         public Vector3 AttackDirection => attackDirection;
         public Vector3 ArenaCenter => arenaCenter;
         public float ArenaRadius => arenaRadius;
+        private float RingReach => Mathf.Min(arenaRadius, Settings.RingMaximumRadius);
         public GolgoraAttackKind CurrentAttackKind { get; private set; }
         public float NextCercoGapAngleDegrees => firstCercoGap + CercoPulsesEmitted * Settings.RingGapRotation;
         public GolgoraMagmaRingPool RingPool => ringPool;
@@ -82,10 +84,10 @@ namespace EchoScrap.Combat
             GolgoraState.StompWindup => Settings.HammerWindup * WindupMultiplier,
             GolgoraState.SweepWindup => Settings.SweepWindup * WindupMultiplier,
             GolgoraState.BarrageWindup => Settings.BarrageWindup * WindupMultiplier,
-            GolgoraState.FissureWindup => Settings.FissureWindup * WindupMultiplier,
+            GolgoraState.FissureWindup => Settings.FissureWindup,
             GolgoraState.RainWindup => Settings.RainWindup * WindupMultiplier,
-            GolgoraState.CercoWindup => Settings.CercoWindup,
-            GolgoraState.PhaseTransition => Mathf.Max(Settings.TransitionDuration,GolgoraRoarPresentation.RoarDuration),
+            GolgoraState.CercoWindup => Settings.CercoWindup * WindupMultiplier,
+            GolgoraState.PhaseTransition => Settings.TransitionDuration,
             GolgoraState.CercoReposition => Settings.CercoJumpDuration,
             GolgoraState.Recovery => RecoveryMultiplier * (CurrentAttackKind switch
             {
@@ -216,7 +218,7 @@ namespace EchoScrap.Combat
                             else if (BossTime >= nextStompTime) BeginStomp();
                             else if (BossTime >= nextSweepTime) BeginSweep();
                         }
-                        else if (BossTime >= nextBarrageTime && CanFireBarrage()) BeginBarrage();
+                        else if (BossTime >= nextBarrageTime && delta.sqrMagnitude <= Settings.BarrageRange * Settings.BarrageRange && CanFireBarrage()) BeginBarrage();
                     }
                     break;
                 case GolgoraState.StompWindup:
@@ -238,13 +240,18 @@ namespace EchoScrap.Combat
                     break;
                 case GolgoraState.PhaseTransition:
                     StopBody();
-                    if (phaseTime + .0001f >= CurrentPhaseDuration) {PhaseTransitionCompleted?.Invoke();BeginCerco();}
+                    if (phaseTime + .0001f >= CurrentPhaseDuration)
+                    {
+                        PhaseTransitionCompleted?.Invoke();
+                        PushPlayerWithPhaseRoar();
+                        BeginCerco();
+                    }
                     break;
                 case GolgoraState.CercoReposition: StepReturnToCenter(deltaTime); break;
                 case GolgoraState.CercoWindup:
                     StopBody();
                     if (phaseTime + .0001f >= CurrentPhaseDuration)
-                    { State = GolgoraState.CercoActive; phaseTime = 0f; EmitCercoPulse(); }
+                    BeginCercoJump();
                     break;
                 case GolgoraState.CercoActive:
                     StopBody();
@@ -259,7 +266,7 @@ namespace EchoScrap.Combat
                     if (phaseTime + .0001f >= CurrentPhaseDuration)
                     {
                         if (cercoSequence)
-                        { cercoSequence = false; nextCercoTime = BossTime + Settings.CercoCooldown * CooldownMultiplier; CercoCompleted?.Invoke(); }
+                        { cercoSequence = false; nextCercoTime = BossTime + Settings.CercoCooldown; CercoCompleted?.Invoke(); }
                         State = GolgoraState.Pursuing; phaseTime = 0f;
                     }
                     break;
@@ -306,7 +313,7 @@ namespace EchoScrap.Combat
             phaseTime = 0f; nextSweepTime = BossTime + Settings.SweepCooldown * CooldownMultiplier; preferSweep = false;
             LockDirection(); stompOrigin = ArenaSurface.OnGround(WorldCenter); StopBody();
         }
-        private bool CanFireBarrage() => CanLaunchPattern(3);
+        private bool CanFireBarrage() => CanLaunchPattern(BarrageProjectileCount);
         private bool CanLaunchPattern(int count) => hazards != null &&
             CorrosivePuddlePool.MaxInFlightProjectiles - hazards.ActiveProjectileCount >= count &&
             CorrosivePuddlePool.MaxActivePuddles - hazards.ActivePuddleCount - hazards.ReservedPuddleCount >= count;
@@ -328,7 +335,7 @@ namespace EchoScrap.Combat
                 nextFissureTime=BossTime+Settings.FissureCooldown*CooldownMultiplier;
                 float reach=Mathf.Clamp(Vector3.ProjectOnPlane(PursuitGoal-WorldCenter,Vector3.up).magnitude,Settings.FissureMinimumRange,Settings.FissureMaximumReach);
                 for(int i=0;i<PatternProjectileCount;i++)
-                    patternTargets[i]=ClampTarget(stompOrigin+attackDirection*Mathf.Lerp(Settings.HammerForwardOffset,reach,i/(float)(PatternProjectileCount-1)));
+                    patternTargets[i]=ClampTarget(stompOrigin+attackDirection*Mathf.Lerp(Settings.FissureFirstDistance,reach,i/(float)(PatternProjectileCount-1)));
             }
         }
         private void ExecutePattern()
@@ -340,10 +347,10 @@ namespace EchoScrap.Combat
                 var spec=new CorrosivePuddlePool.ProjectileSpec
                 {
                     SourceId=TargetId,LaunchOrigin=launchOrigin,
-                    TargetPosition=patternTargets[i],FlightDuration=rain?Settings.RainFlightDuration+i*.1f:.25f+i*Settings.FissureTravelStep,
+                    TargetPosition=patternTargets[i],FlightDuration=rain?Settings.RainFlightDuration+i*.1f:Settings.FissureFirstTravel+i*Settings.FissureTravelStep,
                     ArcPeakHeight=rain?5f:.15f,ImpactRadius=rain?Settings.RainRadius:Settings.FissureRadius,
                     DirectImpactDamage=rain?Settings.RainDamage:Settings.FissureDamage,DirectImpactSource=DamageSourceType.BossBombardmentImpact,
-                    PuddleRadius=rain?Settings.RainRadius:Settings.FissureRadius,PuddleDuration=rain?Settings.RainPuddleDuration:Settings.FissurePuddleDuration,
+                    PuddleRadius=rain?Settings.RainRadius:Settings.FissurePuddleRadius,PuddleDuration=rain?Settings.RainPuddleDuration:Settings.FissurePuddleDuration,
                     PuddleTickDamage=Settings.PuddleDamage,PuddleTickInterval=Settings.PuddleTickInterval,
                     PuddleDamageSource=DamageSourceType.BossBombardmentPuddle,Style=CorrosivePuddlePool.HazardStyle.BossMagma
                 };
@@ -364,12 +371,17 @@ namespace EchoScrap.Combat
             barrageTargets[0] = ClampTarget(predicted);
             barrageTargets[1] = ClampTarget(predicted + Quaternion.AngleAxis(-60f, Vector3.up) * forward * Settings.BarrageFlankDistance);
             barrageTargets[2] = ClampTarget(predicted + Quaternion.AngleAxis(60f, Vector3.up) * forward * Settings.BarrageFlankDistance);
+            if (IsPhaseTwo)
+            {
+                barrageTargets[3] = ClampTarget(predicted + Quaternion.AngleAxis(-120f, Vector3.up) * forward * Settings.BarrageFlankDistance);
+                barrageTargets[4] = ClampTarget(predicted + Quaternion.AngleAxis(120f, Vector3.up) * forward * Settings.BarrageFlankDistance);
+            }
             StopBody();
         }
         private Vector3 ClampTarget(Vector3 position)
         {
             Vector3 delta = position - arenaCenter; delta.y = 0f;
-            position = arenaCenter + Vector3.ClampMagnitude(delta, Mathf.Max(1f, arenaRadius - Settings.BarrageRadius));
+            position = arenaCenter + Vector3.ClampMagnitude(delta, Mathf.Max(1f, arenaRadius - (IsPhaseTwo ? Settings.PhaseTwoBarrageRadius : Settings.BarrageRadius)));
             return ArenaSurface.OnGround(position);
         }
         private void ExecuteStomp()
@@ -430,15 +442,16 @@ namespace EchoScrap.Combat
         private void ExecuteBarrage()
         {
             Vector3 launchOrigin = MeteorLaunchOrigin();
-            for (int i = 0; i < barrageTargets.Length; i++)
+            for (int i = 0; i < BarrageProjectileCount; i++)
             {
                 var spec = new CorrosivePuddlePool.ProjectileSpec
                 {
                     SourceId = TargetId, LaunchOrigin = launchOrigin,
-                    TargetPosition = barrageTargets[i], FlightDuration = Settings.BarrageFlightDuration, ArcPeakHeight = 3.5f,
+                    TargetPosition = barrageTargets[i], FlightDuration = Settings.BarrageFlightDuration * WindupMultiplier, ArcPeakHeight = 3.5f,
                     ImpactRadius = Settings.BarrageRadius, DirectImpactDamage = Settings.BarrageDamage,
                     DirectImpactSource = DamageSourceType.BossBombardmentImpact,
-                    PuddleRadius = Settings.BarrageRadius, PuddleDuration = Settings.PuddleDuration,
+                    PuddleRadius = IsPhaseTwo ? Settings.PhaseTwoBarrageRadius : Settings.BarrageRadius,
+                    PuddleDuration = IsPhaseTwo ? Settings.PhaseTwoBarragePuddleDuration : Settings.PuddleDuration,
                     PuddleTickDamage = Settings.PuddleDamage, PuddleTickInterval = Settings.PuddleTickInterval,
                     PuddleDamageSource = DamageSourceType.BossBombardmentPuddle, Style = CorrosivePuddlePool.HazardStyle.BossMagma
                 };
@@ -454,7 +467,7 @@ namespace EchoScrap.Combat
                 : WorldCenter + Vector3.up * 3.3f;
         }
 
-        public Vector3 GetLastBarrageTarget(int index) => barrageTargets[Mathf.Clamp(index, 0, 2)];
+        public Vector3 GetLastBarrageTarget(int index) => barrageTargets[Mathf.Clamp(index, 0, BarrageProjectileCount - 1)];
         private void BeginTransition()
         {
             ClearCrowdControl();
@@ -464,23 +477,40 @@ namespace EchoScrap.Combat
             ringPool?.Clear();hazards?.ClearAll();
             PhaseTransitionStarted?.Invoke();
         }
+        private void PushPlayerWithPhaseRoar()
+        {
+            if (TargetPlayer == null || !TargetPlayer.IsAlive || playerBody == null || playerBody.isKinematic) return;
+            Vector3 offset = Vector3.ProjectOnPlane(TargetPlayer.WorldCenter - WorldCenter, Vector3.up);
+            if (offset.sqrMagnitude > Settings.TransitionRoarRadius * Settings.TransitionRoarRadius) return;
+            Vector3 direction = offset.sqrMagnitude > .0001f ? offset.normalized : attackDirection;
+            playerBody.AddForce(direction * Settings.TransitionRoarImpulse, ForceMode.VelocityChange);
+        }
         private void BeginCerco()
         {
-            cercoSequence = true; State = GolgoraState.CercoReposition; CurrentAttackKind = GolgoraAttackKind.Cerco;
+            cercoSequence = true; State = GolgoraState.CercoWindup; CurrentAttackKind = GolgoraAttackKind.Cerco;
             phaseTime = 0f; CercoPulsesEmitted = 0; ringPool.Clear(); StopBody();
-            jumpStart=Body.position;jumpWasKinematic=Body.isKinematic;jumpHadCollider=BodyCollider.enabled;
-            Body.isKinematic=true;BodyCollider.enabled=false;CombatTargetRegistry.Unregister(this);
             stompOrigin=arenaCenter;LockDirection();
             Vector3 toPlayer=TargetPlayer!=null?TargetPlayer.WorldCenter-arenaCenter:attackDirection;
             firstCercoGap=Mathf.Atan2(toPlayer.x,toPlayer.z)*Mathf.Rad2Deg+60f;
-            ringPool.ShowGapPreview(arenaCenter,firstCercoGap,Settings.RingStartRadius,arenaRadius,Settings.RingGapDegrees);
+            ringPool.ShowGapPreview(arenaCenter,firstCercoGap,Settings.RingStartRadius,RingReach,Settings.RingGapDegrees);
             CercoStarted?.Invoke();
+        }
+        private void BeginCercoJump()
+        {
+            State = GolgoraState.CercoReposition;
+            phaseTime = 0f;
+            jumpStart = Body.position;
+            jumpWasKinematic = Body.isKinematic;
+            jumpHadCollider = BodyCollider.enabled;
+            Body.isKinematic = true;
+            BodyCollider.enabled = false;
+            CombatTargetRegistry.Unregister(this);
             StepReturnToCenter(0f);
         }
         private void StepReturnToCenter(float deltaTime)
         {
             float progress=JumpProgress;
-            float flight=Mathf.InverseLerp(.16f,1f,progress);
+            float flight = progress;
             Vector3 target=ArenaSurface.OnGround(arenaCenter,1f);
             Body.position=Vector3.Lerp(jumpStart,target,Mathf.SmoothStep(0,1,flight));
             transform.position=Body.position;
@@ -492,19 +522,19 @@ namespace EchoScrap.Combat
                 Body.position=target;Body.isKinematic=jumpWasKinematic;BodyCollider.enabled=jumpHadCollider;
                 if(BodyCollider.enabled)CombatTargetRegistry.Register(this);StopBody();
                 State=GolgoraState.CercoActive;phaseTime=0;stompOrigin=arenaCenter;
-                DamagePlayerInRadius(arenaCenter,Settings.RingStartRadius,Settings.RingDamage,DamageSourceType.BossStomp);
+                DamagePlayerInRadius(arenaCenter,Settings.RingStartRadius,Settings.CercoLandingDamage,DamageSourceType.BossStomp);
                 EmitCercoPulse();
                 if (CercoPulsesEmitted >= CercoPulseCount) EnterRecovery();
             }
         }
         private bool EmitCercoPulse()
         {
-            if (!ringPool.TryEmit(arenaCenter, arenaRadius, NextCercoGapAngleDegrees)) return false;
+            if (!ringPool.TryEmit(arenaCenter, RingReach, NextCercoGapAngleDegrees)) return false;
             if (CercoPulsesEmitted == 0) CercosExecuted++;
             CercoPulsesEmitted++;
             AttackExecuted?.Invoke(GolgoraAttackKind.Cerco, arenaCenter, attackDirection);
             if (CercoPulsesEmitted < CercoPulseCount)
-                ringPool.ShowGapPreview(arenaCenter, NextCercoGapAngleDegrees, Settings.RingStartRadius, arenaRadius, Settings.RingGapDegrees);
+                ringPool.ShowGapPreview(arenaCenter, NextCercoGapAngleDegrees, Settings.RingStartRadius, RingReach, Settings.RingGapDegrees);
             else ringPool.HideGapPreview();
             return true;
         }

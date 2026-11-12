@@ -161,15 +161,15 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void KnockbackException_InterceptorReceivesFullImpulseAndSlidesFartherThanResidualDueTo12Braking()
+        public void KnockbackException_InterceptorReceivesFullImpulseAndSlidesFartherThanResidual()
         {
             EnemyActor residual = enemyPool.Spawn(EnemyArchetypeId.Residual, new Vector3(-1.5f, 1f, 3.0f));
             EnemyActor interceptor = enemyPool.Spawn(EnemyArchetypeId.Interceptor, new Vector3(1.5f, 1f, 3.0f));
 
             Assert.AreEqual(1.0f, residual.Archetype.KnockbackSusceptibility, 0.001f);
-            Assert.AreEqual(18f, residual.Archetype.KnockbackBraking, 0.001f);
+            Assert.AreEqual(28f, residual.Archetype.KnockbackBraking, 0.001f);
             Assert.AreEqual(1.0f, interceptor.Archetype.KnockbackSusceptibility, 0.001f);
-            Assert.AreEqual(12f, interceptor.Archetype.KnockbackBraking, 0.001f);
+            Assert.AreEqual(18f, interceptor.Archetype.KnockbackBraking, 0.001f);
 
             residual.ApplyKnockback(new Vector3(0f, 0f, 10f));
             interceptor.ApplyKnockback(new Vector3(0f, 0f, 10f));
@@ -198,10 +198,10 @@ namespace EchoScrap.Tests
                 }
             }
 
-            // Residual (v0=10, a=18): d ≈ 2.67 m; Interceptor (v0=10, a=12): d ≈ 4.08 m
-            Assert.AreEqual(2.67f, peakResidualSlide, 0.20f);
-            Assert.AreEqual(4.08f, peakInterceptorSlide, 0.20f);
-            Assert.Greater(peakInterceptorSlide, peakResidualSlide + 1.1f,
+            // Discrete braking travels slightly less than v² / (2a).
+            Assert.AreEqual(1.68f, peakResidualSlide, 0.20f);
+            Assert.AreEqual(2.67f, peakInterceptorSlide, 0.20f);
+            Assert.Greater(peakInterceptorSlide, peakResidualSlide + .8f,
                 "El Interceptor debe deslizar notablemente más lejos que el Residual tras recibir el mismo impulso de 10 m/s.");
         }
 

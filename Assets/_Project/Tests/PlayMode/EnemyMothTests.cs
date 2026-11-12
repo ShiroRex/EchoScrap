@@ -136,7 +136,7 @@ namespace EchoScrap.Tests
             EnemyActor moth = Spawn(new Vector3(0f, 1f, 1.9f));
             Assert.AreEqual(12f, moth.MaxHealth);
             Assert.That(moth.AssignedMoveSpeed, Is.InRange(4.32f, 5.28f));
-            Assert.AreEqual(18f, moth.Archetype.KnockbackBraking);
+            Assert.AreEqual(22f, moth.Archetype.KnockbackBraking);
             moth.StepPhysics(0.02f);
             Assert.IsTrue(moth.IsFuseActive); Assert.AreEqual(0.9f, moth.FuseTimer, 0.0001f);
             Assert.That(moth.Velocity.sqrMagnitude, Is.LessThan(0.0001f));

@@ -87,6 +87,7 @@ namespace EchoScrap.Tests
                 view.ResetPose(); boss.transform.position += Vector3.right * 5f; boss.Body.position = boss.transform.position;
                 view.Step(.1f, 0f); Assert.AreEqual(1, footsteps, "A reset or teleport must not stamp a foot.");
                 boss.Step(boss.Settings.FirstCercoTime);
+                boss.Step(boss.CurrentPhaseDuration);
                 Assert.AreEqual(GolgoraState.CercoReposition, boss.State);
                 boss.Step(boss.Settings.CercoJumpDuration * .58f);
                 Assert.Greater(boss.JumpHeight, 0f);

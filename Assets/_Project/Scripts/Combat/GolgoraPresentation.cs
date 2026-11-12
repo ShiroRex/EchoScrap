@@ -138,9 +138,9 @@ namespace EchoScrap.Combat
                     SetVisual(sweepSides[i], edgeColor, 0f, actor.PhaseProgress, intensity);
                 }
             }
-            bool barrage = actor.State == GolgoraState.BarrageWindup; BarrageWarningsVisible = barrage ? 3 : 0;
+            bool barrage = actor.State == GolgoraState.BarrageWindup; BarrageWarningsVisible = barrage ? actor.BarrageProjectileCount : 0;
             PatternWarningsVisible=actor.IsPatternWindup?GolgoraActor.PatternProjectileCount:0;
-            int warningCount=barrage?3:PatternWarningsVisible;
+            int warningCount = barrage ? BarrageWarningsVisible : PatternWarningsVisible;
             for (int i = 0; i < barrageRings.Length; i++)
             {
                 bool visible=i<warningCount;
