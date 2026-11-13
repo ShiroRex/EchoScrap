@@ -133,11 +133,21 @@ namespace EchoScrap.Tests
 
             game.ResetRun(false);
             Assert.That(game.Player.CurrentHealth, Is.EqualTo(baseline + 30));
-            var hud = station.transform.Find("CompanionCanvas/CompanerosEquipados/PoderesActivos");
-            StringAssert.Contains(FusionCatalog.Names[0] + " ×3", hud.GetComponent<Text>().text);
+            var hud = station.transform.Find("CompanionCanvas/CompanerosEquipados");
+            var powers = hud.Find("PoderesActivos").GetComponent<Text>();
+            StringAssert.Contains("Lobito ×3", powers.text);
+            StringAssert.Contains("+30 VIDA MÁXIMA", powers.text);
+            for (int i = 0; i < 3; i++)
+            {
+                var portrait = hud.Find($"Retrato_{i}/Cara").GetComponent<Image>();
+                Assert.IsTrue(portrait.enabled);
+                Assert.AreSame(CollectibleDisplay.CardPortrait(0), portrait.sprite);
+            }
             Approach(1);
             Assert.IsTrue(station.GetComponent<VaultReleaseInteraction>().TryUnequip());
             Assert.That(game.Stats.MaxHealth, Is.EqualTo(baseline + 20));
+            StringAssert.Contains("+20 VIDA MÁXIMA", powers.text);
+            Assert.IsFalse(hud.Find("Retrato_1/Cara").GetComponent<Image>().enabled);
             yield return null;
         }
 

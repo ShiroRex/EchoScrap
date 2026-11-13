@@ -26,6 +26,31 @@ namespace EchoScrap.Combat
             "DASH: VELOCIDAD ×2", "CURA 1 / 5 BAJAS", "ONDA: DAÑO Y LENTITUD",
             "ONDA: EMPUJA Y CURA", "+15 VIDA · −15% DAÑO · +10% ARMADURA", "+15% VELOCIDAD DE ATAQUE"
         };
+        internal static string DescribeHudPower(int id, int copies)
+        {
+            if (copies == 1) return HudDescriptions[id];
+
+            return id switch
+            {
+                0 => $"+{10 * copies} VIDA MÁXIMA",
+                1 => $"PROYECTIL: {18 * copies} DAÑO / 10 S",
+                2 => $"+{15 * copies}% DAÑO · HASTA {4 * copies} DAÑO/S DE QUEMADURA",
+                3 => $"CURA {2 * copies} / 5 S",
+                4 => $"VIDA ×{1 + copies} · +{20 * copies}% DAÑO · +{15 * copies}% VEL. · {copies} SALVACIONES",
+                5 => $"+{10 * copies}% VELOCIDAD",
+                6 => $"BLOQUEA {copies} GOLPES · RECARGA 20 S C/U",
+                7 => $"+{20 * copies}% ATAQUE · CONGELA {2 * copies} S / 12 S",
+                8 => $"+{8 * copies}% DAÑO",
+                9 => $"DASH: VELOCIDAD ×{1 + copies} DURANTE 2 S",
+                10 => $"CURA {copies} / 5 BAJAS",
+                11 => $"ONDA: {15 * copies} DAÑO · −{Mathf.Min(100, 40 * copies)}% VEL. / 8 S",
+                12 => $"ONDA: EMPUJA {4 * copies} M · CURA {5 * copies}% / 15 S",
+                13 => $"+{15 * copies} VIDA · −{15 * copies}% DAÑO RECIBIDO · +{10 * copies}% ARMADURA",
+                14 => $"+{15 * copies}% VELOCIDAD DE ATAQUE",
+                _ => ""
+            };
+        }
+
         private const int EquipmentSlots = 3;
         private readonly int[] equipped = new int[FusionCatalog.Count];
         private readonly float[] shieldCooldowns = new float[EquipmentSlots];

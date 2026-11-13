@@ -557,13 +557,37 @@ namespace EchoScrap.Tests
                 Assert.IsFalse(Physics.CheckCapsule(p - Vector3.up * .5f, p + Vector3.up * .5f,
                     .45f, 1, QueryTriggerInteraction.Ignore), slot.name + " approach is blocked");
             }
-            foreach (string prop in new[] { "BaseCircular", "DepositoAuxiliar" })
-                Assert.IsFalse(room.transform.Find(prop).GetComponent<Collider>().bounds.Intersects(aisle), prop);
+            var capsuleModel = room.transform.Find("Capsula_1").GetComponentInChildren<MeshFilter>().sharedMesh;
+            Assert.AreEqual(10, room.GetComponentsInChildren<MeshFilter>().Count(filter => filter.sharedMesh == capsuleModel),
+                "Only the ten usable entity capsules should appear in the vault.");
+            Assert.IsFalse(room.transform.Find("BaseCircular").GetComponent<Collider>().bounds.Intersects(aisle));
 
             var floor = room.transform.Find("ApoyoPlantaBaja").GetComponent<Collider>().bounds;
             Assert.GreaterOrEqual(floor.size.x, 47.9f);
             Assert.GreaterOrEqual(floor.size.z, 63.9f);
         }
+        [Test] public void ArenaHousesRejectEnemySpawnsInsideTheirFootprints()
+        {
+            var director = game.Director;
+            const System.Reflection.BindingFlags flags =
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var rejects = director.GetType().GetMethod("OverlapsBlockedInterior", flags);
+            Assert.IsNotNull(rejects);
+            var buildings = GameObject.Find("Mundo3D_EchoScrap").GetComponentsInChildren<Transform>()
+                .Where(t => t.name.StartsWith("casa_") || t.name.StartsWith("ruina_almacen_")).ToArray();
+            Assert.AreEqual(7, buildings.Length);
+            foreach (var building in buildings)
+            {
+                var collider = building.GetComponentInChildren<MeshCollider>();
+                Assert.IsNotNull(collider, building.name);
+                var center = collider.bounds.center;
+                center.y = ArenaSurface.Height(center) + 1f;
+                Assert.IsTrue((bool)rejects.Invoke(director, new object[] { center, .5f }), building.name);
+            }
+            Assert.IsFalse((bool)rejects.Invoke(director, new object[] { Vector3.up, .5f }),
+                "The open arena must remain available.");
+        }
+
         [UnityTest] public IEnumerator PortalsPreserveCombatAndAllowReturnWithoutBouncing()
         {
             var travel=Object.FindAnyObjectByType<WarehouseTravel>();
