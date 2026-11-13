@@ -24,6 +24,8 @@ namespace EchoScrap.Combat
 
         [SerializeField] private Collider arenaGround;
         [SerializeField] private CinemachineCamera cameraRig;
+        [SerializeField] private Transform[] buildingsWithBlockedInteriors;
+        private Bounds[] blockedInteriors = Array.Empty<Bounds>();
         private static readonly ProfilerMarker PlanMarker = new ProfilerMarker("EchoScrap.Spawner.PlanGroup");
         private readonly Plane[] viewPlanes = new Plane[6];
         private readonly EnemyArchetypeData[] groupData = new EnemyArchetypeData[4];
@@ -114,6 +116,7 @@ namespace EchoScrap.Combat
         private void Awake()
         {
             ResolveReferences();
+            CacheBuildingFootprints();
             ScheduleCurrentPhase();
         }
 
@@ -166,6 +169,27 @@ namespace EchoScrap.Combat
         {
             arenaGround = floor;
             cameraRig = rig;
+        }
+
+        private void CacheBuildingFootprints()
+        {
+            if (buildingsWithBlockedInteriors == null || buildingsWithBlockedInteriors.Length == 0) return;
+            var footprints = new System.Collections.Generic.List<Bounds>(buildingsWithBlockedInteriors.Length);
+            foreach (var building in buildingsWithBlockedInteriors)
+            {
+                if (building == null || !building.gameObject.activeInHierarchy) continue;
+                Bounds footprint = default;
+                bool found = false;
+                foreach (var collider in building.GetComponentsInChildren<Collider>())
+                {
+                    if (!collider.enabled || collider.isTrigger) continue;
+                    if (found) footprint.Encapsulate(collider.bounds);
+                    else footprint = collider.bounds;
+                    found = true;
+                }
+                if (found) footprints.Add(footprint);
+            }
+            blockedInteriors = footprints.ToArray();
         }
 
         private void PrepareSpawnGeometry()
@@ -634,6 +658,7 @@ namespace EchoScrap.Combat
             failure = DiscardReason.Obstructed;
             float radius = geometry.Radius;
             float clearance = Mathf.Max(0f, Settings.SpawnClearance);
+            if (OverlapsBlockedInterior(position, radius + clearance)) return false;
             for (int i = 0; i < occupiedBodies.Count; i++)
             {
                 Vector4 occupied = occupiedBodies[i];
@@ -657,6 +682,18 @@ namespace EchoScrap.Combat
                 if (obstacleBuffer[i] != null && obstacleBuffer[i] != arenaGround) return false;
             failure = DiscardReason.None;
             return true;
+        }
+
+        private bool OverlapsBlockedInterior(Vector3 position, float radius)
+        {
+            // An empty capsule inside a house can clear the wall meshes and still be trapped.
+            foreach (var footprint in blockedInteriors)
+            {
+                float x = position.x - Mathf.Clamp(position.x, footprint.min.x, footprint.max.x);
+                float z = position.z - Mathf.Clamp(position.z, footprint.min.z, footprint.max.z);
+                if (x * x + z * z <= radius * radius) return true;
+            }
+            return false;
         }
 
         private static bool TooClose(Vector3 a, Vector3 b, float distance)
