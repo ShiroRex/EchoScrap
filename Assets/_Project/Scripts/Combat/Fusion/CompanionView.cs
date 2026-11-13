@@ -173,7 +173,7 @@ namespace EchoScrap.Combat
                     powersBuilder.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(FusionCatalog.ColorOf(id)))
                         .Append('>').Append(FusionCatalog.Names[id]);
                     if (copies > 1) powersBuilder.Append(" ×").Append(copies);
-                    powersBuilder.Append("</color>  ").Append(CompanionPowerRuntime.HudDescriptions[id]);
+                    powersBuilder.Append("</color>  ").Append(CompanionPowerRuntime.DescribeHudPower(id, copies));
                 }
                 equippedPowers.text=powersBuilder.ToString();}
             if(!IsOpen)return;

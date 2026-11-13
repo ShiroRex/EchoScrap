@@ -34792,6 +34792,14 @@ MonoBehaviour:
   stressPopulation: 0
   arenaGround: {fileID: 0}
   cameraRig: {fileID: 1784519133}
+  buildingsWithBlockedInteriors:
+  - {fileID: 1110782815}
+  - {fileID: 1135232969}
+  - {fileID: 1653835196}
+  - {fileID: 1808515341}
+  - {fileID: 135247488}
+  - {fileID: 566291519}
+  - {fileID: 773373712}
 --- !u!4 &953726127
 Transform:
   m_ObjectHideFlags: 0
