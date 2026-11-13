@@ -30,11 +30,11 @@ namespace EchoScrap.Tests
             var data=EnemyArchetypeData.CreateDefault(kind);data.MaxHealth=1000;data.ContactDamage=0;
             var enemy=new GameObject("PowerTarget").AddComponent<EnemyActor>();enemy.InitializeOrResetFromPool(data,game.Session,game.Player,game.Player.WorldCenter+offset);enemy.SimulationSuspended=true;enemy.transform.position=game.Player.WorldCenter+offset;enemy.Body.position=enemy.transform.position;return enemy;
         }
-        [Test] public void BonusesAreUniqueAndDoNotOverwriteEarnedCardsOrHealOnEquip()
+        [Test] public void BonusesStackWithoutOverwritingEarnedCardsOrHealingOnEquip()
         {
             game.Player.ForceSetHealthForTesting(50);game.Stats.SetUpgradeTier("BIO_01",1);
             float baseline=game.Stats.MaxHealth;powers.SetEquipment(new[]{0,0,13});
-            Assert.AreEqual(baseline+25,game.Stats.MaxHealth);Assert.AreEqual(50,game.Player.CurrentHealth);
+            Assert.AreEqual(baseline+35,game.Stats.MaxHealth);Assert.AreEqual(50,game.Player.CurrentHealth);
             powers.SetEquipment(new[]{4,5,14});Assert.AreEqual(baseline*2,game.Stats.MaxHealth);
             Assert.AreEqual(1.25f,game.Stats.CompanionMoveMultiplier,.001);Assert.AreEqual(1.15f,game.Stats.AttackSpeedMultiplier,.001);
             powers.SetEquipment(new[]{2,8,7});Assert.AreEqual(1.23f,game.Stats.CompanionDamageMultiplier,.001);Assert.AreEqual(1.2f,game.Stats.AttackSpeedMultiplier,.001);
@@ -51,7 +51,7 @@ namespace EchoScrap.Tests
         }
         [Test] public void SoldierReducesDamageAndMythicRescueIsOncePerExpedition()
         {
-            powers.SetEquipment(new[]{13});Assert.AreEqual(17,game.Player.TakeContactOrHazardDamage(20,Vector3.zero).HealthLost,.001);
+            powers.SetEquipment(new[]{13});Assert.AreEqual(15.3f,game.Player.TakeContactOrHazardDamage(20,Vector3.zero).HealthLost,.001);
             game.Player.StepTimers(5);powers.SetEquipment(new[]{4});game.Player.ForceSetHealthForTesting(5);
             var hit=game.Player.TakeContactOrHazardDamage(999,Vector3.zero);Assert.IsFalse(hit.CausedDeath);Assert.IsTrue(game.Player.IsAlive);
             Assert.AreEqual(game.Player.MaxHealth*.3f,game.Player.CurrentHealth,.001);Assert.IsTrue(powers.RescueUsed);
@@ -77,6 +77,41 @@ namespace EchoScrap.Tests
             var first=Enemy(Vector3.forward*3);var second=Enemy(Vector3.forward*5);powers.SetEquipment(new[]{1,8});powers.Advance(10);powers.Advance(.4f);
             Assert.AreEqual(1000-18*1.08f,first.CurrentHealth,.01);Assert.AreEqual(1000-18*1.08f,second.CurrentHealth,.01);
         }
+        [Test] public void PeriodicDamageAndHealingScaleWithCopies()
+        {
+            var enemy = Enemy(Vector3.forward * 3);
+            powers.SetEquipment(new[] { 11, 11, 11 });
+            powers.Advance(8);
+            Assert.AreEqual(955, enemy.CurrentHealth, .01);
+            Assert.AreEqual(1, enemy.SlowFraction, .001);
+
+            game.Player.ForceSetHealthForTesting(50);
+            powers.SetEquipment(new[] { 3, 3, 3 });
+            powers.Advance(5);
+            Assert.AreEqual(56, game.Player.CurrentHealth, .01);
+        }
+
+        [Test] public void DuplicateShieldsAndRescuesEachAbsorbOneHit()
+        {
+            powers.SetEquipment(new[] { 6, 6, 4 });
+            Assert.IsTrue(powers.TryBlockHit());
+            powers.Advance(3);
+            Assert.IsTrue(powers.TryBlockHit());
+            Assert.IsFalse(powers.TryBlockHit());
+            powers.Advance(17);
+            Assert.IsTrue(powers.TryBlockHit());
+            Assert.IsFalse(powers.TryBlockHit());
+
+            powers.SetEquipment(new[] { 4, 4, 4 });
+            Assert.AreEqual(400, game.Stats.MaxHealth, .01);
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.IsFalse(game.Player.TakeContactOrHazardDamage(999, Vector3.zero).CausedDeath);
+                game.Player.StepTimers(5);
+            }
+            Assert.IsTrue(game.Player.TakeContactOrHazardDamage(999, Vector3.zero).CausedDeath);
+        }
+
         [Test] public void SpeedBurstExpiresAndDoesNotAffectDashCooldown()
         {
             powers.SetEquipment(new[]{5,9});float cooldown=game.Stats.DashCooldown;
@@ -99,6 +134,24 @@ namespace EchoScrap.Tests
             for(int i=0;i<100;i++){var hit=new DamageRequest(game.Player.TargetId,DamageSourceType.FlashlightPulse,game.Player.WorldCenter,Vector3.forward,.01f);enemy.ReceiveDamage(in hit);}
             powers.SetEquipment(new int[0]);before=enemy.CurrentHealth;powers.Advance(3);Assert.AreEqual(before,enemy.CurrentHealth,.01f);
         }
+        [Test] public void DuplicateDemoniosBurnIndependentlyAndUnequippingRemovesTheirStacks()
+        {
+            powers.SetEquipment(new[] { 2, 2, 2 });
+            var enemy = Enemy(Vector3.forward * 3);
+            var hit = new DamageRequest(game.Player.TargetId, DamageSourceType.FlashlightPulse,
+                game.Player.WorldCenter, Vector3.forward, .01f);
+            for (int i = 0; i < 100; i++) enemy.ReceiveDamage(in hit);
+
+            float before = enemy.CurrentHealth;
+            powers.Advance(1);
+            Assert.AreEqual(3 * 4 * 1.45f, before - enemy.CurrentHealth, .05f);
+
+            powers.SetEquipment(new[] { 2 });
+            before = enemy.CurrentHealth;
+            powers.Advance(2);
+            Assert.AreEqual(2 * 4 * 1.15f, before - enemy.CurrentHealth, .05f);
+        }
+
         [Test] public void NewExpeditionRestoresRescueAndStartsAtEquippedMaximumHealth()
         {
             station.Progress.owned[4]=1;game.Session.SetWarehouseVisit(true);Assert.IsTrue(station.EquipCompanion(0,4));station.GetComponent<CompanionSystem>().RefreshEquipment();game.Session.SetWarehouseVisit(false);
