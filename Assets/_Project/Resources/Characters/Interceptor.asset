@@ -1,0 +1,424 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7312999f4c6543eb865a5be54cee802f, type: 3}
+  m_Name: Interceptor
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.EnemySpriteSet
+  clips:
+  - name: Idle_Down
+    loop: 1
+    frames:
+    - uvRect: {x: 0, y: 0.94736844, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.125, y: 0.94736844, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.25, y: 0.94736844, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.375, y: 0.94736844, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.5, y: 0.94736844, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.625, y: 0.94736844, z: 0.125, w: 0.05263158}
+      duration: 0.14
+  - name: Walk_Down
+    loop: 1
+    frames:
+    - uvRect: {x: 0.75, y: 0.94736844, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.875, y: 0.94736844, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0, y: 0.8947368, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.125, y: 0.8947368, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.25, y: 0.8947368, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.375, y: 0.8947368, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.5, y: 0.8947368, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.625, y: 0.8947368, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.75, y: 0.8947368, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.875, y: 0.8947368, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0, y: 0.84210527, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.125, y: 0.84210527, z: 0.125, w: 0.05263158}
+      duration: 0.03
+  - name: Attack_Down
+    loop: 0
+    frames:
+    - uvRect: {x: 0.25, y: 0.84210527, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.375, y: 0.84210527, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.5, y: 0.84210527, z: 0.125, w: 0.05263158}
+      duration: 0.05
+    - uvRect: {x: 0.625, y: 0.84210527, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.75, y: 0.84210527, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.875, y: 0.84210527, z: 0.125, w: 0.05263158}
+      duration: 0.09
+  - name: Hit_Down
+    loop: 0
+    frames:
+    - uvRect: {x: 0, y: 0.7894737, z: 0.125, w: 0.05263158}
+      duration: 0.05
+    - uvRect: {x: 0.125, y: 0.7894737, z: 0.125, w: 0.05263158}
+      duration: 0.08
+    - uvRect: {x: 0.25, y: 0.7894737, z: 0.125, w: 0.05263158}
+      duration: 0.09
+    - uvRect: {x: 0.375, y: 0.7894737, z: 0.125, w: 0.05263158}
+      duration: 0.1
+  - name: Death_Down
+    loop: 0
+    frames:
+    - uvRect: {x: 0.5, y: 0.7894737, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.625, y: 0.7894737, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.75, y: 0.7894737, z: 0.125, w: 0.05263158}
+      duration: 0.08
+    - uvRect: {x: 0.875, y: 0.7894737, z: 0.125, w: 0.05263158}
+      duration: 0.09
+    - uvRect: {x: 0, y: 0.7368421, z: 0.125, w: 0.05263158}
+      duration: 0.11
+    - uvRect: {x: 0.125, y: 0.7368421, z: 0.125, w: 0.05263158}
+      duration: 0.13
+    - uvRect: {x: 0.25, y: 0.7368421, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.375, y: 0.7368421, z: 0.125, w: 0.05263158}
+      duration: 0.15
+    - uvRect: {x: 0.5, y: 0.7368421, z: 0.125, w: 0.05263158}
+      duration: 0.17
+    - uvRect: {x: 0.625, y: 0.7368421, z: 0.125, w: 0.05263158}
+      duration: 0.22
+  - name:
+    loop: 0
+    frames: []
+  - name:
+    loop: 0
+    frames: []
+  - name:
+    loop: 0
+    frames: []
+  - name: Idle_Right
+    loop: 1
+    frames:
+    - uvRect: {x: 0.75, y: 0.7368421, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.875, y: 0.7368421, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0, y: 0.68421054, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.125, y: 0.68421054, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.25, y: 0.68421054, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.375, y: 0.68421054, z: 0.125, w: 0.05263158}
+      duration: 0.14
+  - name: Walk_Right
+    loop: 1
+    frames:
+    - uvRect: {x: 0.5, y: 0.68421054, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.625, y: 0.68421054, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.75, y: 0.68421054, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.875, y: 0.68421054, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0, y: 0.6315789, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.125, y: 0.6315789, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.25, y: 0.6315789, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.375, y: 0.6315789, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.5, y: 0.6315789, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.625, y: 0.6315789, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.75, y: 0.6315789, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.875, y: 0.6315789, z: 0.125, w: 0.05263158}
+      duration: 0.03
+  - name: Attack_Right
+    loop: 0
+    frames:
+    - uvRect: {x: 0, y: 0.57894737, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.125, y: 0.57894737, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.25, y: 0.57894737, z: 0.125, w: 0.05263158}
+      duration: 0.05
+    - uvRect: {x: 0.375, y: 0.57894737, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.5, y: 0.57894737, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.625, y: 0.57894737, z: 0.125, w: 0.05263158}
+      duration: 0.09
+  - name: Hit_Right
+    loop: 0
+    frames:
+    - uvRect: {x: 0.75, y: 0.57894737, z: 0.125, w: 0.05263158}
+      duration: 0.05
+    - uvRect: {x: 0.875, y: 0.57894737, z: 0.125, w: 0.05263158}
+      duration: 0.08
+    - uvRect: {x: 0, y: 0.5263158, z: 0.125, w: 0.05263158}
+      duration: 0.09
+    - uvRect: {x: 0.125, y: 0.5263158, z: 0.125, w: 0.05263158}
+      duration: 0.1
+  - name: Death_Right
+    loop: 0
+    frames:
+    - uvRect: {x: 0.25, y: 0.5263158, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.375, y: 0.5263158, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.5, y: 0.5263158, z: 0.125, w: 0.05263158}
+      duration: 0.08
+    - uvRect: {x: 0.625, y: 0.5263158, z: 0.125, w: 0.05263158}
+      duration: 0.09
+    - uvRect: {x: 0.75, y: 0.5263158, z: 0.125, w: 0.05263158}
+      duration: 0.11
+    - uvRect: {x: 0.875, y: 0.5263158, z: 0.125, w: 0.05263158}
+      duration: 0.13
+    - uvRect: {x: 0, y: 0.47368422, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.125, y: 0.47368422, z: 0.125, w: 0.05263158}
+      duration: 0.15
+    - uvRect: {x: 0.25, y: 0.47368422, z: 0.125, w: 0.05263158}
+      duration: 0.17
+    - uvRect: {x: 0.375, y: 0.47368422, z: 0.125, w: 0.05263158}
+      duration: 0.22
+  - name:
+    loop: 0
+    frames: []
+  - name:
+    loop: 0
+    frames: []
+  - name:
+    loop: 0
+    frames: []
+  - name: Idle_Up
+    loop: 1
+    frames:
+    - uvRect: {x: 0.5, y: 0.47368422, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.625, y: 0.47368422, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.75, y: 0.47368422, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.875, y: 0.47368422, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0, y: 0.42105263, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.125, y: 0.42105263, z: 0.125, w: 0.05263158}
+      duration: 0.14
+  - name: Walk_Up
+    loop: 1
+    frames:
+    - uvRect: {x: 0.25, y: 0.42105263, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.375, y: 0.42105263, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.5, y: 0.42105263, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.625, y: 0.42105263, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.75, y: 0.42105263, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.875, y: 0.42105263, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0, y: 0.36842105, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.125, y: 0.36842105, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.25, y: 0.36842105, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.375, y: 0.36842105, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.5, y: 0.36842105, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.625, y: 0.36842105, z: 0.125, w: 0.05263158}
+      duration: 0.03
+  - name: Attack_Up
+    loop: 0
+    frames:
+    - uvRect: {x: 0.75, y: 0.36842105, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.875, y: 0.36842105, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0, y: 0.31578946, z: 0.125, w: 0.05263158}
+      duration: 0.05
+    - uvRect: {x: 0.125, y: 0.31578946, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.25, y: 0.31578946, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.375, y: 0.31578946, z: 0.125, w: 0.05263158}
+      duration: 0.09
+  - name: Hit_Up
+    loop: 0
+    frames:
+    - uvRect: {x: 0.5, y: 0.31578946, z: 0.125, w: 0.05263158}
+      duration: 0.05
+    - uvRect: {x: 0.625, y: 0.31578946, z: 0.125, w: 0.05263158}
+      duration: 0.08
+    - uvRect: {x: 0.75, y: 0.31578946, z: 0.125, w: 0.05263158}
+      duration: 0.09
+    - uvRect: {x: 0.875, y: 0.31578946, z: 0.125, w: 0.05263158}
+      duration: 0.1
+  - name: Death_Up
+    loop: 0
+    frames:
+    - uvRect: {x: 0, y: 0.2631579, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.125, y: 0.2631579, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.25, y: 0.2631579, z: 0.125, w: 0.05263158}
+      duration: 0.08
+    - uvRect: {x: 0.375, y: 0.2631579, z: 0.125, w: 0.05263158}
+      duration: 0.09
+    - uvRect: {x: 0.5, y: 0.2631579, z: 0.125, w: 0.05263158}
+      duration: 0.11
+    - uvRect: {x: 0.625, y: 0.2631579, z: 0.125, w: 0.05263158}
+      duration: 0.13
+    - uvRect: {x: 0.75, y: 0.2631579, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.875, y: 0.2631579, z: 0.125, w: 0.05263158}
+      duration: 0.15
+    - uvRect: {x: 0, y: 0.21052632, z: 0.125, w: 0.05263158}
+      duration: 0.17
+    - uvRect: {x: 0.125, y: 0.21052632, z: 0.125, w: 0.05263158}
+      duration: 0.22
+  - name:
+    loop: 0
+    frames: []
+  - name:
+    loop: 0
+    frames: []
+  - name:
+    loop: 0
+    frames: []
+  - name: Idle_Left
+    loop: 1
+    frames:
+    - uvRect: {x: 0.25, y: 0.21052632, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.375, y: 0.21052632, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.5, y: 0.21052632, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.625, y: 0.21052632, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.75, y: 0.21052632, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.875, y: 0.21052632, z: 0.125, w: 0.05263158}
+      duration: 0.14
+  - name: Walk_Left
+    loop: 1
+    frames:
+    - uvRect: {x: 0, y: 0.15789473, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.125, y: 0.15789473, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.25, y: 0.15789473, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.375, y: 0.15789473, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.5, y: 0.15789473, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.625, y: 0.15789473, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.75, y: 0.15789473, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.875, y: 0.15789473, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0, y: 0.10526316, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.125, y: 0.10526316, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.25, y: 0.10526316, z: 0.125, w: 0.05263158}
+      duration: 0.03
+    - uvRect: {x: 0.375, y: 0.10526316, z: 0.125, w: 0.05263158}
+      duration: 0.03
+  - name: Attack_Left
+    loop: 0
+    frames:
+    - uvRect: {x: 0.5, y: 0.10526316, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.625, y: 0.10526316, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.75, y: 0.10526316, z: 0.125, w: 0.05263158}
+      duration: 0.05
+    - uvRect: {x: 0.875, y: 0.10526316, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0, y: 0.05263158, z: 0.125, w: 0.05263158}
+      duration: 0.06
+    - uvRect: {x: 0.125, y: 0.05263158, z: 0.125, w: 0.05263158}
+      duration: 0.09
+  - name: Hit_Left
+    loop: 0
+    frames:
+    - uvRect: {x: 0.25, y: 0.05263158, z: 0.125, w: 0.05263158}
+      duration: 0.05
+    - uvRect: {x: 0.375, y: 0.05263158, z: 0.125, w: 0.05263158}
+      duration: 0.08
+    - uvRect: {x: 0.5, y: 0.05263158, z: 0.125, w: 0.05263158}
+      duration: 0.09
+    - uvRect: {x: 0.625, y: 0.05263158, z: 0.125, w: 0.05263158}
+      duration: 0.1
+  - name: Death_Left
+    loop: 0
+    frames:
+    - uvRect: {x: 0.75, y: 0.05263158, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0.875, y: 0.05263158, z: 0.125, w: 0.05263158}
+      duration: 0.07
+    - uvRect: {x: 0, y: 0, z: 0.125, w: 0.05263158}
+      duration: 0.08
+    - uvRect: {x: 0.125, y: 0, z: 0.125, w: 0.05263158}
+      duration: 0.09
+    - uvRect: {x: 0.25, y: 0, z: 0.125, w: 0.05263158}
+      duration: 0.11
+    - uvRect: {x: 0.375, y: 0, z: 0.125, w: 0.05263158}
+      duration: 0.13
+    - uvRect: {x: 0.5, y: 0, z: 0.125, w: 0.05263158}
+      duration: 0.14
+    - uvRect: {x: 0.625, y: 0, z: 0.125, w: 0.05263158}
+      duration: 0.15
+    - uvRect: {x: 0.75, y: 0, z: 0.125, w: 0.05263158}
+      duration: 0.17
+    - uvRect: {x: 0.875, y: 0, z: 0.125, w: 0.05263158}
+      duration: 0.22
+  - name:
+    loop: 0
+    frames: []
+  - name:
+    loop: 0
+    frames: []
+  - name:
+    loop: 0
+    frames: []
+  mesh: {fileID: 4300000, guid: 2141c784109b7b444b6b62c388ea20b6, type: 2}
+  shadowMesh: {fileID: 4300000, guid: 49dbe1135083a3f49966d34a076d55e8, type: 2}
+  material: {fileID: 2100000, guid: 3d51cb62df8743d4184b9a9bbcbe0c4c, type: 2}
+  shadowMaterial: {fileID: 2100000, guid: a317c60d51153ff429abefa59c9e79ad, type: 2}
+  pixelsPerUnit: 30
+  presentationScale: 1.43
+  movingThreshold: 0.15
+  directionHysteresis: 0.12
+  contactFrame: 3

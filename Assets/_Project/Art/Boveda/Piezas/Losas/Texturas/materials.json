@@ -1,0 +1,11 @@
+{
+  "materials": [
+    {
+      "name": "Material_0",
+      "base": "Assets/_Project/Art/Boveda/Piezas/Losas/Texturas/0_base.jpg",
+      "normal": "Assets/_Project/Art/Boveda/Piezas/Losas/Texturas/0_normal.jpg",
+      "emission": "",
+      "metallic": "Assets/_Project/Art/Boveda/Piezas/Losas/Texturas/0_metallic.png"
+    }
+  ]
+}

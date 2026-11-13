@@ -1,0 +1,11 @@
+{
+  "materials": [
+    {
+      "name": "Material_1",
+      "base": "Assets/_Project/Art/MataColeccionista/Texturas/MataColeccionista/0_base.png",
+      "normal": "",
+      "emission": "Assets/_Project/Art/MataColeccionista/Texturas/MataColeccionista/0_emission.png",
+      "metallic": ""
+    }
+  ]
+}

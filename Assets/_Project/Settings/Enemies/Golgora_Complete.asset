@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3432e92fc7fbb48408aba49cbbf6058e, type: 3}
+  m_Name: Golgora_Complete
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.EnemyArchetypeSettings
+  data:
+    ArchetypeId: 99
+    DisplayName: Gólgora
+    MaxHealth: 9000
+    BaseMoveSpeed: 1.6
+    SpeedVarianceFraction: 0
+    ContactDamage: 30
+    ContactCooldown: 0.5
+    XpReward: 500
+    IsEliteDropTier: 0
+    KnockbackSusceptibility: 0
+    KnockbackBraking: 30
+    VisualScale: {x: 3.5, y: 3.5, z: 3.5}
+    ColliderRadius: 0.6
+    ColliderHeight: 1.95
+    PrimaryColor: {r: 0.19, g: 0.13, b: 0.14, a: 1}
+    SecondaryColor: {r: 1, g: 0.37, b: 0.08, a: 1}
+    IsHeavyMass: 1
+    MortarAttack:
+      MaximumRange: 0
+      RetreatDistance: 0
+      HoldDistance: 0
+      FireInterval: 0
+      WarningDuration: 0
+      FlightDuration: 0
+      PuddleRadius: 0
+      PuddleDuration: 0
+      TickDamage: 0
+      TickInterval: 0

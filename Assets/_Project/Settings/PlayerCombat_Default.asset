@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9897414a71ae03f43961d78c0f1ad357, type: 3}
+  m_Name: PlayerCombat_Default
+  m_EditorClassIdentifier: EchoScrap.Core::EchoScrap.Core.PlayerCombatSettings
+  maxHealth: 100
+  damageProtectionDuration: 0.4
+  initialArmor: 0
+  maxArmor: 0.6
+  initialEvasion: 0
+  maxEvasion: 0.35
+  initialBlockChance: 0
+  maxBlockChance: 0.5
+  blockDamageReduction: 0.5
+  initialCritChance: 0
+  critMultiplier: 1.75
+  dashSpeed: 22
+  dashDuration: 0.15
+  dashInvulnerability: 0.22
+  dashCooldown: 1
+  flashlightRange: 7
+  solarBaseRange: 14
+  flashlightAngle: 60
+  damagePerPulse: 3.75
+  pulseInterval: 0.2
+  burstRestDuration: 0.4
+  fourthPulseKnockback: 10
+  aimTurnSpeed: 720
+  baseMagnetRadius: 2.5
+  magnetAttractSpeed: 12
+  baseMedkitHeal: 15
+  upgradedMedkitHealing: {x: 17, y: 19, z: 21}
+  normalMedkitChances: {x: 0.03, y: 0.04, z: 0.05, w: 0.06}
+  eliteMedkitChances: {x: 0.08, y: 0.1, z: 0.12, w: 0.15}
+  medkitDropInterval: 6
+  maximumGroundMedkits: 5
+  medkitLifetime: 22

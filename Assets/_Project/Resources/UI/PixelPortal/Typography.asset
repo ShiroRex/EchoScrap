@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e6a0651b356114681af77cf3dda1fd, type: 3}
+  m_Name: MenuPixelTypography
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.UpgradeCardSkin
+  regular: {fileID: 12800000, guid: 08df4fc740abaa54da290e3a9b638a10, type: 3}
+  semibold: {fileID: 12800000, guid: 918b0589665d03c498011b0443876168, type: 3}

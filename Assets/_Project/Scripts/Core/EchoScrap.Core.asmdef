@@ -1,0 +1,9 @@
+{
+  "name": "EchoScrap.Core",
+  "rootNamespace": "EchoScrap.Core",
+  "references": [
+    "Unity.InputSystem",
+    "Unity.Cinemachine",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ]
+}

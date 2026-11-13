@@ -1,0 +1,115 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95b36c27c15b4b7499047cb54bed3d47, type: 3}
+  m_Name: UpgradeTuning
+  m_EditorClassIdentifier:
+  prismCounts: {x: 2, y: 3, z: 4}
+  prismDamage: {x: .4, y: .6, z: .8}
+  prismRadius: 5
+  plasmaSpeed: 24
+  voltaicHopDelay: .045
+  voltaicLinkLifetime: .22
+  voltaicCoreWidth: .035
+  voltaicJitter: .16
+  voltaicVisualCapacity: 64
+  siphonChance: {x: .12, y: .2, z: .3}
+  siphonHealing: {x: 2, y: 3, z: 4}
+  shockRadius: {x: 3.5, y: 4.5, z: 5.5}
+  shockDamage: {x: 25, y: 45, z: 70}
+  shockStun: {x: .6, y: .9, z: 1.2}
+  shockPushDistance: 8
+  decoyDuration: {x: 2, y: 2.5, z: 3}
+  decoyDamage: {x: 50, y: 85, z: 120}
+  decoyExplosionRadius: 4
+  decoyTauntRadius: 12
+  cataclysmCooldown: .5
+  cataclysmDamage: 120
+  cataclysmRadius: 4
+  bladeDamage: 80
+  bladeSpeed: 18
+  bladeLifetime: .6
+  bladeHitRadius: .45
+  explosionRadiusPerTier: .15
+  explosionDamagePerTier: .12
+  chainChance: {x: .25, y: .4, z: .55}
+  chainDamage: {x: 35, y: 60, z: 90}
+  chainRadius: 3
+  mineDamage: {x: 45, y: 70, z: 100}
+  mineRadius: 3
+  mineTriggerRadius: 1.25
+  mineArmDelay: 0.25
+  minePushDistance: 5
+  mineLimit: 5
+  implosionDelay: .4
+  implosionFraction: .75
+  implosionPullSpeed: 12
+  implosionPullRadiusFraction: 0.45
+  armorPerTier: 0.1
+  armorHealthPerTier: 10
+  assemblerGemCount: 15
+  assemblerDamage: {x: 40, y: 70, z: 105}
+  sawCounts: {x: 1, y: 2, z: 3}
+  sawDamage: {x: 18, y: 28, z: 40}
+  sawRadius: 2.5
+  sawAngularSpeed: 180
+  sawHitRadius: 0.65
+  sawPush: 4
+  turretInterval: 10
+  turretDuration: 12
+  turretBurstInterval: .6
+  turretShotInterval: .08
+  turretDamage: 10
+  turretRange: 12
+  turretProjectileSpeed: 28
+  turretBurstCount: 3
+  rapidPulseMovementPerTier: 0.04
+  regeneration: {x: 1, y: 2, z: 3}
+  regenerationInterval: 2.5
+  emergencyThreshold: .2
+  emergencyInvulnerability: 2
+  emergencyCooldown: 60
+  novaOverheal: 15
+  novaDamage: 80
+  novaRadius: 6
+  slowFirstTier: .12
+  slowPerTier: .08
+  slowDuration: 1.5
+  freezeHits: {x: 4, y: 3, z: 3}
+  freezeDuration: {x: 1.2, y: 1.8, z: 2.4}
+  frozenDamageBonus: .3
+  blizzardInterval: {x: 6, y: 5, z: 4}
+  blizzardDamage: {x: 30, y: 50, z: 75}
+  blizzardRadius: 5.5
+  blizzardFreeze: 1.5
+  shatterCount: 6
+  shatterSpeed: 14
+  shatterDamage: 50
+  shatterLifetime: 1.2
+  shatterFreeze: 1.5
+  critChancePerTier: .08
+  critDamagePerTier: .2
+  executionThreshold: {x: .06, y: .08, z: .1}
+  guaranteedPulses: {x: 2, y: 3, z: 4}
+  eyeCritChance: .2
+  eyeHealthThreshold: .35
+  eyeCritMultiplier: 3
+  eyeStun: 1
+  eyeRadius: 3
+  experiencePerTier: .15
+  rareWeightPerTier: 5
+  epicWeightPerTier: 3
+  projectileCapacity: 2048
+  projectileViews: 256
+  deviceCapacity: 512
+  transientViews: 96
+  statusViews: 192
+  blastCapacity: 1024

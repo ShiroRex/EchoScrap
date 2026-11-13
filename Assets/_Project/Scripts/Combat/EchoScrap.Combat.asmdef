@@ -1,0 +1,13 @@
+{
+  "name": "EchoScrap.Combat",
+  "rootNamespace": "EchoScrap.Combat",
+  "references": [
+    "EchoScrap.Core",
+    "EchoScrap.Player",
+    "Unity.InputSystem",
+    "Unity.Cinemachine",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "Unity.RenderPipelines.Core.Runtime",
+    "UnityEngine.UI"
+  ]
+}

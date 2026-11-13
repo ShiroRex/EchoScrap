@@ -1,0 +1,57 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EchoScrap · Ranking</title>
+<link rel="stylesheet" href="ranking.css"><main><header class="mast"><h1>EchoScrap <em>Ranking</em></h1></header><section class="ledger"><div class="bar"><strong>Clasificación general</strong></div><table aria-label="Clasificación por puntaje"><thead><tr><th>Puesto</th><th>Jugador</th><th class="extra">Bajas</th><th>Tiempo</th><th>Puntos</th></tr></thead><tbody id="rows"></tbody></table><p id="message" role="status">Cargando partidas…</p></section></main>
+
+<script type="module">
+const rows=document.querySelector('#rows'), message=document.querySelector('#message');
+const numbers=new Intl.NumberFormat('es-MX');
+const integer=v=>Number.isFinite(v)?Math.max(0,Math.floor(v)):0;
+let latestRecords={}, serverOffset=0;
+const activeLifetime=30000;
+function render(records){
+ // Older installations may still publish multiple attempts under the same name.
+ const byName=new Map();
+ for(const [id,p] of Object.entries(records??{})){
+   if(p?.rulesVersion!==2 || !Number.isFinite(p.score) || typeof p.playerName!=='string')continue;
+   const key=p.gamertagNormalized || p.playerName.normalize('NFKC').trim().replace(/\s+/gu,' ').toUpperCase();
+   const live=p.status==='EN PARTIDA';
+   const time=p.heartbeat??p.updatedAt??0;
+   if(!key || (live ? Date.now()+serverOffset-time>=activeLifetime : !['VICTORIA','DERROTA'].includes(p.status)))continue;
+   const previous=byName.get(key);
+   if(!previous || (previous.live && !live) ||
+      (previous.live===live && (live ? time>previous.time : time<previous.time))){
+     byName.set(key,{id,p,time,live});
+   }
+ }
+ const sessions=Array.from(byName.values(),({id,p})=>[id,p]).sort(([a,p],[b,q])=>q.score-p.score||a.localeCompare(b));
+ const frag=document.createDocumentFragment();let rank=0,previous=null;
+ sessions.forEach(([,p],i)=>{const score=integer(p.score);if(previous!==score)rank=i+1;previous=score;
+ const tr=document.createElement('tr');tr.classList.toggle('leader',rank===1);const seconds=integer(p.survivalSeconds);
+ for(const [index,value] of ["#"+rank,p.playerName||'Jugador',integer(p.kills),Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0'),numbers.format(score)].entries()){
+ const td=document.createElement('td');if(index===2)td.className='extra';td.textContent=value;
+ if(index===1){const detail=document.createElement('small');detail.className='state';detail.dataset.active=String(p.status==='EN PARTIDA');detail.textContent=p.modeMinutes+' MIN · '+p.status;td.append(detail);}
+ tr.append(td);}
+ frag.append(tr);});
+ rows.replaceChildren(frag);
+ message.textContent=sessions.length?'':'La clasificación espera su primera expedición.';
+}
+try{
+ const firebaseConfig = {
+      apiKey: "AIzaSyBgdPPFayt0SzNf95YMdTnONFtpZd2DflA",
+      authDomain: "echoscrap.firebaseapp.com",
+      databaseURL: "https://echoscrap-default-rtdb.firebaseio.com",
+      projectId: "echoscrap",
+      storageBucket: "echoscrap.firebasestorage.app",
+      messagingSenderId: "214636478609",
+      appId: "1:214636478609:web:c819b0f088bc397c4e3f30",
+      measurementId: "G-RX2N267SV0"
+    };
+ const [{initializeApp},{getDatabase,ref,onValue}]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js')]);
+ const db=getDatabase(initializeApp(firebaseConfig));
+ onValue(ref(db,'.info/serverTimeOffset'),snapshot=>{serverOffset=snapshot.val()||0;});
+ onValue(ref(db,'players'),snapshot=>{latestRecords=snapshot.val()??{};render(latestRecords);},()=>{
+   latestRecords={};rows.replaceChildren();
+   message.textContent='No se pudo consultar la clasificación.';
+ });
+ setInterval(()=>{if(Object.values(latestRecords).some(p=>p?.status==='EN PARTIDA'))render(latestRecords);},5000);
+}catch{message.textContent='Comprueba tu conexión a internet y vuelve a cargar la página.';}
+</script></html>
