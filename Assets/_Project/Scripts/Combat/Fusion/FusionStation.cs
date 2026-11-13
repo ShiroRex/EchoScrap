@@ -31,25 +31,12 @@ namespace EchoScrap.Combat
         private CollectibleDisplay[] displays;private MeshRenderer[] slatRenderers;private Transform[] slats;private Vector3[] closed;private float doorTop,doorAmount,saveClock;
         private void Awake()
         {
-            Transform boveda = transform.parent;
-            if (boveda != null)
-            {
-                MoveCapsule(boveda,"Capsula_4","Expositor_4","LuzCapsula_3",new Vector3(200f,0f,-6f));
-                MoveCapsule(boveda,"Capsula_5","Expositor_5","LuzCapsula_4",new Vector3(193f,0f,-13f));
-                MoveCapsule(boveda,"Capsula_6","Expositor_6","LuzCapsula_5",new Vector3(200f,0f,23f));
-            }
-            else
+            if (transform.parent == null)
             {
                 // The legacy arena scenes still have a scene-root station authored outside the vault.
                 transform.SetPositionAndRotation(new Vector3(189f, 0f, 28.88f), Quaternion.identity);
+                Physics.SyncTransforms();
             }
-            Physics.SyncTransforms();
-        }
-        private static void MoveCapsule(Transform boveda,string capName,string expName,string lightName,Vector3 pos)
-        {
-            Transform cap=boveda.Find(capName);if(cap!=null)cap.position=pos;
-            Transform exp=boveda.Find(expName);if(exp!=null)exp.position=pos;
-            Transform light=boveda.Find(lightName);if(light!=null)light.position=new Vector3(pos.x,4.8f,pos.z);
         }
         private void Start()
         {

@@ -542,9 +542,27 @@ namespace EchoScrap.Tests
         [Test] public void GarageHasTenAccessibleDisplayAreas()
         {
             var room=GameObject.Find("BovedaModular");Assert.IsNotNull(room);
-            var slots=Object.FindAnyObjectByType<FusionStation>().DisplaySlots;Assert.AreEqual(10,slots.Length);
-            foreach(var slot in slots){var p=ArenaSurface.OnGround(slot.position+Vector3.back*4,1);Assert.IsFalse(Physics.CheckCapsule(p-Vector3.up*.5f,p+Vector3.up*.5f,.45f,1,QueryTriggerInteraction.Ignore),slot.name+" approach is blocked");}
-            var b=room.transform.Find("ApoyoPlantaBaja").GetComponent<Collider>().bounds;Assert.GreaterOrEqual(b.size.x,47.9f);Assert.GreaterOrEqual(b.size.z,63.9f);
+            var slots = Object.FindAnyObjectByType<FusionStation>().DisplaySlots;
+            Assert.AreEqual(10, slots.Length);
+            var aisle = new Bounds(new Vector3(180f, 3.5f, 1f), new Vector3(32f, 7f, 38f));
+            for (int i = 0; i < slots.Length; i++)
+            {
+                var slot = slots[i];
+                var capsule = room.transform.Find($"Capsula_{i + 1}").GetComponent<Collider>().bounds;
+                Assert.AreEqual(capsule.center.x, slot.position.x, .01f, slot.name);
+                Assert.AreEqual(capsule.center.z, slot.position.z, .01f, slot.name);
+                if (i >= 3) Assert.IsFalse(capsule.Intersects(aisle), slot.name + " blocks the central aisle");
+
+                var p = ArenaSurface.OnGround(slot.position + Vector3.back * 4f, 1f);
+                Assert.IsFalse(Physics.CheckCapsule(p - Vector3.up * .5f, p + Vector3.up * .5f,
+                    .45f, 1, QueryTriggerInteraction.Ignore), slot.name + " approach is blocked");
+            }
+            foreach (string prop in new[] { "BaseCircular", "DepositoAuxiliar" })
+                Assert.IsFalse(room.transform.Find(prop).GetComponent<Collider>().bounds.Intersects(aisle), prop);
+
+            var floor = room.transform.Find("ApoyoPlantaBaja").GetComponent<Collider>().bounds;
+            Assert.GreaterOrEqual(floor.size.x, 47.9f);
+            Assert.GreaterOrEqual(floor.size.z, 63.9f);
         }
         [UnityTest] public IEnumerator PortalsPreserveCombatAndAllowReturnWithoutBouncing()
         {
