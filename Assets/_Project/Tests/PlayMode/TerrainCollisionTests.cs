@@ -557,8 +557,10 @@ namespace EchoScrap.Tests
                 Assert.IsFalse(Physics.CheckCapsule(p - Vector3.up * .5f, p + Vector3.up * .5f,
                     .45f, 1, QueryTriggerInteraction.Ignore), slot.name + " approach is blocked");
             }
-            foreach (string prop in new[] { "BaseCircular", "DepositoAuxiliar" })
-                Assert.IsFalse(room.transform.Find(prop).GetComponent<Collider>().bounds.Intersects(aisle), prop);
+            var capsuleModel = room.transform.Find("Capsula_1").GetComponentInChildren<MeshFilter>().sharedMesh;
+            Assert.AreEqual(10, room.GetComponentsInChildren<MeshFilter>().Count(filter => filter.sharedMesh == capsuleModel),
+                "Only the ten usable entity capsules should appear in the vault.");
+            Assert.IsFalse(room.transform.Find("BaseCircular").GetComponent<Collider>().bounds.Intersects(aisle));
 
             var floor = room.transform.Find("ApoyoPlantaBaja").GetComponent<Collider>().bounds;
             Assert.GreaterOrEqual(floor.size.x, 47.9f);
