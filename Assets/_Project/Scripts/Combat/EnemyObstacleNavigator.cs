@@ -253,13 +253,28 @@ namespace EchoScrap.Combat
                 Vector3 delta = end - start;
                 float distance = delta.magnitude;
                 if (distance < 0.001f) return true;
-                int count = Physics.CapsuleCastNonAlloc(bottom, top, Key.Radius, delta / distance, hits,
+                // An empty swept bounding box rules out both a hit along the path and
+                // an overlap at its destination. The terrain itself is followed analytically.
+                Vector3 endBottom = bottom + delta;
+                Vector3 endTop = top + delta;
+                Vector3 padding = Vector3.one * Key.Radius;
+                Vector3 min = Vector3.Min(bottom, endBottom) - padding;
+                Vector3 max = Vector3.Max(top, endTop) + padding;
+                int count = Physics.OverlapBoxNonAlloc((min + max) * 0.5f, (max - min) * 0.5f,
+                    overlaps, Quaternion.identity, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore);
+                if (count < overlaps.Length)
+                {
+                    bool needsSweep = false;
+                    for (int i = 0; i < count && !needsSweep; i++) needsSweep = IsObstacle(overlaps[i]);
+                    if (!needsSweep) return true;
+                }
+
+                count = Physics.CapsuleCastNonAlloc(bottom, top, Key.Radius, delta / distance, hits,
                     distance, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore);
                 if (count == hits.Length) return false;
                 for (int i = 0; i < count; i++) if (IsObstacle(hits[i].collider)) return false;
                 // A cast deliberately ignores its starting overlap; test the destination as well.
-                Capsule(end, out bottom, out top);
-                count = Physics.OverlapCapsuleNonAlloc(bottom, top, Key.Radius, overlaps,
+                count = Physics.OverlapCapsuleNonAlloc(endBottom, endTop, Key.Radius, overlaps,
                     1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore);
                 if (count == overlaps.Length) return false;
                 for (int i = 0; i < count; i++) if (IsObstacle(overlaps[i])) return false;

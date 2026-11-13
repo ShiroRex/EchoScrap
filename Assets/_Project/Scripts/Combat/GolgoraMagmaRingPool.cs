@@ -173,7 +173,8 @@ namespace EchoScrap.Combat
         }
         public void HideGapPreview()
         {
-            if (gapLeft != null) for (int i = 0; i < gapGuides.Length; i++) gapGuides[i].enabled = false;
+            foreach (LineRenderer guide in gapGuides)
+                if (guide != null) guide.enabled = false;
         }
         public bool TryEmit(Vector3 center, float maximumRadius, float gapAngle)
         {
@@ -365,8 +366,13 @@ namespace EchoScrap.Combat
             if (!initialized) return;
             foreach (Ring ring in rings)
             {
-                ring.Active = false; ring.PlayerResolved = false; ring.Root.SetActive(false);
-                ring.ResidueRemaining = ring.VisualAge = 0f; ring.ResidueRoot.SetActive(false);
+                if (ring == null) continue;
+                ring.Active = false;
+                ring.PlayerResolved = false;
+                ring.ResidueRemaining = ring.VisualAge = 0f;
+                // Scene teardown can destroy the separate visual root before disabling the boss.
+                if (ring.Root != null) ring.Root.SetActive(false);
+                if (ring.ResidueRoot != null) ring.ResidueRoot.SetActive(false);
             }
             HideGapPreview();
         }
