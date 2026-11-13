@@ -113,6 +113,31 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(50f,collider.bounds.size.y,0.001f,edge);
             }
         }
+#if UNITY_EDITOR
+        [Test] public void DebrisWestOfPortalRestsOnTheTerrain()
+        {
+            var scenery = GameObject.Find("Mundo3D_EchoScrap/Acumulaciones_dibujadas").transform;
+            foreach (string name in new[] { "escombros_concreto_-2_44", "tablas_-3_42", "bolsa_basura_-1_46" })
+            {
+                var debris = scenery.Find(name);
+                Assert.IsNotNull(debris, name);
+                var filter = debris.GetComponentInChildren<MeshFilter>();
+                using var data = UnityEditor.MeshUtility.AcquireReadOnlyMeshData(filter.sharedMesh);
+                using var vertices = new Unity.Collections.NativeArray<Vector3>(data[0].vertexCount, Unity.Collections.Allocator.Temp);
+                data[0].GetVertices(vertices);
+                float lowestGap = float.PositiveInfinity;
+                foreach (Vector3 vertex in vertices)
+                {
+                    Vector3 point = filter.transform.TransformPoint(vertex);
+                    var ray = new Ray(point + Vector3.up * 10f, Vector3.down);
+                    Assert.IsTrue(game.ArenaGround.Raycast(ray, out RaycastHit hit, 20f), name);
+                    lowestGap = Mathf.Min(lowestGap, point.y - hit.point.y);
+                }
+                Assert.That(lowestGap, Is.InRange(-.25f, .05f), name);
+            }
+        }
+#endif
+
         [UnityTest] public IEnumerator PlayerClimbsAndDescendsActualHill_EnemyFollowsSurface()
         {
             var body=game.Player.GetComponent<Rigidbody>();
