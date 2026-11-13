@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace EchoScrap.Combat
 {
-    // Equipment changes never reset expedition cooldowns or the mythical rescue.
+    // Equipment changes never reset expedition cooldowns or restore spent rescues.
     public sealed class CompanionPowerRuntime : MonoBehaviour
     {
         public static readonly string[] Descriptions = {
@@ -26,23 +26,36 @@ namespace EchoScrap.Combat
             "DASH: VELOCIDAD ×2", "CURA 1 / 5 BAJAS", "ONDA: DAÑO Y LENTITUD",
             "ONDA: EMPUJA Y CURA", "+15 VIDA · −15% DAÑO · +10% ARMADURA", "+15% VELOCIDAD DE ATAQUE"
         };
-        private readonly bool[] equipped = new bool[FusionCatalog.Count];
+        private const int EquipmentSlots = 3;
+        private readonly int[] equipped = new int[FusionCatalog.Count];
+        private readonly float[] shieldCooldowns = new float[EquipmentSlots];
         private readonly float[] cooldowns = new float[FusionCatalog.Count];
         private readonly List<EnemyActor> targets = new List<EnemyActor>(256);
-        private sealed class Burn { public EnemyActor Enemy; public int Version, Ticks; public float Next; }
+        private sealed class Burn { public EnemyActor Enemy; public int Version, Ticks, CopyIndex; public float Next; }
         private readonly List<Burn> burns = new List<Burn>(64);
         private readonly Dictionary<int,int> boltHits = new Dictionary<int,int>();
         private CombatGameBootstrap game;
         private CompanionPixelEffects effects;
         private float speedBuff, boltLife;
         private Vector3 boltPosition, boltDirection;
-        private int kills;
+        private int kills, rescuesUsed;
         private bool dealingDamage;
         public bool AutoTick = true;
-        public bool RescueUsed { get; private set; }
-        public bool ShieldReady => Has(6) && cooldowns[6] <= 0;
-        public float ShieldCooldown => cooldowns[6];
-        public bool Has(int id) => id >= 0 && id < equipped.Length && equipped[id];
+        public bool RescueUsed => rescuesUsed > 0;
+        public bool ShieldReady => Has(6) && ShieldCooldown <= 0;
+        public float ShieldCooldown
+        {
+            get
+            {
+                float next = shieldCooldowns[0];
+                for (int i = 1; i < Copies(6); i++)
+                    next = Mathf.Min(next, shieldCooldowns[i]);
+                return next;
+            }
+        }
+
+        public bool Has(int id) => Copies(id) > 0;
+        private int Copies(int id) => FusionCatalog.Valid(id) ? equipped[id] : 0;
         public void Initialize(CombatGameBootstrap owner)
         {
             game=owner; game.Player.CompanionPowers=this;
@@ -55,24 +68,30 @@ namespace EchoScrap.Combat
         }
         public void SetEquipment(int[] ids)
         {
-            Array.Clear(equipped,0,equipped.Length);
-            foreach(int id in ids) if(FusionCatalog.Valid(id)) equipped[id]=true;
-            if(!Has(2))burns.Clear();
+            Array.Clear(equipped, 0, equipped.Length);
+            for (int slot = 0; slot < Mathf.Min(ids.Length, EquipmentSlots); slot++)
+            {
+                int id = ids[slot];
+                if (FusionCatalog.Valid(id)) equipped[id]++;
+            }
+            for (int i = burns.Count - 1; i >= 0; i--)
+                if (burns[i].CopyIndex >= Copies(2)) burns.RemoveAt(i);
             if(!Has(1)){boltLife=0;effects.SetBolt(boltPosition,false);}
             if(!Has(9))speedBuff=0;
             RefreshStats();
         }
         private void RefreshStats()
         {
-            bool hasSoldier = Has(13);
+            int soldiers = Copies(13);
+            int yanikuas = Copies(FusionCatalog.Yanikua);
             game.Stats.SetCompanionBonuses(
-                health: (Has(0) ? 10 : 0) + (hasSoldier ? 15 : 0),
-                healthMultiplier: Has(4) ? 2 : 1,
-                damage: (Has(2) ? .15f : 0f) + (Has(8) ? .08f : 0f) + (Has(4) ? .2f : 0f),
-                speed: (1 + (Has(5) ? .1f : 0f) + (Has(4) ? .15f : 0f)) * (speedBuff > 0 ? 2 : 1),
-                attackSpeed: (Has(14) ? .15f : 0f) + (Has(7) ? .2f : 0f),
-                reduction: hasSoldier ? .15f : 0f,
-                armor: hasSoldier ? .10f : 0f);
+                health: 10 * Copies(0) + 15 * soldiers,
+                healthMultiplier: 1 + yanikuas,
+                damage: .15f * Copies(2) + .08f * Copies(8) + .2f * yanikuas,
+                speed: (1 + .1f * Copies(5) + .15f * yanikuas) * (1 + (speedBuff > 0 ? Copies(9) : 0)),
+                attackSpeed: .15f * Copies(14) + .2f * Copies(7),
+                reduction: .15f * soldiers,
+                armor: .10f * soldiers);
         }
         private bool CanFight => game!=null && game.Player.IsAlive && !game.Session.IsPaused &&
             !game.Session.IsInWarehouse && game.Session.State==SessionState.Running;
@@ -87,12 +106,14 @@ namespace EchoScrap.Combat
             effects.Advance(dt);
             if(speedBuff>0){speedBuff=Mathf.Max(0,speedBuff-dt);if(speedBuff==0)RefreshStats();}
             for(int i=0;i<cooldowns.Length;i++) if(Has(i))cooldowns[i]=Mathf.Max(0,cooldowns[i]-dt);
+            for (int i = 0; i < Copies(6); i++)
+                shieldCooldowns[i] = Mathf.Max(0, shieldCooldowns[i] - dt);
             TickBurns(dt); TickBolt(dt);
             if(Ready(1,10)) LaunchBolt();
-            if(Ready(3,5)) Heal(2);
+            if(Ready(3,5)) Heal(2 * Copies(3));
             if(Ready(7,12)) Pulse(7);
             if(Ready(11,8)) Pulse(11);
-            if(Ready(12,15)){Pulse(12);Heal(game.Player.MaxHealth*.05f);}
+            if(Ready(12,15)){Pulse(12);Heal(game.Player.MaxHealth * .05f * Copies(12));}
         }
         private bool Ready(int id,float period)
         {
@@ -101,14 +122,23 @@ namespace EchoScrap.Combat
         }
         public bool TryBlockHit()
         {
-            if(!CanFight||!ShieldReady)return false;
-            cooldowns[6]=20;effects.Emit(0,transform.position,2.6f,new Color(.6f,.3f,1));return true;
+            if (!CanFight) return false;
+            for (int i = 0; i < Copies(6); i++)
+            {
+                if (shieldCooldowns[i] > 0) continue;
+                shieldCooldowns[i] = 20;
+                effects.Emit(0, transform.position, 2.6f, new Color(.6f, .3f, 1));
+                return true;
+            }
+            return false;
         }
         public bool TrySaveLife()
         {
             // Health is being resolved, so IsAlive is temporarily false here.
-            if(!Has(4)||RescueUsed||game.Session.IsInWarehouse||game.Session.IsPaused)return false;
-            RescueUsed=true;game.Player.GrantUpgradeProtection(3);
+            if (rescuesUsed >= Copies(FusionCatalog.Yanikua) || game.Session.IsInWarehouse || game.Session.IsPaused)
+                return false;
+            rescuesUsed++;
+            game.Player.GrantUpgradeProtection(3);
             effects.Emit(7,transform.position,4,new Color(1,.72f,.15f));return true;
         }
         private void OnDash(DashStateEvent e)
@@ -119,7 +149,7 @@ namespace EchoScrap.Combat
         private void OnDeath(ActorDeathEvent e)
         {
             if(e.IsPlayer||!Has(10)||!CanFight)return;
-            if(++kills>=5){kills-=5;Heal(1);}
+            if(++kills>=5){kills-=5;Heal(Copies(10));}
         }
         private void Heal(float amount)
         {
@@ -133,19 +163,41 @@ namespace EchoScrap.Combat
         {
             if(dealingDamage||!Has(2)||!CanFight||hit.IsPlayerTarget||!hit.AppliedRealDamage||hit.CausedDeath||
                 !(hit.SourceType==DamageSourceType.FlashlightPulse||hit.SourceType==DamageSourceType.SolarPulse||
-                hit.SourceType>=DamageSourceType.UpgradeProjectile&&hit.SourceType<=DamageSourceType.UpgradeBlade)||
-                game.Session.Rng.Combat.NextFloat()>=.3f)return;
-            EnemyActor enemy=null;foreach(var e in EnemyActor.ActiveEnemies)if(e.TargetId==hit.TargetId){enemy=e;break;}
-            if(enemy==null||!enemy.IsAlive)return;
-            foreach(var burn in burns)if(burn.Enemy==enemy&&burn.Version==enemy.SpawnVersion){burn.Ticks=3;return;}
-            burns.Add(new Burn{Enemy=enemy,Version=enemy.SpawnVersion,Ticks=3,Next=1});
+                hit.SourceType>=DamageSourceType.UpgradeProjectile&&hit.SourceType<=DamageSourceType.UpgradeBlade))return;
+            EnemyActor enemy = null;
+            for (int copy = 0; copy < Copies(2); copy++)
+            {
+                if (game.Session.Rng.Combat.NextFloat() >= .3f) continue;
+                if (enemy == null)
+                {
+                    foreach (var target in EnemyActor.ActiveEnemies)
+                    {
+                        if (target.TargetId != hit.TargetId) continue;
+                        enemy = target;
+                        break;
+                    }
+                    if (enemy == null || !enemy.IsAlive) return;
+                }
+                Ignite(enemy, copy);
+            }
+        }
+
+        private void Ignite(EnemyActor enemy, int copy)
+        {
+            foreach (var burn in burns)
+            {
+                if (burn.Enemy != enemy || burn.Version != enemy.SpawnVersion || burn.CopyIndex != copy) continue;
+                burn.Ticks = 3;
+                return;
+            }
+            burns.Add(new Burn { Enemy = enemy, Version = enemy.SpawnVersion, Ticks = 3, CopyIndex = copy, Next = 1 });
         }
         private void TickBurns(float dt)
         {
             for(int i=burns.Count-1;i>=0;i--){var b=burns[i];
                 if(b.Enemy==null||!b.Enemy.IsAlive||b.Enemy.SpawnVersion!=b.Version){burns.RemoveAt(i);continue;}
                 b.Next-=dt;
-                while(b.Next<=0&&b.Ticks>0&&b.Enemy.IsAlive){b.Next+=1;b.Ticks--;Deal(b.Enemy,4,b.Enemy.WorldCenter);effects.Emit(3,b.Enemy.WorldCenter,1.3f,new Color(1,.3f,.05f));}
+                while(b.Next<=0&&b.Ticks>0&&b.Enemy.IsAlive){b.Next+=1;b.Ticks--;Deal(b.Enemy, 4, b.Enemy.WorldCenter);effects.Emit(3,b.Enemy.WorldCenter,1.3f,new Color(1,.3f,.05f));}
                 if(b.Ticks==0)burns.RemoveAt(i);
             }
         }
@@ -158,12 +210,24 @@ namespace EchoScrap.Combat
         }
         private void Pulse(int id)
         {
-            Gather();var center=transform.position;
-            effects.Emit(id==7?4:5,center,10,FusionCatalog.ColorOf(id));
-            foreach(var enemy in targets){if(!enemy.IsAlive||Vector3.Distance(center,enemy.WorldCenter)>8)continue;
-                if(id==7){if(enemy.ArchetypeId==EnemyArchetypeId.GolgoraBoss)enemy.ApplySlow(.5f,2);else enemy.ApplyFreeze(2);}
-                else if(id==11){Deal(enemy,15,center);if(enemy.IsAlive)enemy.ApplySlow(.4f,3);}
-                else enemy.PushDistance(enemy.WorldCenter-center,4);
+            Gather();
+            var center = transform.position;
+            int copies = Copies(id);
+            effects.Emit(id == 7 ? 4 : 5, center, 10, FusionCatalog.ColorOf(id));
+            foreach (var enemy in targets)
+            {
+                if (!enemy.IsAlive || Vector3.Distance(center, enemy.WorldCenter) > 8) continue;
+                if (id == 7)
+                {
+                    if (enemy.ArchetypeId == EnemyArchetypeId.GolgoraBoss) enemy.ApplySlow(.5f, 2 * copies);
+                    else enemy.ApplyFreeze(2 * copies);
+                }
+                else if (id == 11)
+                {
+                    Deal(enemy, 15 * copies, center);
+                    if (enemy.IsAlive) enemy.ApplySlow(.4f * copies, 3);
+                }
+                else enemy.PushDistance(enemy.WorldCenter - center, 4 * copies);
             }
         }
         private void LaunchBolt()
@@ -182,14 +246,19 @@ namespace EchoScrap.Combat
             foreach(var enemy in targets){if(!enemy.IsAlive||boltHits.TryGetValue(enemy.TargetId,out int version)&&version==enemy.SpawnVersion)continue;
                 float t=length>0?Mathf.Clamp01(Vector3.Dot(enemy.WorldCenter-from,segment)/length):0;
                 if((enemy.WorldCenter-(from+segment*t)).sqrMagnitude>Mathf.Pow(enemy.HitRadius+.3f,2))continue;
-                boltHits[enemy.TargetId]=enemy.SpawnVersion;Deal(enemy,18,from);
+                boltHits[enemy.TargetId]=enemy.SpawnVersion;Deal(enemy, 18 * Copies(1), from);
             }
             boltPosition=to;effects.SetBolt(to,boltLife>0&&!blocked);if(blocked)boltLife=0;
         }
         private void ResetExpedition()
         {
             Array.Clear(cooldowns,0,cooldowns.Length);cooldowns[1]=10;cooldowns[3]=5;cooldowns[7]=12;cooldowns[11]=8;cooldowns[12]=15;
-            kills=0;speedBuff=boltLife=0;RescueUsed=false;burns.Clear();effects.Clear();RefreshStats();
+            Array.Clear(shieldCooldowns, 0, shieldCooldowns.Length);
+            kills = rescuesUsed = 0;
+            speedBuff = boltLife = 0;
+            burns.Clear();
+            effects.Clear();
+            RefreshStats();
         }
         private void OnDestroy()
         {

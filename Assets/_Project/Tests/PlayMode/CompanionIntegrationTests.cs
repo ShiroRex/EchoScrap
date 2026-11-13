@@ -97,7 +97,7 @@ namespace EchoScrap.Tests
                 int before=station.Progress.owned[id];game.Player.GetComponent<Rigidbody>().position=pickup.transform.position+Vector3.up;game.Player.transform.position=pickup.transform.position+Vector3.up;Physics.SyncTransforms();Assert.IsTrue(system.TryCollectNearest());Assert.AreEqual(before+1,station.Progress.owned[id]);yield return null;
             }
         }
-        [UnityTest] public IEnumerator ThreeSlotsRequireOwnedCopiesAndPowersSurviveResetWithoutStacking(){
+        [UnityTest] public IEnumerator ThreeSlotsRequireOwnedCopiesAndPowersSurviveReset(){
             for(int id=0;id<4;id++)station.CollectFromArena(id);
             Assert.IsFalse(system.TryOpen());Approach();Assert.IsTrue(system.TryOpen());
             Assert.IsTrue(system.Equip(0,0));Assert.IsFalse(system.Equip(1,0));Assert.IsFalse(system.Equip(1,4));Assert.IsFalse(system.Equip(3,1));
@@ -116,7 +116,32 @@ namespace EchoScrap.Tests
             Assert.IsTrue(hud.gameObject.activeInHierarchy);
             Assert.IsFalse(hud.Find("PoderesActivos").gameObject.activeSelf);
         }
-        [UnityTest] public IEnumerator SoldierArmorCombinesWithOtherMitigationAndAppliesOnce()
+        [UnityTest] public IEnumerator ThreeEquippedLobitosGrantThirtyHealthAcrossExpeditions()
+        {
+            station.ResetCollection();
+            for (int i = 0; i < 3; i++) station.CollectFromArena(0);
+
+            float baseline = game.Stats.MaxHealth;
+            for (int i = 0; i < 3; i++)
+            {
+                Approach(i);
+                Assert.IsTrue(system.TryOpen());
+                Assert.IsTrue(system.Equip(i, 0));
+                system.Close();
+                Assert.That(game.Stats.MaxHealth, Is.EqualTo(baseline + 10 * (i + 1)));
+            }
+
+            game.ResetRun(false);
+            Assert.That(game.Player.CurrentHealth, Is.EqualTo(baseline + 30));
+            var hud = station.transform.Find("CompanionCanvas/CompanerosEquipados/PoderesActivos");
+            StringAssert.Contains(FusionCatalog.Names[0] + " ×3", hud.GetComponent<Text>().text);
+            Approach(1);
+            Assert.IsTrue(station.GetComponent<VaultReleaseInteraction>().TryUnequip());
+            Assert.That(game.Stats.MaxHealth, Is.EqualTo(baseline + 20));
+            yield return null;
+        }
+
+        [UnityTest] public IEnumerator SoldierArmorStacksAndCombinesWithOtherMitigation()
         {
             const int soldier = 13;
             station.ResetCollection();
@@ -133,19 +158,19 @@ namespace EchoScrap.Tests
             Assert.IsTrue(system.TryOpen());
             Assert.IsTrue(system.Equip(1, soldier));
             system.Close();
-            Assert.That(game.Stats.Armor, Is.EqualTo(.10f).Within(.0001f));
-            Assert.That(game.Stats.MaxHealth, Is.EqualTo(115f).Within(.0001f));
-            Assert.That(game.Stats.CompanionDamageReduction, Is.EqualTo(.15f).Within(.0001f));
+            Assert.That(game.Stats.Armor, Is.EqualTo(.20f).Within(.0001f));
+            Assert.That(game.Stats.MaxHealth, Is.EqualTo(130f).Within(.0001f));
+            Assert.That(game.Stats.CompanionDamageReduction, Is.EqualTo(.30f).Within(.0001f));
 
             game.Stats.SetUpgradeTier("SCRAP_01", 1);
-            Assert.That(game.Stats.Armor, Is.EqualTo(.20f).Within(.0001f));
+            Assert.That(game.Stats.Armor, Is.EqualTo(.30f).Within(.0001f));
             game.Stats.SetBonusMitigation(armor: .55f, evasion: 0f, blockChance: 0f);
             Assert.That(game.Stats.Armor, Is.EqualTo(.60f).Within(.0001f));
 
             game.ResetRun(false);
-            Assert.That(game.Stats.Armor, Is.EqualTo(.10f).Within(.0001f));
+            Assert.That(game.Stats.Armor, Is.EqualTo(.20f).Within(.0001f));
             var hit = game.Player.TakeContactOrHazardDamage(40f, game.Player.transform.position + Vector3.forward);
-            Assert.That(hit.HealthLost, Is.EqualTo(30.6f).Within(.001f));
+            Assert.That(hit.HealthLost, Is.EqualTo(22.4f).Within(.001f));
 
             var release = station.GetComponent<VaultReleaseInteraction>();
             game.Stats.SetUpgradeTier("SCRAP_01", 1);

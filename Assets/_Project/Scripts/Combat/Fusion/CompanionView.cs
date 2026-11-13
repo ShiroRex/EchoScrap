@@ -112,7 +112,7 @@ namespace EchoScrap.Combat
             for(int i=0;i<3;i++){var b=Panel("Puesto_"+i,panel,new Vector2(0,230),new Vector2(700,100),new Color(.15f,.19f,.26f));slots[i]=Label(b,"Seleccion","",Vector2.zero,new Vector2(680,94),21);slots[i].font=strong;ReadablePowerNumbers.Attach(slots[i]);}
             var gridRoot=Panel("Unidades",panel,new Vector2(0,-60),new Vector2(1080,470),Color.clear);
             unitGrid=gridRoot.gameObject.AddComponent<CollectibleUnitGrid>();
-            var powerPreview=Label(panel,"PoderDelCompanero","Señala un compañero para ver su poder. Los poderes repetidos no se acumulan.",new Vector2(0,155),new Vector2(1060,46),18);
+            var powerPreview=Label(panel,"PoderDelCompanero","Señala un compañero para ver su poder. Los poderes se acumulan por copia equipada.",new Vector2(0,155),new Vector2(1060,46),18);
             powerPreview.font=strong;ReadablePowerNumbers.Attach(powerPreview);
             unitGrid.Build(station,AvailableForSlot,(id,copy)=>system.Equip(selected,id),id=>{
                 powerPreview.text=FusionCatalog.Names[id]+" · "+CompanionSystem.PowerNames[id];powerPreview.color=FusionCatalog.ColorOf(id);
@@ -166,8 +166,15 @@ namespace EchoScrap.Combat
                 for(int i=0;i<3;i++){int id=station.Progress.equipped[i];if(id<0)continue;
                     bool duplicate=false;for(int previous=0;previous<i;previous++)if(station.Progress.equipped[previous]==id)duplicate=true;
                     if(duplicate)continue;
-                    if(powersBuilder.Length>0)powersBuilder.Append('\n');
-                    powersBuilder.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(FusionCatalog.ColorOf(id))).Append('>').Append(FusionCatalog.Names[id]).Append("</color>  ").Append(CompanionPowerRuntime.HudDescriptions[id]);}
+                    int copies = 1;
+                    for (int next = i + 1; next < station.Progress.equipped.Length; next++)
+                        if (station.Progress.equipped[next] == id) copies++;
+                    if (powersBuilder.Length > 0) powersBuilder.Append('\n');
+                    powersBuilder.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(FusionCatalog.ColorOf(id)))
+                        .Append('>').Append(FusionCatalog.Names[id]);
+                    if (copies > 1) powersBuilder.Append(" ×").Append(copies);
+                    powersBuilder.Append("</color>  ").Append(CompanionPowerRuntime.HudDescriptions[id]);
+                }
                 equippedPowers.text=powersBuilder.ToString();}
             if(!IsOpen)return;
             bool occupied = selected >= 0 && station.Progress.equipped[selected] >= 0;
