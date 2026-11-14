@@ -54,7 +54,6 @@ namespace EchoScrap.Combat
         [Serializable]
         public sealed class RankingLedger
         {
-            public List<string> names = new List<string>();
             public List<EventPlayerRecord> pending = new List<EventPlayerRecord>();
             public string name, interrupted;
             public bool eligible;
@@ -62,8 +61,8 @@ namespace EchoScrap.Combat
             public void NewCollection(string input)
             {
                 name = SanitizeName(input);
-                eligible = name.Length > 0 && !names.Exists(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
-                if (eligible) names.Add(name);
+                // A named collection reaches this point after Firebase reserves its tag.
+                eligible = name.Length > 0;
             }
 
             public bool Claim()
@@ -86,19 +85,12 @@ namespace EchoScrap.Combat
 
         public static string SanitizeName(string raw) => string.IsNullOrWhiteSpace(raw) ? "" :
             raw.Trim().Substring(0, Math.Min(raw.Trim().Length, 20));
-        public static bool NameAlreadyUsed(string name)
-        {
-            string key = GamertagRegistry.Key(name);
-            return ReadLedger().names?.Exists(previous => GamertagRegistry.Key(previous) == key) == true;
-        }
         public static string PlayerName => PlayerPrefs.GetString(NameKey, "");
         public static event Action<string> OnPlayerNameChanged;
         public static void StartNewPlayerSession(string input)
         {
             Instance?.CancelAttempt();
             var ledger = ReadLedger();
-            // JsonUtility can yield null lists for a missing field in an old or empty save.
-            ledger.names ??= new List<string>();
             ledger.pending ??= new List<EventPlayerRecord>();
             if (!string.IsNullOrEmpty(ledger.interrupted)) QueueCancellation(ledger);
             ledger.NewCollection(input);
