@@ -19,23 +19,24 @@ namespace EchoScrap.Combat
         private ExpeditionIntro entrance;
         private ExpeditionEntrySettings entrySettings;
         private AudioSource selectionAudio;
+        private MenuSlotCoordinator slots;
         private bool persist = true;
         private bool separateScenes;
+        private float vaultSaveClock;
+
         public bool IsLoading { get; private set; }
         public bool IsSelectingExpedition { get; private set; }
         public bool IsFadingExpeditionSelection { get; private set; }
         public CombatGameBootstrap Game => game;
         internal FusionStation Station => station;
         public EffectPreferences Effects => game.Session.Effects;
-        private bool transientProfile;
-        private bool collectionPersistence;
-        private bool newCollectionConfirmation;
         public GameFlowState State { get; private set; }
-        public bool IsConfirming { get; private set; }
+        public bool IsSlotSelectorOpen => slots != null && slots.IsSlotSelectorOpen;
+        public SlotSelectorMode SlotSelectionMode => slots != null ? slots.Mode : SlotSelectorMode.None;
+        public bool IsConfirming => slots != null && slots.IsConfirming;
         public bool IsConfiguring { get; private set; }
-        public bool OwnsOverlay => State == GameFlowState.MainMenu || IsConfirming || IsSelectingExpedition || IsLoading;
-        public bool HasCollection => persist
-            ? PlayerPrefs.HasKey(ProfileKey) || FusionStation.HasSave : transientProfile;
+        public bool OwnsOverlay => State == GameFlowState.MainMenu || IsConfirming || IsSlotSelectorOpen || IsSelectingExpedition || IsLoading;
+        public bool HasCollection => SaveSlotService.HasAnyContinuableOrRecoverableSlot();
         public GameMenuView View => view;
         public bool ShowEquipmentHint => station?.Progress is FusionProgress progress
             && progress.OwnedCount > 0 && !progress.hasEquippedCompanion;
@@ -43,7 +44,11 @@ namespace EchoScrap.Combat
         public void Initialize(CombatGameBootstrap owner, bool saveProgress = true, bool useSeparateScenes = false)
         {
             if (game != null) return;
-            game = owner; persist = saveProgress; separateScenes = useSeparateScenes;
+            game = owner;
+            persist = saveProgress;
+            separateScenes = useSeparateScenes;
+            if (!persist) SaveSlotService.SetPersistenceOverride(false);
+
             travel = FindAnyObjectByType<WarehouseTravel>();
             station = FindAnyObjectByType<FusionStation>();
             if (travel == null || travel.WarehouseArrival == null || travel.CombatArrival == null)
@@ -52,13 +57,14 @@ namespace EchoScrap.Combat
                 enabled = false; return;
             }
             travel.Initialize(game);
-            if (station != null)
-            {
-                collectionPersistence = persist && station.PersistProgress;
-                // Opening and closing the title must not silently create a new collection.
-                if (!HasCollection) station.PersistProgress = false;
-            }
             game.Flow = this;
+            slots = new MenuSlotCoordinator(
+                () => view,
+                Sync,
+                () => true,
+                EnterLoadedSlot,
+                HandleAbandonAccepted);
+
             view = gameObject.AddComponent<GameMenuView>();
             view.Build(this, !separateScenes);
             entrance = Instantiate(Resources.Load<ExpeditionIntro>("UI/ExpeditionIntro"), transform);
@@ -69,63 +75,101 @@ namespace EchoScrap.Combat
             selectionAudio.spatialBlend = 0f;
             selectionAudio.clip = entrySettings.SelectionRoar;
             selectionAudio.volume = entrySettings.RoarVolume;
+
             ReturnToVault();
-            if (separateScenes) SceneTransitionState.Apply(game);
-            else ShowMainMenu();
+            if (separateScenes)
+            {
+                SceneTransitionState.Apply(game);
+            }
+            else
+            {
+                SaveSlotService.EnsureMigrated();
+                ShowMainMenu();
+            }
         }
 
         public void CompleteSceneEntry(bool newCollection)
         {
-            if (newCollection) CreateCollection();
-            else
-            {
-                transientProfile = SceneTransitionState.HasTransientCollection;
-                if (!persist && !string.IsNullOrEmpty(SceneTransitionState.FusionSnapshot)) station?.RestoreCollection(SceneTransitionState.FusionSnapshot);
-                State = GameFlowState.Vault; Sync();
-            }
+            if (!SaveSlotService.HasLoadedProfile)
+                SaveSlotService.EnsureLoadedFallbackForDirectArenaEntry();
+            station?.ReloadFromActiveSlot();
+            EnterLoadedSlot(newCollection ? SceneTransitionState.Entry.NewCollection : SceneTransitionState.Entry.Continue, SaveSlotService.ActiveSlotIndex);
+        }
+
+        private void EnterLoadedSlot(SceneTransitionState.Entry entry, int slotIndex)
+        {
+            station?.ReloadFromActiveSlot();
+            ReturnToVault();
+            game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
+            game.Session.ResumeAllUserPauses();
+            SaveSlotService.MarkSlotLoadCompleted();
+            EventLeaderboardSync.SyncSessionNameFromActiveSlot();
+            Sync();
         }
 
         private void Update()
         {
             if (IsLoading) return;
+
+            if (!LoadingScreen.IsLoading && (State == GameFlowState.Vault || State == GameFlowState.Expedition) &&
+                !game.Session.IsPaused && !OwnsOverlay && !IsConfiguring)
+            {
+                SaveSlotService.RecordActivePlaytime(Time.unscaledDeltaTime);
+                if (State == GameFlowState.Vault && SaveSlotService.CanWriteActiveProfile)
+                {
+                    vaultSaveClock += Time.unscaledDeltaTime;
+                    if (vaultSaveClock >= 5f)
+                    {
+                        vaultSaveClock = 0f;
+                        SaveSlotService.SaveActiveFusionProgress(station?.Progress);
+                    }
+                }
+            }
+
             bool cancel = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame
                 || Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame;
             if (cancel && IsSelectingExpedition) CancelExpeditionSelection();
             else if (cancel && IsConfirming) CancelConfirmation();
+            else if (cancel && IsSlotSelectorOpen) CloseSlotSelector();
             else if (cancel && IsConfiguring) CloseConfiguration();
         }
 
         public void RequestNewCollection()
         {
-            if (State != GameFlowState.MainMenu || IsConfiguring || IsConfirming) return;
-            newCollectionConfirmation = true;
-            string message = HasCollection
-                ? "Nombre nuevo: primera partida al ranking.\nSe reiniciarán tu colección y la fusión en curso."
-                : "Nombre nuevo: primera partida al ranking.\nDéjalo vacío para jugar en práctica.";
-            Confirm("¿NUEVA COLECCIÓN?", message, true);
-        }
-
-        private void CreateCollection()
-        {
-            if (station != null) station.PersistProgress = collectionPersistence;
-            station?.ResetCollection();
-            transientProfile = true;
-            if (persist) { PlayerPrefs.SetInt(ProfileKey, 1); PlayerPrefs.Save(); }
-            ReturnToVault();
+            if (State != GameFlowState.MainMenu || IsConfiguring || IsConfirming || IsSlotSelectorOpen) return;
+            slots.OpenNewGame();
         }
 
         public void ContinueCollection()
         {
-            if (State != GameFlowState.MainMenu || !HasCollection || IsConfirming || IsConfiguring) return;
-            State = GameFlowState.Vault;
-            game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
-            game.Session.ResumeAllUserPauses();
-            Sync();
+            if (State != GameFlowState.MainMenu || !HasCollection || IsConfirming || IsConfiguring || IsSlotSelectorOpen) return;
+            slots.OpenContinue();
+        }
+
+        public void CloseSlotSelector()
+        {
+            if (State != GameFlowState.MainMenu || IsConfiguring || IsConfirming) return;
+            slots.CloseSelector();
+        }
+
+        public void SelectSaveSlot(int slotIndex)
+        {
+            if (State != GameFlowState.MainMenu || IsConfiguring || IsConfirming) return;
+            slots.SelectSlot(slotIndex);
+        }
+
+        public int GetDefaultSlotFocus(SlotSelectorMode mode)
+        {
+            if (slots != null && slots.Mode == mode && slots.SelectedSlotIndex >= 0)
+                return slots.SelectedSlotIndex;
+            return SaveSlotService.GetDefaultSlotFocus(mode);
         }
 
         public void ShowMainMenu()
         {
             if (game == null || State == GameFlowState.Expedition || IsConfirming || IsLoading) return;
+            SaveSlotService.FlushAndSuspendActiveProfile(station?.Progress);
+            vaultSaveClock = 0f;
             if (separateScenes)
             {
                 if (!Application.CanStreamedLevelBeLoaded("MainMenu")) { Debug.LogError("No se pudo cargar el menú inicial."); return; }
@@ -134,6 +178,7 @@ namespace EchoScrap.Combat
                 IsLoading = true;
             }
             State = GameFlowState.MainMenu;
+            slots?.Reset();
             game.Motor.Stop();
             game.Session.Clock.SetPause(PauseReason.FrontEnd, true);
             station?.CloseMenu();
@@ -211,8 +256,10 @@ namespace EchoScrap.Combat
 
         private void ReturnToVault()
         {
-            IsConfirming = IsConfiguring = IsSelectingExpedition = false;
+            IsConfiguring = IsSelectingExpedition = false;
+            slots?.Reset();
             State = GameFlowState.Vault;
+            vaultSaveClock = 0f;
             game.ResetRun();
             travel.PlaceInWarehouse(true);
             Sync();
@@ -221,22 +268,17 @@ namespace EchoScrap.Combat
         public void RequestAbandon()
         {
             if (State != GameFlowState.Expedition || !game.Hud.IsPauseVisible || IsConfirming) return;
-            newCollectionConfirmation = false;
-            Confirm("¿ABANDONAR EXPEDICIÓN?", "Perderás las mejoras de esta partida y volverás a la bóveda.\nTu colección se conserva.");
+            game.Session.Clock.SetPause(PauseReason.FrontEnd, true);
+            slots.OpenAbandonConfirmation("¿ABANDONAR EXPEDICIÓN?",
+                "Perderás las mejoras de esta partida y volverás a la bóveda.\nTu colección se conserva.");
         }
 
-        private void Confirm(string title, string message, bool askPlayerName = false)
-        {
-            IsConfirming = true;
-            game.Session.Clock.SetPause(PauseReason.FrontEnd, true);
-            Sync();
-            view.ShowConfirmation(title, message, askPlayerName);
-        }
+        private void HandleAbandonAccepted() => ReturnToVault();
 
         public void CancelConfirmation()
         {
             if (!IsConfirming || view.IsValidatingName) return;
-            IsConfirming = false;
+            slots.CancelConfirmation();
             if (State != GameFlowState.MainMenu) game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
             Sync();
         }
@@ -244,20 +286,12 @@ namespace EchoScrap.Combat
         public void AcceptConfirmation()
         {
             if (!IsConfirming) return;
-            if (newCollectionConfirmation)
-            {
-                view.ValidateCollectionName(() =>
-                {
-                    IsConfirming = false;
-                    CreateCollection();
-                });
-            }
-            else { IsConfirming = false; ReturnToVault(); }
+            slots.AcceptConfirmation();
         }
 
         public void OpenConfiguration()
         {
-            if (State != GameFlowState.MainMenu || IsConfirming) return;
+            if (State != GameFlowState.MainMenu || IsConfirming || IsSlotSelectorOpen) return;
             IsConfiguring = true;
             game.Session.SetManualPause(true);
             Sync();
@@ -281,11 +315,23 @@ namespace EchoScrap.Combat
 
         public void QuitGame()
         {
-            if (State != GameFlowState.MainMenu || IsConfirming || IsConfiguring) return;
+            if (State != GameFlowState.MainMenu || IsConfirming || IsConfiguring || IsSlotSelectorOpen) return;
             Application.Quit();
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #endif
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && SaveSlotService.CanWriteActiveProfile && State != GameFlowState.MainMenu)
+                SaveSlotService.SaveActiveFusionProgress(station?.Progress);
+        }
+
+        private void OnApplicationQuit()
+        {
+            if (SaveSlotService.CanWriteActiveProfile && State != GameFlowState.MainMenu)
+                SaveSlotService.SaveActiveFusionProgress(station?.Progress);
         }
 
         private void OnDestroy()

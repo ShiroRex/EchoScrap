@@ -95,8 +95,8 @@ namespace EchoScrap.Tests
             station.Advance(180);Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);
             int resultId=station.Progress.result;Assert.IsFalse(station.Resolve(true));
             Assert.AreEqual(FusionPhase.AwaitingDecision,station.Progress.phase);Assert.AreEqual(resultId,station.Progress.result);
-            Assert.AreEqual(10,station.Progress.OwnedCount);Assert.IsTrue(station.IsMenuOpen);StringAssert.Contains("INVENTARIO LLENO",station.Notice);
-            Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsTrue(station.Resolve(true));Assert.AreEqual(10,station.Progress.OwnedCount);
+            Assert.AreEqual(FusionProgress.Capacity,station.Progress.OwnedCount);Assert.IsTrue(station.IsMenuOpen);StringAssert.Contains("INVENTARIO LLENO",station.Notice);
+            Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsTrue(station.Resolve(true));Assert.AreEqual(FusionProgress.Capacity,station.Progress.OwnedCount);
             Assert.AreEqual(1,station.Progress.owned[resultId]);Assert.IsFalse(station.Resolve(true));
         }
         [UnityTest] public IEnumerator LegendaryRevealOpensDoorAndReleaseRemovesIt()

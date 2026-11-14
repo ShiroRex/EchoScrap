@@ -85,11 +85,19 @@ namespace EchoScrap.Combat
 
         public static string SanitizeName(string raw) => string.IsNullOrWhiteSpace(raw) ? "" :
             raw.Trim().Substring(0, Math.Min(raw.Trim().Length, 20));
-        public static string PlayerName => PlayerPrefs.GetString(NameKey, "");
+        public static string PlayerName => SaveSlotService.HasLoadedProfile
+            ? SaveSlotService.ActivePlayerName
+            : PlayerPrefs.GetString(NameKey, "");
         public static event Action<string> OnPlayerNameChanged;
+        public static void SyncSessionNameFromActiveSlot() => OnPlayerNameChanged?.Invoke(PlayerName);
         public static void StartNewPlayerSession(string input)
         {
             Instance?.CancelAttempt();
+            if (SaveSlotService.HasLoadedProfile)
+            {
+                OnPlayerNameChanged?.Invoke(SaveSlotService.ActivePlayerName);
+                return;
+            }
             var ledger = ReadLedger();
             ledger.pending ??= new List<EventPlayerRecord>();
             if (!string.IsNullOrEmpty(ledger.interrupted)) QueueCancellation(ledger);
@@ -119,14 +127,31 @@ namespace EchoScrap.Combat
             game.Session.Events.OnSessionStateChanged += OnState;
             game.Session.SessionReset += CancelAttempt;
             var ledger = ReadLedger();
-            if (!string.IsNullOrEmpty(ledger.interrupted)) QueueCancellation(ledger);
-            hasPending = ledger.pending?.Count > 0;
+            if (!SaveSlotService.HasLoadedProfile && !string.IsNullOrEmpty(ledger.interrupted))
+                QueueCancellation(ledger);
+            hasPending = (ledger.pending != null && ledger.pending.Count > 0) || SaveSlotService.GetPendingRankingItems().Count > 0;
         }
 
         public void BeginRankedExpedition(bool longMode)
         {
+            if (active) return;
+            if (SaveSlotService.HasLoadedProfile)
+            {
+                string profileName = SaveSlotService.ActivePlayerName;
+                if (string.IsNullOrEmpty(profileName)) return;
+                active = true;
+                attemptId = Guid.NewGuid().ToString("N");
+                attemptName = profileName;
+                normalizedName = GamertagRegistry.CanonicalName(attemptName);
+                mode = longMode ? 8 : 3;
+                collected = 0;
+                highest = -1;
+                discoveries = fusions = 0;
+                nextUpload = 0;
+                return;
+            }
             var ledger = ReadLedger();
-            if (active || !ledger.Claim()) return;
+            if (!ledger.Claim()) return;
             active = true;
             attemptId = ledger.interrupted = Guid.NewGuid().ToString("N");
             SaveLedger(ledger);
@@ -152,6 +177,16 @@ namespace EchoScrap.Combat
         {
             if (!active) return;
             active = false;
+            if (SaveSlotService.HasLoadedProfile)
+            {
+                if (!string.IsNullOrEmpty(attemptId))
+                {
+                    SaveSlotService.EnqueuePendingRecord(SaveSlotService.ActiveProfileId,
+                        new EventPlayerRecord { sessionId = attemptId, status = "CANCELADA" });
+                    hasPending = true;
+                }
+                return;
+            }
             QueueCancellation(ReadLedger());
             hasPending = true;
         }
@@ -188,6 +223,13 @@ namespace EchoScrap.Combat
             if (!active || (change.State != SessionState.Victory && change.State != SessionState.Defeat)) return;
             active = false;
             LastRecord = Snapshot(change.State == SessionState.Victory ? "VICTORIA" : "DERROTA", change.GameplayTime);
+            if (SaveSlotService.HasLoadedProfile)
+            {
+                SaveSlotService.EnqueuePendingRecord(SaveSlotService.ActiveProfileId, LastRecord);
+                SaveSlotService.RecordActiveProfileBestScore(LastRecord.score);
+                hasPending = true;
+                return;
+            }
             var ledger = ReadLedger();
             ledger.interrupted = null;
             ledger.pending ??= new List<EventPlayerRecord>();
@@ -201,6 +243,12 @@ namespace EchoScrap.Combat
             if (sending || Time.unscaledTime < retryAt || (Application.isBatchMode && !EnableNetworkInTests)) return;
             if (hasPending)
             {
+                var slotOutbox = SaveSlotService.GetPendingRankingItems();
+                if (slotOutbox.Count > 0 && slotOutbox[0]?.record != null)
+                {
+                    StartCoroutine(PushRecordCoroutine(slotOutbox[0].record, true));
+                    return;
+                }
                 var queue = ReadLedger().pending;
                 if (queue != null && queue.Count > 0) { StartCoroutine(PushRecordCoroutine(queue[0], true)); return; }
                 hasPending = false;
@@ -224,10 +272,11 @@ namespace EchoScrap.Combat
             if (request.result == UnityWebRequest.Result.Success)
             {
                 if (!persistent) { sending = false; yield break; }
+                SaveSlotService.RemovePendingRecord(record.sessionId);
                 var ledger = ReadLedger();
                 ledger.pending.RemoveAll(r => r.sessionId == record.sessionId);
                 SaveLedger(ledger);
-                hasPending = ledger.pending.Count > 0;
+                hasPending = (ledger.pending != null && ledger.pending.Count > 0) || SaveSlotService.GetPendingRankingItems().Count > 0;
             }
             else
             {

@@ -29,6 +29,8 @@ namespace EchoScrap.Tests
         }
         [UnitySetUp] public IEnumerator SetUp()
         {
+            SceneTransitionState.Reset();
+            SceneTransitionState.SaveProgress = false;
             Time.timeScale = 1;
             previousBackground = InputSystem.settings.backgroundBehavior;
             previousEditorInput = InputSystem.settings.editorInputBehaviorInPlayMode;
@@ -62,7 +64,7 @@ namespace EchoScrap.Tests
                 SceneManager.SetActiveScene(SceneManager.CreateScene("GameLoopCleanup"));
                 yield return SceneManager.UnloadSceneAsync(scene);
             }
-            CombatTargetRegistry.Clear(); Time.timeScale = 1;
+            CombatTargetRegistry.Clear(); SceneTransitionState.Reset(); Time.timeScale = 1;
         }
         [TestCase("  Eco   Rojo ", "eco rojo")]
         [TestCase("MÁGO", "Ma\u0301go")]
@@ -88,6 +90,8 @@ namespace EchoScrap.Tests
         private void EnterVault()
         {
             flow.View.NewCollectionButton.onClick.Invoke();
+            if (flow.IsSlotSelectorOpen) flow.View.SlotCardButton(0).onClick.Invoke();
+            if (flow.IsConfirming) flow.AcceptConfirmation();
             if (flow.IsConfirming) flow.AcceptConfirmation();
         }
         private IEnumerator StartRun() { EnterVault(); flow.View.StartButton.onClick.Invoke(); yield return ChooseRound(); }
@@ -106,7 +110,10 @@ namespace EchoScrap.Tests
         {
             yield return StartRun();
             var sync = EventLeaderboardSync.Instance;
-            EventLeaderboardSync.StartNewPlayerSession(System.Guid.NewGuid().ToString("N"));
+            string tag = System.Guid.NewGuid().ToString("N").Substring(0, 12);
+            SaveSlotService.CreateNewGameInSlot(0, tag);
+            SaveSlotService.MarkSlotLoadCompleted();
+            EventLeaderboardSync.SyncSessionNameFromActiveSlot();
             sync.BeginRankedExpedition(false);
             game.ResetRun();
             Assert.IsNull(sync.LastRecord);
@@ -118,6 +125,7 @@ namespace EchoScrap.Tests
             game.Player.TakeContactOrHazardDamage(10000, Vector3.right);
             game.Session.ResolveSimulationStepOutcome();
             var result = sync.LastRecord;
+            Assert.IsNotNull(result);
             Assert.AreEqual("DERROTA", result.status);
             Assert.AreEqual(2, result.collectibles);
             Assert.AreEqual(1, result.discoveredCount);
@@ -127,7 +135,9 @@ namespace EchoScrap.Tests
             sync.BeginRankedExpedition(false);
             game.Player.TakeContactOrHazardDamage(10000, Vector3.right);
             game.Session.ResolveSimulationStepOutcome();
-            Assert.AreSame(result, sync.LastRecord);
+            Assert.IsNotNull(sync.LastRecord);
+            Assert.AreNotSame(result, sync.LastRecord);
+            Assert.AreNotEqual(result.sessionId, sync.LastRecord.sessionId);
             Assert.AreEqual(3430, EventLeaderboardSync.RawPoints(20, 2, 1, 1, 90));
         }
 
@@ -265,6 +275,11 @@ namespace EchoScrap.Tests
             var pad = InputSystem.AddDevice<Gamepad>(); testDevice = pad;
             InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
             yield return null; yield return null;
+            Assert.That(flow.IsSlotSelectorOpen, Is.True);
+            InputSystem.QueueStateEvent(pad, new GamepadState());
+            yield return null;
+            InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
+            yield return null; yield return null;
             Assert.That(flow.IsConfirming, Is.True);
             Assert.That(flow.View.ConfirmNameInput.gameObject.activeInHierarchy, Is.True);
             InputSystem.QueueStateEvent(pad, new GamepadState());
@@ -340,16 +355,23 @@ namespace EchoScrap.Tests
 
         [UnityTest] public IEnumerator ExistingCollectionRequiresConfirmationAndCancelPreservesIt()
         {
-            EnterVault(); station.Progress.owned[4] = 7;
+            EnterVault(); station.Progress.owned[4] = 7; station.Save();
             flow.ShowMainMenu(); flow.RequestNewCollection();
+            Assert.That(flow.IsSlotSelectorOpen, Is.True);
+            flow.SelectSaveSlot(0);
             Assert.That(flow.IsConfirming, Is.True);
             Assert.That(station.Progress.owned[4], Is.EqualTo(7));
             flow.CancelConfirmation();
+            flow.CloseSlotSelector();
             Assert.That(flow.State, Is.EqualTo(GameFlowState.MainMenu));
             Assert.That(station.Progress.owned[4], Is.EqualTo(7));
             flow.ContinueCollection();
+            flow.SelectSaveSlot(0);
             Assert.That(station.Progress.owned[4], Is.EqualTo(7));
-            flow.ShowMainMenu(); flow.RequestNewCollection(); flow.AcceptConfirmation();
+            flow.ShowMainMenu(); flow.RequestNewCollection(); flow.SelectSaveSlot(0);
+            flow.AcceptConfirmation();
+            Assert.That(flow.IsConfirming, Is.True);
+            flow.AcceptConfirmation();
             Assert.That(station.Progress.owned[4], Is.Zero);
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Vault));
             yield return null;
@@ -495,6 +517,7 @@ namespace EchoScrap.Tests
                 yield return null;
                 var title = Object.FindAnyObjectByType<MainMenuController>();
                 title.RequestNewCollection();
+                title.SelectSaveSlot(0);
                 title.AcceptConfirmation();
 
                 float deadline = Time.realtimeSinceStartup + 30f;

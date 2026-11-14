@@ -82,6 +82,7 @@ namespace EchoScrap.Combat
             ResetRun(false);
             var entry = SceneTransitionState.PendingEntry;
             SceneTransitionState.PendingEntry = SceneTransitionState.Entry.None;
+            SceneTransitionState.PendingSlotIndex = -1;
             if (entry == SceneTransitionState.Entry.None) { CompleteStartup(); yield break; }
             Session.Clock.SetPause(PauseReason.FrontEnd, true);
             // FusionStation initializes its inventory in Start before the front end can reset or restore it.

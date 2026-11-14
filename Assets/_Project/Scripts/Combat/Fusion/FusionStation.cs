@@ -16,7 +16,7 @@ namespace EchoScrap.Combat
         public bool PersistProgress=true;
         public const string SaveKey="EchoScrap.Collection.Production.v1";
         private const string LegacySaveKey = "EchoScrap.Collection.v1";
-        public static bool HasSave => PlayerPrefs.HasKey(SaveKey) || PlayerPrefs.HasKey(LegacySaveKey);
+        public static bool HasSave => SaveSlotService.HasAnyContinuableOrRecoverableSlot();
         public FusionProgress Progress {get;private set;}
         public VaultCollectionIndex Index {get;private set;}
         public bool WorldLabelsAllowed=>game!=null&&!game.Session.IsPaused&&game.Player.IsAlive&&(Index==null||!Index.IsOpen);
@@ -42,20 +42,20 @@ namespace EchoScrap.Combat
         {
             game=FindAnyObjectByType<CombatGameBootstrap>();
             PersistProgress = PersistProgress && SceneTransitionState.SaveProgress;
-            Progress = new FusionProgress();
-            bool migrate = PersistProgress && !PlayerPrefs.HasKey(SaveKey) && PlayerPrefs.HasKey(LegacySaveKey);
-            if (PersistProgress && (migrate || PlayerPrefs.HasKey(SaveKey)))
+            if (SaveSlotService.HasLoadedProfile)
             {
-                try
-                {
-                    var saved = JsonUtility.FromJson<FusionProgress>(PlayerPrefs.GetString(migrate ? LegacySaveKey : SaveKey));
-                    if (saved != null)
-                    {
-                        if (migrate && saved.owned != null) saved.version = 4;
-                        Progress = saved;
-                    }
-                }
-                catch (ArgumentException) { migrate = false; }
+                Progress = SaveSlotService.CloneActiveFusionProgress();
+            }
+            else if (PersistProgress)
+            {
+                SaveSlotService.EnsureLoadedFallbackForDirectArenaEntry();
+                Progress = SaveSlotService.HasLoadedProfile
+                    ? SaveSlotService.CloneActiveFusionProgress()
+                    : new FusionProgress();
+            }
+            else
+            {
+                Progress = new FusionProgress();
             }
             Progress.RestoreAfterLoading();
             slatRenderers=Door.GetComponentsInChildren<MeshRenderer>().OrderBy(r=>r.transform.position.y).ToArray();slats=slatRenderers.Select(r=>r.transform).ToArray();closed=slats.Select(t=>t.position).ToArray();
@@ -74,7 +74,6 @@ namespace EchoScrap.Combat
             ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);
             Index=gameObject.AddComponent<VaultCollectionIndex>();Index.Initialize(this,game);
             RefreshDisplays();UpdateResult();
-            if (migrate) Save();
             if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);gameObject.AddComponent<VaultReleaseInteraction>().Initialize(this,game);gameObject.AddComponent<EventLeaderboardSync>().Initialize(game,this);}
         }
 
@@ -260,13 +259,24 @@ namespace EchoScrap.Combat
             RefreshDisplays();Save();return true;
 
         }
+        public void ReloadFromActiveSlot()
+        {
+            openingAudio?.Stop(); resultAudio?.Stop(); resultAudioPlayed = false; CloseMenu(); Index?.Close(); Notice = "";
+            Progress = SaveSlotService.CloneActiveFusionProgress();
+            RefreshDisplays(); UpdateResult(); GetComponent<CompanionSystem>()?.RefreshEquipment();
+        }
         public void ResetCollection()
         {
             openingAudio.Stop();resultAudio.Stop();resultAudioPlayed=false;CloseMenu();Index?.Close();Notice="";Progress=new FusionProgress();Progress.Validate();
             RefreshDisplays();UpdateResult();Save();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
         private void OnSessionReset(){openingAudio.Stop();resultAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.RestoreAfterLoading();UpdateResult();Save();}CloseMenu();Index?.Close();}
-        private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}
+        public void Save()
+        {
+            if (Progress == null || !SaveSlotService.CanWriteActiveProfile) return;
+            if (SaveSlotService.IsPersistent && !PersistProgress) return;
+            SaveSlotService.SaveActiveFusionProgress(Progress);
+        }
         private void OnApplicationPause(bool paused){if(paused)Save();}
         private void OnApplicationQuit(){Save();}
         private void OnDestroy(){Save();if(game!=null){game.Session.SessionReset-=OnSessionReset;game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}}

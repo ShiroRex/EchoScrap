@@ -7,12 +7,17 @@ namespace EchoScrap.Combat
     {
         GameFlowState State { get; }
         bool HasCollection { get; }
+        bool IsSlotSelectorOpen { get; }
+        SlotSelectorMode SlotSelectionMode { get; }
         bool IsConfirming { get; }
         bool IsConfiguring { get; }
         bool IsLoading { get; }
         EffectPreferences Effects { get; }
         void ContinueCollection();
         void RequestNewCollection();
+        void CloseSlotSelector();
+        void SelectSaveSlot(int slotIndex);
+        int GetDefaultSlotFocus(SlotSelectorMode mode);
         void OpenConfiguration();
         void QuitGame();
         bool BeginExpedition();
@@ -29,19 +34,20 @@ namespace EchoScrap.Combat
         public static bool HasTransientCollection { get; set; }
         public static string FusionSnapshot { get; set; }
         public static Entry PendingEntry { get; set; }
+        public static int PendingSlotIndex { get; set; } = -1;
         public static EffectPreferences Effects { get; private set; } = new EffectPreferences();
         public static StatsDisplayMode StatsMode { get; set; }
         public static bool ShowCompanionPowers { get; set; }
-        public static bool HasCollection => SaveProgress
-            ? PlayerPrefs.HasKey(GameFlowController.ProfileKey) || FusionStation.HasSave
-            : HasTransientCollection;
+        public static bool HasCollection => SaveSlotService.HasAnyContinuableOrRecoverableSlot();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         public static void Reset()
         {
             SaveProgress = true; HasTransientCollection = false; FusionSnapshot = null;
-            PendingEntry = Entry.None; Effects = new EffectPreferences(); StatsMode = StatsDisplayMode.None;
+            PendingEntry = Entry.None; PendingSlotIndex = -1;
+            Effects = new EffectPreferences(); StatsMode = StatsDisplayMode.None;
             ShowCompanionPowers = false;
+            SaveSlotService.ResetRuntimeState();
         }
 
         public static void Capture(CombatGameBootstrap game, FusionStation station, bool hasCollection)
