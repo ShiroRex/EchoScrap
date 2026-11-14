@@ -113,6 +113,60 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(50f,collider.bounds.size.y,0.001f,edge);
             }
         }
+
+        [UnityTest] public IEnumerator CanSlideAlongAndBackAwayFromALowRock()
+        {
+            var body = game.Player.GetComponent<Rigidbody>();
+            var rock = GameObject.Find("roca_baja_-18_-23").GetComponentInChildren<MeshCollider>();
+            Assert.IsNotNull(rock);
+            Vector3 start = rock.bounds.center;
+            start.x = rock.bounds.min.x - 1.2f;
+            start = ArenaSurface.OnGround(start, 1f);
+            body.position = start;
+            game.Player.transform.position = start;
+            body.linearVelocity = Vector3.zero;
+            Physics.SyncTransforms();
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.D));
+            yield return null;
+            for (int i = 0; i < 24; ++i) yield return new WaitForFixedUpdate();
+            Vector3 contact = body.position;
+            Assert.That(contact.x, Is.GreaterThan(start.x + .2f));
+            Assert.That(contact.x, Is.LessThan(rock.bounds.center.x));
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.D, Key.S));
+            yield return null;
+            for (int i = 0; i < 20; ++i) yield return new WaitForFixedUpdate();
+            Assert.That(body.position.z, Is.LessThan(contact.z - .5f));
+
+            float slideX = body.position.x;
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.A));
+            yield return null;
+            for (int i = 0; i < 20; ++i) yield return new WaitForFixedUpdate();
+            Assert.That(body.position.x, Is.LessThan(slideX - .5f));
+        }
+
+        [UnityTest] public IEnumerator ShallowSceneryOverlapRecoversLocally()
+        {
+            var obstacle = new GameObject("Low rock edge");
+            var collider = obstacle.AddComponent<BoxCollider>();
+            collider.size = new Vector3(1f, .9f, 2f);
+            obstacle.transform.position = new Vector3(7f, .45f, 0f);
+            var body = game.Player.GetComponent<Rigidbody>();
+            var safe = new Vector3(4.5f, 1f, 0f);
+            body.position = safe;
+            game.Player.transform.position = safe;
+            Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+
+            // Simulate a small overlap after a heavy enemy pushed the player.
+            var contact = new Vector3(6.08f, 1f, 0f);
+            body.position = contact;
+            game.Player.transform.position = contact;
+            Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+            Assert.That(body.position.x, Is.InRange(5.8f, 6f), "Resolve the overlap without jumping back to the last safe pose.");
+        }
 #if UNITY_EDITOR
         [Test] public void DebrisWestOfPortalRestsOnTheTerrain()
         {
