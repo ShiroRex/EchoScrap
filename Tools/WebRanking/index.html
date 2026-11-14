@@ -35,7 +35,7 @@ function render(records){
  for(const [id,p] of Object.entries(records??{})){
   const score=effectiveScore(p);
   if(p?.rulesVersion!==2 || !Number.isFinite(score) || typeof p.playerName!=='string')continue;
-  const key=normalizeGamertag(p.gamertagNormalized || p.playerName);
+  const key=p.gamertagNormalized || normalizeGamertag(p.playerName);
   if(!key)continue;
   if(p.status==='EN PARTIDA'){
    const time=liveTime(p);
