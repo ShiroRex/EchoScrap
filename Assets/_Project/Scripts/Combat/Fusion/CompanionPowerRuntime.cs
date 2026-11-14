@@ -336,7 +336,6 @@ namespace EchoScrap.Combat
         internal void RestoreFromSnapshot(CompanionPowerSnapshot snapshot, System.Collections.Generic.IReadOnlyList<EnemyActor> enemyLookup)
         {
             ResetExpedition();
-            RefreshStats();
             if (snapshot == null) return;
             if (snapshot.shieldCooldowns != null)
                 System.Array.Copy(snapshot.shieldCooldowns, shieldCooldowns, Mathf.Min(shieldCooldowns.Length, snapshot.shieldCooldowns.Length));
@@ -345,7 +344,8 @@ namespace EchoScrap.Combat
             boltLife = snapshot.boltActive ? Mathf.Max(0f, snapshot.boltLife) : 0f;
             boltPosition = snapshot.boltPosition;
             boltDirection = snapshot.boltDirection.sqrMagnitude > 0.0001f ? snapshot.boltDirection.normalized : Vector3.forward;
-            speedBuff = Mathf.Max(0f, snapshot.speedBuff);
+            speedBuff = Has(9) ? Mathf.Max(0f, snapshot.speedBuff) : 0f;
+            RefreshStats();
             kills = Mathf.Max(0, snapshot.kills);
             rescuesUsed = Mathf.Max(0, snapshot.rescuesUsed);
             if (enemyLookup != null)

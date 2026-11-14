@@ -378,6 +378,57 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator ForcedCloseKeepsChangesAlreadySavedInVault()
+        {
+            yield return CreateSlotAndEnterVault(0, "");
+            Station.Progress.owned[0] = 2;
+            Station.Save();
+            Assert.IsTrue(Game.Flow.BeginExpedition());
+            Game.Flow.SelectExpedition(false);
+            yield return WaitForExpeditionEntry();
+            Game.Director.AutoTick = false;
+
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (!Travel.TryTravel(false, Game.Player) && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            Assert.IsTrue(Game.Session.IsInWarehouse, "Entering the vault saves the prior collection.");
+            Assert.IsTrue(Station.EquipCompanion(0, 0));
+            Assert.IsTrue(Station.ReleaseCollectible(0));
+            Assert.AreEqual(1, SaveSlotService.GetSlotSummaries()[0].OwnedCount, "The profile already persisted the release.");
+            Assert.AreEqual(0, Station.Progress.equipped[0], "The companion is equipped before closing.");
+
+            yield return SimulateRestartAndContinueSlot(0, runNormalQuitHook: false);
+
+            Assert.IsTrue(Game.Session.IsInWarehouse);
+            Assert.AreEqual((1, 0), (Station.Progress.OwnedCount, Station.Progress.equipped[0]),
+                "Resuming must keep the already saved inventory and equipped companion.");
+        }
+
+        [UnityTest]
+        public IEnumerator ResumingBossIntroRestoresProtectionAndMinionSuppression()
+        {
+            yield return CreateSlotAndEnterVault(0, "");
+            Assert.IsTrue(Game.Flow.BeginExpedition());
+            Game.Flow.SelectExpedition(false);
+            yield return WaitForExpeditionEntry();
+
+            Game.Director.AutoTick = Game.Encounter.AutoTick = false;
+            Game.Session.Clock.SetGameplayTimeForTesting(Game.WaveSettings.BossStartTime);
+            Game.Director.Step();
+            Assert.IsTrue(Game.Director.IsBossPhase);
+            Assert.IsTrue(Game.Encounter.IsEncounterActive);
+            Assert.IsTrue(Game.Player.IsBossCinematicProtected);
+            Game.Director.SuppressBossMinions(true);
+            Assert.IsTrue(ExpeditionSnapshotService.CaptureAndSave(Game, Station));
+            yield return SimulateRestartAndContinueSlot(0, runNormalQuitHook: false);
+
+            Assert.IsTrue(Game.Encounter.IsEncounterActive);
+            Assert.AreEqual(GolgoraState.Intro, Game.Encounter.Boss.State);
+            Assert.AreEqual((true, SessionState.BossIntro, true),
+                (Game.Player.IsBossCinematicProtected, Game.Session.State, Game.Director.BossMinionsSuppressed));
+        }
+
+        [UnityTest]
         public IEnumerator RankedProfile_PublishesResumedAndSubsequentAttempts_WithSameAndDistinctAttemptIds()
         {
             int port;

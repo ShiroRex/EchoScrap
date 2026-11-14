@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace EchoScrap.Combat
@@ -37,6 +38,8 @@ namespace EchoScrap.Combat
         public long revision = 1;
         public bool hasActiveExpedition;
         public string activeAttemptId = "";
+        public bool migratedFromLegacy;
+        public long fusionRevision;
         public int bestLocalScore;
         public int completedRankedRuns;
         public FusionProgress fusion = new FusionProgress();
@@ -55,6 +58,8 @@ namespace EchoScrap.Combat
                 revision = revision,
                 hasActiveExpedition = hasActiveExpedition,
                 activeAttemptId = activeAttemptId ?? "",
+                migratedFromLegacy = migratedFromLegacy,
+                fusionRevision = fusionRevision,
                 bestLocalScore = bestLocalScore,
                 completedRankedRuns = completedRankedRuns,
                 fusion = JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(fusion ?? new FusionProgress())) ?? new FusionProgress()
@@ -98,6 +103,8 @@ namespace EchoScrap.Combat
         public float gameplayTime;
         public bool isInWarehouse;
         public string fusionSnapshotJson = "";
+        public long profileRevision;
+        public double totalPlaySeconds;
     }
 
     public sealed class SlotSummary
@@ -163,6 +170,7 @@ namespace EchoScrap.Combat
         private static readonly long[] highestKnownSlotRevision = new long[SlotCount];
         private static readonly long[] highestKnownExpeditionRevision = new long[SlotCount];
         private static bool? hasPendingRankingItemsCache;
+        private static Task<bool> expeditionWrite;
 
         public static bool HasPendingRankingItems =>
             hasPendingRankingItemsCache ?? (hasPendingRankingItemsCache = GetPendingRankingItems().Count > 0).Value;
@@ -198,6 +206,7 @@ namespace EchoScrap.Combat
 
         public static void ResetRuntimeState()
         {
+            FinishExpeditionWrite();
             persistenceOverride = null;
             activeSlotIndex = -1;
             activeProfileId = "";
@@ -217,6 +226,7 @@ namespace EchoScrap.Combat
 
         public static void SetStorageRootForTesting(string directoryPath)
         {
+            FinishExpeditionWrite();
             storageRootOverride = string.IsNullOrWhiteSpace(directoryPath) ? null : directoryPath;
             Array.Clear(highestKnownSlotRevision, 0, SlotCount);
             Array.Clear(highestKnownExpeditionRevision, 0, SlotCount);
@@ -339,43 +349,46 @@ namespace EchoScrap.Combat
                 return;
             }
 
-            int targetSlot = -1;
+            string migratedProfileId = "legacy";
             if (validFusion || hasProfileKey || !string.IsNullOrEmpty(legacyAlias))
             {
-                var summaries = GetSlotSummariesWithoutMigration();
+                int targetSlot = -1;
+                SlotProfileData existing = null;
                 for (int i = 0; i < SlotCount; i++)
                 {
-                    if (summaries[i].Health == SlotHealth.Empty)
+                    var summary = InspectSlot(i, out var profile, out _);
+                    if (profile != null && profile.migratedFromLegacy)
                     {
+                        existing = profile;
                         targetSlot = i;
                         break;
                     }
+                    if (targetSlot < 0 && summary.Health == SlotHealth.Empty)
+                        targetSlot = i;
                 }
-                if (targetSlot < 0) return; // Keep un-migrated if no empty slot exists.
-            }
 
-            string migratedProfileId = "legacy";
-            if (targetSlot >= 0)
-            {
-                migratedFusion ??= new FusionProgress();
-                migratedFusion.RestoreAfterLoading();
-                long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                var profile = new SlotProfileData
+                if (targetSlot < 0) return;
+                if (existing == null)
                 {
-                    schemaVersion = CurrentSlotSchema,
-                    slotIndex = targetSlot,
-                    profileId = Guid.NewGuid().ToString("N"),
-                    playerName = legacyAlias,
-                    totalPlaySeconds = 0d,
-                    createdAtUtcMs = now,
-                    updatedAtUtcMs = now,
-                    revision = Math.Max(1, index.nextSequence++),
-                    hasActiveExpedition = false,
-                    activeAttemptId = "",
-                    fusion = migratedFusion
-                };
-                if (!WriteSlotFileVerified(targetSlot, profile)) return;
-                migratedProfileId = profile.profileId;
+                    migratedFusion ??= new FusionProgress();
+                    migratedFusion.RestoreAfterLoading();
+                    long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    existing = new SlotProfileData
+                    {
+                        schemaVersion = CurrentSlotSchema,
+                        slotIndex = targetSlot,
+                        profileId = Guid.NewGuid().ToString("N"),
+                        playerName = legacyAlias,
+                        createdAtUtcMs = now,
+                        updatedAtUtcMs = now,
+                        revision = Math.Max(1, index.nextSequence++),
+                        migratedFromLegacy = true,
+                        fusion = migratedFusion
+                    };
+                    if (!WriteSlotFileVerified(targetSlot, existing)) return;
+                }
+
+                migratedProfileId = existing.profileId;
                 if (index.lastPlayedSlot < 0) index.lastPlayedSlot = targetSlot;
             }
 
@@ -491,9 +504,7 @@ namespace EchoScrap.Combat
                 return false;
             }
 
-            if (!string.IsNullOrEmpty(profile.activeAttemptId) && !string.IsNullOrEmpty(profile.playerName))
-                EnqueuePendingRecord(profile.profileId, new EventPlayerRecord { sessionId = profile.activeAttemptId, status = "CANCELADA" });
-
+            string previousAttempt = profile.activeAttemptId;
             profile.hasActiveExpedition = false;
             profile.activeAttemptId = "";
             profile.updatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -508,6 +519,7 @@ namespace EchoScrap.Combat
                 return false;
             }
 
+            QueueReplacedAttempt(profile.profileId, profile.playerName, previousAttempt);
             DeleteExpeditionFiles(slotIndex);
             ActivateLoadedProfile(slotIndex, profile, null, activateWritesNow: false);
             updatedSummary = InspectSlot(slotIndex, out _, out _);
@@ -518,18 +530,8 @@ namespace EchoScrap.Combat
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return false;
 
-            // Cancel previous interrupted ranked attempt from the replaced profile without losing its outbox owner.
-            var previousSummary = InspectSlot(slotIndex, out var previousProfile, out _);
-            if (previousSummary.IsOccupied && previousProfile != null &&
-                !string.IsNullOrEmpty(previousProfile.activeAttemptId) &&
-                !string.IsNullOrEmpty(previousProfile.playerName))
-            {
-                EnqueuePendingRecord(previousProfile.profileId, new EventPlayerRecord
-                {
-                    sessionId = previousProfile.activeAttemptId,
-                    status = "CANCELADA"
-                });
-            }
+            FinishExpeditionWrite();
+            InspectSlot(slotIndex, out var previousProfile, out _);
 
             long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var freshFusion = new FusionProgress();
@@ -554,9 +556,16 @@ namespace EchoScrap.Combat
                 : WriteTransientSlot(slotIndex, created);
             if (!wrote) return false;
 
+            QueueReplacedAttempt(previousProfile?.profileId, previousProfile?.playerName, previousProfile?.activeAttemptId);
             DeleteExpeditionFiles(slotIndex);
             ActivateLoadedProfile(slotIndex, created, null, activateWritesNow: false);
             return true;
+        }
+
+        private static void QueueReplacedAttempt(string profileId, string name, string attemptId)
+        {
+            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(attemptId))
+                EnqueuePendingRecord(profileId, new EventPlayerRecord { sessionId = attemptId, status = "CANCELADA" });
         }
 
         public static void MarkSlotLoadCompleted()
@@ -610,6 +619,35 @@ namespace EchoScrap.Combat
 
         public static string ActivePlayerName => activeProfile?.playerName ?? "";
         public static double ActivePlayTimeSeconds => activeProfile?.totalPlaySeconds ?? 0d;
+        internal static long ActiveProfileRevision => activeProfile?.revision ?? 0;
+        internal static bool HasNewerFusion(long checkpointProfileRevision) =>
+            checkpointProfileRevision <= 0 || (activeProfile?.fusionRevision ?? 0) > checkpointProfileRevision;
+
+        internal static bool CanQueueExpeditionAutosave =>
+            IsPersistent && CanWriteActiveProfile && activeProfile.hasActiveExpedition &&
+            (expeditionWrite == null || expeditionWrite.IsCompleted);
+
+        internal static bool QueueExpeditionAutosave(ExpeditionSnapshotData snapshot)
+        {
+            if (!CanQueueExpeditionAutosave || snapshot.profileId != activeProfileId ||
+                snapshot.attemptId != activeProfile.activeAttemptId ||
+                snapshot.revision <= highestKnownExpeditionRevision[activeSlotIndex])
+                return false;
+
+            string path = GetExpeditionFilePath(activeSlotIndex);
+            highestKnownExpeditionRevision[activeSlotIndex] = snapshot.revision;
+            // The snapshot contains copies of simulation data and is owned by this worker.
+            expeditionWrite = Task.Run(() => WriteVerifiedJsonFile(path, JsonUtility.ToJson(snapshot), snapshot.revision));
+            return true;
+        }
+
+        internal static void FinishExpeditionWrite()
+        {
+            if (expeditionWrite == null) return;
+            try { expeditionWrite.GetAwaiter().GetResult(); }
+            catch (Exception ex) { Debug.LogWarning($"SaveSlotService: no se pudo escribir la expedición: {ex.Message}"); }
+            expeditionWrite = null;
+        }
 
         public static void RecordActivePlaytime(float deltaSeconds)
         {
@@ -623,16 +661,25 @@ namespace EchoScrap.Combat
             if (!CanWriteActiveProfile || progress == null) return false;
             var snapshot = JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(progress)) ?? new FusionProgress();
             snapshot.Validate();
-            activeProfile.fusion = snapshot;
-            return SaveActiveProfileMetadata();
+            var candidate = activeProfile.Clone();
+            candidate.fusion = snapshot;
+            candidate.fusionRevision = NextSlotRevision(activeSlotIndex, candidate.revision);
+            return CommitActiveProfile(candidate);
         }
 
         public static bool SaveActiveProfileMetadata()
         {
             if (!CanWriteActiveProfile) return false;
-            activeProfile.updatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            activeProfile.revision = NextSlotRevision(activeSlotIndex, activeProfile.revision);
-            return WriteActiveSlotChecked(activeProfile);
+            return CommitActiveProfile(activeProfile.Clone());
+        }
+
+        private static bool CommitActiveProfile(SlotProfileData candidate)
+        {
+            candidate.updatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            candidate.revision = NextSlotRevision(activeSlotIndex, candidate.revision);
+            if (!WriteActiveSlotChecked(candidate)) return false;
+            activeProfile = candidate;
+            return true;
         }
 
         public static bool SetActiveExpeditionState(string attemptId, string serializedExpeditionJson, long snapshotRevision, FusionProgress currentFusion = null)
@@ -640,6 +687,7 @@ namespace EchoScrap.Combat
             if (!CanWriteActiveProfile || string.IsNullOrEmpty(attemptId) || string.IsNullOrEmpty(serializedExpeditionJson))
                 return false;
 
+            FinishExpeditionWrite();
             if (snapshotRevision <= highestKnownExpeditionRevision[activeSlotIndex])
                 return false;
 
@@ -657,11 +705,13 @@ namespace EchoScrap.Combat
                 }
             }
 
+            var candidate = activeProfile.Clone();
             if (currentFusion != null)
             {
                 var clone = JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(currentFusion)) ?? new FusionProgress();
                 clone.Validate();
-                activeProfile.fusion = clone;
+                candidate.fusion = clone;
+                candidate.fusionRevision = NextSlotRevision(activeSlotIndex, candidate.revision);
             }
 
             if (IsPersistent)
@@ -675,27 +725,31 @@ namespace EchoScrap.Combat
             }
 
             highestKnownExpeditionRevision[activeSlotIndex] = snapshotRevision;
+            candidate.hasActiveExpedition = true;
+            candidate.activeAttemptId = attemptId;
+            if (!CommitActiveProfile(candidate)) return false;
             pendingExpeditionJson = serializedExpeditionJson;
-            activeProfile.hasActiveExpedition = true;
-            activeProfile.activeAttemptId = attemptId;
-            return SaveActiveProfileMetadata();
+            return true;
         }
 
         public static bool ClearActiveExpeditionState(FusionProgress finalFusion = null)
         {
             if (!CanWriteActiveProfile) return false;
+            FinishExpeditionWrite();
+
+            var candidate = activeProfile.Clone();
             if (finalFusion != null)
             {
-                var clone = JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(finalFusion)) ?? new FusionProgress();
-                clone.Validate();
-                activeProfile.fusion = clone;
+                candidate.fusion = JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(finalFusion)) ?? new FusionProgress();
+                candidate.fusion.Validate();
+                candidate.fusionRevision = NextSlotRevision(activeSlotIndex, candidate.revision);
             }
-            activeProfile.hasActiveExpedition = false;
-            activeProfile.activeAttemptId = "";
+            candidate.hasActiveExpedition = false;
+            candidate.activeAttemptId = "";
+            if (!CommitActiveProfile(candidate)) return false;
             pendingExpeditionJson = null;
-            bool saved = SaveActiveProfileMetadata();
             DeleteExpeditionFiles(activeSlotIndex);
-            return saved;
+            return true;
         }
 
         public static void ClearPendingExpeditionAfterRestore()
@@ -783,7 +837,11 @@ namespace EchoScrap.Combat
             pendingExpeditionJson = expeditionJson;
             highestKnownSlotRevision[slotIndex] = Math.Max(highestKnownSlotRevision[slotIndex], profile.revision);
             if (!string.IsNullOrEmpty(expeditionJson) && TryParseExpeditionHeader(expeditionJson, out var header))
+            {
                 highestKnownExpeditionRevision[slotIndex] = Math.Max(highestKnownExpeditionRevision[slotIndex], header.revision);
+                if (!double.IsNaN(header.totalPlaySeconds) && !double.IsInfinity(header.totalPlaySeconds))
+                    activeProfile.totalPlaySeconds = Math.Max(activeProfile.totalPlaySeconds, header.totalPlaySeconds);
+            }
             writesEnabled = activateWritesNow;
         }
 
@@ -891,6 +949,9 @@ namespace EchoScrap.Combat
             if (ValidateExpeditionForProfile(slotIndex, profile, out expeditionJson))
             {
                 summary.Health = SlotHealth.ValidExpedition;
+                if (TryParseExpeditionHeader(expeditionJson, out var header) &&
+                    !double.IsNaN(header.totalPlaySeconds) && !double.IsInfinity(header.totalPlaySeconds))
+                    summary.TotalPlaySeconds = Math.Max(summary.TotalPlaySeconds, header.totalPlaySeconds);
                 return summary;
             }
 
@@ -911,10 +972,17 @@ namespace EchoScrap.Combat
             else
             {
                 string expPath = GetExpeditionFilePath(slotIndex);
-                if (!TryReadVerifiedPayload(expPath, expPath + ".bak", out expeditionJson, out _))
-                    return false;
+                return (TryReadSingleVerifiedFile(expPath, out expeditionJson, out _) &&
+                        MatchesExpedition(expeditionJson, profile)) ||
+                       (TryReadSingleVerifiedFile(expPath + ".bak", out expeditionJson, out _) &&
+                        MatchesExpedition(expeditionJson, profile));
             }
 
+            return MatchesExpedition(expeditionJson, profile);
+        }
+
+        private static bool MatchesExpedition(string expeditionJson, SlotProfileData profile)
+        {
             if (string.IsNullOrEmpty(expeditionJson)) return false;
             if (!TryParseExpeditionHeader(expeditionJson, out var header)) return false;
             if (header.profileId != profile.profileId) return false;
@@ -1095,6 +1163,7 @@ namespace EchoScrap.Combat
                     transientForcedHealth[slotIndex] = SlotHealth.Empty;
                 return;
             }
+            FinishExpeditionWrite();
             string path = GetExpeditionFilePath(slotIndex);
             TryDeleteFile(path);
             TryDeleteFile(path + ".tmp");

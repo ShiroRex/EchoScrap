@@ -563,6 +563,22 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void RestoredSharpGemDoesNotHitAnEnemyTwice()
+        {
+            Set("GREED_06", 3);
+            var target = Enemy(0f, 3.2f);
+            pickups.SpawnExperience(new Vector3(0f, 0f, 3.8f), 1);
+            pickups.Step(.02f);
+            Assert.That(target.CurrentHealth, Is.EqualTo(985f), "First pass was already counted.");
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var enemies = new[] { target };
+            var state = typeof(CombatPickupPool).GetMethod("CaptureSnapshot", flags).Invoke(pickups, new object[] { enemies });
+            typeof(CombatPickupPool).GetMethod("RestoreFromSnapshot", flags).Invoke(pickups, new object[] { state, enemies });
+            pickups.Step(.02f);
+            Assert.That(target.CurrentHealth, Is.EqualTo(985f), "The same gem already hit before saving.");
+        }
+
+        [Test]
         public void MergedGemSweepsThroughMultipleTargetsAndHitsEachOnlyOnce()
         {
             Set("GREED_06", 3);

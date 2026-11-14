@@ -216,9 +216,11 @@ namespace EchoScrap.Tests
             validSnap.revision = SaveSlotService.NextActiveExpeditionRevision();
             validSnap.modeMinutes = 99;
             string badJson = JsonUtility.ToJson(validSnap);
-            // SetActiveExpeditionState writes envelope, then InspectSlot rejects invalid body modeMinutes.
             Assert.IsTrue(SaveSlotService.SetActiveExpeditionState("att_rev_1", badJson, validSnap.revision));
             SaveSlotService.FlushAndSuspendActiveProfile();
+            Assert.IsTrue(SaveSlotService.SelectSlotForContinue(0, out _, out _), "The last usable checkpoint remains in the backup.");
+            Assert.AreEqual(24f, JsonUtility.FromJson<ExpeditionSnapshotData>(SaveSlotService.PendingExpeditionJson).gameplayTime);
+            File.WriteAllText(SaveSlotService.GetExpeditionFilePath(0) + ".bak", "invalid backup");
             Assert.AreEqual(SlotHealth.ExpeditionDamagedRecoverable, SaveSlotService.GetSlotSummaries()[0].Health);
         }
     }

@@ -20,6 +20,8 @@ namespace EchoScrap.Combat
         public float gameplayTime;
         public bool isInWarehouse;
         public string fusionSnapshotJson = string.Empty;
+        public long profileRevision;
+        public double totalPlaySeconds;
         public string sceneName = string.Empty;
 
         public SessionRngState rng;
@@ -443,6 +445,7 @@ namespace EchoScrap.Combat
         public int id;
         public int experience;
         public int gemCount;
+        public List<int> sharpGemHitEnemyIndices;
         public bool attracted;
         public float age;
         public float bobPhase;

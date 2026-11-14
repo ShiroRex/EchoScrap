@@ -193,7 +193,7 @@ namespace EchoScrap.Combat
                 game != null && game.Session != null && game.Player != null && game.Player.IsAlive &&
                 game.Session.State != SessionState.Victory && game.Session.State != SessionState.Defeat)
             {
-                ExpeditionSnapshotService.CaptureAndSave(game, station);
+                ExpeditionSnapshotService.CaptureAndSave(game, station, autosave: true);
             }
         }
 
@@ -317,6 +317,11 @@ namespace EchoScrap.Combat
         public void ReturnFromResult()
         {
             if (game.Session.State != SessionState.Victory && game.Session.State != SessionState.Defeat) return;
+            if (!ClearCompletedExpedition())
+            {
+                game.Hud.ShowResultSaveError();
+                return;
+            }
             ReturnToVault();
         }
 
@@ -345,9 +350,12 @@ namespace EchoScrap.Combat
         {
             pendingStepSave = false;
             expeditionSaveClock = 0f;
+            if (!ClearCompletedExpedition())
+            {
+                slots.OpenAbandonConfirmation("NO SE PUDO GUARDAR", "La expedición sigue activa. Confirma para reintentar.");
+                return;
+            }
             EventLeaderboardSync.Instance?.AbandonActiveAttempt();
-            if (SaveSlotService.CanWriteActiveProfile)
-                SaveSlotService.ClearActiveExpeditionState(station?.Progress);
             ReturnToVault();
         }
 
@@ -405,10 +413,13 @@ namespace EchoScrap.Combat
             {
                 pendingStepSave = false;
                 expeditionSaveClock = 0f;
-                if (SaveSlotService.CanWriteActiveProfile)
-                    SaveSlotService.ClearActiveExpeditionState(station?.Progress);
+                ClearCompletedExpedition();
             }
         }
+
+        private bool ClearCompletedExpedition() =>
+            !SaveSlotService.CanWriteActiveProfile || !SaveSlotService.HasActiveExpeditionInLoadedSlot ||
+            SaveSlotService.ClearActiveExpeditionState(station?.Progress);
 
         private void HandlePauseStateChanged(PauseReason reasons, bool paused)
         {
@@ -423,7 +434,12 @@ namespace EchoScrap.Combat
         {
             if (!paused || !SaveSlotService.CanWriteActiveProfile || State == GameFlowState.MainMenu) return;
             if (State == GameFlowState.Expedition)
-                ExpeditionSnapshotService.CaptureAndSave(game, station, forceImmediate: true);
+            {
+                if (game.Session.State == SessionState.Victory || game.Session.State == SessionState.Defeat)
+                    ClearCompletedExpedition();
+                else
+                    ExpeditionSnapshotService.CaptureAndSave(game, station, forceImmediate: true);
+            }
             else
                 SaveSlotService.SaveActiveFusionProgress(station?.Progress);
         }
@@ -432,7 +448,12 @@ namespace EchoScrap.Combat
         {
             if (!SaveSlotService.CanWriteActiveProfile || State == GameFlowState.MainMenu) return;
             if (State == GameFlowState.Expedition)
-                ExpeditionSnapshotService.CaptureAndSave(game, station, forceImmediate: true);
+            {
+                if (game.Session.State == SessionState.Victory || game.Session.State == SessionState.Defeat)
+                    ClearCompletedExpedition();
+                else
+                    ExpeditionSnapshotService.CaptureAndSave(game, station, forceImmediate: true);
+            }
             else
                 SaveSlotService.SaveActiveFusionProgress(station?.Progress);
         }

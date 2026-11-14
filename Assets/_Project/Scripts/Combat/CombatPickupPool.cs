@@ -759,7 +759,7 @@ namespace EchoScrap.Combat
             return mesh;
         }
 
-        internal CombatPickupPoolSnapshot CaptureSnapshot()
+        internal CombatPickupPoolSnapshot CaptureSnapshot(IReadOnlyList<EnemyActor> enemyLookup)
         {
             var snapshot = new CombatPickupPoolSnapshot
             {
@@ -774,7 +774,7 @@ namespace EchoScrap.Combat
             {
                 PickupSlot slot = slots[i];
                 if (slot == null || !slot.Active) continue;
-                snapshot.pickups.Add(new CombatPickupSnapshot
+                var item = new CombatPickupSnapshot
                 {
                     kind = (int)slot.Kind,
                     position = slot.Position,
@@ -788,12 +788,22 @@ namespace EchoScrap.Combat
                     flightStart = slot.FlightStart,
                     flightAge = slot.FlightAge,
                     flightDuration = slot.FlightDuration
-                });
+                };
+                if (slot.SharpGemHits is { Count: > 0 })
+                {
+                    for (int enemyIndex = 0; enemyIndex < enemyLookup.Count; enemyIndex++)
+                    {
+                        var enemy = enemyLookup[enemyIndex];
+                        if (enemy != null && slot.SharpGemHits.TryGetValue(enemy.TargetId, out int version) && enemy.SpawnVersion == version)
+                            (item.sharpGemHitEnemyIndices ??= new List<int>()).Add(enemyIndex);
+                    }
+                }
+                snapshot.pickups.Add(item);
             }
             return snapshot;
         }
 
-        internal void RestoreFromSnapshot(CombatPickupPoolSnapshot snapshot)
+        internal void RestoreFromSnapshot(CombatPickupPoolSnapshot snapshot, IReadOnlyList<EnemyActor> enemyLookup)
         {
             EnsureInitialized();
             ResetForSession();
@@ -832,6 +842,15 @@ namespace EchoScrap.Combat
                 slot.FlightAge = Mathf.Max(0f, item.flightAge);
                 slot.FlightDuration = Mathf.Max(0f, item.flightDuration);
                 slot.SharpGemHits?.Clear();
+                if (item.sharpGemHitEnemyIndices != null)
+                {
+                    foreach (int enemyIndex in item.sharpGemHitEnemyIndices)
+                    {
+                        if (enemyIndex < 0 || enemyIndex >= enemyLookup.Count || enemyLookup[enemyIndex] == null) continue;
+                        var enemy = enemyLookup[enemyIndex];
+                        (slot.SharpGemHits ??= new Dictionary<int, int>())[enemy.TargetId] = enemy.SpawnVersion;
+                    }
+                }
                 slot.Active = true;
                 slot.Root.transform.position = slot.Position;
                 slot.Visual.localPosition = Vector3.zero;

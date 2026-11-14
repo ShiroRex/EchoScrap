@@ -322,7 +322,6 @@ namespace EchoScrap.Combat
         internal void RestoreFromSnapshot(BossEncounterSnapshot encounterSnapshot, BossArenaSnapshot arenaSnapshot,
             GolgoraSnapshot bossSnapshot, MagmaRingPoolSnapshot ringSnapshot)
         {
-            ResetForSession();
             if (encounterSnapshot == null) return;
             closingRewardResolved = encounterSnapshot.closingRewardResolved;
             ClosingXpReward = Mathf.Max(0, encounterSnapshot.closingXpReward);
@@ -351,8 +350,6 @@ namespace EchoScrap.Combat
             introInProgress = encounterSnapshot.introInProgress;
             IntroRemaining = Mathf.Max(0f, encounterSnapshot.introRemaining);
             IntroWaitingForClearance = encounterSnapshot.introWaitingForClearance;
-            if (director != null)
-                director.SetBossActive(Boss.IsCombatActive);
             if (introInProgress)
             {
                 var presentation = Boss.GetComponent<GolgoraPresentation>();

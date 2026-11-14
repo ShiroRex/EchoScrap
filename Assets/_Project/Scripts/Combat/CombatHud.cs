@@ -607,6 +607,12 @@ namespace EchoScrap.Combat
             else if (game.Flow.State == GameFlowState.Expedition) game.Flow.RequestAbandon();
             else game.Flow.ShowMainMenu();
         }
+        public void ShowResultSaveError()
+        {
+            if (resultDescription != null)
+                resultDescription.text = "No se pudo guardar. Vuelve a pulsar para reintentar.";
+        }
+
         private void ResultAction()
         {
             if (game.Flow == null) RestartGame();

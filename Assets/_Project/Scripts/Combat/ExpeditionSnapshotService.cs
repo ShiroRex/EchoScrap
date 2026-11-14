@@ -71,12 +71,14 @@ namespace EchoScrap.Combat
             return CaptureAndSave(game, game.Flow.Station, forceImmediate);
         }
 
-        public static bool CaptureAndSave(CombatGameBootstrap game, FusionStation station, bool forceImmediate = false)
+        public static bool CaptureAndSave(CombatGameBootstrap game, FusionStation station, bool forceImmediate = false, bool autosave = false)
         {
             if (IsRestoring) return false;
             if (game == null || !game.IsInitialized || game.Session == null || game.Player == null || !game.Player.IsAlive)
                 return false;
             if (!SaveSlotService.CanWriteActiveProfile) return false;
+            autosave = autosave && SaveSlotService.IsPersistent && SaveSlotService.HasActiveExpeditionInLoadedSlot;
+            if (autosave && !SaveSlotService.CanQueueExpeditionAutosave) return false;
             if (game.Flow != null && game.Flow.State != GameFlowState.Expedition) return false;
             if (game.Session.State == SessionState.Victory || game.Session.State == SessionState.Defeat) return false;
 
@@ -118,6 +120,8 @@ namespace EchoScrap.Combat
                 gameplayTime = game.Session.Clock.GameplayTime,
                 isInWarehouse = game.Session.IsInWarehouse,
                 fusionSnapshotJson = fusionJson,
+                profileRevision = SaveSlotService.ActiveProfileRevision,
+                totalPlaySeconds = SaveSlotService.ActivePlayTimeSeconds,
                 sceneName = game.gameObject.scene.name ?? string.Empty,
                 rng = game.Session.Rng.CaptureState(),
                 session = game.Session.CaptureSnapshot(),
@@ -160,7 +164,7 @@ namespace EchoScrap.Combat
             snapshot.eliteProjectiles = projectilePool != null ? projectilePool.CaptureSnapshot() : new EliteProjectilePoolSnapshot();
             snapshot.puddles = game.Hazards != null ? game.Hazards.CaptureSnapshot() : new CorrosivePuddlePoolSnapshot();
             snapshot.mothExplosions = game.MothExplosions != null ? game.MothExplosions.CaptureSnapshot() : new MothExplosionPoolSnapshot();
-            snapshot.pickups = game.Pickups != null ? game.Pickups.CaptureSnapshot() : new CombatPickupPoolSnapshot();
+            snapshot.pickups = game.Pickups != null ? game.Pickups.CaptureSnapshot(enemyLookup) : new CombatPickupPoolSnapshot();
 
             CompanionSystem companions = station != null ? station.GetComponent<CompanionSystem>() : null;
             snapshot.companionField = companions != null ? companions.CaptureSnapshot() : new CompanionFieldSnapshot();
@@ -170,6 +174,9 @@ namespace EchoScrap.Combat
             snapshot.upgradeRuntime = game.Upgrades != null
                 ? game.Upgrades.CaptureSnapshot(enemyLookup)
                 : new UpgradeRuntimeSnapshot();
+
+            if (autosave)
+                return SaveSlotService.QueueExpeditionAutosave(snapshot);
 
             string json = JsonUtility.ToJson(snapshot);
             if (string.IsNullOrEmpty(json)) return false;
@@ -221,8 +228,11 @@ namespace EchoScrap.Combat
                 game.Session.GetComponent<EliteProjectilePool>()?.ClearAll();
 
                 // Restore collection & equipment before PlayerRuntimeStats so RefreshEquipment does not overwrite saved card stats.
-                station?.RestoreFromSnapshotJson(snapshot.fusionSnapshotJson);
+                bool useProfileFusion = SaveSlotService.HasNewerFusion(snapshot.profileRevision);
+                station?.RestoreFromSnapshotJson(useProfileFusion ? null : snapshot.fusionSnapshotJson);
 
+                // Clear encounter side effects before applying the saved session and director.
+                game.Encounter?.ResetForSession();
                 game.Session.RestoreFromSnapshot(snapshot.session);
                 game.Session.Clock.SetPause(PauseReason.FrontEnd, true);
                 for (int i = 0; i < TransientPauseReasonsToClear.Length; i++)
@@ -247,8 +257,8 @@ namespace EchoScrap.Combat
                     game.Player.GetComponent<FlashlightPresentation>()?.ResynchronizeStateWithoutRepeatingFlashes();
                 }
 
-                game.Director?.RestoreFromSnapshot(snapshot.waveDirector);
                 game.Encounter?.RestoreFromSnapshot(snapshot.bossEncounter, snapshot.bossArena, snapshot.golgora, snapshot.magmaRings);
+                game.Director?.RestoreFromSnapshot(snapshot.waveDirector);
 
                 int enemyCount = snapshot.enemies != null ? snapshot.enemies.Count : 0;
                 var restoredNonBoss = new List<EnemyActor>(enemyCount);
@@ -292,7 +302,7 @@ namespace EchoScrap.Combat
 
                 game.Hazards?.RestoreFromSnapshot(snapshot.puddles);
                 game.MothExplosions?.RestoreFromSnapshot(snapshot.mothExplosions);
-                game.Pickups?.RestoreFromSnapshot(snapshot.pickups);
+                game.Pickups?.RestoreFromSnapshot(snapshot.pickups, enemyLookup);
 
                 CompanionSystem companions = station != null ? station.GetComponent<CompanionSystem>() : null;
                 companions?.RestoreFromSnapshot(snapshot.companionField);

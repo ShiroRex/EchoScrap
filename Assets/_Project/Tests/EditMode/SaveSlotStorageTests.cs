@@ -41,6 +41,61 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void FailedProfileWriteDoesNotDestroyTheLastValidExpedition()
+        {
+            Assert.IsTrue(SaveSlotService.CreateNewGameInSlot(0, "ECO"));
+            SaveSlotService.MarkSlotLoadCompleted();
+            var snap = new ExpeditionSnapshotData
+            {
+                profileId = SaveSlotService.ActiveProfileId, attemptId = "valid-attempt",
+                revision = 1, fusionSnapshotJson = JsonUtility.ToJson(SaveSlotService.CloneActiveFusionProgress())
+            };
+            Assert.IsTrue(SaveSlotService.SetActiveExpeditionState(snap.attemptId, JsonUtility.ToJson(snap), 1));
+            string blockedWrite = SaveSlotService.GetSlotFilePath(0) + ".tmp";
+            Directory.CreateDirectory(blockedWrite);
+            Assert.IsFalse(SaveSlotService.ClearActiveExpeditionState());
+            Directory.Delete(blockedWrite);
+            Assert.AreEqual(SlotHealth.ValidExpedition, SaveSlotService.GetSlotSummaries()[0].Health,
+                "A failed metadata write must retain the last valid expedition.");
+        }
+
+        [Test]
+        public void FailedReplacementDoesNotCancelTheExistingAttempt()
+        {
+            Assert.IsTrue(SaveSlotService.CreateNewGameInSlot(0, "ECO"));
+            SaveSlotService.MarkSlotLoadCompleted();
+            var snap = new ExpeditionSnapshotData
+            {
+                profileId = SaveSlotService.ActiveProfileId, attemptId = "valid-attempt",
+                revision = 1, fusionSnapshotJson = JsonUtility.ToJson(SaveSlotService.CloneActiveFusionProgress())
+            };
+            Assert.IsTrue(SaveSlotService.SetActiveExpeditionState(snap.attemptId, JsonUtility.ToJson(snap), 1));
+            string blockedWrite = SaveSlotService.GetSlotFilePath(0) + ".tmp";
+            Directory.CreateDirectory(blockedWrite);
+            Assert.IsFalse(SaveSlotService.CreateNewGameInSlot(0, "NEW"));
+            Directory.Delete(blockedWrite);
+            Assert.AreEqual(SlotHealth.ValidExpedition, SaveSlotService.GetSlotSummaries()[0].Health);
+            Assert.IsFalse(SaveSlotService.GetPendingRankingItems().Any(item => item.record.sessionId == snap.attemptId),
+                "A replacement that failed to save must not enqueue deletion of the previous attempt.");
+        }
+
+        [Test]
+        public void FailedMigrationRetryDoesNotCreateDuplicateProfiles()
+        {
+            var legacy = new FusionProgress();
+            legacy.owned[0] = 2;
+            PlayerPrefs.SetString(FusionStation.SaveKey, JsonUtility.ToJson(legacy));
+            PlayerPrefs.SetString(EventLeaderboardSync.PlayerNamePrefKey + ".Test", "ECO");
+            string blockedWrite = SaveSlotService.GetIndexFilePath() + ".tmp";
+            Directory.CreateDirectory(blockedWrite);
+            SaveSlotService.EnsureMigrated();
+            Directory.Delete(blockedWrite);
+            SaveSlotService.EnsureMigrated();
+            Assert.AreEqual(1, SaveSlotService.GetSlotSummaries().Count(s => s.IsValid),
+                "Retrying a migration after the index commit fails must not create a second profile.");
+        }
+
+        [Test]
         public void CreateAndReloadIsolatesThreeSlotsWithUniqueProfileIdsAndHhMmSsPlaytime()
         {
             Assert.IsTrue(SaveSlotService.CreateNewGameInSlot(0, "ALPHA"));
