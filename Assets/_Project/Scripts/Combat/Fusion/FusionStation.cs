@@ -11,7 +11,7 @@ namespace EchoScrap.Combat
         public Transform[] DisplaySlots;
         public float InteractionDistance=4.5f;
         internal const float DisplayInteractionDistance = 5f;
-        internal Vector3 DisplayApproachPoint(int slot) => DisplaySlots[slot].position + Vector3.back * 3f;
+        internal Vector3 DisplayApproachPoint(int slot) => DisplaySlots[slot].position - DisplaySlots[slot].forward * 3f;
         public float DisplayHeight=5.5f;
         public bool PersistProgress=true;
         public const string SaveKey="EchoScrap.Collection.Production.v1";

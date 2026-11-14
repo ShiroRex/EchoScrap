@@ -452,7 +452,7 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator EAtGalleryOpensReleaseAndEscapeCancelsWithoutChangingInventory()
         {
             station.ResetCollection();station.Progress.owned[0]=1;station.RefreshDisplays();Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true);
-            var p=ArenaSurface.OnGround(station.DisplaySlots[3].position+Vector3.back*3,1);game.Player.transform.position=p;game.Player.GetComponent<Rigidbody>().position=p;Physics.SyncTransforms();yield return null;
+            var p=ArenaSurface.OnGround(station.DisplaySlots[3].position - station.DisplaySlots[3].forward * 3f,1);game.Player.transform.position=p;game.Player.GetComponent<Rigidbody>().position=p;Physics.SyncTransforms();yield return null;
             var release=station.GetComponent<VaultReleaseInteraction>();Assert.AreEqual(3,release.NearestSlot);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;Assert.IsTrue(release.IsOpen);Assert.IsFalse(station.IsMenuOpen);Assert.IsFalse(station.GetComponent<CompanionSystem>().IsOpen);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.Escape));yield return null;yield return null;Assert.IsFalse(release.IsOpen);Assert.AreEqual(1,station.Progress.owned[0]);
@@ -502,7 +502,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(-1, station.Progress.equipped[0]);
 
             var release = station.GetComponent<VaultReleaseInteraction>();
-            PlacePlayer(ArenaSurface.OnGround(station.DisplaySlots[3].position + Vector3.back * 3f, 1f));
+            PlacePlayer(ArenaSurface.OnGround(station.DisplaySlots[3].position - station.DisplaySlots[3].forward * 3f, 1f));
             yield return null;
             yield return PressPad(GamepadButton.West);
             Assert.IsTrue(release.IsOpen);

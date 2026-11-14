@@ -111,10 +111,27 @@ namespace EchoScrap.Tests
             foreach (Vector3 direction in new[] { Vector3.right, Vector3.left, Vector3.forward, Vector3.back })
             {
                 Vector3 wall = room.center + Vector3.Scale(room.extents, direction); wall.y = 0;
+                Vector3 tangent = Vector3.Cross(direction, Vector3.up);
+                bool clear = false;
+                // Exercise the camera on an open segment of each wall, away from capsule colliders.
+                for (int offset = 0; offset <= 20 && !clear; offset++)
+                {
+                    foreach (int sign in new[] { -1, 1 })
+                    {
+                        Vector3 candidate = wall + tangent * (offset * sign);
+                        Vector3 start = candidate - direction * 3f + Vector3.up;
+                        if (Physics.CheckSphere(start, .5f, 1, QueryTriggerInteraction.Ignore) ||
+                            Physics.SphereCast(start, .5f, direction, out _, 2.25f, 1, QueryTriggerInteraction.Ignore)) continue;
+                        wall = candidate;
+                        clear = true;
+                        break;
+                    }
+                }
+                Assert.IsTrue(clear, "No walkable segment found near the wall " + direction);
                 Place(wall - direction * 3f); for (int i = 0; i < 6; i++) yield return null;
                 Vector3 before = game.GameplayCamera.transform.position, playerBefore = game.Player.transform.position;
                 Place(wall - direction * .75f); for (int i = 0; i < 6; i++) yield return null;
-                Assert.Greater(Vector3.Dot(game.Player.transform.position - playerBefore,direction),2f,"The camera boundary must not stop the player.");
+                Assert.Greater(Vector3.Dot(game.Player.transform.position - playerBefore,direction),2f,"The camera boundary must not stop the player: " + direction);
                 Assert.Less(Mathf.Abs(Vector3.Dot(game.GameplayCamera.transform.position - before,direction)),.025f,
                     "The camera must stay at the wall while the player continues: " + direction);
             }

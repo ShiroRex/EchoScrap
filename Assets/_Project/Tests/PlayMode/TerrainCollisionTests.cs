@@ -593,10 +593,11 @@ namespace EchoScrap.Tests
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W,Key.Space));yield return null;yield return new WaitForFixedUpdate();yield return new WaitForFixedUpdate();
             Assert.IsTrue(game.Motor.IsDashing);Assert.Greater(game.Motor.DashDirection.z,.9f,"W + dash heads north toward the portal.");
         }
-        [Test] public void GarageHasTenAccessibleDisplayAreas()
+        [Test] public void GarageHasEighteenAccessibleDisplayAreas()
         {
-            var room=GameObject.Find("BovedaModular");Assert.IsNotNull(room);
-            var slots = Object.FindAnyObjectByType<FusionStation>().DisplaySlots;
+            var station = Object.FindAnyObjectByType<FusionStation>();
+            var room = station.transform.parent.gameObject;
+            var slots = station.DisplaySlots;
             Assert.AreEqual(18, slots.Length);
             var aisle = new Bounds(new Vector3(181f, 3.5f, 1f), new Vector3(17f, 7f, 38f));
             for (int i = 0; i < slots.Length; i++)
@@ -607,14 +608,18 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(capsule.center.z, slot.position.z, .01f, slot.name);
                 if (i >= 3) Assert.IsFalse(capsule.Intersects(aisle), slot.name + " blocks the central aisle");
 
-                var p = ArenaSurface.OnGround(slot.position + Vector3.back * 4f, 1f);
+                var p = ArenaSurface.OnGround(slot.position - slot.forward * 3f, 1f);
                 Assert.IsFalse(Physics.CheckCapsule(p - Vector3.up * .5f, p + Vector3.up * .5f,
                     .45f, 1, QueryTriggerInteraction.Ignore), slot.name + " approach is blocked");
             }
             var capsuleModel = room.transform.Find("Capsula_1").GetComponentInChildren<MeshFilter>().sharedMesh;
             Assert.AreEqual(18, room.GetComponentsInChildren<MeshFilter>().Count(filter => filter.sharedMesh == capsuleModel),
                 "Only the eighteen usable entity capsules should appear in the vault.");
-            Assert.IsFalse(room.transform.Find("BaseCircular").GetComponent<Collider>().bounds.Intersects(aisle));
+            for (int i = 3; i < slots.Length; i++)
+                for (int j = i + 1; j < slots.Length; j++)
+                    Assert.IsFalse(room.transform.Find($"Capsula_{i + 1}").GetComponent<Collider>().bounds
+                        .Intersects(room.transform.Find($"Capsula_{j + 1}").GetComponent<Collider>().bounds),
+                        $"{slots[i].name} intersects {slots[j].name}");
 
             var floor = room.transform.Find("ApoyoPlantaBaja").GetComponent<Collider>().bounds;
             Assert.GreaterOrEqual(floor.size.x, 47.9f);
