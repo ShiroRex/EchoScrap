@@ -51,7 +51,12 @@ namespace EchoScrap.Combat
             {
                 Progress = SaveSlotService.CloneActiveFusionProgress();
             }
-            else if (PersistProgress)
+            else if (PersistProgress &&
+                (SceneTransitionState.PendingEntry != SceneTransitionState.Entry.None ||
+                 (!Application.isBatchMode &&
+                  (SaveSlotService.HasAnyContinuableOrRecoverableSlot() ||
+                   PlayerPrefs.HasKey(SaveKey) ||
+                   PlayerPrefs.HasKey(LegacySaveKey)))))
             {
                 SaveSlotService.EnsureLoadedFallbackForDirectArenaEntry();
                 Progress = SaveSlotService.HasLoadedProfile

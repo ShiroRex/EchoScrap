@@ -268,6 +268,14 @@ namespace EchoScrap.Combat
             var index = ReadIndex();
             if (index.legacyMigrated) return;
 
+            if (Application.isBatchMode && string.IsNullOrEmpty(storageRootOverride))
+            {
+                index.legacyMigrated = true;
+                index.legacyMigratedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                WriteIndex(index);
+                return;
+            }
+
             bool hasProdKey = PlayerPrefs.HasKey(FusionStation.SaveKey);
             bool hasLegacyKey = PlayerPrefs.HasKey("EchoScrap.Collection.v1");
             bool hasProfileKey = PlayerPrefs.HasKey(GameFlowController.ProfileKey);
@@ -738,6 +746,23 @@ namespace EchoScrap.Combat
         }
 
         // Testing helpers to simulate crash/corruption scenarios deterministically.
+        public static void DeleteAllSlotsAndMigrationForTesting()
+        {
+            if (Application.isBatchMode || !string.IsNullOrEmpty(storageRootOverride))
+            {
+                string dir = GetStorageDirectory();
+                try
+                {
+                    if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                        Directory.Delete(dir, true);
+                }
+                catch (Exception)
+                {
+                }
+            }
+            ResetRuntimeState();
+        }
+
         public static void ForceCorruptTransientSlotForTesting(int slotIndex, SlotHealth health)
         {
             if (slotIndex < 0 || slotIndex >= SlotCount) return;

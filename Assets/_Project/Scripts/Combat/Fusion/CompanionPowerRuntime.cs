@@ -197,7 +197,7 @@ namespace EchoScrap.Combat
                 {
                     foreach (var target in EnemyActor.ActiveEnemies)
                     {
-                        if (target.TargetId != hit.TargetId) continue;
+                        if (target == null || target.TargetId != hit.TargetId) continue;
                         enemy = target;
                         break;
                     }

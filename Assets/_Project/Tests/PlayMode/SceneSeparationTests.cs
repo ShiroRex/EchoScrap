@@ -37,7 +37,7 @@ namespace EchoScrap.Tests
             var scene = SceneManager.GetActiveScene();
             SceneManager.SetActiveScene(SceneManager.CreateScene("SceneSeparationCleanup"));
             yield return SceneManager.UnloadSceneAsync(scene);
-            SceneTransitionState.Reset(); CombatTargetRegistry.Clear(); Time.timeScale = 1;
+            SceneTransitionState.Reset(); SaveSlotService.DeleteAllSlotsAndMigrationForTesting(); CombatTargetRegistry.Clear(); Time.timeScale = 1;
             InputSystem.settings.backgroundBehavior = previousBackground;
             InputSystem.settings.editorInputBehaviorInPlayMode = previousEditorInput;
         }

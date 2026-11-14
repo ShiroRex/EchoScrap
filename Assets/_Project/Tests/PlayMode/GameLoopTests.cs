@@ -64,7 +64,7 @@ namespace EchoScrap.Tests
                 SceneManager.SetActiveScene(SceneManager.CreateScene("GameLoopCleanup"));
                 yield return SceneManager.UnloadSceneAsync(scene);
             }
-            CombatTargetRegistry.Clear(); SceneTransitionState.Reset(); Time.timeScale = 1;
+            CombatTargetRegistry.Clear(); SceneTransitionState.Reset(); SaveSlotService.DeleteAllSlotsAndMigrationForTesting(); Time.timeScale = 1;
         }
         [TestCase("  Eco   Rojo ", "eco rojo")]
         [TestCase("MÁGO", "Ma\u0301go")]

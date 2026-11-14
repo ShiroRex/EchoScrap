@@ -43,6 +43,7 @@ namespace EchoScrap.Tests
             }
             CombatTargetRegistry.Clear();
             SceneTransitionState.Reset();
+            SaveSlotService.DeleteAllSlotsAndMigrationForTesting();
         }
 
         [Test]
