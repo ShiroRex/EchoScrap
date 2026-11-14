@@ -50,6 +50,17 @@ namespace EchoScrap.Combat
 
         public static EventLeaderboardSync Instance { get; private set; }
         public static bool EnableNetworkInTests { get; set; }
+        public static string DatabaseUrlOverride { get; set; }
+        public static string AuthTokenOverride { get; set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void OnSubsystemRegistration()
+        {
+            Instance = null;
+            EnableNetworkInTests = false;
+            DatabaseUrlOverride = null;
+            AuthTokenOverride = null;
+        }
 
         [Serializable]
         public sealed class RankingLedger
@@ -67,9 +78,7 @@ namespace EchoScrap.Combat
 
             public bool Claim()
             {
-                if (!eligible) return false;
-                eligible = false;
-                return true;
+                return eligible && !string.IsNullOrEmpty(name);
             }
         }
 
@@ -247,7 +256,7 @@ namespace EchoScrap.Combat
         private void Update()
         {
             if (sending || Time.unscaledTime < retryAt || (Application.isBatchMode && !EnableNetworkInTests)) return;
-            if (hasPending)
+            if (hasPending || SaveSlotService.HasPendingRankingItems)
             {
                 var slotOutbox = SaveSlotService.GetPendingRankingItems();
                 if (slotOutbox.Count > 0 && slotOutbox[0]?.record != null)
@@ -267,8 +276,19 @@ namespace EchoScrap.Combat
         private IEnumerator PushRecordCoroutine(EventPlayerRecord record, bool persistent)
         {
             sending = true;
-            if (string.IsNullOrEmpty(idToken)) yield return AuthenticateAnonymouslyCoroutine();
-            string url = $"{DefaultDatabaseUrl}/players/{record.sessionId}.json";
+            string baseUrl = string.IsNullOrEmpty(DatabaseUrlOverride)
+                ? DefaultDatabaseUrl
+                : DatabaseUrlOverride.TrimEnd('/');
+            if (!string.IsNullOrEmpty(AuthTokenOverride))
+            {
+                idToken = AuthTokenOverride;
+                authUid = "test-uid";
+            }
+            else if (string.IsNullOrEmpty(idToken))
+            {
+                yield return AuthenticateAnonymouslyCoroutine();
+            }
+            string url = $"{baseUrl}/players/{record.sessionId}.json";
             if (!string.IsNullOrEmpty(idToken)) url += "?auth=" + UnityWebRequest.EscapeURL(idToken);
             record.uid = authUid;
             using var request = record.status == "CANCELADA" ? UnityWebRequest.Delete(url) : UnityWebRequest.Put(url, Encoding.UTF8.GetBytes(JsonUtility.ToJson(record).TrimEnd('}') + ",\"heartbeat\":{\".sv\":\"timestamp\"}}"));
@@ -371,6 +391,7 @@ namespace EchoScrap.Combat
                 ledger.interrupted = attemptId;
                 SaveLedger(ledger);
             }
+            hasPending = SaveSlotService.HasPendingRankingItems || (ReadLedger().pending?.Count > 0);
         }
     }
 }

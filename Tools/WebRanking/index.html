@@ -1,39 +1,65 @@
 <!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EchoScrap · Ranking</title>
-<link rel="stylesheet" href="ranking.css"><main><header class="mast"><h1>EchoScrap <em>Ranking</em></h1></header><section class="ledger"><div class="bar"><strong>Clasificación general</strong></div><table aria-label="Clasificación por puntaje"><thead><tr><th>Puesto</th><th>Jugador</th><th class="extra">Bajas</th><th>Tiempo</th><th>Puntos</th></tr></thead><tbody id="rows"></tbody></table><p id="message" role="status">Cargando partidas…</p></section></main>
+<link rel="stylesheet" href="ranking.css"><main><header class="mast"><h1>EchoScrap <em>Ranking</em></h1></header><section class="ledger"><div class="bar"><strong>Clasificación general</strong></div><table aria-label="Clasificación por puntaje"><thead><tr><th>Puesto</th><th>Jugador</th><th class="extra">Bajas</th><th>Tiempo</th><th>Puntos</th></tr></thead><tbody id="rows"></tbody></table><p id="message" role="status">Cargando partidas…</p></section><section id="live-section" class="ledger" style="margin-top:32px" hidden><div class="bar"><strong>Expediciones en directo</strong></div><table aria-label="Expediciones activas fuera de la clasificación oficial"><thead><tr><th>Estado</th><th>Jugador</th><th class="extra">Bajas</th><th>Tiempo</th><th>Puntos</th></tr></thead><tbody id="live-rows"></tbody></table></section></main>
 
 <script type="module">
-const rows=document.querySelector('#rows'), message=document.querySelector('#message');
+const rows=document.querySelector('#rows'), liveRows=document.querySelector('#live-rows'), liveSection=document.querySelector('#live-section'), message=document.querySelector('#message');
 const numbers=new Intl.NumberFormat('es-MX');
 const integer=v=>Number.isFinite(v)?Math.max(0,Math.floor(v)):0;
+const normalizeGamertag=name=>String(name??'').normalize('NFKC').trim().replace(/\s+/gu,' ').toUpperCase();
+const effectiveScore=p=>Number.isFinite(p?.score)?Math.max(0,Math.floor(p.score)):(Number.isFinite(p?.rawScore)?Math.max(0,Math.floor(p.modeMinutes===8?p.rawScore/2:p.rawScore)):NaN);
+const recordTime=p=>Number.isFinite(p?.updatedAt)&&p.updatedAt>0?p.updatedAt:(Number.isFinite(p?.heartbeat)?p.heartbeat:Number.MAX_SAFE_INTEGER);
+const liveTime=p=>Number.isFinite(p?.heartbeat)?p.heartbeat:(Number.isFinite(p?.updatedAt)?p.updatedAt:0);
+const isBetterFinal=(candidate,previous)=>candidate.score>previous.score||(candidate.score===previous.score&&(candidate.time<previous.time||(candidate.time===previous.time&&candidate.id.localeCompare(previous.id)<0)));
 let latestRecords={}, serverOffset=0;
 const activeLifetime=30000;
-function render(records){
- // Older installations may still publish multiple attempts under the same name.
- const byName=new Map();
- for(const [id,p] of Object.entries(records??{})){
-   if(p?.rulesVersion!==2 || !Number.isFinite(p.score) || typeof p.playerName!=='string')continue;
-   const key=p.gamertagNormalized || p.playerName.normalize('NFKC').trim().replace(/\s+/gu,' ').toUpperCase();
-   const live=p.status==='EN PARTIDA';
-   const time=p.heartbeat??p.updatedAt??0;
-   if(!key || (live ? Date.now()+serverOffset-time>=activeLifetime : !['VICTORIA','DERROTA'].includes(p.status)))continue;
-   const previous=byName.get(key);
-   if(!previous || (previous.live && !live) ||
-      (previous.live===live && (live ? time>previous.time : time<previous.time))){
-     byName.set(key,{id,p,time,live});
-   }
- }
- const sessions=Array.from(byName.values(),({id,p})=>[id,p]).sort(([a,p],[b,q])=>q.score-p.score||a.localeCompare(b));
- const frag=document.createDocumentFragment();let rank=0,previous=null;
- sessions.forEach(([,p],i)=>{const score=integer(p.score);if(previous!==score)rank=i+1;previous=score;
- const tr=document.createElement('tr');tr.classList.toggle('leader',rank===1);const seconds=integer(p.survivalSeconds);
- for(const [index,value] of ["#"+rank,p.playerName||'Jugador',integer(p.kills),Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0'),numbers.format(score)].entries()){
- const td=document.createElement('td');if(index===2)td.className='extra';td.textContent=value;
- if(index===1){const detail=document.createElement('small');detail.className='state';detail.dataset.active=String(p.status==='EN PARTIDA');detail.textContent=p.modeMinutes+' MIN · '+p.status;td.append(detail);}
- tr.append(td);}
- frag.append(tr);});
- rows.replaceChildren(frag);
- message.textContent=sessions.length?'':'La clasificación espera su primera expedición.';
+function appendRows(tbody,entries,isOfficial){
+ const frag=document.createDocumentFragment();let rank=0,previousScore=null;
+ entries.forEach((entry,i)=>{
+  const p=entry.p, score=entry.score;
+  if(isOfficial&&previousScore!==score)rank=i+1;
+  if(isOfficial)previousScore=score;
+  const tr=document.createElement('tr');
+  if(isOfficial)tr.classList.toggle('leader',rank===1);
+  const seconds=integer(p.survivalSeconds), badge=isOfficial?'#'+rank:'EN VIVO';
+  for(const [index,value] of [badge,p.playerName||'Jugador',integer(p.kills),Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0'),numbers.format(score)].entries()){
+   const td=document.createElement('td');if(index===2)td.className='extra';td.textContent=value;
+   if(index===1){const detail=document.createElement('small');detail.className='state';detail.dataset.active=String(p.status==='EN PARTIDA');detail.textContent=p.modeMinutes+' MIN · '+p.status;td.append(detail);}
+   tr.append(td);
+  }
+  frag.append(tr);
+ });
+ tbody.replaceChildren(frag);
 }
+function render(records){
+ const bestByName=new Map(), liveByName=new Map(), now=Date.now()+serverOffset;
+ for(const [id,p] of Object.entries(records??{})){
+  const score=effectiveScore(p);
+  if(p?.rulesVersion!==2 || !Number.isFinite(score) || typeof p.playerName!=='string')continue;
+  const key=normalizeGamertag(p.gamertagNormalized || p.playerName);
+  if(!key)continue;
+  if(p.status==='EN PARTIDA'){
+   const time=liveTime(p);
+   if(now-time>=activeLifetime)continue;
+   const prevLive=liveByName.get(key);
+   if(!prevLive || time>prevLive.time || (time===prevLive.time && id.localeCompare(prevLive.id)<0))
+    liveByName.set(key,{id,p,score,time});
+   continue;
+  }
+  if(!['VICTORIA','DERROTA'].includes(p.status))continue;
+  const candidate={id,p,score,time:recordTime(p)};
+  const prevBest=bestByName.get(key);
+  if(!prevBest || isBetterFinal(candidate,prevBest))
+   bestByName.set(key,candidate);
+ }
+ const sessions=Array.from(bestByName.values()).sort((a,b)=>(b.score-a.score)||(a.time-b.time)||a.id.localeCompare(b.id));
+ const liveSessions=Array.from(liveByName.values()).sort((a,b)=>(b.score-a.score)||(b.time-a.time)||a.id.localeCompare(b.id));
+ appendRows(rows,sessions,true);
+ appendRows(liveRows,liveSessions,false);
+ if(liveSection)liveSection.hidden=liveSessions.length===0;
+ message.textContent=sessions.length?'':'La clasificación espera su primera expedición.';
+ return {sessions,liveSessions};
+}
+window.EchoScrapRanking={normalizeGamertag,effectiveScore,render};
 try{
  const firebaseConfig = {
       apiKey: "AIzaSyBgdPPFayt0SzNf95YMdTnONFtpZd2DflA",

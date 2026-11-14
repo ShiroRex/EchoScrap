@@ -110,6 +110,8 @@ namespace EchoScrap.Combat
         public int DiscoveredCount;
         public double TotalPlaySeconds;
         public string ActiveAttemptId = "";
+        public int BestLocalScore;
+        public int CompletedRankedRuns;
         public string ErrorDetail = "";
 
         public bool IsValid => Health == SlotHealth.ValidVault || Health == SlotHealth.ValidExpedition;
@@ -160,6 +162,10 @@ namespace EchoScrap.Combat
         private static string pendingExpeditionJson;
         private static readonly long[] highestKnownSlotRevision = new long[SlotCount];
         private static readonly long[] highestKnownExpeditionRevision = new long[SlotCount];
+        private static bool? hasPendingRankingItemsCache;
+
+        public static bool HasPendingRankingItems =>
+            hasPendingRankingItemsCache ?? (hasPendingRankingItemsCache = GetPendingRankingItems().Count > 0).Value;
 
         // In-memory store used when SceneTransitionState.SaveProgress == false (PlayMode tests without disk).
         private static SaveIndexData transientIndex = new SaveIndexData();
@@ -206,6 +212,7 @@ namespace EchoScrap.Combat
             Array.Clear(transientExpeditions, 0, SlotCount);
             transientOutbox.items.Clear();
             transientOutbox.revision = 1;
+            hasPendingRankingItemsCache = null;
         }
 
         public static void SetStorageRootForTesting(string directoryPath)
@@ -847,6 +854,8 @@ namespace EchoScrap.Combat
             summary.DiscoveredCount = profile.fusion.DiscoveredCount;
             summary.TotalPlaySeconds = profile.totalPlaySeconds;
             summary.ActiveAttemptId = profile.activeAttemptId ?? "";
+            summary.BestLocalScore = profile.bestLocalScore;
+            summary.CompletedRankedRuns = profile.completedRankedRuns;
 
             if (!profile.hasActiveExpedition)
             {
@@ -1035,6 +1044,7 @@ namespace EchoScrap.Combat
 
         private static bool WriteOutbox(RankingOutboxData outbox)
         {
+            hasPendingRankingItemsCache = outbox?.items != null && outbox.items.Count > 0;
             if (!IsPersistent) return true;
             outbox.revision = Math.Max(1, outbox.revision + 1);
             return WriteVerifiedJsonFile(GetOutboxFilePath(), JsonUtility.ToJson(outbox), outbox.revision);

@@ -1,7 +1,11 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using EchoScrap.Combat;
 using EchoScrap.Core;
 using NUnit.Framework;
@@ -49,6 +53,9 @@ namespace EchoScrap.Tests
             SaveSlotService.SetPersistenceOverride(null);
             SaveSlotService.SetStorageRootForTesting(null);
             SaveSlotService.ResetRuntimeState();
+            EventLeaderboardSync.EnableNetworkInTests = false;
+            EventLeaderboardSync.DatabaseUrlOverride = null;
+            EventLeaderboardSync.AuthTokenOverride = null;
             SceneTransitionState.Reset();
             RestoreLegacyPrefs();
             CombatTargetRegistry.Clear();
@@ -368,6 +375,132 @@ namespace EchoScrap.Tests
             yield return null;
             Assert.AreEqual(SessionState.Defeat, Game.Session.State);
             Assert.AreEqual(SlotHealth.ValidVault, SaveSlotService.GetSlotSummaries()[2].Health);
+        }
+
+        [UnityTest]
+        public IEnumerator RankedProfile_PublishesResumedAndSubsequentAttempts_WithSameAndDistinctAttemptIds()
+        {
+            int port;
+            var probe = new TcpListener(IPAddress.Loopback, 0);
+            try
+            {
+                probe.Start();
+                port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            }
+            finally
+            {
+                probe.Stop();
+            }
+
+            var received = new List<(string method, string path, string body)>();
+            var listener = new HttpListener();
+            listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+            listener.Start();
+            bool serverRunning = true;
+            var serverTask = System.Threading.Tasks.Task.Run(async () =>
+            {
+                while (serverRunning && listener.IsListening)
+                {
+                    try
+                    {
+                        HttpListenerContext ctx = await listener.GetContextAsync();
+                        string body = string.Empty;
+                        using (var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
+                            body = reader.ReadToEnd();
+                        lock (received)
+                            received.Add((ctx.Request.HttpMethod, ctx.Request.Url.AbsolutePath, body));
+                        byte[] ok = Encoding.UTF8.GetBytes("{}");
+                        ctx.Response.StatusCode = 200;
+                        ctx.Response.ContentType = "application/json";
+                        ctx.Response.OutputStream.Write(ok, 0, ok.Length);
+                        ctx.Response.Close();
+                    }
+                    catch (Exception) { break; }
+                }
+            });
+
+            try
+            {
+                EventLeaderboardSync.DatabaseUrlOverride = $"http://127.0.0.1:{port}";
+                EventLeaderboardSync.AuthTokenOverride = "test-token";
+                EventLeaderboardSync.EnableNetworkInTests = false;
+
+                // 1. Named profile starts an expedition offline, gains kills/time, pauses, quits, resumes, and wins.
+                yield return CreateSlotAndEnterVault(0, "PILOTO_RANK");
+                Assert.IsTrue(Game.Flow.BeginExpedition());
+                Game.Flow.SelectExpedition(false);
+                yield return WaitForExpeditionEntry();
+                string firstAttemptId = EventLeaderboardSync.Instance.ActiveAttemptId;
+                Assert.IsFalse(string.IsNullOrEmpty(firstAttemptId));
+
+                Game.Director.AutoTick = false;
+                yield return new WaitForSeconds(0.2f);
+
+                // Resume offline -> must keep the exact same attemptId.
+                yield return SimulateRestartAndContinueSlot(0, runNormalQuitHook: true);
+                Assert.AreEqual(firstAttemptId, EventLeaderboardSync.Instance.ActiveAttemptId);
+
+                // Trigger Victory -> record must keep original attemptId and score on ranking.
+                var bossDeath = new ActorDeathEvent(9999, 15, false, true, Vector3.zero, Vector3.forward,
+                    DamageSourceType.FlashlightPulse, 0, false, true);
+                Game.Session.QueueBossDeath(in bossDeath);
+                Game.Session.ResolveSimulationStepOutcome();
+                Assert.AreEqual(SessionState.Victory, Game.Session.State);
+                EventPlayerRecord firstRecord = EventLeaderboardSync.Instance.LastRecord;
+                Assert.IsNotNull(firstRecord);
+                Assert.AreEqual(firstAttemptId, firstRecord.sessionId);
+                Assert.AreEqual("VICTORIA", firstRecord.status);
+                Assert.AreEqual(EventLeaderboardSync.RawPoints(firstRecord.kills, firstRecord.collectibles, firstRecord.discoveredCount, firstRecord.highestRarity, firstRecord.survivalSeconds), firstRecord.score);
+                Assert.IsTrue(SaveSlotService.GetPendingRankingItems().Any(i => i.record.sessionId == firstAttemptId));
+
+                // 2. Overwrite slot 0 with a different profile -> first pending attempt MUST survive in outbox.
+                Game.Flow.ReturnFromResult();
+                yield return null;
+                SaveSlotService.CreateNewGameInSlot(0, "OTRO_PILOTO");
+                SaveSlotService.MarkSlotLoadCompleted();
+                EventLeaderboardSync.SyncSessionNameFromActiveSlot();
+                Assert.IsTrue(SaveSlotService.GetPendingRankingItems().Any(i => i.record.sessionId == firstAttemptId));
+
+                // 3. Turn network back on -> pending historical record from replaced slot AND second attempt push cleanly.
+                EventLeaderboardSync.EnableNetworkInTests = true;
+                float uploadDeadline = Time.realtimeSinceStartup + 5f;
+                while (SaveSlotService.GetPendingRankingItems().Any(i => i.record.sessionId == firstAttemptId) &&
+                       Time.realtimeSinceStartup < uploadDeadline)
+                {
+                    yield return null;
+                }
+                Assert.IsFalse(SaveSlotService.GetPendingRankingItems().Any(i => i.record.sessionId == firstAttemptId),
+                    "Pending record from previous slot owner should upload when connection returns.");
+
+                // 4. Same named profile runs a second expedition with a DIFFERENT lower score -> distinct sessionId.
+                Assert.IsTrue(Game.Flow.BeginExpedition());
+                Game.Flow.SelectExpedition(true);
+                yield return WaitForExpeditionEntry();
+                string secondAttemptId = EventLeaderboardSync.Instance.ActiveAttemptId;
+                Assert.AreNotEqual(firstAttemptId, secondAttemptId);
+                Game.Player.ForceSetHealthForTesting(0f);
+                yield return null;
+                Assert.AreEqual(SessionState.Defeat, Game.Session.State);
+                Assert.AreEqual(secondAttemptId, EventLeaderboardSync.Instance.LastRecord.sessionId);
+
+                float secondDeadline = Time.realtimeSinceStartup + 5f;
+                while (SaveSlotService.GetPendingRankingItems().Count > 0 && Time.realtimeSinceStartup < secondDeadline)
+                    yield return null;
+
+                lock (received)
+                {
+                    Assert.IsTrue(received.Any(r => r.method == "PUT" && r.path == $"/players/{firstAttemptId}.json" && r.body.Contains("\"VICTORIA\"")));
+                    Assert.IsTrue(received.Any(r => r.method == "PUT" && r.path == $"/players/{secondAttemptId}.json" && r.body.Contains("\"DERROTA\"")));
+                }
+            }
+            finally
+            {
+                serverRunning = false;
+                try { listener.Stop(); listener.Close(); } catch (Exception) { }
+                EventLeaderboardSync.EnableNetworkInTests = false;
+                EventLeaderboardSync.DatabaseUrlOverride = null;
+                EventLeaderboardSync.AuthTokenOverride = null;
+            }
         }
 
         private void BackupAndClearLegacyPrefs()

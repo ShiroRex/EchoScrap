@@ -84,7 +84,7 @@ namespace EchoScrap.Tests
             ledger.NewCollection(tag);
             Assert.AreEqual(tag, ledger.name);
             Assert.IsTrue(ledger.Claim());
-            Assert.IsFalse(ledger.Claim(), "The new reservation grants one ranked attempt.");
+            Assert.IsTrue(ledger.Claim(), "All valid expeditions of a named profile can score.");
         }
 
         private void EnterVault()
