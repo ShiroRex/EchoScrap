@@ -5,7 +5,7 @@ namespace EchoScrap.Core
 {
     /// <summary>
     /// Estado de estadísticas y mejoras adquiridas por instancia del jugador.
-    /// Aplica los límites de mitigación y las fórmulas de las 35 cartas del GDD.
+    /// Aplica los límites de mitigación y las fórmulas de las cartas.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerRuntimeStats : MonoBehaviour
@@ -78,7 +78,10 @@ namespace EchoScrap.Core
         public float DashSpeed => Settings.DashSpeed * (1f + 0.08f * dashServosTier);
         public float DashDuration => Settings.DashDuration;
         public float DashInvulnerability => Settings.DashInvulnerability;
-        public float MoveSpeedMultiplier => CompanionMoveMultiplier * (1f + ballastTier * Upgrades.rapidPulseMovementPerTier);
+        public bool IsCombatMedkitActive => combatMedkitRemaining > 0f;
+        private float combatMedkitRemaining;
+        public float MoveSpeedMultiplier => CompanionMoveMultiplier *
+            (1f + ballastTier * Upgrades.rapidPulseMovementPerTier + (IsCombatMedkitActive ? Upgrades.medkitMoveBonus : 0f));
         public float DashCooldown => GetUpgradeTier(UpgradeId.DASH_04) > 0 ? Upgrades.cataclysmCooldown : Mathf.Max(0.05f, Settings.DashCooldown * (1f - 0.10f * dashServosTier));
         public float ExperienceMultiplier => 1f + GetUpgradeTier(UpgradeId.GREED_02) * Upgrades.experiencePerTier;
         public float ExplosionDamageMultiplier => 1f + GetUpgradeTier(UpgradeId.DEMO_01) * Upgrades.explosionDamagePerTier;
@@ -86,7 +89,24 @@ namespace EchoScrap.Core
         public bool HasExplosionSource => GetUpgradeTier(UpgradeId.DASH_02) > 0 || GetUpgradeTier(UpgradeId.DASH_03) > 0 || GetUpgradeTier(UpgradeId.DASH_04) > 0 || GetUpgradeTier(UpgradeId.DEMO_02) > 0 || GetUpgradeTier(UpgradeId.DEMO_03) > 0 || GetUpgradeTier(UpgradeId.BIO_04) > 0;
 
         public bool IsSolarActive => solarTier > 0;
-        public float AttackSpeedMultiplier => 1f + 0.15f * ballastTier + companionAttackSpeed;
+        public float BaseAttackSpeedMultiplier => 1f + 0.15f * ballastTier + companionAttackSpeed;
+        public float AttackSpeedMultiplier => BaseAttackSpeedMultiplier + (IsCombatMedkitActive ? Upgrades.medkitAttackBonus : 0f);
+
+        public void ActivateCombatMedkit(float duration)
+        {
+            bool wasActive = IsCombatMedkitActive;
+            combatMedkitRemaining = Mathf.Max(combatMedkitRemaining, duration);
+            if (wasActive != IsCombatMedkitActive) OnStatsChanged?.Invoke();
+        }
+
+        public void StepCombatMedkit(float deltaTime)
+        {
+            if (!IsCombatMedkitActive) return;
+            combatMedkitRemaining = Mathf.Max(0f, combatMedkitRemaining - deltaTime);
+            if (!IsCombatMedkitActive) OnStatsChanged?.Invoke();
+        }
+
+        public void ClearCombatMedkit() => StepCombatMedkit(combatMedkitRemaining);
 
         public float FlashlightRange
         {
@@ -138,16 +158,19 @@ namespace EchoScrap.Core
         }
 
         public float EffectivePulseInterval => Settings.PulseInterval / AttackSpeedMultiplier;
-        public float EffectiveBurstRestDuration => IsSolarActive ? 0f : (Settings.BurstRestDuration / AttackSpeedMultiplier);
+        public float EffectiveBurstRestDuration => IsSolarActive ? 0f : Settings.BurstRestDuration / AttackSpeedMultiplier *
+            (IsCombatMedkitActive ? Upgrades.medkitRestFactor : 1f);
 
         public float MagnetRadius => Settings.BaseMagnetRadius + magnetCoreTier * 2f;
+        public float ExperienceMagnetRadius => MagnetRadius + (GetUpgradeTier(UpgradeId.GREED_06) > 0 ? Upgrades.gemMagnetRadius : 0f);
         public float MagnetAttractSpeed => Settings.MagnetAttractSpeed;
 
         public float MedkitHealAmount => Settings.MedkitHealingAtTier(emergencyMedTier);
 
         public float GetMedkitDropChance(bool isEliteOrColossusOrMortar)
         {
-            return Settings.MedkitChanceAtTier(emergencyMedTier, isEliteOrColossusOrMortar);
+            float bonus = GetUpgradeTier(UpgradeId.BIO_05) > 0 ? Upgrades.medkitDropBonus : 0f;
+            return Mathf.Clamp01(Settings.MedkitChanceAtTier(emergencyMedTier, isEliteOrColossusOrMortar) + bonus);
         }
 
         public int LensTier => GetUpgradeTier(UpgradeId.FLASH_01);
@@ -209,6 +232,7 @@ namespace EchoScrap.Core
             bonusBlockChance = 0f;
             bonusCritChance = 0f;
             bonusMoveSpeed = 0f;
+            combatMedkitRemaining = 0f;
             Array.Clear(tiers, 0, tiers.Length);
             Array.Clear(companionTiers,0,companionTiers.Length);
             OnStatsChanged?.Invoke();

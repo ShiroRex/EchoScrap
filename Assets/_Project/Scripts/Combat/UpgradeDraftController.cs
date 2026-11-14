@@ -15,7 +15,7 @@ namespace EchoScrap.Combat
         [SerializeField] private PlayerHealth health;
         [SerializeField] private CombatProgression progression;
         private readonly List<UpgradeOffer> offers = new List<UpgradeOffer>(3);
-        private readonly List<UpgradeCardDefinition> candidates = new List<UpgradeCardDefinition>(35);
+        private readonly List<UpgradeCardDefinition> candidates = new List<UpgradeCardDefinition>(UpgradeRules.Count);
         private readonly int[] rarityCounts = new int[4];
         private CombatSession subscribedSession;
         private CombatProgression subscribedProgression;

@@ -71,7 +71,7 @@ namespace EchoScrap.Tests
         [Test]
         public void CatalogPreviewsDoNotMutateStats_AndAllMaxTierFormulasAgree()
         {
-            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(35));
+            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(UpgradeRules.Count));
             var ids = new HashSet<string>();
             foreach (var card in UpgradeCatalog.Cards)
             {
@@ -95,8 +95,8 @@ namespace EchoScrap.Tests
             Assert.That(stats.MaxHealth, Is.EqualTo(250f));
             Assert.That(stats.MagnetRadius, Is.EqualTo(12.5f));
             Assert.That(stats.MedkitHealAmount, Is.EqualTo(21f));
-            Assert.That(stats.GetMedkitDropChance(false), Is.EqualTo(0.06f));
-            Assert.That(stats.GetMedkitDropChance(true), Is.EqualTo(0.15f));
+            Assert.That(stats.GetMedkitDropChance(false), Is.EqualTo(0.09f).Within(.0001f));
+            Assert.That(stats.GetMedkitDropChance(true), Is.EqualTo(0.18f).Within(.0001f));
         }
 
         [Test]
@@ -685,10 +685,10 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void SharedIconFamiliesCoverAllThirtyFiveImplementedCards()
+        public void SharedIconFamiliesCoverEveryImplementedCard()
         {
             var expected = new HashSet<string>();
-            foreach (var group in new[] { ("FLASH", 5), ("DASH", 4), ("BIO", 4), ("GREED", 5), ("CRIT", 5), ("DEMO", 4), ("SCRAP", 4), ("CRYO", 4) })
+            foreach (var group in new[] { ("FLASH", 8), ("DASH", 7), ("BIO", 5), ("GREED", 6), ("CRIT", 5), ("DEMO", 4), ("SCRAP", 4), ("CRYO", 4) })
                 for (int i = 1; i <= group.Item2; i++) expected.Add($"{group.Item1}_{i:00}");
             Assert.That(UpgradeCatalog.IconAssignments.Keys, Is.EquivalentTo(expected));
             Assert.That(new HashSet<UpgradeIcon>(UpgradeCatalog.IconAssignments.Values).Count, Is.EqualTo(10));
@@ -697,7 +697,7 @@ namespace EchoScrap.Tests
                 Assert.That(UpgradeCatalog.TryGetIcon(card.Id, out var icon), Is.True);
                 Assert.That(card.Icon, Is.EqualTo(icon));
             }
-            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(35));
+            Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(UpgradeRules.Count));
             Assert.That(UpgradeCatalog.TryGet("CRYO_01", out _), Is.True);
             Assert.That(UpgradeCatalog.TryGetIcon("UNKNOWN", out _), Is.False);
         }
@@ -1063,7 +1063,7 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
-        public IEnumerator CornerLabelsAndAllThirtyFiveCardsFitAtEveryOfferedTier()
+        public IEnumerator CornerLabelsAndAllCardsFitAtEveryOfferedTier()
         {
             var skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
             Assert.That(skin.newBadge, Is.Not.Null); Assert.That(skin.upgradeBadge, Is.Not.Null);
@@ -1123,7 +1123,7 @@ namespace EchoScrap.Tests
                 }
                 checkedOffers++;
             }
-            Debug.Log($"[Card labels] {checkedOffers} offers checked across all 35 cards, their levels and combined upgrades.");
+            Debug.Log($"[Card labels] {checkedOffers} offers checked across all {UpgradeRules.Count} cards, their levels and combined upgrades.");
         }
 
         [UnityTest]

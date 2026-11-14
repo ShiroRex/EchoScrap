@@ -96,6 +96,34 @@ namespace EchoScrap.Player
             body.linearVelocity = Vector3.zero;
         }
 
+        public bool TryPlaceDashReturn(Vector3 anchor)
+        {
+            Vector3 scale = capsule.transform.lossyScale;
+            radius = capsule.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+            segment = Mathf.Max(0f, capsule.height * Mathf.Abs(scale.y) * .5f - radius);
+            centerOffset = body.rotation * Vector3.Scale(capsule.center, scale);
+            ground = ArenaSurface.Active != null ? ArenaSurface.Active.GroundCollider : null;
+            stairSupport = null;
+            Ends(anchor, out Vector3 bottom, out Vector3 top);
+            int count = Physics.OverlapCapsuleNonAlloc(bottom, top, radius, overlaps,
+                Mask | (1 << PhysicsLayers.EnemyLayer), QueryTriggerInteraction.Ignore);
+            if (count == overlaps.Length) return false;
+            for (int i = 0; i < count; i++)
+            {
+                Collider other = overlaps[i];
+                if (!Solid(other) || other == capsule ||
+                    Physics.GetIgnoreCollision(capsule, other) && other.gameObject.layer == PhysicsLayers.EnemyLayer)
+                    continue;
+                if (Physics.ComputePenetration(capsule, anchor, body.rotation, other, other.transform.position,
+                    other.transform.rotation, out _, out float depth) && depth > .002f)
+                    return false;
+            }
+            body.position = anchor;
+            lastSafe = anchor;
+            hasSafe = true;
+            return true;
+        }
+
         private Vector3 Grounded(Vector3 point)
         { point.y = ArenaSurface.SupportHeight(point, radius) + 1f; return point; }
 

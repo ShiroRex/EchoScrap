@@ -157,7 +157,8 @@ namespace EchoScrap.Tests
         {
             var start = new DashStateEvent(true, false, false, true, false, game.Player.WorldCenter, Vector3.forward, .5f, .5f);
             game.Session.Events.PublishDash(in start);
-            var end = new DashStateEvent(false, true, false, false, false, game.Player.WorldCenter, Vector3.forward, .5f, .5f);
+            var end = new DashStateEvent(false, true, false, false, false,
+                game.Player.WorldCenter + Vector3.forward * 3.3f, Vector3.forward, .5f, .5f);
             game.Session.Events.PublishDash(in end);
         }
 

@@ -27,7 +27,8 @@ namespace EchoScrap.Core
         DummyOrHazard = 8,
         Lava = 9,
         UpgradeProjectile = 10, UpgradeExplosion = 11, UpgradeFrost = 12, UpgradeSaw = 13, UpgradeTurret = 14, UpgradeBlade = 15,
-        SpectralSweep = 16, CopperBolt = 17, BossSweep = 18, BossMagmaRing = 19
+        SpectralSweep = 16, CopperBolt = 17, BossSweep = 18, BossMagmaRing = 19,
+        RearFlashlightPulse = 20, WallSlam = 21, DashRam = 22, DashReturn = 23, ElectricCable = 24, SharpGem = 25
     }
 
     public enum DamageType { Inherit = -1, Physical = 0, Supernatural = 1 }
@@ -35,10 +36,13 @@ namespace EchoScrap.Core
     /// <summary>Damage category is independent from the originating weapon or upgrade.</summary>
     public static class DamageTypes
     {
+        public static bool IsFlashlight(DamageSourceType source) =>
+            source is DamageSourceType.FlashlightPulse or DamageSourceType.SolarPulse or DamageSourceType.RearFlashlightPulse;
+
         public static DamageType ForSource(DamageSourceType source) => source switch
         {
-            DamageSourceType.FlashlightPulse or DamageSourceType.SolarPulse or
-            DamageSourceType.UpgradeProjectile or DamageSourceType.UpgradeFrost or
+            DamageSourceType.FlashlightPulse or DamageSourceType.SolarPulse or DamageSourceType.RearFlashlightPulse or
+            DamageSourceType.DashReturn or DamageSourceType.ElectricCable or DamageSourceType.UpgradeProjectile or DamageSourceType.UpgradeFrost or
             DamageSourceType.Lava or DamageSourceType.BossBombardmentPuddle or DamageSourceType.BossMagmaRing or DamageSourceType.SpectralSweep => DamageType.Supernatural,
             _ => DamageType.Physical
         };
@@ -182,6 +186,7 @@ namespace EchoScrap.Core
         public readonly Vector3 AimDirection;
         public readonly float Range;
         public readonly float Angle;
+        public readonly float RearRange;
 
         public PulseResolvedEvent(
             int burstId,
@@ -193,7 +198,8 @@ namespace EchoScrap.Core
             Vector3 origin,
             Vector3 aimDirection,
             float range,
-            float angle)
+            float angle,
+            float rearRange = 0f)
         {
             BurstId = burstId;
             PulseIndex = pulseIndex;
@@ -205,6 +211,7 @@ namespace EchoScrap.Core
             AimDirection = aimDirection;
             Range = range;
             Angle = angle;
+            RearRange = rearRange;
         }
     }
 
@@ -219,6 +226,9 @@ namespace EchoScrap.Core
         public readonly Vector3 Direction;
         public readonly float CooldownRemaining;
         public readonly float CooldownDuration;
+        public readonly bool Cancelled;
+        public readonly bool Returned;
+        public readonly Vector3 ReturnOrigin;
 
         public DashStateEvent(
             bool started,
@@ -229,7 +239,10 @@ namespace EchoScrap.Core
             Vector3 position,
             Vector3 direction,
             float cooldownRemaining,
-            float cooldownDuration)
+            float cooldownDuration,
+            bool cancelled = false,
+            bool returned = false,
+            Vector3 returnOrigin = default)
         {
             Started = started;
             Ended = ended;
@@ -240,6 +253,9 @@ namespace EchoScrap.Core
             Direction = direction;
             CooldownRemaining = cooldownRemaining;
             CooldownDuration = cooldownDuration;
+            Cancelled = cancelled;
+            Returned = returned;
+            ReturnOrigin = returnOrigin;
         }
     }
 

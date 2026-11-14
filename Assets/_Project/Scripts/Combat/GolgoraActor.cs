@@ -107,6 +107,8 @@ namespace EchoScrap.Combat
         private float CooldownMultiplier => IsPhaseTwo ? Settings.PhaseTwoCooldownMultiplier : 1f;
         private bool IgnoresControl => State == GolgoraState.Intro || State == GolgoraState.PhaseTransition || IsAirborne;
 
+        protected override float LimitCableSlow(float fraction) => IgnoresControl ? 0f : Mathf.Min(fraction, Settings.MaximumSlow);
+
         public override void ApplySlow(float fraction, float duration)
         {
             if (!IgnoresControl) base.ApplySlow(Mathf.Min(fraction, Settings.MaximumSlow), duration);

@@ -225,7 +225,7 @@ namespace EchoScrap.Combat
             if (!InsideCamera(anchor)) { DroppedNumberCount++; return false; }
             ExpireEntries();
             bool aggregate = !damage.IsCritical && !damage.WasExecuted && damage.BurstId > 0 &&
-                (damage.SourceType == DamageSourceType.FlashlightPulse || damage.SourceType == DamageSourceType.SolarPulse);
+                DamageTypes.IsFlashlight(damage.SourceType);
             if (aggregate)
             {
                 foreach (Entry existing in entries)

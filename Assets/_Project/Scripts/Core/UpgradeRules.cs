@@ -12,12 +12,13 @@ namespace EchoScrap.Core
         CRIT_01, CRIT_02, CRIT_03, CRIT_04, CRIT_05,
         DEMO_01, DEMO_02, DEMO_03, DEMO_04,
         SCRAP_01, SCRAP_02, SCRAP_03, SCRAP_04,
-        CRYO_01, CRYO_02, CRYO_03, CRYO_04
+        CRYO_01, CRYO_02, CRYO_03, CRYO_04,
+        FLASH_06, FLASH_07, FLASH_08, DASH_05, DASH_06, DASH_07, GREED_06, BIO_05
     }
 
     public static class UpgradeRules
     {
-        public const int Count = 35;
+        public const int Count = (int)UpgradeId.BIO_05 + 1;
         private static readonly Dictionary<string, UpgradeId> ids = BuildIds();
         private static Dictionary<string, UpgradeId> BuildIds()
         {

@@ -40,6 +40,14 @@ namespace EchoScrap.Combat
                 "CRYO_02" => N(A(u.freezeDuration)) + " s",
                 "CRYO_03" => N(A(u.blizzardInterval)) + " s",
                 "CRYO_04" => u.shatterCount.ToString(),
+                "FLASH_06" => N(A(u.wallSlamDamage)) + " DAÑO",
+                "FLASH_07" => N(A(u.rearBeamDamage) * 100f) + "%",
+                "FLASH_08" => "+" + N(A(u.stationaryDamage) * 100f) + "%",
+                "DASH_05" => N(A(u.ramDamage)) + " DAÑO",
+                "DASH_06" => N(A(u.returnDamage)) + " DAÑO",
+                "DASH_07" => N(A(u.cableDamage)) + " DAÑO",
+                "GREED_06" => N(A(u.gemDamage)) + " DAÑO",
+                "BIO_05" => N(A(u.medkitDuration)) + " s",
                 _ => "ACTIVO"
             };
         }
@@ -76,6 +84,14 @@ namespace EchoScrap.Combat
                 "CRYO_02" => "Congelas a enemigos lentos\nal acertar " + N(A(u.freezeHits)) + " pulsos. Reciben\nun 30% más de daño.",
                 "CRYO_03" => "Una onda hace " + N(A(u.blizzardDamage)) + " de daño\ny congela " + N(u.blizzardFreeze) + " s a los enemigos\na menos de " + N(u.blizzardRadius) + " m.",
                 "CRYO_04" => "Las esquirlas atraviesan.\nCada una hace " + N(u.shatterDamage) + " de daño\ny congela durante " + N(u.shatterFreeze) + " s.",
+                "FLASH_06" => "El cuarto pulso causa daño y\naturde si el enemigo choca.",
+                "FLASH_07" => "Haz trasero al " + N(u.rearBeamRange * 100f) + "% del alcance.\nTambién empuja al cuarto pulso.",
+                "FLASH_08" => "Al parar: +" + N(u.stationaryRange) + " m de alcance\ny " + N((1f - u.stationaryRestFactor) * 100f) + "% menos pausa de ráfaga.",
+                "DASH_05" => "Arrastras enemigos en tu dash\ny los lanzas al frenar.",
+                "DASH_06" => "Dejas una marca " + N(u.returnLifetime) + " s.\nPulsa dash y daña al regresar.",
+                "DASH_07" => "Dejas un cable " + N(A(u.cableDuration)) + " s.\nAl cruzarlo, daña y ralentiza.",
+                "GREED_06" => "+" + N(u.gemMagnetRadius) + " m de imán para gemas.\nLas fusionadas causan hasta ×3.",
+                "BIO_05" => "Recoge botiquines a vida llena.\nTe mueves y disparas más rápido.",
                 _ => ""
             };
         }

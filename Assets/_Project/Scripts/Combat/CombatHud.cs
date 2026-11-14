@@ -209,7 +209,7 @@ namespace EchoScrap.Combat
 
         private void HandleDashRequested()
         {
-            if (!hubMode && game.Motor.DashCooldownRemaining > .0001f)
+            if (!hubMode && !game.Motor.HasReturnAnchor && game.Motor.DashCooldownRemaining > .0001f)
                 dashDeniedUntil = game.Session.GameplayTime + .6f;
         }
 
@@ -298,13 +298,14 @@ namespace EchoScrap.Combat
                 if (cooldown == 0 && previousCooldown != -1)
                     dashReadyUntil = game.Session.GameplayTime + DashReadySeconds;
                 previousCooldown = cooldown;
-                dashFill.color = cooldown == 0 ? Apollo : new Color(0.44f, 0.48f, 0.49f);
             }
             bool dashReady = cooldown == 0 && game.Session.GameplayTime < dashReadyUntil;
             bool dashDenied = cooldown > 0 && game.Session.GameplayTime < dashDeniedUntil;
-            dashText.text = dashDenied ? "AÚN NO" : "LISTO";
-            dashText.gameObject.SetActive(!hubMode && (dashReady || dashDenied));
-            dashFill.fillAmount = game.Motor.IsDashing ? 0f : Mathf.Clamp01(1f - game.Motor.DashCooldownRemaining / Mathf.Max(0.05f, game.Motor.ActiveDashCooldownDuration));
+            bool returnReady = !game.Motor.IsDashing && game.Motor.HasReturnAnchor;
+            dashText.text = returnReady ? "VOLVER" : dashDenied ? "AÚN NO" : "LISTO";
+            dashText.gameObject.SetActive(!hubMode && (returnReady || dashReady || dashDenied));
+            dashFill.fillAmount = returnReady ? 1f : game.Motor.IsDashing ? 0f : Mathf.Clamp01(1f - game.Motor.DashCooldownRemaining / Mathf.Max(0.05f, game.Motor.ActiveDashCooldownDuration));
+            dashFill.color = returnReady || cooldown == 0 ? Apollo : new Color(.44f, .48f, .49f);
             if (cardsDirty) RefreshCards();
             // On narrow screens the centered XP bar reaches into the upgrades column.
             var cardsPosition = AcquiredCardsPosition + (canvasRect.rect.width < 1530f ? Vector2.up * 64f : Vector2.zero);

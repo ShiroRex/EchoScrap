@@ -446,6 +446,164 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void RearBeamHitsOncePerPulseAndPushesOnlyOnFour()
+        {
+            Set("FLASH_07", 3);
+            Set("FLASH_05");
+            var front = Enemy(0f, 2f);
+            var rear = Enemy(0f, -4f);
+            var overlapping = Enemy(0f, 0f);
+            DamageResult rearHit = default;
+            session.Events.OnDamageResolved += hit =>
+            {
+                if (hit.TargetId == rear.TargetId) rearHit = hit;
+            };
+            weapon.StepWeapon(.61f);
+            Assert.That(rear.CurrentHealth, Is.EqualTo(1_000f - 3 * 9.375f * .75f).Within(.01f));
+            Assert.That(rear.KnockbackAppliedCount, Is.Zero);
+            weapon.StepWeapon(.2f);
+            Assert.That(front.KnockbackAppliedCount, Is.EqualTo(4));
+            Assert.That(rear.KnockbackAppliedCount, Is.EqualTo(1));
+            Assert.That(overlapping.CurrentHealth, Is.EqualTo(962.5f).Within(.01f));
+            Assert.That(rearHit.DamageType, Is.EqualTo(DamageType.Supernatural));
+        }
+
+        [Test]
+        public void HeavyImpactDetectsAnImmuneBodyAndOnlyDetonatesOncePerWindow()
+        {
+            Set("FLASH_06", 3);
+            var pushed = Enemy(0f, 3f);
+            var second = Enemy(.1f, 3.03f);
+            var heavy = Enemy(0f, 4f, kind: EnemyArchetypeId.Colossus);
+            weapon.StepWeapon(.8f);
+            pushed.StepPhysics(.02f);
+            second.StepPhysics(.02f);
+            upgrades.Step(.02f);
+            Assert.That(heavy.CurrentHealth, Is.EqualTo(940f).Within(.01f));
+            Assert.That(heavy.KnockbackAppliedCount, Is.Zero);
+            Assert.That(pushed.StunRemaining, Is.EqualTo(.5f).Within(.001f));
+            pushed.StepPhysics(.02f);
+            upgrades.Step(.02f);
+            Assert.That(heavy.CurrentHealth, Is.EqualTo(940f).Within(.01f));
+        }
+
+        [UnityTest]
+        public IEnumerator HeavyImpactDetectsSolidScenery()
+        {
+            Set("FLASH_06");
+            var target = Enemy(0f, 3f);
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.transform.SetPositionAndRotation(new Vector3(0f, 1f, 4f), Quaternion.identity);
+            wall.transform.localScale = new Vector3(4f, 2f, .3f);
+            Physics.SyncTransforms();
+            weapon.StepWeapon(.8f);
+            for (int i = 0; i < 7; i++) yield return new WaitForFixedUpdate();
+            upgrades.Step(.02f);
+            Assert.That(target.CurrentHealth, Is.EqualTo(967f).Within(.01f));
+            Assert.That(target.StunRemaining, Is.GreaterThan(0f));
+        }
+
+        [Test]
+        public void RamSweepsDashAndCarriesMovableMothWhileLeavingHeavyBodiesInPlace()
+        {
+            Set("DASH_05", 3);
+            var moth = Enemy(0f, 1.5f, 40f, EnemyArchetypeId.ExplosiveMoth);
+            var heavy = Enemy(1f, 1.5f, kind: EnemyArchetypeId.Colossus);
+            var outside = Enemy(4f, 1.5f);
+            Dash(true, false, Vector3.up);
+            Dash(false, true, new Vector3(0f, 1f, 3.3f));
+            Assert.That(moth.WorldCenter.z, Is.EqualTo(3.3f).Within(.05f));
+            Assert.That(moth.IsFuseActive, Is.True);
+            Assert.That(moth.KnockbackVelocity.z, Is.EqualTo(14f).Within(.01f));
+            Assert.That(heavy.CurrentHealth, Is.EqualTo(1000f));
+            Assert.That(heavy.WorldCenter.z, Is.EqualTo(1.5f));
+            Assert.That(outside.CurrentHealth, Is.EqualTo(1000f));
+        }
+
+        [Test]
+        public void ReturnHitUsesOnlyItsOwnSegmentAndDoesNotCreateDashEffects()
+        {
+            Set("DASH_06", 3);
+            Set("DASH_07");
+            Set("DASH_02");
+            var onPath = Enemy(0f, 2f);
+            var offPath = Enemy(3f, 2f);
+            var returned = new DashStateEvent(false, false, false, false, false, Vector3.up,
+                Vector3.forward, 1f, 1f, returned: true, returnOrigin: new Vector3(0f, 1f, 4f));
+            session.Events.PublishDash(in returned);
+            upgrades.Step(.02f);
+            Assert.That(onPath.CurrentHealth, Is.EqualTo(920f));
+            Assert.That(offPath.CurrentHealth, Is.EqualTo(1000f));
+            Assert.That(upgrades.ExplosionsResolved, Is.Zero);
+        }
+
+        [Test]
+        public void CablesSharePerEnemyDamageIntervalAndDoNotSurviveReset()
+        {
+            Set("DASH_07", 3);
+            var target = Enemy(0f, 2f);
+            for (int i = 0; i < 6; i++)
+            {
+                Dash(true, false, Vector3.up);
+                Dash(false, true, new Vector3(0f, 1f, 4f));
+            }
+            Assert.That(upgrades.ActiveLightningCount, Is.EqualTo(2));
+            upgrades.Step(.01f);
+            Assert.That(target.CurrentHealth, Is.EqualTo(982f));
+            Assert.That(target.SlowFraction, Is.EqualTo(.35f));
+            upgrades.Step(.39f);
+            Assert.That(target.CurrentHealth, Is.EqualTo(982f));
+            upgrades.Step(.02f);
+            Assert.That(target.CurrentHealth, Is.EqualTo(964f));
+            target.transform.position = new Vector3(4f, 1f, 2f);
+            upgrades.Step(.1f);
+            Assert.That(target.SlowFraction, Is.Zero);
+            session.ResetSession(4921);
+            Assert.That(upgrades.ActiveLightningCount, Is.Zero);
+        }
+
+        [Test]
+        public void MergedGemSweepsThroughMultipleTargetsAndHitsEachOnlyOnce()
+        {
+            Set("GREED_06", 3);
+            var first = Enemy(0f, 3.2f);
+            var second = Enemy(0f, 2f);
+            var outside = Enemy(3f, 2f);
+            for (int i = 0; i < 5; i++) pickups.SpawnExperience(new Vector3(0f, 0f, 3.8f), 1);
+            for (int i = 0; i < 15; i++) pickups.Step(.02f);
+            Assert.That(first.CurrentHealth, Is.EqualTo(955f));
+            Assert.That(second.CurrentHealth, Is.EqualTo(955f));
+            Assert.That(outside.CurrentHealth, Is.EqualTo(1000f));
+            Assert.That(xp.TotalXp, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void FullHealthMedkitStartsTemporaryBuffAndRepeatOnlyRefreshesIt()
+        {
+            Set("BIO_05", 3);
+            Assert.That(stats.GetMedkitDropChance(false), Is.EqualTo(.06f).Within(.001f));
+            pickups.SpawnMedkit(Vector3.zero);
+            pickups.Step(.01f);
+            Assert.That(player.CurrentHealth, Is.EqualTo(player.MaxHealth));
+            Assert.That(stats.MoveSpeedMultiplier, Is.EqualTo(1.2f).Within(.001f));
+            Assert.That(stats.AttackSpeedMultiplier, Is.EqualTo(1.25f).Within(.001f));
+            weapon.StepWeapon(.17f);
+            Assert.That(weapon.TotalPulsesEmitted, Is.EqualTo(1));
+            upgrades.Step(4f);
+            pickups.SpawnMedkit(Vector3.zero);
+            pickups.Step(.01f);
+            Assert.That(stats.AttackSpeedMultiplier, Is.EqualTo(1.25f).Within(.001f));
+            session.SetManualPause(true);
+            upgrades.Step(8f);
+            Assert.That(stats.IsCombatMedkitActive, Is.True);
+            session.SetManualPause(false);
+            upgrades.Step(5.01f);
+            Assert.That(stats.IsCombatMedkitActive, Is.False);
+            weapon.StepWeapon(.01f);
+            Assert.That(weapon.ActivePulseInterval, Is.EqualTo(.2f).Within(.001f));
+        }
+
+        [Test]
         public void PauseAndResetClearAllUpgradeStateWithoutCreatingMoreObjects()
         {
             foreach(var card in UpgradeCatalog.Cards)Set(card.Id,card.MaxTier);
@@ -465,7 +623,7 @@ namespace EchoScrap.Tests
             long allocatedBefore=System.GC.GetAllocatedBytesForCurrentThread();
             for(int frame=0;frame<180;frame++)
             {
-                if(frame%30==0){Dash(true,false,Vector3.up);Dash(false,true,Vector3.up);}
+                if(frame%30==0){Dash(true,false,Vector3.up);Dash(false,true,new Vector3(0f,1f,3.3f));}
                 upgrades.Step(1f/60);
             }
             long allocated=System.GC.GetAllocatedBytesForCurrentThread()-allocatedBefore;

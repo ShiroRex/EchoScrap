@@ -18,12 +18,14 @@ namespace EchoScrap.Combat
             public EnemyActor Source, Target;
             public int SourceVersion, TargetVersion;
             public Vector3 From, To;
-            public float Age;
+            public float Age, Lifetime;
             public uint Seed;
+            public bool IsCable;
             public bool Active;
         }
 
         private readonly Bolt[] bolts;
+        private readonly int chainCapacity;
         private readonly Transform reserve;
         private readonly EffectPreferences preferences;
         private readonly Material coreMaterial, haloMaterial;
@@ -31,9 +33,9 @@ namespace EchoScrap.Combat
         private readonly float lifetime, width, jitter;
         private uint sequence;
         public int ActiveCount { get; private set; }
-        public int Capacity => bolts.Length;
+        public int Capacity => chainCapacity;
 
-        public VoltaicChainRenderer(Transform parent, EffectPreferences settings, UpgradeTuning tuning)
+        public VoltaicChainRenderer(Transform parent, EffectPreferences settings, UpgradeTuning tuning, int cableSlots = 0)
         {
             preferences = settings;
             lifetime = Mathf.Clamp(tuning.voltaicLinkLifetime, .08f, .6f);
@@ -43,12 +45,13 @@ namespace EchoScrap.Combat
             haloMaterial = LoadMaterial("LightningHalo", out ownsHalo);
             reserve = new GameObject("Voltaic link reserve").transform;
             reserve.SetParent(parent, false);
-            bolts = new Bolt[Mathf.Clamp(tuning.voltaicVisualCapacity, 8, 192)];
+            chainCapacity = Mathf.Clamp(tuning.voltaicVisualCapacity, 8, 192);
+            bolts = new Bolt[chainCapacity + cableSlots];
             for (int i = 0; i < bolts.Length; i++)
             {
                 var root = new GameObject("Voltaic link " + i).transform;
                 root.SetParent(reserve, false);
-                var bolt = new Bolt { Root = root };
+                var bolt = new Bolt { Root = root, IsCable = i >= chainCapacity };
                 bolt.Core = CreateLine(root, "Electric core", coreMaterial, PointCount);
                 bolt.Halo = CreateLine(root, "Electric halo", haloMaterial, PointCount);
                 bolt.BranchA = CreateLine(root, "Short fork A", coreMaterial, 4);
@@ -95,11 +98,21 @@ namespace EchoScrap.Combat
         public void Show(EnemyActor source, int sourceVersion, Vector3 from, EnemyActor target, int targetVersion, Vector3 to)
         {
             Bolt bolt = null;
-            for (int i = 0; i < bolts.Length; i++)
+            for (int i = 0; i < chainCapacity; i++)
             {
                 if (!bolts[i].Active) { bolt = bolts[i]; break; }
                 if (bolt == null || bolts[i].Age > bolt.Age) bolt = bolts[i];
             }
+            Activate(bolt, source, sourceVersion, from, target, targetVersion, to, lifetime);
+        }
+
+        public void ShowCable(int slot, Vector3 from, Vector3 to, float duration) =>
+            Activate(bolts[chainCapacity + slot], null, 0, from, null, 0, to, duration);
+
+        private void Activate(Bolt bolt, EnemyActor source, int sourceVersion, Vector3 from,
+            EnemyActor target, int targetVersion, Vector3 to, float duration)
+        {
+            bolt.Lifetime = duration;
             if (!bolt.Active) ActiveCount++;
             bolt.Active = true; bolt.Age = 0f;
             bolt.Source = source; bolt.SourceVersion = sourceVersion; bolt.From = from;
@@ -116,7 +129,7 @@ namespace EchoScrap.Combat
                 var bolt = bolts[i];
                 if (!bolt.Active) continue;
                 bolt.Age += dt;
-                if (bolt.Age >= lifetime) { Hide(bolt); continue; }
+                if (bolt.Age >= bolt.Lifetime) { Hide(bolt); continue; }
                 Present(bolt);
             }
         }
@@ -146,12 +159,12 @@ namespace EchoScrap.Combat
                     + side * (Noise(seed) * amplitude * envelope)
                     + Vector3.up * (Noise(seed + 89u) * amplitude * .55f * envelope);
             }
-            float fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.25f, 1f, bolt.Age / lifetime));
+            float fade = bolt.IsCable ? 1f : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.25f, 1f, bolt.Age / bolt.Lifetime));
             float flicker = reduced ? 1f : .88f + .12f * Mathf.Sin(bolt.Age * 145f);
             var core = reduced ? new Color(.56f, .8f, 1f, fade * .92f) : new Color(.79f, .9f, 1f, fade * flicker);
             SetLine(bolt.Core, bolt.Points, width, core, true);
             SetLine(bolt.Halo, bolt.Points, width * 3.7f, new Color(.29f, .38f, 1f, fade * decoration * .42f), !reduced);
-            bool forks = !reduced && length > .8f;
+            bool forks = !bolt.IsCable && !reduced && length > .8f;
             Fork(bolt, bolt.ForkA, 6, side, .32f);
             Fork(bolt, bolt.ForkB, 12, -side, .24f);
             var branchColor = new Color(.43f, .65f, 1f, fade * decoration * .62f);

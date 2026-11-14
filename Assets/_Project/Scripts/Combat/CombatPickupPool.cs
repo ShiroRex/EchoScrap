@@ -63,6 +63,7 @@ namespace EchoScrap.Combat
             public bool GlobalFlight;
             public Vector3 FlightStart;
             public float FlightAge, FlightDuration;
+            public Dictionary<int, int> SharpGemHits;
             public LineRenderer FlightTrail;
         }
 
@@ -75,6 +76,7 @@ namespace EchoScrap.Combat
             public Color Color;
         }
 
+        private readonly List<EnemyActor> gemTargets = new List<EnemyActor>(32);
         private readonly List<PickupSlot> slots = new List<PickupSlot>(256);
         private readonly AbsorptionSlot[] absorption = new AbsorptionSlot[AbsorptionEffectSlots];
         private MaterialPropertyBlock properties;
@@ -278,10 +280,12 @@ namespace EchoScrap.Combat
             position.y = ArenaSurface.Height(position) + PickupHeight;
             if (kind == CombatPickupKind.Experience)
             {
+                bool sharpGems = stats != null && stats.GetUpgradeTier(UpgradeId.GREED_06) > 0;
                 for (int i = 0; i < slots.Count; i++)
                 {
                     PickupSlot existing = slots[i];
-                    if (!existing.Active || existing.Kind != kind || existing.Experience > int.MaxValue - xpValue)
+                    if (!existing.Active || existing.Kind != kind || existing.Experience > int.MaxValue - xpValue ||
+                        (sharpGems && existing.Attracted && !existing.GlobalFlight))
                         continue;
                     Vector3 delta = existing.Position - position;
                     delta.y = 0f;
@@ -306,6 +310,7 @@ namespace EchoScrap.Combat
             // Los recogibles no se descartan por un límite cosmético. El pool puede crecer y luego reutilizarse.
             slot ??= CreateSlot(kind);
             slot.Id = nextId++;
+            slot.SharpGemHits?.Clear();
             slot.GlobalFlight = false;
             if (slot.FlightTrail != null) slot.FlightTrail.enabled = false;
             slot.GemCount = kind == CombatPickupKind.Experience ? 1 : 0;
@@ -360,6 +365,9 @@ namespace EchoScrap.Combat
                 return;
             EnsureInitialized();
             float magnetRadius = stats != null ? stats.MagnetRadius : 2.5f;
+            float experienceRadius = stats != null ? stats.ExperienceMagnetRadius : magnetRadius;
+            int sharpGemTier = stats?.GetUpgradeTier(UpgradeId.GREED_06) ?? 0;
+            int firstNewPickup = nextId;
             float speed = stats != null ? stats.MagnetAttractSpeed : 12f;
             float collectRadius = playerHealth.HitRadius + 0.12f;
             Vector3 target = playerHealth.transform.position;
@@ -371,7 +379,7 @@ namespace EchoScrap.Combat
                 if (!CanAdvance)
                     break;
                 PickupSlot slot = slots[i];
-                if (!slot.Active)
+                if (!slot.Active || slot.Id >= firstNewPickup)
                     continue;
                 slot.Age += deltaTime;
                 if (!slot.GlobalFlight && slot.Kind == CombatPickupKind.Medkit && slot.Age >= (stats != null ? stats.Settings.MedkitLifetime : 22f))
@@ -379,6 +387,14 @@ namespace EchoScrap.Combat
                     slot.Active = slot.Attracted = false; slot.Root.SetActive(false);
                     ActivePickupCount--; ActiveMedkitCount--;
                     continue;
+                }
+                bool collectible = slot.Kind == CombatPickupKind.Experience || CanCollectMedkit();
+                if (!collectible && slot.Attracted)
+                {
+                    slot.GlobalFlight = slot.Attracted = false;
+                    slot.Position = ArenaSurface.OnGround(slot.Position, PickupHeight);
+                    slot.Root.transform.position = slot.Position;
+                    if (slot.FlightTrail != null) slot.FlightTrail.enabled = false;
                 }
                 if (slot.GlobalFlight)
                 {
@@ -398,16 +414,23 @@ namespace EchoScrap.Combat
                     if (progress >= 1f) Collect(slot);
                     continue;
                 }
+                bool experience = slot.Kind == CombatPickupKind.Experience;
+                float pickupRadius = experience ? experienceRadius : magnetRadius;
                 float distanceSquared = (slot.Position - target).sqrMagnitude;
-                if (distanceSquared <= magnetRadius * magnetRadius)
+                if (collectible && distanceSquared <= pickupRadius * pickupRadius)
                     slot.Attracted = true;
                 if (slot.Attracted)
                 {
-                    slot.Position = Vector3.MoveTowards(slot.Position, target, Mathf.Max(0f, speed) * deltaTime);
+                    Vector3 from = slot.Position;
+                    int id = slot.Id;
+                    slot.Position = Vector3.MoveTowards(from, target, Mathf.Max(0f, speed) * deltaTime);
                     slot.Position = ArenaSurface.OnGround(slot.Position, PickupHeight);
                     slot.Root.transform.position = slot.Position;
+                    if (experience && sharpGemTier > 0)
+                        DamageWithGem(slot, from, sharpGemTier);
+                    if (!slot.Active || slot.Id != id || !CanAdvance) continue;
                 }
-                if ((slot.Position - target).sqrMagnitude <= collectRadius * collectRadius &&
+                if (collectible && (slot.Position - target).sqrMagnitude <= collectRadius * collectRadius &&
                     (slot.Kind != CombatPickupKind.Experience || progression != null))
                 {
                     Collect(slot);
@@ -423,6 +446,37 @@ namespace EchoScrap.Combat
                 slot.Visual.localScale = Vector3.one * pop;
             }
             StepAbsorption(deltaTime, decorative);
+        }
+
+        private bool CanCollectMedkit() => playerHealth.CurrentHealth < playerHealth.MaxHealth - .0001f ||
+            (stats != null && (stats.GetUpgradeTier(UpgradeId.BIO_05) > 0 || stats.GetUpgradeTier(UpgradeId.BIO_04) > 0));
+
+        private void DamageWithGem(PickupSlot slot, Vector3 from, int tier)
+        {
+            Vector3 travel = slot.Position - from;
+            travel.y = 0f;
+            if (travel.sqrMagnitude <= .000001f) return;
+            UpgradeTuning tuning = stats.Upgrades;
+            EnemyActor.GatherSegmentCandidates(from, slot.Position, tuning.gemHitRadius, gemTargets);
+            int pickupId = slot.Id;
+            float damage = UpgradeTuning.At(tuning.gemDamage, tier) * Mathf.Min(3, slot.GemCount);
+            foreach (EnemyActor enemy in gemTargets)
+            {
+                if (!CanAdvance || !slot.Active || slot.Id != pickupId) break;
+                if (enemy == null || !enemy.IsAlive || enemy.CurrentHealth <= 0f || enemy.Session != session ||
+                    enemy is GolgoraActor { IsAirborne: true } ||
+                    !EnemyActor.TouchesSegment(from, slot.Position, enemy.WorldCenter, tuning.gemHitRadius + enemy.HitRadius, out float fraction))
+                    continue;
+                Vector3 point = Vector3.Lerp(from, slot.Position, fraction);
+                if (Physics.Linecast(point, enemy.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
+                    continue;
+
+                slot.SharpGemHits ??= new Dictionary<int, int>(8);
+                if (slot.SharpGemHits.TryGetValue(enemy.TargetId, out int version) && version == enemy.SpawnVersion) continue;
+                slot.SharpGemHits[enemy.TargetId] = enemy.SpawnVersion;
+                var hit = new DamageRequest(playerHealth.TargetId, DamageSourceType.SharpGem, from, travel.normalized, damage);
+                enemy.ReceiveDamage(in hit);
+            }
         }
 
         /// <summary>Move the actual map pickups to the player; rewards resolve only on arrival.</summary>
@@ -449,7 +503,7 @@ namespace EchoScrap.Combat
             int started = 0;
             foreach (var slot in slots)
             {
-                if (!slot.Active || slot.GlobalFlight) continue;
+                if (!slot.Active || slot.GlobalFlight || (slot.Kind == CombatPickupKind.Medkit && !CanCollectMedkit())) continue;
                 slot.GlobalFlight = slot.Attracted = true;
                 slot.FlightStart = slot.Position; slot.FlightAge = 0f;
                 slot.FlightDuration = Mathf.Clamp(.45f + Vector3.Distance(slot.Position, playerHealth.transform.position) * .012f, .5f, 1.8f);
@@ -462,7 +516,8 @@ namespace EchoScrap.Combat
         public void CollectAll()
         {
             if (session == null || !playerHealth.IsAlive || session.State == SessionState.Victory || session.State == SessionState.Defeat) return;
-            for (int i=0;i<slots.Count;i++) if (slots[i].Active) Collect(slots[i]);
+            for (int i = 0; i < slots.Count; i++)
+                if (slots[i].Active && (slots[i].Kind == CombatPickupKind.Experience || CanCollectMedkit())) Collect(slots[i]);
         }
         private void Collect(PickupSlot slot)
         {
@@ -488,7 +543,7 @@ namespace EchoScrap.Combat
                 ActiveMedkitCount--;
                 TotalCollectedMedkits++;
                 HealResult heal = playerHealth.Heal(stats != null ? stats.MedkitHealAmount : 15f);
-                if (heal.ActualHealed > 0f)
+                if (heal.ActualHealed > 0f || (stats?.GetUpgradeTier(UpgradeId.BIO_05) ?? 0) > 0)
                 {
                     PlayMedkitHealSound();
                     TriggerAbsorption(new Color(0.30f, 1f, 0.48f));

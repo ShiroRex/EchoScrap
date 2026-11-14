@@ -255,7 +255,7 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void MedkitHealsRuntimeAmountAndFullHealthMedkitIsStillConsumed()
+        public void MedkitHealsRuntimeAmountAndWaitsAtFullHealthUnlessUsedByAnUpgrade()
         {
             health.ForceSetHealthForTesting(40f);
             stats.SetUpgradeTier("GREED_03", 3);
@@ -270,6 +270,10 @@ namespace EchoScrap.Tests
                     healingConfirmations++;
             };
             pickups.SpawnMedkit(Vector3.zero);
+            pickups.Step(0.01f);
+            Assert.That(pickups.ActiveMedkitCount, Is.EqualTo(1));
+            Assert.That(pickups.TotalCollectedMedkits, Is.EqualTo(1));
+            stats.SetUpgradeTier("BIO_05", 1);
             pickups.Step(0.01f);
             Assert.That(pickups.ActiveMedkitCount, Is.Zero);
             Assert.That(pickups.TotalCollectedMedkits, Is.EqualTo(2));

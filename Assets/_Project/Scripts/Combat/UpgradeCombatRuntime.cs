@@ -24,6 +24,7 @@ namespace EchoScrap.Combat
         }
         private enum DeviceKind { Mine, Decoy, Turret }
         private const int MaxActiveTurrets = 2;
+        private const int MaxElectricCables = 2;
         private sealed class Device
         {
             public bool Active, Fresh;
@@ -33,6 +34,11 @@ namespace EchoScrap.Combat
             public int Shots;
             public ulong PlacementOrder;
             public UpgradeEffectPool.View View;
+        }
+        private struct ElectricCable
+        {
+            public Vector3 Start, End;
+            public float ExpiresAt, Damage;
         }
         private struct Blast
         {
@@ -80,6 +86,14 @@ namespace EchoScrap.Combat
         private readonly HashSet<int> selectedTargets = new HashSet<int>();
         private readonly UpgradeEffectPool.View[] sawViews = new UpgradeEffectPool.View[4];
         private UpgradeEffectPool.View shield;
+        private UpgradeEffectPool.View returnMarker;
+        private PlayerMotor motor;
+        private Vector3 dashStart;
+        private float wallSlamReadyAt;
+        private bool trackingDash;
+        private readonly ElectricCable[] cables = new ElectricCable[MaxElectricCables];
+        private readonly List<EnemyActor> segmentTargets = new List<EnemyActor>(64);
+        private readonly RaycastHit[] ramSweepHits = new RaycastHit[32];
         private float time, blizzardTimer, turretTimer, regenTimer, emergencyReady, overheal;
         private int gems, activeDecoys;
         private ulong nextPlacementOrder;
@@ -117,6 +131,7 @@ namespace EchoScrap.Combat
             Unbind();
             session=combatSession; stats=playerStats; player=health; weapon=flashlight; pickups=pickupPool; progression=xp;
             collectorSprite=player.GetComponent<CollectorSpriteView>();
+            motor = player.GetComponent<PlayerMotor>();
             tuning=stats.Upgrades;
             projectiles=new Projectile[Mathf.Max(64,tuning.projectileCapacity)];
             for(int i=0;i<projectiles.Length;i++) projectiles[i]=new Projectile();
@@ -126,7 +141,7 @@ namespace EchoScrap.Combat
             statuses=new StatusView[Mathf.Max(32,tuning.statusViews)];
             for(int i=0;i<statuses.Length;i++) statuses[i]=new StatusView();
             effects=new UpgradeEffectPool(transform,tuning.projectileViews+tuning.deviceCapacity+tuning.transientViews+tuning.statusViews+8,collectorSprite,session.Effects);
-            lightning=new VoltaicChainRenderer(transform,session.Effects,tuning);
+            lightning=new VoltaicChainRenderer(transform,session.Effects,tuning,MaxElectricCables);
             voltaicChains=new VoltaicChain[Mathf.Max(256,tuning.projectileCapacity)];
             for(int i=0;i<voltaicChains.Length;i++)voltaicChains[i]=new VoltaicChain();
             bound=true; session.Upgrades=this;
@@ -147,6 +162,7 @@ namespace EchoScrap.Combat
         {
             if(!bound)return;
             ClearVoltaicChains();lightning.Clear();
+            ClearContextualUpgrades();
         }
         private void Unbind()
         {
@@ -159,6 +175,7 @@ namespace EchoScrap.Combat
             if(weapon!=null) weapon.OnBurstStarted-=BurstStarted;
             if(pickups!=null) pickups.OnPickupCollected-=PickupCollected;
             if(progression!=null) progression.OnLevelGained-=LevelGained;
+            ClearContextualUpgrades();
             effects.Dispose();lightning.Dispose();bound=false;
         }
         private void Update() { if(AutoTick) Step(Time.deltaTime); }
@@ -166,6 +183,7 @@ namespace EchoScrap.Combat
         public void ResetForSession()
         {
             if(!bound) return;
+            ClearContextualUpgrades();
             effects.Clear();
             ClearVoltaicChains();lightning.Clear();
             foreach(var p in projectiles) {p.Active=false;p.View=null;p.Hits.Clear();p.Target=null;}
@@ -239,6 +257,7 @@ namespace EchoScrap.Combat
         {
             if(!death.IsPlayer)return;
             ClearVoltaicChains();lightning.Clear();
+            ClearContextualUpgrades();
         }
         private void ClearVoltaicChains()
         {
@@ -349,10 +368,55 @@ namespace EchoScrap.Combat
             overheal+=Mathf.Max(0,heal.RequestedAmount-heal.ActualHealed);
             while(overheal>=tuning.novaOverheal) {overheal-=tuning.novaOverheal;QueueBlast(player.WorldCenter,tuning.novaDamage,tuning.novaRadius,damageType:DamageType.Supernatural);}
         }
+        private bool CanResolveContextualUpgrade => bound && isActiveAndEnabled && player.IsAlive &&
+            !session.IsPaused && session.State == SessionState.Running && session.IsGameplayFlowActive();
+
+        private void ClearContextualUpgrades()
+        {
+            stats.ClearCombatMedkit();
+            effects.Release(returnMarker);
+            returnMarker = null;
+            trackingDash = false;
+            wallSlamReadyAt = 0f;
+            System.Array.Clear(cables, 0, cables.Length);
+        }
+
+        public void TriggerWallSlam(Vector3 position, int tier)
+        {
+            if (!CanResolveContextualUpgrade || tier <= 0 || time < wallSlamReadyAt) return;
+            wallSlamReadyAt = time + tuning.wallSlamInterval;
+            QueueBlast(position, At(tuning.wallSlamDamage, tier), tuning.wallSlamRadius,
+                stun: tuning.wallSlamStun, source: DamageSourceType.WallSlam, shockwave: true);
+        }
+
         private void DashResolved(DashStateEvent dash)
         {
+            if (dash.Cancelled)
+            {
+                trackingDash = false;
+                effects.Release(returnMarker);
+                returnMarker = null;
+                return;
+            }
+            if (dash.Returned)
+            {
+                effects.Release(returnMarker);
+                returnMarker = null;
+                int tier = Tier(UpgradeId.DASH_06);
+                if (tier > 0 && CanResolveContextualUpgrade)
+                {
+                    lightning.Show(null, 0, dash.ReturnOrigin, null, 0, dash.Position);
+                    DamageDashSegment(dash.ReturnOrigin, dash.Position, tuning.returnWidth, At(tuning.returnDamage, tier),
+                        DamageSourceType.DashReturn, dash.Direction);
+                }
+                return;
+            }
             if(dash.Started)
             {
+                trackingDash = CanResolveContextualUpgrade;
+                dashStart = dash.Position;
+                if (trackingDash && motor != null && motor.HasReturnAnchor)
+                    returnMarker = effects.Acquire(UpgradeEffectPool.Shape.Decoy, dashStart, Plasma, .9f);
                 int decoy=Tier(UpgradeId.DASH_03);
                 int mine = Tier(UpgradeId.DEMO_03);
                 if (mine > 0)
@@ -362,11 +426,89 @@ namespace EchoScrap.Combat
             }
             if(dash.Ended)
             {
+                if (trackingDash && CanResolveContextualUpgrade)
+                {
+                    float length = Vector3.ProjectOnPlane(dash.Position - dashStart, Vector3.up).magnitude;
+                    int ram = Tier(UpgradeId.DASH_05);
+                    if (ram > 0 && length > .05f)
+                        DamageDashSegment(dashStart, dash.Position, tuning.ramRadius, At(tuning.ramDamage, ram),
+                            DamageSourceType.DashRam, dash.Direction);
+                    int cable = Tier(UpgradeId.DASH_07);
+                    if (cable > 0 && length > tuning.cableWidth &&
+                        !Physics.Linecast(dashStart, dash.Position, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
+                        PlaceElectricCable(dashStart, dash.Position, cable);
+                }
+                trackingDash = false;
                 int shock=Tier(UpgradeId.DASH_02);
                 if(shock>0) QueueBlast(dash.Position,At(tuning.shockDamage,shock),At(tuning.shockRadius,shock),stun:At(tuning.shockStun,shock),push:tuning.shockPushDistance,shockwave:true);
                 if(Tier(UpgradeId.DASH_04)>0) Fire(dash.Position,dash.Direction,tuning.bladeDamage,tuning.bladeSpeed,tuning.bladeLifetime,DamageSourceType.UpgradeBlade,null,true,0,tuning.bladeHitRadius);
             }
         }
+        private void DamageDashSegment(Vector3 from, Vector3 to, float width, float damage, DamageSourceType source,
+            Vector3 dashDirection)
+        {
+            bool ram = source == DamageSourceType.DashRam;
+            float length = Vector3.ProjectOnPlane(to - from, Vector3.up).magnitude;
+            EnemyActor.GatherSegmentCandidates(from, to, width, segmentTargets);
+            foreach (EnemyActor enemy in segmentTargets)
+            {
+                if (!CanResolveContextualUpgrade) break;
+                if (enemy == null || !enemy.IsAlive || enemy.Session != session ||
+                    enemy is GolgoraActor { IsAirborne: true } || (ram && !enemy.CanBeRamPushed) ||
+                    !EnemyActor.TouchesSegment(from, to, enemy.WorldCenter, width + enemy.HitRadius, out float fraction))
+                    continue;
+
+                Vector3 point = Vector3.Lerp(from, to, fraction);
+                if (Physics.Linecast(point, enemy.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
+                    continue;
+
+                Vector3 impact = enemy.WorldCenter;
+                if (ram)
+                {
+                    impact = enemy.CarryAlongDash(dashDirection, length * (1f - fraction), ramSweepHits);
+                    enemy.LaunchFromDash(dashDirection, tuning.ramLaunchSpeed);
+                }
+                if (Deal(enemy, damage, point, source, canCrit: false).AppliedRealDamage)
+                    effects.Impact(impact, ram ? Amber : Plasma);
+            }
+        }
+
+        private void PlaceElectricCable(Vector3 start, Vector3 end, int tier)
+        {
+            int slot = 0;
+            for (int i = 1; i < cables.Length; i++)
+                if (cables[i].ExpiresAt < cables[slot].ExpiresAt) slot = i;
+
+            float duration = At(tuning.cableDuration, tier);
+            cables[slot] = new ElectricCable { Start = start, End = end,
+                Damage = At(tuning.cableDamage, tier), ExpiresAt = time + duration };
+            lightning.ShowCable(slot, start - Vector3.up * .45f, end - Vector3.up * .45f, duration);
+        }
+
+        private void StepElectricCables()
+        {
+            for (int i = 0; i < cables.Length; i++)
+            {
+                var cable = cables[i];
+                if (cable.ExpiresAt <= time) continue;
+                EnemyActor.GatherSegmentCandidates(cable.Start, cable.End, tuning.cableWidth, segmentTargets);
+                foreach (EnemyActor enemy in segmentTargets)
+                {
+                    if (!CanResolveContextualUpgrade) return;
+                    if (enemy == null || !enemy.IsAlive || enemy.CurrentHealth <= 0f || enemy.Session != session ||
+                        enemy is GolgoraActor { IsAirborne: true } ||
+                        !EnemyActor.TouchesSegment(cable.Start, cable.End, enemy.WorldCenter, tuning.cableWidth + enemy.HitRadius, out float fraction))
+                        continue;
+
+                    Vector3 point = Vector3.Lerp(cable.Start, cable.End, fraction);
+                    if (Physics.Linecast(point, enemy.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
+                        continue;
+                    if (enemy.TouchElectricCable(time, tuning.cableInterval, tuning.cableSlow))
+                        Deal(enemy, cable.Damage, point, DamageSourceType.ElectricCable, canCrit: false);
+                }
+            }
+        }
+
         public void EnemyDied(EnemyActor enemy, Vector3 position)
         {
             if(!bound) return;
@@ -381,6 +523,16 @@ namespace EchoScrap.Combat
         }
         private void PickupCollected(CombatPickupInfo pickup)
         {
+            if (pickup.Kind == CombatPickupKind.Medkit)
+            {
+                int tier = Tier(UpgradeId.BIO_05);
+                if (tier > 0 && CanResolveContextualUpgrade)
+                {
+                    stats.ActivateCombatMedkit(At(tuning.medkitDuration, tier));
+                    effects.Burst(player.WorldCenter, 1.4f, Repair, kind: UpgradeEffectPool.BurstKind.Repair);
+                }
+                return;
+            }
             if(pickup.Kind!=CombatPickupKind.Experience || Tier(UpgradeId.SCRAP_02)==0) return;
             gems+=pickup.GemCount;
             while(gems>=tuning.assemblerGemCount)
@@ -472,6 +624,12 @@ namespace EchoScrap.Combat
         {
             if(!bound || dt<=0 || session.IsPaused || session.State == SessionState.BossIntro || !session.IsGameplayFlowActive() || !player.IsAlive || !isActiveAndEnabled) return;
             time+=dt; effects.Step(dt);lightning.Step(dt);
+            stats.StepCombatMedkit(dt);
+            if (returnMarker != null && (motor == null || !motor.HasReturnAnchor))
+            {
+                effects.Release(returnMarker);
+                returnMarker = null;
+            }
             Gather();
             for(int i=0;i<targets.Count;i++) targets[i].StepUpgradeStatus(dt);
             int tier=Tier(UpgradeId.BIO_03);
@@ -488,6 +646,7 @@ namespace EchoScrap.Combat
                 }
             }
             else turretTimer = 0f;
+            StepElectricCables();
             StepDevices(dt); StepProjectiles(dt); StepVoltaicChains(dt); StepSaws(); StepBlasts(dt); StepStatusViews();
             if(player.UpgradeProtectionRemaining>0)
             {
@@ -577,9 +736,9 @@ namespace EchoScrap.Combat
                 if(p.Life<=0||blocked) {p.Active=false;effects.Release(p.View);p.View=null;p.Target=null;ActiveProjectileCount--;}
             }
         }
-        private DamageResult Deal(EnemyActor enemy,float damage,Vector3 origin,DamageSourceType source,DamageType damageType=DamageType.Inherit)
+        private DamageResult Deal(EnemyActor enemy,float damage,Vector3 origin,DamageSourceType source,DamageType damageType=DamageType.Inherit,bool canCrit=true)
         {
-            var request=new DamageRequest(player.TargetId,source,origin,Flat(enemy.WorldCenter-origin),damage,true,stats.CritChance,stats.CritMultiplier,damageType:damageType);
+            var request=new DamageRequest(player.TargetId,source,origin,Flat(enemy.WorldCenter-origin),damage,canCrit,stats.CritChance,stats.CritMultiplier,damageType:damageType);
             return enemy.ReceiveDamage(in request);
         }
         private void StepBlasts(float dt)
@@ -597,7 +756,7 @@ namespace EchoScrap.Combat
                     var enemy=targets[e];if(!enemy.IsAlive||enemy.CurrentHealth<=0)continue;
                     var delta=enemy.WorldCenter-b.Position;delta.y=0;
                     if(delta.sqrMagnitude>(b.Radius+enemy.HitRadius)*(b.Radius+enemy.HitRadius))continue;
-                    if(b.Damage>0 && !Deal(enemy,b.Damage,b.Position,b.Source,b.DamageType).AppliedRealDamage) continue;
+                    if(b.Damage>0 && !Deal(enemy,b.Damage,b.Position,b.Source,b.DamageType,canCrit:b.Source!=DamageSourceType.WallSlam).AppliedRealDamage) continue;
                     if(!enemy.IsAlive||enemy.CurrentHealth<=0)continue;
                     if(b.Freeze>0)enemy.ApplyFreeze(b.Freeze);
                     if(b.Stun>0)enemy.ApplyStun(b.Stun);

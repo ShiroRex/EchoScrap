@@ -168,7 +168,7 @@ namespace EchoScrap.Combat
         }
         private void OnDash(DashStateEvent e)
         {
-            if(!e.Ended||!Has(9)||!CanFight)return;
+            if(!e.Ended||e.Cancelled||!Has(9)||!CanFight)return;
             speedBuff=2;RefreshStats();effects.Emit(6,transform.position,2.4f,new Color(.2f,.55f,1));
         }
         private void OnDeath(ActorDeathEvent e)

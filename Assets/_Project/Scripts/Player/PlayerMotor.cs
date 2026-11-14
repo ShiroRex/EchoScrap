@@ -32,6 +32,9 @@ namespace EchoScrap.Player
         private bool wallBlockedThisDash;
         private int savedLayer;
         private bool dashLayerApplied;
+        private Vector3 returnAnchor;
+        private float returnAnchorRemaining;
+        private bool dashedThisStep;
 
         public Transform MovementReference { get; set; }
         public LocomotionSettings Settings => settings;
@@ -48,7 +51,11 @@ namespace EchoScrap.Player
 
         public bool IsDashing => isDashing;
         public bool IsDashInvulnerable => isDashing || dashInvulnerabilityRemaining > 0.0001f;
-        public bool IsDashAvailable => !isDashing && cooldownRemaining <= 0.0001f && isActiveAndEnabled && (input == null || input.CanRead);
+        public bool HasReturnAnchor => returnAnchorRemaining > 0f;
+        public bool HasMovementIntent => input != null && input.Movement.sqrMagnitude > 0.0001f;
+        public bool DashedThisStep => dashedThisStep;
+        public bool IsDashAvailable => !isDashing && (HasReturnAnchor || cooldownRemaining <= 0.0001f) &&
+            isActiveAndEnabled && (input == null || input.CanRead);
         public float DashTimeRemaining => Mathf.Max(0f, dashTimeRemaining);
         public float DashCooldownRemaining => Mathf.Max(0f, cooldownRemaining);
         public float ActiveDashCooldownDuration => activeCooldownDuration;
@@ -127,6 +134,8 @@ namespace EchoScrap.Player
 
             float dt = Time.fixedDeltaTime;
             dashInvulnerabilityRemaining = Mathf.Max(0f, dashInvulnerabilityRemaining - dt);
+            returnAnchorRemaining = Mathf.Max(0f, returnAnchorRemaining - dt);
+            dashedThisStep = isDashing;
 
             // Si el dash activo completó su duración exacta en el paso anterior, cerrarlo ahora
             if (isDashing && dashTimeRemaining <= 0.00001f)
@@ -141,7 +150,7 @@ namespace EchoScrap.Player
                 cooldownRemaining = Mathf.Max(0f, cooldownRemaining - dt);
                 if (previousCooldown > 0f && cooldownRemaining <= 0.00001f)
                 {
-                    input.ClearPendingDash();
+                    if (!HasReturnAnchor) input.ClearPendingDash();
                     PublishDashEvent(started: false, ended: false, blocked: false);
                 }
             }
@@ -150,9 +159,14 @@ namespace EchoScrap.Player
             Vector3 moveDirection = ResolveMovementDirection(movement);
 
             // Iniciar en el siguiente paso físico disponible si está disponible y hubo una nueva pulsación
-            if (!isDashing && cooldownRemaining <= 0.0001f && input.ConsumeDashRequest())
+            if (IsDashAvailable && input.ConsumeDashRequest())
             {
-                StartDashInFixedStep(moveDirection);
+                if (HasReturnAnchor)
+                {
+                    if (TryReturnToAnchor()) return;
+                }
+                else
+                    StartDashInFixedStep(moveDirection);
             }
             else if (isDashing || cooldownRemaining > 0.0001f)
             {
@@ -205,10 +219,31 @@ namespace EchoScrap.Player
             activeCooldownDuration = EffectiveDashCooldown;
             wallBlockedThisDash = false;
             isDashing = true;
+            dashedThisStep = true;
+            if (ResolveRuntimeStats() != null && runtimeStats.GetUpgradeTier(UpgradeId.DASH_06) > 0)
+            {
+                returnAnchor = body.position;
+                returnAnchorRemaining = runtimeStats.Upgrades.returnLifetime;
+            }
 
             ApplyDashLayer(true);
             ResolveVisualComposer()?.SetDashState(true);
             PublishDashEvent(started: true, ended: false, blocked: false);
+        }
+
+        private bool TryReturnToAnchor()
+        {
+            Vector3 origin = body.position;
+            if (terrainCollision == null || !terrainCollision.TryPlaceDashReturn(returnAnchor))
+                return false;
+
+            returnAnchorRemaining = 0f;
+            dashedThisStep = true;
+            dashInvulnerabilityRemaining = Mathf.Max(dashInvulnerabilityRemaining, runtimeStats.Upgrades.returnInvulnerability);
+            cooldownRemaining = activeCooldownDuration = EffectiveDashCooldown;
+            body.linearVelocity = Vector3.zero;
+            PublishDashEvent(started: false, ended: false, blocked: false, returned: true, returnOrigin: origin);
+            return true;
         }
 
         private void StepActiveDash(float dt)
@@ -243,9 +278,12 @@ namespace EchoScrap.Player
         public void CancelDashAndRestoreState(bool resetCooldown = false)
         {
             bool wasDashing = isDashing;
+            bool hadReturnAnchor = HasReturnAnchor;
             isDashing = false;
             dashTimeRemaining = 0f;
             dashInvulnerabilityRemaining = 0f;
+            returnAnchorRemaining = 0f;
+            dashedThisStep = false;
             wallBlockedThisDash = false;
             if (resetCooldown)
                 cooldownRemaining = 0f;
@@ -256,8 +294,8 @@ namespace EchoScrap.Player
                 body.linearVelocity = Vector3.zero;
             ResolveVisualComposer()?.SetDashState(false);
 
-            if (wasDashing)
-                PublishDashEvent(started: false, ended: true, blocked: false);
+            if (wasDashing || hadReturnAnchor)
+                PublishDashEvent(started: false, ended: wasDashing, blocked: false, cancelled: true);
         }
 
         private void ApplyDashLayer(bool enableDashLayer)
@@ -367,7 +405,8 @@ namespace EchoScrap.Player
             dashDirection = FacingDirection;
         }
 
-        private void PublishDashEvent(bool started, bool ended, bool blocked)
+        private void PublishDashEvent(bool started, bool ended, bool blocked,
+            bool cancelled = false, bool returned = false, Vector3 returnOrigin = default)
         {
             var evt = new DashStateEvent(
                 started,
@@ -375,10 +414,11 @@ namespace EchoScrap.Player
                 blocked,
                 isDashing,
                 IsDashAvailable,
-                transform.position,
+                body != null ? body.position : transform.position,
                 dashDirection,
                 DashCooldownRemaining,
-                activeCooldownDuration);
+                activeCooldownDuration,
+                cancelled, returned, returnOrigin);
             OnDashStateChanged?.Invoke(evt);
         }
     }

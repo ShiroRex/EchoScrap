@@ -27,14 +27,45 @@ namespace EchoScrap.Combat
         private static readonly List<EnemyActor> activeEnemies = new List<EnemyActor>(256);
         private static readonly EnemyNeighborIndex neighborIndex=new EnemyNeighborIndex();
         private static readonly List<int> neighborCandidates=new List<int>(64);
-        private static double neighborStep=double.NaN;
-        private static void InvalidateNeighbors(){neighborStep=double.NaN;}
+        private static double neighborStep = double.NaN;
+        private static bool neighborsCapturedInPhysics;
+        private static float largestHitRadius;
+        private static void InvalidateNeighbors() => neighborStep = double.NaN;
         private static void RefreshNeighborIndex()
         {
-            if(neighborStep==Time.fixedTimeAsDouble)return;
+            bool inPhysics = Time.inFixedTimeStep;
+            if (neighborStep == Time.fixedTimeAsDouble && neighborsCapturedInPhysics == inPhysics) return;
             neighborIndex.Clear();
-            for(int i=0;i<activeEnemies.Count;i++)neighborIndex.Add(activeEnemies[i]!=null?activeEnemies[i].transform.position:Vector3.zero);
-            neighborStep=Time.fixedTimeAsDouble;
+            largestHitRadius = 0f;
+            for (int i = 0; i < activeEnemies.Count; i++)
+            {
+                EnemyActor enemy = activeEnemies[i];
+                neighborIndex.Add(enemy != null ? enemy.WorldCenter : Vector3.zero);
+                if (enemy != null) largestHitRadius = Mathf.Max(largestHitRadius, enemy.HitRadius);
+            }
+            neighborStep = Time.fixedTimeAsDouble;
+            neighborsCapturedInPhysics = inPhysics;
+        }
+
+        internal static void GatherSegmentCandidates(Vector3 start, Vector3 end, float radius, List<EnemyActor> results)
+        {
+            RefreshNeighborIndex();
+            Vector3 delta = end - start;
+            delta.y = 0f;
+            neighborIndex.Query(start + delta * .5f, delta.magnitude * .5f + radius + largestHitRadius + .02f, neighborCandidates);
+            results.Clear();
+            foreach (int index in neighborCandidates)
+                results.Add(activeEnemies[index]);
+        }
+
+        internal static bool TouchesSegment(Vector3 from, Vector3 to, Vector3 center, float radius, out float fraction)
+        {
+            Vector3 delta = to - from;
+            Vector3 offset = center - from;
+            delta.y = offset.y = 0f;
+            float lengthSquared = delta.sqrMagnitude;
+            fraction = lengthSquared > .000001f ? Mathf.Clamp01(Vector3.Dot(offset, delta) / lengthSquared) : 0f;
+            return (offset - delta * fraction).sqrMagnitude <= radius * radius;
         }
 
         private static readonly Dictionary<int, Material> sharedPrimaryMaterials = new Dictionary<int, Material>();
@@ -65,6 +96,9 @@ namespace EchoScrap.Combat
         private float currentHealth;
         private float assignedMoveSpeed;
         private Vector3 knockbackVelocity;
+        private float wallSlamTimeRemaining;
+        private int wallSlamTier;
+        private static readonly List<EnemyActor> wallSlamCandidates = new List<EnemyActor>(64);
         private Vector3 currentDesiredVelocity;
         private Vector3 facingDirection = Vector3.forward;
 
@@ -356,6 +390,7 @@ namespace EchoScrap.Combat
 
         private void OnDisable()
         {
+            wallSlamTimeRemaining = 0f;
             obstacleNavigator.Reset();
             UnregisterFromCombat();
             if (body != null && !body.isKinematic)
@@ -476,7 +511,9 @@ namespace EchoScrap.Combat
         /// - Escala, rotación y MaterialPropertyBlock.
         /// - Estado de muerte y recompensas.
         /// </summary>
-        public float SlowFraction { get; private set; }
+        private float slowFraction;
+        private float cableSlow, cableSlowRemaining, cableDamageReadyAt;
+        public float SlowFraction => Mathf.Max(slowFraction, cableSlow);
         public float SlowRemaining { get; private set; }
         public float FrozenRemaining { get; private set; }
         public float StunRemaining { get; private set; }
@@ -486,7 +523,18 @@ namespace EchoScrap.Combat
         public float FrozenVisualCoverage { get; private set; }
         private int coldHits;
         public Vector3 PursuitGoal => session != null && session.Upgrades != null ? session.Upgrades.PursuitGoal(transform.position, targetPlayer != null ? targetPlayer.WorldCenter : transform.position) : (targetPlayer != null ? targetPlayer.WorldCenter : transform.position);
-        public virtual void ApplySlow(float fraction, float duration) { SlowFraction = Mathf.Max(SlowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); RefreshColdTint(); }
+        public virtual void ApplySlow(float fraction, float duration) { slowFraction = Mathf.Max(slowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); RefreshColdTint(); }
+        internal bool TouchElectricCable(float time, float interval, float fraction)
+        {
+            cableSlow = LimitCableSlow(fraction);
+            cableSlowRemaining = .08f;
+            if (time < cableDamageReadyAt) return false;
+            cableDamageReadyAt = time + Mathf.Max(.01f, interval);
+            return true;
+        }
+
+        protected virtual float LimitCableSlow(float fraction) => fraction;
+
         public virtual void ApplyFreeze(float duration)
         {
             FrozenRemaining = Mathf.Max(FrozenRemaining, duration);
@@ -501,7 +549,9 @@ namespace EchoScrap.Combat
             SlowRemaining = Mathf.Max(0f, SlowRemaining - dt);
             FrozenRemaining = Mathf.Max(0f, FrozenRemaining - dt);
             StunRemaining = Mathf.Max(0f, StunRemaining - dt);
-            if (SlowRemaining <= 0f) { SlowFraction = 0f; coldHits = 0; }
+            if (SlowRemaining <= 0f) { slowFraction = 0f; coldHits = 0; }
+            cableSlowRemaining = Mathf.Max(0f, cableSlowRemaining - dt);
+            if (cableSlowRemaining <= 0f) cableSlow = 0f;
             FrozenVisualCoverage = Mathf.MoveTowards(FrozenVisualCoverage, IsFrozen ? 1f : 0f, Mathf.Max(0f, dt) / (IsFrozen ? .14f : .12f));
             RefreshColdTint();
         }
@@ -512,7 +562,9 @@ namespace EchoScrap.Combat
         }
         protected void ClearCrowdControl()
         {
-            SlowRemaining = FrozenRemaining = StunRemaining = SlowFraction = FrozenVisualCoverage = 0f;
+            SlowRemaining = FrozenRemaining = StunRemaining = slowFraction = FrozenVisualCoverage = 0f;
+            cableSlow = cableSlowRemaining = 0f;
+            wallSlamTimeRemaining = 0f;
             coldHits = 0;
             RefreshColdTint();
         }
@@ -527,7 +579,8 @@ namespace EchoScrap.Combat
             PhysicsLayers.EnsureConfigured();
 
             // 1. Salud máxima y estado de muerte/recompensas
-            SpawnVersion++; SlowRemaining = FrozenRemaining = StunRemaining = SlowFraction = FrozenVisualCoverage = 0f; coldHits = 0;
+            SpawnVersion++; SlowRemaining = FrozenRemaining = StunRemaining = slowFraction = FrozenVisualCoverage = 0f; coldHits = 0;
+            cableSlow = cableSlowRemaining = cableDamageReadyAt = 0f;
             currentHealth = Mathf.Max(1f, runtimeArchetype.MaxHealth);
             isDead = false;
             deathRewardResolved = false;
@@ -549,6 +602,7 @@ namespace EchoScrap.Combat
             }
 
             // 3. Velocidades y empuje a cero
+            wallSlamTimeRemaining = 0f;
             knockbackVelocity = Vector3.zero;
             currentDesiredVelocity = Vector3.zero;
             facingDirection = Vector3.forward;
@@ -687,6 +741,8 @@ namespace EchoScrap.Combat
         {
             if (isDead || fixedDeltaTime <= 0f || (session != null && (session.IsPaused || !session.IsGameplayFlowActive())))
                 return;
+
+            StepWallSlam(fixedDeltaTime);
 
             if (IsControlLocked)
             {
@@ -1011,8 +1067,112 @@ namespace EchoScrap.Combat
         /// Aplica empuje según la fórmula de Arena: velocidadEmpuje = impulsoLinterna * susceptibilidad.
         /// Los enemigos inmunes (susceptibilidad == 0) no se desplazan pero registran deformación pesada.
         /// </summary>
+        internal void ApplyFlashlightFinisher(Vector3 impulse, int tier, float window)
+        {
+            ApplyKnockback(impulse);
+            if (isDead || !CanBeRamPushed || knockbackVelocity.sqrMagnitude <= .1f) return;
+            wallSlamTier = tier;
+            wallSlamTimeRemaining = window;
+        }
+
+        private void StepWallSlam(float dt)
+        {
+            if (wallSlamTimeRemaining <= 0f) return;
+            float step = Mathf.Min(dt, wallSlamTimeRemaining);
+            if (IsFrozen || knockbackVelocity.sqrMagnitude <= .1f)
+            {
+                wallSlamTimeRemaining = 0f;
+                return;
+            }
+
+            Vector3 start = body.position;
+            Vector3 travel = Vector3.MoveTowards(knockbackVelocity, Vector3.zero,
+                Mathf.Max(1f, runtimeArchetype.KnockbackBraking) * dt) * step;
+            Vector3 end = start + travel;
+            GatherSegmentCandidates(start, end, HitRadius, wallSlamCandidates);
+            float closest = float.PositiveInfinity;
+            Bounds bounds = bodyCollider.bounds;
+            foreach (EnemyActor other in wallSlamCandidates)
+            {
+                if (other == null || other == this || other.Session != session || !other.IsAlive ||
+                    other.BodyCollider == null || !other.BodyCollider.enabled ||
+                    other is GolgoraActor { IsAirborne: true } ||
+                    Vector3.Dot(other.WorldCenter - start, travel) <= 0f)
+                    continue;
+                Bounds otherBounds = other.BodyCollider.bounds;
+                if (bounds.max.y < otherBounds.min.y || otherBounds.max.y < bounds.min.y) continue;
+                if (TouchesSegment(start, end, other.WorldCenter, HitRadius + other.HitRadius, out float fraction) &&
+                    fraction < closest && !Physics.Linecast(start, other.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
+                    closest = fraction;
+            }
+            if (closest <= 1f) TriggerWallSlam(Vector3.Lerp(start, end, closest));
+            else wallSlamTimeRemaining = Mathf.Max(0f, wallSlamTimeRemaining - dt);
+        }
+
+        private void OnCollisionEnter(Collision collision) => CheckWallSlamContact(collision);
+        private void OnCollisionStay(Collision collision) => CheckWallSlamContact(collision);
+
+        private void CheckWallSlamContact(Collision collision)
+        {
+            if (wallSlamTimeRemaining <= 0f || IsFrozen || collision.gameObject.layer != PhysicsLayers.DefaultLayer ||
+                (ArenaSurface.Active != null && collision.collider == ArenaSurface.Active.GroundCollider))
+                return;
+
+            for (int i = 0; i < collision.contactCount; i++)
+            {
+                ContactPoint contact = collision.GetContact(i);
+                if (Mathf.Abs(contact.normal.y) > .6f || Vector3.Dot(knockbackVelocity, contact.normal) >= -.1f)
+                    continue;
+                TriggerWallSlam(body.position);
+                break;
+            }
+        }
+
+        private void TriggerWallSlam(Vector3 position)
+        {
+            wallSlamTimeRemaining = 0f;
+            session?.Upgrades?.TriggerWallSlam(position, wallSlamTier);
+        }
+
+        internal bool CanBeRamPushed => runtimeArchetype.KnockbackSusceptibility > .0001f;
+
+        internal Vector3 CarryAlongDash(Vector3 dashDirection, float distance, RaycastHit[] sweepHits)
+        {
+            Vector3 from = body.position;
+            if (!CanBeRamPushed || distance <= .001f) return from;
+            Vector3 center = bodyCollider.bounds.center;
+            float radius = HitRadius;
+            float span = Mathf.Max(0f, bodyCollider.bounds.extents.y - radius);
+            int count = Physics.CapsuleCastNonAlloc(center - Vector3.up * span, center + Vector3.up * span,
+                radius, dashDirection, sweepHits, distance, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore);
+            if (count == sweepHits.Length) return from;
+            Collider ground = ArenaSurface.Active != null ? ArenaSurface.Active.GroundCollider : null;
+            for (int i = 0; i < count; i++)
+            {
+                var hit = sweepHits[i];
+                if (hit.collider != ground && (hit.distance > 0f || Vector3.Dot(hit.normal, dashDirection) < -.05f))
+                    distance = Mathf.Min(distance, Mathf.Max(0f, hit.distance - .05f));
+            }
+
+            // Preserve the body height during the swept displacement. The next physics step follows the relief.
+            Vector3 carried = from + dashDirection * distance;
+            carried.y = from.y;
+            if (distance > .001f)
+            {
+                // Sync the interpolated pose now for damage feedback and other attacks this step.
+                body.position = carried;
+                transform.position = carried;
+                InvalidateNeighbors();
+            }
+            return carried;
+        }
+
+        internal void LaunchFromDash(Vector3 direction, float speed) =>
+            ApplyKnockback(direction * (speed / runtimeArchetype.KnockbackSusceptibility));
+
         public void ApplyKnockback(Vector3 planarImpulse)
         {
+            wallSlamTimeRemaining = 0f;
             if (isDead)
                 return;
 
@@ -1106,8 +1266,10 @@ namespace EchoScrap.Combat
                 : request.BaseDamage;
 
             bool executed = false;
-            bool playerAttack = request.SourceType == DamageSourceType.FlashlightPulse || request.SourceType == DamageSourceType.SolarPulse ||
-                (request.SourceType >= DamageSourceType.UpgradeProjectile && request.SourceType <= DamageSourceType.UpgradeBlade);
+            bool playerAttack = DamageTypes.IsFlashlight(request.SourceType) ||
+                (request.SourceType >= DamageSourceType.UpgradeProjectile && request.SourceType <= DamageSourceType.UpgradeBlade) ||
+                request.SourceType is DamageSourceType.WallSlam or DamageSourceType.DashRam or DamageSourceType.DashReturn or
+                    DamageSourceType.ElectricCable or DamageSourceType.SharpGem;
             var upgradeStats = session != null ? session.PlayerStats : null;
             if (playerAttack && upgradeStats != null)
             {

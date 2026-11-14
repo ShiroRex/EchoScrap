@@ -70,6 +70,38 @@ namespace EchoScrap.Core
         public float eyeCritChance = .2f, eyeHealthThreshold = .35f, eyeCritMultiplier = 3f;
         public float eyeStun = 1f, eyeRadius = 3f, experiencePerTier = .15f;
         public float rareWeightPerTier = 5f, epicWeightPerTier = 3f;
+        [Header("Mejoras situacionales")]
+        public Vector3 wallSlamDamage = new Vector3(18, 30, 45);
+        public float wallSlamRadius = 2.2f;
+        public float wallSlamWindow = .35f;
+        public float wallSlamStun = .5f;
+        public float wallSlamInterval = .35f;
+        public Vector3 rearBeamDamage = new Vector3(.45f, .6f, .75f);
+        public float rearBeamRange = .75f;
+        public Vector3 stationaryDamage = new Vector3(.15f, .25f, .35f);
+        public float stationaryDelay = .35f;
+        public float stationaryRange = 2f;
+        public float stationaryRestFactor = .5f;
+        public Vector3 ramDamage = new Vector3(20, 35, 50);
+        public float ramRadius = 1.6f;
+        public float ramLaunchSpeed = 14f;
+        public Vector3 returnDamage = new Vector3(35, 55, 80);
+        public float returnLifetime = 2.5f;
+        public float returnInvulnerability = .25f;
+        public float returnWidth = .65f;
+        public Vector3 cableDamage = new Vector3(7, 12, 18);
+        public Vector3 cableDuration = new Vector3(2, 2.5f, 3);
+        public float cableWidth = .65f;
+        public float cableInterval = .4f;
+        public float cableSlow = .35f;
+        public Vector3 gemDamage = new Vector3(6, 10, 15);
+        public float gemMagnetRadius = 1.5f;
+        public float gemHitRadius = .18f;
+        public Vector3 medkitDuration = new Vector3(3, 4, 5);
+        public float medkitMoveBonus = .20f;
+        public float medkitAttackBonus = .25f;
+        public float medkitRestFactor = .5f;
+        public float medkitDropBonus = .03f;
         [Header("Reservas de simulación y efectos")]
         public int projectileCapacity = 2048, projectileViews = 256, deviceCapacity = 512;
         public int transientViews = 96, statusViews = 192, blastCapacity = 1024;
