@@ -23,6 +23,7 @@ namespace EchoScrap.Combat
             int catchUpSteps = lowMemory ? 2 : 4;
             Time.maximumDeltaTime = Mathf.Min(Time.maximumDeltaTime, Time.fixedDeltaTime * catchUpSteps);
             if (!lowMemory) return;
+            MenuSettingsView.ApplySavedFrameRateLimit(30);
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             if (pipeline == null) return;
@@ -32,8 +33,6 @@ namespace EchoScrap.Combat
             pipeline.shadowCascadeCount = 1;
             pipeline.mainLightShadowmapResolution = Mathf.Min(pipeline.mainLightShadowmapResolution, 1024);
             QualitySettings.globalTextureMipmapLimit = Mathf.Max(1, QualitySettings.globalTextureMipmapLimit);
-            QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = 30;
             Debug.Log($"EchoScrap: perfil ligero activo. RAM {ram} MB, gráfica {vram} MB, escala {pipeline.renderScale:F2}.");
         }
     }

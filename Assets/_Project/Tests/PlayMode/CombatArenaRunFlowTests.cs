@@ -219,6 +219,48 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void PauseFrameRateButtonsApplyAndPersistTheSelectedLimit()
+        {
+            const string key = "EchoScrap.Graphics.FrameRateLimit";
+            int previousPreference = PlayerPrefs.GetInt(key, -1);
+            int previousFrameRate = Application.targetFrameRate;
+            int previousVSync = QualitySettings.vSyncCount;
+            try
+            {
+                game.Session.SetManualPause(true);
+                game.Hud.RefreshNow();
+                var general = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause/General");
+                var group = general.Find("FrameRateLimit");
+                var effects = general.Find("EffectsSlider").GetComponent<UnityEngine.UI.Slider>();
+                foreach (int rate in new[] { 30, 120, 60 })
+                {
+                    var choice = group.Find(rate.ToString()).GetComponent<UnityEngine.UI.Button>();
+                    QualitySettings.vSyncCount = 1;
+                    choice.onClick.Invoke();
+                    Assert.AreEqual(rate, Application.targetFrameRate);
+                    Assert.AreEqual(0, QualitySettings.vSyncCount);
+                    Assert.AreEqual(rate, PlayerPrefs.GetInt(key));
+                    Assert.AreSame(choice, effects.navigation.selectOnDown);
+                    Assert.AreSame(effects, choice.navigation.selectOnUp);
+                }
+
+                Application.targetFrameRate = 30;
+                typeof(MenuSettingsView).GetMethod("LoadFrameRateLimit",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).Invoke(null, null);
+                Assert.AreEqual(60, Application.targetFrameRate);
+            }
+            finally
+            {
+                if (previousPreference == -1) PlayerPrefs.DeleteKey(key);
+                else PlayerPrefs.SetInt(key, previousPreference);
+                PlayerPrefs.Save();
+                Application.targetFrameRate = previousFrameRate;
+                QualitySettings.vSyncCount = previousVSync;
+                game.Session.SetManualPause(false);
+            }
+        }
+
+        [Test]
         public void PauseMenu_ChangesEffectsAndResumesBothUserPauseReasonsWhileKeepingPreferences()
         {
             game.Session.SetManualPause(true);

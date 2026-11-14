@@ -16,7 +16,10 @@ namespace EchoScrap.Combat
         private static readonly Color CopperShadow = new Color32(83, 50, 50, 255);
         private static readonly Color TabMuted = new Color32(203, 184, 175, 255);
         private const string VolumePreference = "EchoScrap.Audio.MasterVolume";
+        private static readonly int[] FrameRateLimits = { 30, 60, 120 };
+        private const string FrameRatePreference = "EchoScrap.Graphics.FrameRateLimit";
 
+        private readonly Button[] frameRateButtons = new Button[FrameRateLimits.Length];
         private readonly Button[] statsModeButtons = new Button[3];
         private readonly Toggle[] powerToggles = new Toggle[2];
         private readonly Button[] pauseTabs = new Button[3];
@@ -97,9 +100,10 @@ namespace EchoScrap.Combat
 
             (volumeSlider, volumeLabel) = CreatePauseSlider(sound, "Volume", "Volumen general", 48, SetVolumePercent);
             (musicSlider, musicLabel) = CreatePauseSlider(sound, "Music", "Música", -48, SetMusicPercent);
-            (shakeSlider, shakeLabel) = CreatePauseSlider(general, "Shake", "Movimiento de cámara", titleMenu ? 72 : 48, SetShakePercent);
-            (decorativeSlider, decorativeLabel) = CreatePauseSlider(general, "Effects", "Efectos decorativos", titleMenu ? -4 : -48, SetDecorativePercent);
+            (shakeSlider, shakeLabel) = CreatePauseSlider(general, "Shake", "Movimiento de cámara", 72, SetShakePercent);
+            (decorativeSlider, decorativeLabel) = CreatePauseSlider(general, "Effects", "Efectos decorativos", -4, SetDecorativePercent);
             if (titleMenu) BuildReducedEffectsToggle(general);
+            else BuildFrameRateSelector(general);
 
             Label(layout, "StatsLabel", new Vector2(0, 67), new Vector2(640, 32), "Estadísticas generales", 26, TextAnchor.MiddleLeft, Pale).font = pauseTitle.font;
             var statsModes = Rect(layout, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0, 17), new Vector2(640, 52));
@@ -125,6 +129,54 @@ namespace EchoScrap.Combat
                 secondaryLabel.fontSize = 22;
             }
             SelectPauseTab(0);
+        }
+
+        private void BuildFrameRateSelector(Transform general)
+        {
+            Label(general, "FrameRateLabel", new Vector2(-206, -84), new Vector2(228, 40),
+                "Límite de FPS", 26, TextAnchor.MiddleLeft, Pale).font = pauseTitle.font;
+            var group = Rect(general, "FrameRateLimit", Vector2.one * .5f, new Vector2(119, -84), new Vector2(402, 44));
+            for (int i = 0; i < FrameRateLimits.Length; i++)
+            {
+                int rate = FrameRateLimits[i];
+                Button button = CreatePauseChoice(group, rate.ToString(), (i - 1) * 136f, rate.ToString(),
+                    () => SetFrameRateLimit(rate));
+                button.image.rectTransform.sizeDelta = new Vector2(124f, 44f);
+                button.transform.Find("Label").GetComponent<Text>().rectTransform.sizeDelta = new Vector2(108f, 40f);
+                frameRateButtons[i] = button;
+            }
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void LoadFrameRateLimit() => ApplySavedFrameRateLimit(60);
+
+        internal static void ApplySavedFrameRateLimit(int fallback)
+        {
+            int savedLimit = PlayerPrefs.GetInt(FrameRatePreference, fallback);
+            ApplyFrameRateLimit(System.Array.IndexOf(FrameRateLimits, savedLimit) >= 0 ? savedLimit : fallback);
+        }
+
+        private static void ApplyFrameRateLimit(int limit)
+        {
+            // Unity prioritizes VSync over Application.targetFrameRate on desktop.
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = limit;
+        }
+
+        private void SetFrameRateLimit(int limit)
+        {
+            ApplyFrameRateLimit(limit);
+            PlayerPrefs.SetInt(FrameRatePreference, limit);
+            PlayerPrefs.Save();
+            SyncFrameRateControls();
+            LinkPauseControls();
+        }
+
+        private void SyncFrameRateControls()
+        {
+            if (frameRateButtons[0] == null) return;
+            for (int i = 0; i < frameRateButtons.Length; i++)
+                PixelControlArtwork.SetChoiceActive(frameRateButtons[i], Application.targetFrameRate == FrameRateLimits[i]);
         }
 
         private void BuildReducedEffectsToggle(Transform general)
@@ -282,6 +334,7 @@ namespace EchoScrap.Combat
             PixelControlArtwork.Refresh(shakeSlider);
             PixelControlArtwork.Refresh(decorativeSlider);
             PixelControlArtwork.Refresh(musicSlider);
+            SyncFrameRateControls();
             LinkPauseControls();
         }
 
@@ -319,7 +372,7 @@ namespace EchoScrap.Combat
         private void SelectPauseTab(int tab)
         {
             pauseTab = tab;
-            settingDivider.anchoredPosition = new Vector2(0, tab == 0 && reducedEffectsToggle != null ? -4 : -20);
+            settingDivider.anchoredPosition = new Vector2(0, tab == 0 ? -4 : -20);
             for (int i = 0; i < pauseTabs.Length; i++)
             {
                 bool active = i == tab;
@@ -410,6 +463,16 @@ namespace EchoScrap.Combat
                         SetNavigation(reducedEffectsToggle, tab, BackButton);
                     }
                     bottom = reducedEffectsToggle;
+                }
+                else if (pauseTab == 0 && frameRateButtons[0] != null)
+                {
+                    int selected = Mathf.Max(0, System.Array.IndexOf(FrameRateLimits, Application.targetFrameRate));
+                    SetNavigation(top, tab, bottom);
+                    SetNavigation(bottom, top, frameRateButtons[selected]);
+                    for (int i = 0; i < frameRateButtons.Length; i++)
+                        SetNavigation(frameRateButtons[i], bottom, BackButton,
+                            frameRateButtons[(i + 2) % 3], frameRateButtons[(i + 1) % 3]);
+                    bottom = frameRateButtons[selected];
                 }
                 else
                 {
