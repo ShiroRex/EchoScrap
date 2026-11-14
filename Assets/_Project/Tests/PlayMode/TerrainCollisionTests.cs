@@ -113,6 +113,38 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(50f,collider.bounds.size.y,0.001f,edge);
             }
         }
+
+        [UnityTest] public IEnumerator CanSlideAlongAndBackAwayFromALowRock()
+        {
+            var body = game.Player.GetComponent<Rigidbody>();
+            var rock = GameObject.Find("roca_baja_-18_-23").GetComponentInChildren<MeshCollider>();
+            Assert.IsNotNull(rock);
+            Vector3 start = rock.bounds.center;
+            start.x = rock.bounds.min.x - 1.2f;
+            start = ArenaSurface.OnGround(start, 1f);
+            body.position = start;
+            game.Player.transform.position = start;
+            body.linearVelocity = Vector3.zero;
+            Physics.SyncTransforms();
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.D));
+            yield return null;
+            for (int i = 0; i < 24; ++i) yield return new WaitForFixedUpdate();
+            Vector3 contact = body.position;
+            Assert.That(contact.x, Is.GreaterThan(start.x + .2f));
+            Assert.That(contact.x, Is.LessThan(rock.bounds.center.x));
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.D, Key.S));
+            yield return null;
+            for (int i = 0; i < 20; ++i) yield return new WaitForFixedUpdate();
+            Assert.That(body.position.z, Is.LessThan(contact.z - .5f));
+
+            float slideX = body.position.x;
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.A));
+            yield return null;
+            for (int i = 0; i < 20; ++i) yield return new WaitForFixedUpdate();
+            Assert.That(body.position.x, Is.LessThan(slideX - .5f));
+        }
 #if UNITY_EDITOR
         [Test] public void DebrisWestOfPortalRestsOnTheTerrain()
         {
