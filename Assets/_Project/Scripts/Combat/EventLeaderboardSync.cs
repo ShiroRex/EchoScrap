@@ -117,6 +117,7 @@ namespace EchoScrap.Combat
         private float retryAt, nextUpload;
         private int mode, collected, discoveries, fusions, highest;
         private string attemptId, attemptName, normalizedName;
+        public string ActiveAttemptId => active ? attemptId : string.Empty;
         public EventPlayerRecord LastRecord { get; private set; }
 
         public void Initialize(CombatGameBootstrap bootstrap, FusionStation fusionStation)
@@ -171,6 +172,11 @@ namespace EchoScrap.Combat
             ledger.interrupted = null;
             ledger.eligible = true;
             SaveLedger(ledger);
+        }
+
+        public void AbandonActiveAttempt()
+        {
+            CancelAttempt();
         }
 
         private void CancelAttempt()
@@ -320,8 +326,51 @@ namespace EchoScrap.Combat
         private void OnDestroy()
         {
             if (game != null && game.Session != null) { game.Session.Events.OnSessionStateChanged -= OnState; game.Session.SessionReset -= CancelAttempt; }
-            CancelAttempt();
+            // Keep suspended slot expeditions alive for resumption instead of marking CANCELADA on app shutdown.
+            if (!SaveSlotService.HasActiveExpeditionInLoadedSlot)
+                CancelAttempt();
             if (Instance == this) Instance = null;
+        }
+
+        internal LeaderboardAttemptSnapshot CaptureSnapshot()
+        {
+            return new LeaderboardAttemptSnapshot
+            {
+                active = active,
+                attemptId = attemptId ?? string.Empty,
+                attemptName = attemptName ?? string.Empty,
+                normalizedName = normalizedName ?? string.Empty,
+                mode = mode,
+                collected = collected,
+                discoveries = discoveries,
+                fusions = fusions,
+                highest = highest
+            };
+        }
+
+        internal void RestoreFromSnapshot(LeaderboardAttemptSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                active = false;
+                return;
+            }
+            active = snapshot.active;
+            attemptId = snapshot.attemptId ?? string.Empty;
+            attemptName = snapshot.attemptName ?? string.Empty;
+            normalizedName = snapshot.normalizedName ?? string.Empty;
+            mode = snapshot.mode == 8 ? 8 : 3;
+            collected = Mathf.Max(0, snapshot.collected);
+            discoveries = Mathf.Max(0, snapshot.discoveries);
+            fusions = Mathf.Max(0, snapshot.fusions);
+            highest = snapshot.highest;
+            nextUpload = 0f;
+            if (!SaveSlotService.HasLoadedProfile && active && !string.IsNullOrEmpty(attemptId))
+            {
+                var ledger = ReadLedger();
+                ledger.interrupted = attemptId;
+                SaveLedger(ledger);
+            }
         }
     }
 }

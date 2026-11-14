@@ -758,5 +758,92 @@ namespace EchoScrap.Combat
             mesh.RecalculateBounds();
             return mesh;
         }
+
+        internal CombatPickupPoolSnapshot CaptureSnapshot()
+        {
+            var snapshot = new CombatPickupPoolSnapshot
+            {
+                nextId = nextId,
+                nextMedkitDropTime = nextMedkitDropTime,
+                totalSpawnedExperience = TotalSpawnedExperience,
+                totalCollectedExperience = TotalCollectedExperience,
+                totalCollectedMedkits = TotalCollectedMedkits,
+                experienceRemainder = experienceRemainder
+            };
+            for (int i = 0; i < slots.Count; i++)
+            {
+                PickupSlot slot = slots[i];
+                if (slot == null || !slot.Active) continue;
+                snapshot.pickups.Add(new CombatPickupSnapshot
+                {
+                    kind = (int)slot.Kind,
+                    position = slot.Position,
+                    id = slot.Id,
+                    experience = slot.Experience,
+                    gemCount = slot.GemCount,
+                    attracted = slot.Attracted,
+                    age = slot.Age,
+                    bobPhase = slot.BobPhase,
+                    globalFlight = slot.GlobalFlight,
+                    flightStart = slot.FlightStart,
+                    flightAge = slot.FlightAge,
+                    flightDuration = slot.FlightDuration
+                });
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(CombatPickupPoolSnapshot snapshot)
+        {
+            EnsureInitialized();
+            ResetForSession();
+            if (snapshot == null) return;
+            nextId = Mathf.Max(1, snapshot.nextId);
+            nextMedkitDropTime = snapshot.nextMedkitDropTime;
+            TotalSpawnedExperience = Math.Max(0L, snapshot.totalSpawnedExperience);
+            TotalCollectedExperience = Math.Max(0L, snapshot.totalCollectedExperience);
+            TotalCollectedMedkits = Mathf.Max(0, snapshot.totalCollectedMedkits);
+            experienceRemainder = snapshot.experienceRemainder;
+            if (snapshot.pickups == null) return;
+            for (int i = 0; i < snapshot.pickups.Count; i++)
+            {
+                CombatPickupSnapshot item = snapshot.pickups[i];
+                CombatPickupKind kind = (CombatPickupKind)item.kind;
+                PickupSlot slot = null;
+                for (int s = 0; s < slots.Count; s++)
+                {
+                    if (!slots[s].Active && slots[s].Kind == kind)
+                    {
+                        slot = slots[s];
+                        break;
+                    }
+                }
+                slot ??= CreateSlot(kind);
+                slot.Id = item.id;
+                slot.Kind = kind;
+                slot.Position = item.position;
+                slot.Experience = Mathf.Max(0, item.experience);
+                slot.GemCount = Mathf.Max(0, item.gemCount);
+                slot.Attracted = item.attracted;
+                slot.Age = Mathf.Max(0f, item.age);
+                slot.BobPhase = item.bobPhase;
+                slot.GlobalFlight = item.globalFlight;
+                slot.FlightStart = item.flightStart;
+                slot.FlightAge = Mathf.Max(0f, item.flightAge);
+                slot.FlightDuration = Mathf.Max(0f, item.flightDuration);
+                slot.SharpGemHits?.Clear();
+                slot.Active = true;
+                slot.Root.transform.position = slot.Position;
+                slot.Visual.localPosition = Vector3.zero;
+                slot.Visual.localRotation = Quaternion.identity;
+                if (kind == CombatPickupKind.Experience) slot.Visual.rotation = OrbRotation;
+                slot.Visual.localScale = Vector3.one * 0.7f;
+                if (slot.FlightTrail != null) slot.FlightTrail.enabled = slot.GlobalFlight;
+                slot.Root.SetActive(true);
+                ActivePickupCount++;
+                if (kind == CombatPickupKind.Experience) ActiveExperienceCount++;
+                else ActiveMedkitCount++;
+            }
+        }
     }
 }

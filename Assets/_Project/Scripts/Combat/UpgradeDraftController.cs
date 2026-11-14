@@ -31,7 +31,9 @@ namespace EchoScrap.Combat
         public bool TryReroll()
         {
             if (!IsOpen || resolving || offers.Count == 0 || RerollsRemaining == 0 || session.Clock.HasPauseReason(PauseReason.FocusLost)) return false;
-            rerollsUsed++; GenerateOffers(); OnOffersChanged?.Invoke(); return true;
+            rerollsUsed++; GenerateOffers(); OnOffersChanged?.Invoke();
+            ExpeditionSnapshotService.CaptureFromSession(session);
+            return true;
         }
         private float Weight(UpgradeRarity rarity)
         {
@@ -137,6 +139,7 @@ namespace EchoScrap.Combat
             SelectionTimeRemaining = SelectionSeconds;
             GenerateOffers();
             OnOffersChanged?.Invoke();
+            ExpeditionSnapshotService.CaptureFromSession(session);
         }
         public void AdvanceSelectionTime(float unscaledDeltaTime)
         {
@@ -205,6 +208,7 @@ namespace EchoScrap.Combat
                 else CloseDraft();
             }
             finally { resolving = false; }
+            ExpeditionSnapshotService.CaptureFromSession(session);
             return true;
         }
         public bool ContinueWithoutUpgrade()
@@ -219,6 +223,7 @@ namespace EchoScrap.Combat
                 CloseDraft();
             }
             finally { resolving = false; }
+            ExpeditionSnapshotService.CaptureFromSession(session);
             return true;
         }
         private void SuppressConfirmationDash()
@@ -238,6 +243,41 @@ namespace EchoScrap.Combat
         {
             IsOpen = false; offers.Clear(); candidates.Clear(); resolving = false; rerollsUsed = 0;
             SelectionTimeRemaining = 0f;
+            OnOffersChanged?.Invoke();
+        }
+
+        internal UpgradeDraftSnapshot CaptureSnapshot()
+        {
+            var snapshot = new UpgradeDraftSnapshot
+            {
+                isOpen = IsOpen,
+                rerollsUsed = rerollsUsed,
+                selectionTimeRemaining = SelectionTimeRemaining
+            };
+            for (int i = 0; i < offers.Count; i++)
+                snapshot.offerIds.Add(offers[i].Card.Id);
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(UpgradeDraftSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            resolving = false;
+            offers.Clear();
+            candidates.Clear();
+            IsOpen = snapshot.isOpen;
+            rerollsUsed = Mathf.Max(0, snapshot.rerollsUsed);
+            SelectionTimeRemaining = Mathf.Max(0f, snapshot.selectionTimeRemaining);
+            if (snapshot.offerIds != null && stats != null)
+            {
+                for (int i = 0; i < snapshot.offerIds.Count; i++)
+                {
+                    if (UpgradeCatalog.TryGet(snapshot.offerIds[i], out UpgradeCardDefinition card))
+                        offers.Add(new UpgradeOffer(card, stats));
+                }
+            }
+            if (IsOpen && offers.Count == 0 && progression != null && progression.PendingChoices == 0)
+                IsOpen = false;
             OnOffersChanged?.Invoke();
         }
     }

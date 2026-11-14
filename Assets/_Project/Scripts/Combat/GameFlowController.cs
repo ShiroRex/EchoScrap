@@ -23,6 +23,8 @@ namespace EchoScrap.Combat
         private bool persist = true;
         private bool separateScenes;
         private float vaultSaveClock;
+        private float expeditionSaveClock;
+        private bool pendingStepSave;
 
         public bool IsLoading { get; private set; }
         public bool IsSelectingExpedition { get; private set; }
@@ -58,6 +60,8 @@ namespace EchoScrap.Combat
             }
             travel.Initialize(game);
             game.Flow = this;
+            game.Session.Events.OnSessionStateChanged += HandleSessionStateChanged;
+            game.Session.Clock.OnPauseStateChanged += HandlePauseStateChanged;
             slots = new MenuSlotCoordinator(
                 () => view,
                 Sync,
@@ -96,8 +100,34 @@ namespace EchoScrap.Combat
             EnterLoadedSlot(newCollection ? SceneTransitionState.Entry.NewCollection : SceneTransitionState.Entry.Continue, SaveSlotService.ActiveSlotIndex);
         }
 
+        internal CombatWaveSettings ResolveWaveSettings(int modeMinutes)
+        {
+            if (entrySettings == null) return game != null ? game.WaveSettings : null;
+            return modeMinutes == 8 && entrySettings.CompleteRound != null
+                ? entrySettings.CompleteRound
+                : entrySettings.DemoRound != null ? entrySettings.DemoRound : game?.WaveSettings;
+        }
+
         private void EnterLoadedSlot(SceneTransitionState.Entry entry, int slotIndex)
         {
+            if (entry != SceneTransitionState.Entry.NewCollection && SaveSlotService.HasPendingExpeditionSnapshot &&
+                ExpeditionSnapshotService.TryRestoreActiveExpedition(
+                    game, station, travel, ResolveWaveSettings, out _, keepFrontEndPause: true))
+            {
+                IsConfiguring = IsSelectingExpedition = false;
+                slots?.Reset();
+                State = GameFlowState.Expedition;
+                vaultSaveClock = 0f;
+                expeditionSaveClock = 0f;
+                pendingStepSave = false;
+                SaveSlotService.ClearPendingExpeditionAfterRestore();
+                SaveSlotService.MarkSlotLoadCompleted();
+                EventLeaderboardSync.SyncSessionNameFromActiveSlot();
+                Sync();
+                StartCoroutine(ResumeRestoredExpeditionWhenHudReady());
+                return;
+            }
+
             station?.ReloadFromActiveSlot();
             ReturnToVault();
             game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
@@ -105,6 +135,16 @@ namespace EchoScrap.Combat
             SaveSlotService.MarkSlotLoadCompleted();
             EventLeaderboardSync.SyncSessionNameFromActiveSlot();
             Sync();
+        }
+
+        private IEnumerator ResumeRestoredExpeditionWhenHudReady()
+        {
+            while (LoadingScreen.IsLoading) yield return null;
+            if (game == null || game.Session == null || State != GameFlowState.Expedition) yield break;
+            Sync();
+            Canvas.ForceUpdateCanvases();
+            game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
+            game.Motor?.GetComponent<EchoScrap.Player.PlayerInputReader>()?.SuppressDashFromUiConfirmation();
         }
 
         private void Update()
@@ -124,6 +164,16 @@ namespace EchoScrap.Combat
                         SaveSlotService.SaveActiveFusionProgress(station?.Progress);
                     }
                 }
+                else if (State == GameFlowState.Expedition && SaveSlotService.CanWriteActiveProfile &&
+                    (game.Session.State == SessionState.Running || game.Session.State == SessionState.BossIntro))
+                {
+                    expeditionSaveClock += Time.unscaledDeltaTime;
+                    if (expeditionSaveClock >= ExpeditionSnapshotService.AutosaveIntervalSeconds)
+                    {
+                        expeditionSaveClock = 0f;
+                        pendingStepSave = true;
+                    }
+                }
             }
 
             bool cancel = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame
@@ -132,6 +182,19 @@ namespace EchoScrap.Combat
             else if (cancel && IsConfirming) CancelConfirmation();
             else if (cancel && IsSlotSelectorOpen) CloseSlotSelector();
             else if (cancel && IsConfiguring) CloseConfiguration();
+        }
+
+        private void LateUpdate()
+        {
+            if (!pendingStepSave) return;
+            pendingStepSave = false;
+            if (State == GameFlowState.Expedition && SaveSlotService.CanWriteActiveProfile &&
+                !ExpeditionSnapshotService.IsRestoring &&
+                game != null && game.Session != null && game.Player != null && game.Player.IsAlive &&
+                game.Session.State != SessionState.Victory && game.Session.State != SessionState.Defeat)
+            {
+                ExpeditionSnapshotService.CaptureAndSave(game, station);
+            }
         }
 
         public void RequestNewCollection()
@@ -231,8 +294,11 @@ namespace EchoScrap.Combat
             {
                 game.SelectWaveSettings(waves);
                 State = GameFlowState.Expedition;
+                expeditionSaveClock = 0f;
+                pendingStepSave = false;
                 game.ResetRun();
                 EventLeaderboardSync.Instance?.BeginRankedExpedition(waves == entrySettings.CompleteRound);
+                ExpeditionSnapshotService.CaptureAndSave(game, station, forceImmediate: true);
                 IsLoading = false;
                 Sync();
                 entrance.Play();
@@ -260,6 +326,8 @@ namespace EchoScrap.Combat
             slots?.Reset();
             State = GameFlowState.Vault;
             vaultSaveClock = 0f;
+            expeditionSaveClock = 0f;
+            pendingStepSave = false;
             game.ResetRun();
             travel.PlaceInWarehouse(true);
             Sync();
@@ -273,7 +341,15 @@ namespace EchoScrap.Combat
                 "Perderás las mejoras de esta partida y volverás a la bóveda.\nTu colección se conserva.");
         }
 
-        private void HandleAbandonAccepted() => ReturnToVault();
+        private void HandleAbandonAccepted()
+        {
+            pendingStepSave = false;
+            expeditionSaveClock = 0f;
+            EventLeaderboardSync.Instance?.AbandonActiveAttempt();
+            if (SaveSlotService.CanWriteActiveProfile)
+                SaveSlotService.ClearActiveExpeditionState(station?.Progress);
+            ReturnToVault();
+        }
 
         public void CancelConfirmation()
         {
@@ -322,22 +398,54 @@ namespace EchoScrap.Combat
 #endif
         }
 
+        private void HandleSessionStateChanged(SessionStateEvent change)
+        {
+            if (State == GameFlowState.Expedition &&
+                (change.State == SessionState.Victory || change.State == SessionState.Defeat))
+            {
+                pendingStepSave = false;
+                expeditionSaveClock = 0f;
+                if (SaveSlotService.CanWriteActiveProfile)
+                    SaveSlotService.ClearActiveExpeditionState(station?.Progress);
+            }
+        }
+
+        private void HandlePauseStateChanged(PauseReason reasons, bool paused)
+        {
+            if (paused && State == GameFlowState.Expedition && !ExpeditionSnapshotService.IsRestoring &&
+                (reasons & PauseReason.Manual) != PauseReason.None && SaveSlotService.CanWriteActiveProfile)
+            {
+                ExpeditionSnapshotService.CaptureAndSave(game, station, forceImmediate: true);
+            }
+        }
+
         private void OnApplicationPause(bool paused)
         {
-            if (paused && SaveSlotService.CanWriteActiveProfile && State != GameFlowState.MainMenu)
+            if (!paused || !SaveSlotService.CanWriteActiveProfile || State == GameFlowState.MainMenu) return;
+            if (State == GameFlowState.Expedition)
+                ExpeditionSnapshotService.CaptureAndSave(game, station, forceImmediate: true);
+            else
                 SaveSlotService.SaveActiveFusionProgress(station?.Progress);
         }
 
         private void OnApplicationQuit()
         {
-            if (SaveSlotService.CanWriteActiveProfile && State != GameFlowState.MainMenu)
+            if (!SaveSlotService.CanWriteActiveProfile || State == GameFlowState.MainMenu) return;
+            if (State == GameFlowState.Expedition)
+                ExpeditionSnapshotService.CaptureAndSave(game, station, forceImmediate: true);
+            else
                 SaveSlotService.SaveActiveFusionProgress(station?.Progress);
         }
 
         private void OnDestroy()
         {
             if (game == null) return;
-            if (game.Session != null) game.Session.AllowManualPause = true;
+            if (game.Session != null)
+            {
+                game.Session.Events.OnSessionStateChanged -= HandleSessionStateChanged;
+                game.Session.Clock.OnPauseStateChanged -= HandlePauseStateChanged;
+                game.Session.AllowManualPause = true;
+            }
             game.Flow = null;
         }
     }

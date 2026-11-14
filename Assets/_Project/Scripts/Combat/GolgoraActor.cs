@@ -551,5 +551,115 @@ namespace EchoScrap.Combat
         {
             if (ownsFallbackSettings && combatSettings != null) Destroy(combatSettings);
         }
+
+        internal GolgoraSnapshot CaptureGolgoraSnapshot()
+        {
+            var snapshot = new GolgoraSnapshot
+            {
+                exists = true,
+                active = gameObject.activeInHierarchy,
+                position = Body != null ? Body.position : transform.position,
+                rotation = Body != null ? Body.rotation : transform.rotation,
+                velocity = Body != null ? Body.linearVelocity : Vector3.zero,
+                facingDirection = FacingDirection,
+                state = (int)State,
+                currentAttackKind = (int)CurrentAttackKind,
+                isPhaseTwo = IsPhaseTwo,
+                cercoSequence = cercoSequence,
+                preferSweep = preferSweep,
+                jumpHeight = JumpHeight,
+                jumpStart = jumpStart,
+                jumpWasKinematic = jumpWasKinematic,
+                jumpHadCollider = jumpHadCollider,
+                controlImmunityRemaining = controlImmunityRemaining,
+                bossTime = BossTime,
+                phaseTime = phaseTime,
+                nextStompTime = nextStompTime,
+                nextSweepTime = nextSweepTime,
+                nextBarrageTime = nextBarrageTime,
+                nextCercoTime = nextCercoTime,
+                nextFissureTime = nextFissureTime,
+                nextRainTime = nextRainTime,
+                firstCercoGap = firstCercoGap,
+                arenaCenter = arenaCenter,
+                arenaRadius = arenaRadius,
+                stompOrigin = stompOrigin,
+                attackDirection = attackDirection,
+                barrageTargets = (Vector3[])barrageTargets.Clone(),
+                patternTargets = (Vector3[])patternTargets.Clone(),
+                stompsExecuted = StompsExecuted,
+                sweepsExecuted = SweepsExecuted,
+                barragesExecuted = BarragesExecuted,
+                fissuresExecuted = FissuresExecuted,
+                rainsExecuted = RainsExecuted,
+                cercosExecuted = CercosExecuted,
+                cercoPulsesEmitted = CercoPulsesEmitted
+            };
+            CaptureActorFieldsInto(snapshot);
+            return snapshot;
+        }
+
+        internal void RestoreGolgoraFromSnapshot(GolgoraSnapshot snapshot, MagmaRingPoolSnapshot ringSnapshot)
+        {
+            if (snapshot == null) return;
+            RestoreActorFieldsFrom(snapshot);
+            arenaCenter = snapshot.arenaCenter;
+            arenaRadius = snapshot.arenaRadius > 0f ? snapshot.arenaRadius : arenaRadius;
+            State = (GolgoraState)snapshot.state;
+            CurrentAttackKind = (GolgoraAttackKind)snapshot.currentAttackKind;
+            IsPhaseTwo = snapshot.isPhaseTwo;
+            cercoSequence = snapshot.cercoSequence;
+            preferSweep = snapshot.preferSweep;
+            JumpHeight = snapshot.jumpHeight;
+            jumpStart = snapshot.jumpStart;
+            jumpWasKinematic = snapshot.jumpWasKinematic;
+            jumpHadCollider = snapshot.jumpHadCollider;
+            controlImmunityRemaining = Mathf.Max(0f, snapshot.controlImmunityRemaining);
+            BossTime = Mathf.Max(0f, snapshot.bossTime);
+            phaseTime = Mathf.Max(0f, snapshot.phaseTime);
+            nextStompTime = snapshot.nextStompTime;
+            nextSweepTime = snapshot.nextSweepTime;
+            nextBarrageTime = snapshot.nextBarrageTime;
+            nextCercoTime = snapshot.nextCercoTime;
+            nextFissureTime = snapshot.nextFissureTime;
+            nextRainTime = snapshot.nextRainTime;
+            firstCercoGap = snapshot.firstCercoGap;
+            stompOrigin = snapshot.stompOrigin;
+            attackDirection = snapshot.attackDirection.sqrMagnitude > 0.0001f ? snapshot.attackDirection.normalized : Vector3.forward;
+            Array.Clear(barrageTargets, 0, barrageTargets.Length);
+            if (snapshot.barrageTargets != null)
+                Array.Copy(snapshot.barrageTargets, barrageTargets, Mathf.Min(barrageTargets.Length, snapshot.barrageTargets.Length));
+            Array.Clear(patternTargets, 0, patternTargets.Length);
+            if (snapshot.patternTargets != null)
+                Array.Copy(snapshot.patternTargets, patternTargets, Mathf.Min(patternTargets.Length, snapshot.patternTargets.Length));
+            StompsExecuted = Mathf.Max(0, snapshot.stompsExecuted);
+            SweepsExecuted = Mathf.Max(0, snapshot.sweepsExecuted);
+            BarragesExecuted = Mathf.Max(0, snapshot.barragesExecuted);
+            FissuresExecuted = Mathf.Max(0, snapshot.fissuresExecuted);
+            RainsExecuted = Mathf.Max(0, snapshot.rainsExecuted);
+            CercosExecuted = Mathf.Max(0, snapshot.cercosExecuted);
+            CercoPulsesEmitted = Mathf.Max(0, snapshot.cercoPulsesEmitted);
+
+            playerBody = TargetPlayer != null ? TargetPlayer.GetComponent<Rigidbody>() : null;
+            float worldScaleY = Mathf.Max(.01f, transform.lossyScale.y);
+            BodyCollider.center = Vector3.up * (BodyCollider.height * .5f - .95f / worldScaleY);
+            bool hiddenInAirOrIntro = State == GolgoraState.Intro || State == GolgoraState.Dead || IsAirborne;
+            Body.isKinematic = hiddenInAirOrIntro;
+            BodyCollider.enabled = !hiddenInAirOrIntro && IsAlive;
+            if (!Body.isKinematic) Body.linearVelocity = snapshot.velocity;
+            else Body.linearVelocity = Vector3.zero;
+            if (BodyCollider.enabled) CombatTargetRegistry.Register(this);
+            else CombatTargetRegistry.Unregister(this);
+
+            if (ringPool == null) ringPool = GetComponent<GolgoraMagmaRingPool>() ?? gameObject.AddComponent<GolgoraMagmaRingPool>();
+            ringPool.Bind(this);
+            ringPool.RestoreFromSnapshot(ringSnapshot);
+            if (presentation == null) presentation = GetComponent<GolgoraPresentation>() ?? gameObject.AddComponent<GolgoraPresentation>();
+            if (hazards == null) hazards = PuddlePool;
+            presentation.Bind(this);
+            presentation.ResetPresentation();
+            modelView = GetComponent<MataColeccionistaView>();
+            modelView?.SetJumpHeight(JumpHeight);
+        }
     }
 }

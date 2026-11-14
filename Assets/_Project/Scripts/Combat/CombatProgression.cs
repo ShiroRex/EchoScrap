@@ -136,5 +136,36 @@ namespace EchoScrap.Combat
             OnPendingChoicesChanged?.Invoke(0);
             OnExperienceChanged?.Invoke(Snapshot);
         }
+
+        internal CombatProgressionSnapshot CaptureSnapshot()
+        {
+            return new CombatProgressionSnapshot
+            {
+                level = Level,
+                currentXp = CurrentXp,
+                requiredXp = RequiredXp,
+                totalXp = TotalXp,
+                pendingChoices = PendingChoices,
+                queuedExperience = queuedExperience,
+                dispatching = dispatching
+            };
+        }
+
+        internal void RestoreFromSnapshot(CombatProgressionSnapshot snapshot, bool notifyUi = true)
+        {
+            if (snapshot == null) return;
+            dispatching = snapshot.dispatching;
+            queuedExperience = Mathf.Max(0, snapshot.queuedExperience);
+            Level = Mathf.Max(1, snapshot.level);
+            CurrentXp = Math.Max(0L, snapshot.currentXp);
+            RequiredXp = Mathf.Max(1, snapshot.requiredXp);
+            TotalXp = Math.Max(0L, snapshot.totalXp);
+            PendingChoices = Mathf.Max(0, snapshot.pendingChoices);
+            if (notifyUi)
+            {
+                OnPendingChoicesChanged?.Invoke(PendingChoices);
+                OnExperienceChanged?.Invoke(Snapshot);
+            }
+        }
     }
 }

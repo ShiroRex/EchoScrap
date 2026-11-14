@@ -601,5 +601,77 @@ namespace EchoScrap.Combat
             direction.y = 0f;
             return direction.sqrMagnitude > 0.0001f ? direction.normalized : fallback;
         }
+
+        internal FlashlightWeaponSnapshot CaptureSnapshot()
+        {
+            return new FlashlightWeaponSnapshot
+            {
+                weaponTime = weaponTime,
+                currentBurstId = currentBurstId,
+                isBurstInitialized = isBurstInitialized,
+                isInRestPhase = isInRestPhase,
+                emittedPulsesInCurrentBurst = emittedPulsesInCurrentBurst,
+                nextPulseTime = nextPulseTime,
+                restEndTime = restEndTime,
+                stationaryTime = stationaryTime,
+                stationaryDamageBonus = stationaryDamageBonus,
+                pulseInterval = pulseInterval,
+                restDuration = restDuration,
+                capturedRange = capturedRange,
+                capturedAngle = capturedAngle,
+                capturedDamagePerPulse = capturedDamagePerPulse,
+                capturedPulseInterval = capturedPulseInterval,
+                capturedAttackSpeed = capturedAttackSpeed,
+                capturedRestDuration = capturedRestDuration,
+                capturedKnockbackImpulse = capturedKnockbackImpulse,
+                capturedCritChance = capturedCritChance,
+                capturedCritMultiplier = capturedCritMultiplier,
+                capturedSolarMode = capturedSolarMode,
+                capturedWallSlamTier = capturedWallSlamTier,
+                capturedRearDamage = capturedRearDamage,
+                currentAimDirection = currentAimDirection,
+                guaranteedPending = guaranteedPending,
+                guaranteedActive = guaranteedActive,
+                totalPulsesEmitted = TotalPulsesEmitted
+            };
+        }
+
+        internal void RestoreFromSnapshot(FlashlightWeaponSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            EnsureInitialized();
+            weaponTime = Mathf.Max(0f, snapshot.weaponTime);
+            currentBurstId = snapshot.currentBurstId;
+            isBurstInitialized = snapshot.isBurstInitialized;
+            isInRestPhase = snapshot.isInRestPhase;
+            emittedPulsesInCurrentBurst = snapshot.emittedPulsesInCurrentBurst;
+            nextPulseTime = snapshot.nextPulseTime;
+            restEndTime = snapshot.restEndTime;
+            stationaryTime = snapshot.stationaryTime;
+            stationaryDamageBonus = snapshot.stationaryDamageBonus;
+            pulseInterval = snapshot.pulseInterval > 0f ? snapshot.pulseInterval : 0.20f;
+            restDuration = snapshot.restDuration > 0f ? snapshot.restDuration : 0.40f;
+            capturedRange = snapshot.capturedRange > 0f ? snapshot.capturedRange : EffectiveRange;
+            capturedAngle = snapshot.capturedAngle > 0f ? snapshot.capturedAngle : EffectiveAngle;
+            capturedDamagePerPulse = snapshot.capturedDamagePerPulse;
+            capturedPulseInterval = snapshot.capturedPulseInterval;
+            capturedAttackSpeed = snapshot.capturedAttackSpeed;
+            capturedRestDuration = snapshot.capturedRestDuration;
+            capturedKnockbackImpulse = snapshot.capturedKnockbackImpulse;
+            capturedCritChance = snapshot.capturedCritChance;
+            capturedCritMultiplier = snapshot.capturedCritMultiplier;
+            capturedSolarMode = snapshot.capturedSolarMode;
+            capturedWallSlamTier = snapshot.capturedWallSlamTier;
+            capturedRearDamage = snapshot.capturedRearDamage;
+            currentAimDirection = FlatDirection(snapshot.currentAimDirection, Vector3.forward);
+            guaranteedPending = Mathf.Max(0, snapshot.guaranteedPending);
+            guaranteedActive = Mathf.Max(0, snapshot.guaranteedActive);
+            TotalPulsesEmitted = Mathf.Max(0, snapshot.totalPulsesEmitted);
+            if (aimPivot != null && currentAimDirection.sqrMagnitude > 0.0001f)
+                aimPivot.rotation = Quaternion.LookRotation(currentAimDirection, Vector3.up);
+            lastNotifiedRange = -1f;
+            lastNotifiedAngle = -1f;
+            CheckAndPublishGeometryChange();
+        }
     }
 }

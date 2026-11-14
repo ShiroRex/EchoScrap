@@ -199,6 +199,46 @@ namespace EchoScrap.Combat
             }
             if (pools.TryGetValue(sessionKey, out MothExplosionPool pool) && pool == this) pools.Remove(sessionKey);
         }
+
+        internal MothExplosionPoolSnapshot CaptureSnapshot()
+        {
+            var snapshot = new MothExplosionPoolSnapshot
+            {
+                totalExplosions = TotalExplosions
+            };
+            foreach (Blast blast in pending)
+            {
+                snapshot.pending.Add(new MothBlastSnapshot
+                {
+                    source = blast.Source,
+                    position = blast.Position,
+                    radius = blast.Radius,
+                    damage = blast.Damage,
+                    knockback = blast.Knockback
+                });
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(MothExplosionPoolSnapshot snapshot)
+        {
+            ClearAll();
+            if (snapshot == null) return;
+            TotalExplosions = Mathf.Max(0, snapshot.totalExplosions);
+            if (snapshot.pending == null) return;
+            for (int i = 0; i < snapshot.pending.Count; i++)
+            {
+                MothBlastSnapshot item = snapshot.pending[i];
+                pending.Enqueue(new Blast
+                {
+                    Source = item.source,
+                    Position = item.position,
+                    Radius = item.radius,
+                    Damage = item.damage,
+                    Knockback = item.knockback
+                });
+            }
+        }
     }
 
     public sealed class MothFusePresentation : MonoBehaviour

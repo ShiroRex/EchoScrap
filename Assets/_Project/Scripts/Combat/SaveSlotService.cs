@@ -173,8 +173,15 @@ namespace EchoScrap.Combat
         public static string ActiveProfileId => activeProfileId;
         public static bool HasLoadedProfile => activeProfile != null && activeSlotIndex >= 0 && activeSlotIndex < SlotCount;
         public static bool CanWriteActiveProfile => writesEnabled && HasLoadedProfile;
+        public static bool HasActiveExpeditionInLoadedSlot => HasLoadedProfile && activeProfile.hasActiveExpedition;
         public static bool HasPendingExpeditionSnapshot => !string.IsNullOrEmpty(pendingExpeditionJson);
         public static string PendingExpeditionJson => pendingExpeditionJson;
+
+        public static long NextActiveExpeditionRevision()
+        {
+            if (!HasLoadedProfile) return 1;
+            return highestKnownExpeditionRevision[activeSlotIndex] + 1;
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void OnSubsystemRegistration()
@@ -621,6 +628,20 @@ namespace EchoScrap.Combat
             if (snapshotRevision <= highestKnownExpeditionRevision[activeSlotIndex])
                 return false;
 
+            if (IsPersistent)
+            {
+                string expPath = GetExpeditionFilePath(activeSlotIndex);
+                if (TryReadVerifiedPayload(expPath, expPath + ".bak", out string diskExpJson, out long diskRev) &&
+                    TryParseExpeditionHeader(diskExpJson, out var diskHeader))
+                {
+                    if (diskHeader.profileId == activeProfileId && snapshotRevision <= diskRev)
+                    {
+                        highestKnownExpeditionRevision[activeSlotIndex] = Math.Max(highestKnownExpeditionRevision[activeSlotIndex], diskRev);
+                        return false;
+                    }
+                }
+            }
+
             if (currentFusion != null)
             {
                 var clone = JsonUtility.FromJson<FusionProgress>(JsonUtility.ToJson(currentFusion)) ?? new FusionProgress();
@@ -867,6 +888,9 @@ namespace EchoScrap.Combat
                 return false;
             if (header.modeMinutes != 3 && header.modeMinutes != 8) return false;
             if (float.IsNaN(header.gameplayTime) || float.IsInfinity(header.gameplayTime) || header.gameplayTime < 0f)
+                return false;
+            if (expeditionJson.IndexOf("\"session\":", StringComparison.Ordinal) >= 0 &&
+                !ExpeditionSnapshotService.ValidateSnapshotPayload(expeditionJson))
                 return false;
             return true;
         }

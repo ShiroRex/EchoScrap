@@ -914,5 +914,22 @@ namespace EchoScrap.Combat
         {
             rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
         }
+
+        internal HudSnapshot CaptureSnapshot()
+        {
+            return new HudSnapshot
+            {
+                kills = kills
+            };
+        }
+
+        internal void RestoreFromSnapshot(HudSnapshot snapshot)
+        {
+            kills = snapshot != null ? Mathf.Max(0, snapshot.kills) : 0;
+            cardsDirty = true;
+            experienceDirty = true;
+            RefreshKills();
+            RefreshNow();
+        }
     }
 }

@@ -157,8 +157,11 @@ namespace EchoScrap.Combat
         public void CloseMenu(){if(ui!=null)ui.Hide();if(game!=null&&(Index==null||!Index.IsOpen))game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}
         public bool StartFusion(int[] ingredients, int[] equipmentSlots = null)
         {
-            if(!IsMenuOpen||!CanInteract)return false;
-            if(!Progress.Begin(ingredients,UnityEngine.Random.Range(0,10000),UnityEngine.Random.Range(0,2),equipmentSlots))return false;
+            if (!CanInteract || !IsMenuOpen) return false;
+            var combatRng = game != null && game.Session != null ? game.Session.Rng.Combat : null;
+            int roll = combatRng != null ? combatRng.Range(0, 10000) : UnityEngine.Random.Range(0, 10000);
+            int tieBreaker = combatRng != null ? combatRng.Range(0, 2) : UnityEngine.Random.Range(0, 2);
+            if (!Progress.Begin(ingredients, roll, tieBreaker, equipmentSlots)) return false;
             saveClock = 0f;
             resultAudioPlayed = false;
             var companions = GetComponent<CompanionSystem>();
@@ -166,7 +169,10 @@ namespace EchoScrap.Combat
                 companions.RefreshEquipment();
             else
                 RefreshDisplays();
-            Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();CloseMenu();return true;
+            Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();
+            if (game != null && game.Flow != null && game.Flow.State == GameFlowState.Expedition)
+                ExpeditionSnapshotService.CaptureAndSave(game, this);
+            CloseMenu();return true;
         }
 
         private void ShowMenu()
@@ -198,7 +204,10 @@ namespace EchoScrap.Combat
             if(!Progress.Resolve(collect))return false;
             if(collect)EventLeaderboardSync.Instance?.NotifyCollectibleObtained(id, firstDiscovery, true);
             Notice=collect?FusionCatalog.Names[id]+" coleccionado. Guardado en tu inventario.":"Coleccionable liberado.";
-            RefreshDisplays();UpdateResult();Save();CloseMenu();return true;
+            RefreshDisplays();UpdateResult();Save();
+            if (game != null && game.Flow != null && game.Flow.State == GameFlowState.Expedition)
+                ExpeditionSnapshotService.CaptureAndSave(game, this);
+            CloseMenu();return true;
         }
         private void UpdateResult(){resultView.Configure(Progress.phase==FusionPhase.Opening||Progress.phase==FusionPhase.AwaitingDecision?Progress.result:-1,3.7f,false);}
         public void RestoreCollection(string snapshot)
@@ -263,6 +272,21 @@ namespace EchoScrap.Combat
         {
             openingAudio?.Stop(); resultAudio?.Stop(); resultAudioPlayed = false; CloseMenu(); Index?.Close(); Notice = "";
             Progress = SaveSlotService.CloneActiveFusionProgress();
+            RefreshDisplays(); UpdateResult(); GetComponent<CompanionSystem>()?.RefreshEquipment();
+        }
+
+        internal void RestoreFromSnapshotJson(string json)
+        {
+            openingAudio?.Stop(); resultAudio?.Stop(); resultAudioPlayed = false; CloseMenu(); Index?.Close(); Notice = "";
+            if (!string.IsNullOrEmpty(json))
+            {
+                Progress = JsonUtility.FromJson<FusionProgress>(json) ?? new FusionProgress();
+                Progress.Validate();
+            }
+            else
+            {
+                Progress = SaveSlotService.CloneActiveFusionProgress();
+            }
             RefreshDisplays(); UpdateResult(); GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
         public void ResetCollection()

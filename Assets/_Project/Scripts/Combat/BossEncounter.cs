@@ -305,5 +305,59 @@ namespace EchoScrap.Combat
             director?.SuppressBossMinions(false);
             deathPresentation?.Clear();
         }
+
+        internal BossEncounterSnapshot CaptureSnapshot()
+        {
+            return new BossEncounterSnapshot
+            {
+                isEncounterActive = IsEncounterActive,
+                introInProgress = introInProgress,
+                introRemaining = IntroRemaining,
+                introWaitingForClearance = IntroWaitingForClearance,
+                closingRewardResolved = closingRewardResolved,
+                closingXpReward = ClosingXpReward
+            };
+        }
+
+        internal void RestoreFromSnapshot(BossEncounterSnapshot encounterSnapshot, BossArenaSnapshot arenaSnapshot,
+            GolgoraSnapshot bossSnapshot, MagmaRingPoolSnapshot ringSnapshot)
+        {
+            ResetForSession();
+            if (encounterSnapshot == null) return;
+            closingRewardResolved = encounterSnapshot.closingRewardResolved;
+            ClosingXpReward = Mathf.Max(0, encounterSnapshot.closingXpReward);
+            if (!encounterSnapshot.isEncounterActive || bossSnapshot == null || !bossSnapshot.exists || enemies == null)
+                return;
+
+            EnemyArchetypeData archetype = director != null && director.Settings != null
+                ? director.Settings.GetArchetype(EnemyArchetypeId.GolgoraBoss)
+                : EnemyArchetypeData.CreateDefault(EnemyArchetypeId.GolgoraBoss);
+            Boss = enemies.SpawnForRestore(archetype, bossSnapshot.position, bossSnapshot.rotation) as GolgoraActor;
+            if (Boss == null) return;
+
+            Boss.BindHazards(hazards);
+            Boss.PhaseTransitionStarted += BeginPhaseRoar;
+            Boss.PhaseTransitionCompleted += ReleaseCinematic;
+            if (arena != null)
+            {
+                Boss.BindArena(arena.Center, arena.Radius);
+                Boss.CercoStarted += SuspendReinforcements;
+                Boss.CercoCompleted += ResumeReinforcements;
+                arena.RestoreFromSnapshot(arenaSnapshot, Boss, director != null ? director.Settings : null);
+            }
+
+            Boss.RestoreGolgoraFromSnapshot(bossSnapshot, ringSnapshot);
+            IsEncounterActive = true;
+            introInProgress = encounterSnapshot.introInProgress;
+            IntroRemaining = Mathf.Max(0f, encounterSnapshot.introRemaining);
+            IntroWaitingForClearance = encounterSnapshot.introWaitingForClearance;
+            if (director != null)
+                director.SetBossActive(Boss.IsCombatActive);
+            if (introInProgress)
+            {
+                var presentation = Boss.GetComponent<GolgoraPresentation>();
+                presentation?.SetIntroProgress(1f - IntroRemaining / IntroDuration);
+            }
+        }
     }
 }

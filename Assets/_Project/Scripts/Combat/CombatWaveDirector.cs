@@ -701,5 +701,53 @@ namespace EchoScrap.Combat
             Vector3 offset = a - b; offset.y = 0f;
             return offset.sqrMagnitude < distance * distance;
         }
+
+        internal WaveDirectorSnapshot CaptureSnapshot()
+        {
+            return new WaveDirectorSnapshot
+            {
+                nextSpawnTime = nextSpawnTime,
+                nextMinionTime = nextMinionTime,
+                phaseIndex = phaseIndex,
+                nextEliteTime = nextEliteTime,
+                nextEliteCopper = nextEliteCopper,
+                minionOrderOffset = minionOrderOffset,
+                isBossPhase = IsBossPhase,
+                bossActive = BossActive,
+                bossMinionsSuppressed = bossMinionsSuppressed,
+                totalSpawns = TotalSpawnedCount,
+                totalDiscards = TotalDiscardedCount,
+                groupsAttemptedCount = GroupsAttemptedCount,
+                bossMinionWavesCount = BossMinionWavesCount,
+                lastGroupSpawnedCount = LastGroupSpawnedCount,
+                discardedByReason = (int[])discardedByReason.Clone()
+            };
+        }
+
+        internal void RestoreFromSnapshot(WaveDirectorSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            nextSpawnTime = snapshot.nextSpawnTime;
+            nextMinionTime = snapshot.nextMinionTime;
+            phaseIndex = snapshot.phaseIndex;
+            nextEliteTime = snapshot.nextEliteTime;
+            nextEliteCopper = snapshot.nextEliteCopper;
+            minionOrderOffset = snapshot.minionOrderOffset;
+            IsBossPhase = snapshot.isBossPhase;
+            BossActive = snapshot.bossActive;
+            bossMinionsSuppressed = snapshot.bossMinionsSuppressed;
+            TotalSpawnedCount = Mathf.Max(0, snapshot.totalSpawns);
+            TotalDiscardedCount = Mathf.Max(0, snapshot.totalDiscards);
+            GroupsAttemptedCount = Mathf.Max(0, snapshot.groupsAttemptedCount);
+            BossMinionWavesCount = Mathf.Max(0, snapshot.bossMinionWavesCount);
+            LastGroupSpawnedCount = Mathf.Max(0, snapshot.lastGroupSpawnedCount);
+            Array.Clear(discardedByReason, 0, discardedByReason.Length);
+            if (snapshot.discardedByReason != null)
+            {
+                int count = Mathf.Min(discardedByReason.Length, snapshot.discardedByReason.Length);
+                for (int i = 0; i < count; i++)
+                    discardedByReason[i] = Mathf.Max(0, snapshot.discardedByReason[i]);
+            }
+        }
     }
 }

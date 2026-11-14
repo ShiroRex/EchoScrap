@@ -96,5 +96,15 @@ namespace EchoScrap.Core
             SimulationRate = float.IsNaN(rate) ? 1f : Mathf.Clamp(rate, 0.05f, 2f);
             ApplyTimeScale();
         }
+
+        public void RestoreState(float gameplayTimeValue, int simulationStepValue, PauseReason pauseReasons, bool notify = true)
+        {
+            gameplayTime = Mathf.Max(0f, gameplayTimeValue);
+            simulationStep = Mathf.Max(0, simulationStepValue);
+            activeReasons = pauseReasons;
+            ApplyTimeScale();
+            if (notify)
+                OnPauseStateChanged?.Invoke(activeReasons, IsPaused);
+        }
     }
 }
