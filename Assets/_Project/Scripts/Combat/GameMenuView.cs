@@ -417,11 +417,6 @@ namespace EchoScrap.Combat
                 return;
             }
             if (name.Length == 0) { EventLeaderboardSync.StartNewPlayerSession(""); create(); return; }
-            if (EventLeaderboardSync.NameAlreadyUsed(name))
-            {
-                confirmMessage.text = "Ese gamertag ya está en uso. Elige otro.";
-                return;
-            }
             IsValidatingName = true;
             acceptButton.interactable = cancelButton.interactable = confirmNameInput.interactable = false;
             confirmMessage.text = "Comprobando disponibilidad…";

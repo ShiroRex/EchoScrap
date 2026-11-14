@@ -73,23 +73,16 @@ namespace EchoScrap.Tests
             Assert.AreNotEqual(GamertagRegistry.Key(left), GamertagRegistry.Key(right + "2"));
         }
 
-        [UnityTest] public IEnumerator UsedNameKeepsConfirmationOpenAndCollectionIntact()
+        [Test]
+        public void LegacyNameHistoryDoesNotBlockANewlyReservedTag()
         {
-            EnterVault();
-            station.Progress.TryCollect(FusionCatalog.MapIds[0]);
-            string tag = "Eco" + System.Guid.NewGuid().ToString("N").Substring(0, 10);
-            EventLeaderboardSync.StartNewPlayerSession(tag);
-            flow.ShowMainMenu();
-            flow.RequestNewCollection();
-            flow.View.ConfirmNameInput.text = tag.ToUpperInvariant();
-            flow.AcceptConfirmation();
-            yield return null;
-            Assert.IsTrue(flow.IsConfirming);
-            Assert.AreEqual(GameFlowState.MainMenu, flow.State);
-            Assert.AreEqual(1, station.Progress.OwnedCount);
-            Assert.IsTrue(flow.View.ConfirmNameInput.interactable);
-            flow.CancelConfirmation();
-            Assert.IsFalse(flow.IsConfirming);
+            const string tag = "Eco Rojo";
+            var ledger = JsonUtility.FromJson<EventLeaderboardSync.RankingLedger>(
+                "{\"names\":[\"ECO ROJO\"],\"name\":\"ECO ROJO\",\"eligible\":false,\"pending\":[]}");
+            ledger.NewCollection(tag);
+            Assert.AreEqual(tag, ledger.name);
+            Assert.IsTrue(ledger.Claim());
+            Assert.IsFalse(ledger.Claim(), "The new reservation grants one ranked attempt.");
         }
 
         private void EnterVault()
