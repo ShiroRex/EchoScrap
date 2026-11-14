@@ -145,6 +145,28 @@ namespace EchoScrap.Tests
             for (int i = 0; i < 20; ++i) yield return new WaitForFixedUpdate();
             Assert.That(body.position.x, Is.LessThan(slideX - .5f));
         }
+
+        [UnityTest] public IEnumerator ShallowSceneryOverlapRecoversLocally()
+        {
+            var obstacle = new GameObject("Low rock edge");
+            var collider = obstacle.AddComponent<BoxCollider>();
+            collider.size = new Vector3(1f, .9f, 2f);
+            obstacle.transform.position = new Vector3(7f, .45f, 0f);
+            var body = game.Player.GetComponent<Rigidbody>();
+            var safe = new Vector3(4.5f, 1f, 0f);
+            body.position = safe;
+            game.Player.transform.position = safe;
+            Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+
+            // Simulate a small overlap after a heavy enemy pushed the player.
+            var contact = new Vector3(6.08f, 1f, 0f);
+            body.position = contact;
+            game.Player.transform.position = contact;
+            Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+            Assert.That(body.position.x, Is.InRange(5.8f, 6f), "Resolve the overlap without jumping back to the last safe pose.");
+        }
 #if UNITY_EDITOR
         [Test] public void DebrisWestOfPortalRestsOnTheTerrain()
         {
