@@ -92,10 +92,15 @@ namespace EchoScrap.Tests
         {
             yield return Approach();Assert.IsTrue(station.Progress.Begin(new[]{0,0,0,0},9999,0));
             while(station.Progress.HasSpace)Assert.IsTrue(station.CollectFromArena(0));
+            Assert.AreEqual(18,station.Progress.OwnedCount);
+            Assert.IsFalse(station.CollectFromArena(0));
+            StringAssert.Contains("LLENA",station.Notice.ToUpperInvariant());
             station.Advance(180);Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);
             int resultId=station.Progress.result;Assert.IsFalse(station.Resolve(true));
             Assert.AreEqual(FusionPhase.AwaitingDecision,station.Progress.phase);Assert.AreEqual(resultId,station.Progress.result);
             Assert.AreEqual(FusionProgress.Capacity,station.Progress.OwnedCount);Assert.IsTrue(station.IsMenuOpen);StringAssert.Contains("INVENTARIO LLENO",station.Notice);
+            var desc=station.GetComponentInChildren<Canvas>().GetComponentsInChildren<UnityEngine.UI.Text>(true).FirstOrDefault(t=>t.text.Contains("unidades"));
+            Assert.IsNotNull(desc);StringAssert.Contains("18 unidades",desc.text);
             Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsTrue(station.Resolve(true));Assert.AreEqual(FusionProgress.Capacity,station.Progress.OwnedCount);
             Assert.AreEqual(1,station.Progress.owned[resultId]);Assert.IsFalse(station.Resolve(true));
         }
@@ -271,7 +276,8 @@ namespace EchoScrap.Tests
             var travel=Object.FindAnyObjectByType<WarehouseTravel>();
             Assert.IsTrue(travel.TryTravel(false,game.Player));yield return new WaitForFixedUpdate();
             Assert.IsTrue(game.Session.IsInWarehouse);Assert.Greater(station.transform.position.x,150);
-            Assert.AreEqual(10,station.DisplaySlots.Length);
+            Assert.That(Vector3.Distance(station.transform.position, new Vector3(189f, 0f, 28.88f)), Is.LessThan(0.05f));
+            Assert.AreEqual(18,station.DisplaySlots.Length);
             Bounds capsule=GameObject.Find("Capsula_7").GetComponent<Collider>().bounds;
             Bounds stairEdge=GameObject.Find("BordeEscaleraDerecho").GetComponent<Collider>().bounds;
             Assert.IsFalse(capsule.Intersects(stairEdge));
@@ -534,8 +540,8 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator VaultMachineInCentralAisleAndIndexByRarity()
         {
             var floor = station.transform.parent.Find("SueloContinuo");
-            Assert.That(station.transform.position.x, Is.EqualTo(floor.position.x).Within(.05f));
-            Assert.That(station.transform.position.z, Is.EqualTo(floor.position.z + 6f).Within(.05f));
+            Assert.That(station.transform.position.x, Is.EqualTo(floor.position.x + 9f).Within(.05f));
+            Assert.That(station.transform.position.z, Is.EqualTo(floor.position.z + 28.88f).Within(.05f));
             Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
             station.ResetCollection();
             station.Progress.TryCollect(0);
@@ -626,6 +632,14 @@ namespace EchoScrap.Tests
             var cards=canvas.GetComponentsInChildren<RectTransform>().Where(t=>t.name.StartsWith("CartaBoveda_")).ToArray();
             Assert.AreEqual(10,cards.Length);
             foreach(var card in cards) Assert.That(-card.anchoredPosition.y+card.rect.height,Is.LessThanOrEqualTo(766));
+            while(station.Progress.HasSpace) Assert.IsTrue(station.Progress.TryCollect(6));
+            index.Refresh(true);
+            Assert.AreEqual(18,index.VisibleVaultCardsCount);
+            var vaultScroll=book.Find("SeccionEnTuBoveda/VistaBoveda").GetComponent<UnityEngine.UI.ScrollRect>();
+            Assert.IsNotNull(vaultScroll);
+            Assert.IsTrue(vaultScroll.vertical);
+            cards=canvas.GetComponentsInChildren<RectTransform>().Where(t=>t.name.StartsWith("CartaBoveda_")).ToArray();
+            Assert.AreEqual(18,cards.Length);
             yield return Capture("IndiceTuBoveda",true,false,canvas);
             var close = book.Find("CerrarIndice").GetComponent<UnityEngine.UI.Button>();
             Assert.AreEqual("X   CERRAR · [I]",close.GetComponentInChildren<UnityEngine.UI.Text>().text);

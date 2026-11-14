@@ -31,9 +31,8 @@ namespace EchoScrap.Combat
         private CollectibleDisplay[] displays;private MeshRenderer[] slatRenderers;private Transform[] slats;private Vector3[] closed;private float doorTop,doorAmount,saveClock;
         private void Awake()
         {
-            if (transform.parent == null)
+            if (transform.parent == null || Vector3.Distance(transform.localPosition, new Vector3(180f, 0f, 6f)) < 1f)
             {
-                // The legacy arena scenes still have a scene-root station authored outside the vault.
                 transform.SetPositionAndRotation(new Vector3(189f, 0f, 28.88f), Quaternion.identity);
                 Physics.SyncTransforms();
             }
@@ -41,8 +40,14 @@ namespace EchoScrap.Combat
         private void Start()
         {
             game=FindAnyObjectByType<CombatGameBootstrap>();
+            bool disabledOnComponent = !PersistProgress;
             PersistProgress = PersistProgress && SceneTransitionState.SaveProgress;
-            if (SaveSlotService.HasLoadedProfile)
+            if (disabledOnComponent && SceneTransitionState.SaveProgress)
+            {
+                SaveSlotService.ResetRuntimeState();
+                Progress = new FusionProgress();
+            }
+            else if (SaveSlotService.HasLoadedProfile)
             {
                 Progress = SaveSlotService.CloneActiveFusionProgress();
             }
@@ -254,7 +259,12 @@ namespace EchoScrap.Combat
         {
             if(!FusionCatalog.CanSpawn(id))return false;
             bool firstDiscovery = !Progress.IsDiscovered(id);
-            if(!Progress.TryCollect(id))return false;
+            if(!Progress.TryCollect(id))
+            {
+                if(!Progress.HasSpace)
+                    Notice = $"Bóveda llena ({FusionProgress.Capacity}/{FusionProgress.Capacity}). Libera espacio en la bóveda.";
+                return false;
+            }
             EventLeaderboardSync.Instance?.NotifyCollectibleObtained(id, firstDiscovery, false);
             RefreshDisplays();Save();return true;
         }

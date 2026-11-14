@@ -299,15 +299,16 @@ namespace EchoScrap.Tests
 
         [UnityTest] public IEnumerator TenCapsulesAndOwnedOnlyEquipmentAtIndividualStation()
         {
-            Assert.AreEqual(10,station.DisplaySlots.Length);station.ResetCollection();station.CollectFromArena(0);station.CollectFromArena(6);
+            Assert.AreEqual(18,station.DisplaySlots.Length);station.ResetCollection();station.CollectFromArena(0);station.CollectFromArena(6);
             Approach(1);Assert.IsTrue(system.TryOpen());Assert.AreEqual(1,system.SelectedSlot);
             var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
             var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(2,grid.VisibleUnits);Assert.AreEqual(0,grid.UnitId(0));Assert.AreEqual(6,grid.UnitId(1));
             Assert.AreEqual(0,panel.GetComponentsInChildren<Button>().Count(b=>b.name.StartsWith("Puesto_")));
             Assert.IsFalse(system.Equip(0,0));Assert.IsTrue(system.Equip(1,6));system.Close();
             Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(6,station.Progress.equipped[1]);
-            for(int id=0;id<FusionCatalog.Count;id++)station.Progress.owned[id]=1;station.RefreshDisplays();
-            Assert.AreEqual(7,station.DisplaySlots.Skip(3).Count(t=>t.GetComponentInChildren<CollectibleDisplay>().CollectibleId>=0));yield return null;
+            for(int id=0;id<FusionCatalog.Count;id++)station.Progress.owned[id]=1;station.Progress.owned[0]=4;station.RefreshDisplays();
+            Assert.AreEqual(15,station.DisplaySlots.Skip(3).Count(t=>t.GetComponentInChildren<CollectibleDisplay>().CollectibleId>=0));
+            Assert.AreEqual(18,station.DisplaySlots.Count(t=>t.GetComponentInChildren<CollectibleDisplay>().CollectibleId>=0));yield return null;
         }
         [UnityTest] public IEnumerator SpawnsVaryAcrossArenaAndAvoidSolidObstacles()
         {

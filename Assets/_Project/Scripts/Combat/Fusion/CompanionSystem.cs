@@ -245,7 +245,7 @@ namespace EchoScrap.Combat
         {
             int index=NearestPickup();if(index<0)return false;
             var item=pickups[index];
-            if(!station.Progress.HasSpace){pickupFeedback.Reject();return false;}
+            if(!station.Progress.HasSpace){station.CollectFromArena(item.Id);pickupFeedback.Reject();return false;}
             bool isNew = !station.Progress.IsDiscovered(item.Id);
             if(!station.CollectFromArena(item.Id))return false;
             RemovePickup(index);

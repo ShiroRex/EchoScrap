@@ -597,8 +597,8 @@ namespace EchoScrap.Tests
         {
             var room=GameObject.Find("BovedaModular");Assert.IsNotNull(room);
             var slots = Object.FindAnyObjectByType<FusionStation>().DisplaySlots;
-            Assert.AreEqual(10, slots.Length);
-            var aisle = new Bounds(new Vector3(180f, 3.5f, 1f), new Vector3(32f, 7f, 38f));
+            Assert.AreEqual(18, slots.Length);
+            var aisle = new Bounds(new Vector3(181f, 3.5f, 1f), new Vector3(17f, 7f, 38f));
             for (int i = 0; i < slots.Length; i++)
             {
                 var slot = slots[i];
@@ -612,8 +612,8 @@ namespace EchoScrap.Tests
                     .45f, 1, QueryTriggerInteraction.Ignore), slot.name + " approach is blocked");
             }
             var capsuleModel = room.transform.Find("Capsula_1").GetComponentInChildren<MeshFilter>().sharedMesh;
-            Assert.AreEqual(10, room.GetComponentsInChildren<MeshFilter>().Count(filter => filter.sharedMesh == capsuleModel),
-                "Only the ten usable entity capsules should appear in the vault.");
+            Assert.AreEqual(18, room.GetComponentsInChildren<MeshFilter>().Count(filter => filter.sharedMesh == capsuleModel),
+                "Only the eighteen usable entity capsules should appear in the vault.");
             Assert.IsFalse(room.transform.Find("BaseCircular").GetComponent<Collider>().bounds.Intersects(aisle));
 
             var floor = room.transform.Find("ApoyoPlantaBaja").GetComponent<Collider>().bounds;
@@ -661,7 +661,7 @@ namespace EchoScrap.Tests
             Assert.Greater(body.position.x,170f);
             var interior=GameObject.Find("BovedaModular"); Assert.IsNotNull(interior);
             int slots=Object.FindAnyObjectByType<FusionStation>().DisplaySlots.Length;
-            Assert.AreEqual(10,slots);
+            Assert.AreEqual(18,slots);
             var confiner=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineConfiner3D>();
             Assert.AreSame(travel.InteriorCameraBounds,confiner.BoundingVolume);
             Assert.IsTrue(game.CameraRig.GetComponent<WarehouseCameraFraming>().IsConfining,"The entire interior view must stay in the room.");
