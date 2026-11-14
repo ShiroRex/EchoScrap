@@ -42,6 +42,8 @@ namespace EchoScrap.Tests
                 yield return SceneManager.UnloadSceneAsync(arena);
             }
             CombatTargetRegistry.Clear();
+            SceneTransitionState.Reset();
+            SaveSlotService.DeleteAllSlotsAndMigrationForTesting();
         }
 
         [Test]
@@ -59,7 +61,7 @@ namespace EchoScrap.Tests
                 station.PersistProgress = false;
                 Assert.That(station.gameObject.scene, Is.EqualTo(game.gameObject.scene));
                 Assert.That(station.gameObject.scene.name, Is.EqualTo("CombatArena"));
-                Assert.That(station.DisplaySlots, Has.Length.EqualTo(10), "Both rounds retain the expanded vault.");
+                Assert.That(station.DisplaySlots, Has.Length.EqualTo(18), "Both rounds retain the expanded vault.");
                 Assert.That(station.Door, Is.Not.Null);
                 Assert.That(station.InteractionPoint, Is.Not.Null);
                 Assert.That(station.ResultPoint, Is.Not.Null);

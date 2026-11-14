@@ -607,6 +607,12 @@ namespace EchoScrap.Combat
             else if (game.Flow.State == GameFlowState.Expedition) game.Flow.RequestAbandon();
             else game.Flow.ShowMainMenu();
         }
+        public void ShowResultSaveError()
+        {
+            if (resultDescription != null)
+                resultDescription.text = "No se pudo guardar. Vuelve a pulsar para reintentar.";
+        }
+
         private void ResultAction()
         {
             if (game.Flow == null) RestartGame();
@@ -913,6 +919,23 @@ namespace EchoScrap.Combat
         private static void Stretch(RectTransform rect)
         {
             rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
+        }
+
+        internal HudSnapshot CaptureSnapshot()
+        {
+            return new HudSnapshot
+            {
+                kills = kills
+            };
+        }
+
+        internal void RestoreFromSnapshot(HudSnapshot snapshot)
+        {
+            kills = snapshot != null ? Mathf.Max(0, snapshot.kills) : 0;
+            cardsDirty = true;
+            experienceDirty = true;
+            RefreshKills();
+            RefreshNow();
         }
     }
 }

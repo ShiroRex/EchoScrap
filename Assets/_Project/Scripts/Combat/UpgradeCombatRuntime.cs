@@ -821,5 +821,334 @@ namespace EchoScrap.Combat
             }
         }
         private static Vector3 Flat(Vector3 direction) {direction.y=0;return direction.sqrMagnitude>.0001f?direction.normalized:Vector3.forward;}
+
+        internal UpgradeRuntimeSnapshot CaptureSnapshot(IReadOnlyList<EnemyActor> enemyLookup)
+        {
+            var snapshot = new UpgradeRuntimeSnapshot
+            {
+                attackTiers = (int[])attackTiers.Clone(),
+                dashStart = dashStart,
+                wallSlamReadyAt = wallSlamReadyAt,
+                trackingDash = trackingDash,
+                hasReturnMarker = returnMarker != null,
+                time = time,
+                blizzardTimer = blizzardTimer,
+                turretTimer = turretTimer,
+                regenTimer = regenTimer,
+                emergencyReady = emergencyReady,
+                overheal = overheal,
+                gems = gems,
+                activeDecoys = activeDecoys,
+                nextPlacementOrder = nextPlacementOrder,
+                explosionsResolved = ExplosionsResolved,
+                projectilesFired = ProjectilesFired,
+                chainsTriggered = ChainsTriggered
+            };
+            if (projectiles != null)
+            {
+                for (int i = 0; i < projectiles.Length; i++)
+                {
+                    Projectile p = projectiles[i];
+                    if (p == null || !p.Active) continue;
+                    var item = new UpgradeProjectileSnapshot
+                    {
+                        piercing = p.Piercing,
+                        position = p.Position,
+                        direction = p.Direction,
+                        damage = p.Damage,
+                        speed = p.Speed,
+                        life = p.Life,
+                        freeze = p.Freeze,
+                        radius = p.Radius,
+                        sourceType = (int)p.Source,
+                        damageType = (int)p.DamageType,
+                        targetEnemyIndex = FindEnemyIndex(enemyLookup, p.Target, p.TargetVersion)
+                    };
+                    if (enemyLookup != null && p.Hits != null && p.Hits.Count > 0)
+                    {
+                        for (int e = 0; e < enemyLookup.Count; e++)
+                        {
+                            EnemyActor enemy = enemyLookup[e];
+                            if (enemy != null && p.Hits.TryGetValue(enemy.TargetId, out int ver) && ver == enemy.SpawnVersion)
+                                item.hitEnemyIndices.Add(e);
+                        }
+                    }
+                    snapshot.projectiles.Add(item);
+                }
+            }
+            if (devices != null)
+            {
+                for (int i = 0; i < devices.Length; i++)
+                {
+                    Device d = devices[i];
+                    if (d == null || !d.Active) continue;
+                    bool inf = float.IsPositiveInfinity(d.Life);
+                    snapshot.devices.Add(new UpgradeDeviceSnapshot
+                    {
+                        fresh = d.Fresh,
+                        kind = (int)d.Kind,
+                        position = d.Position,
+                        life = inf ? 0f : d.Life,
+                        infiniteLife = inf,
+                        damage = d.Damage,
+                        shotTimer = d.ShotTimer,
+                        burstTimer = d.BurstTimer,
+                        placedAt = d.PlacedAt,
+                        shots = d.Shots,
+                        placementOrder = d.PlacementOrder
+                    });
+                }
+            }
+            if (cables != null)
+            {
+                for (int i = 0; i < cables.Length; i++)
+                {
+                    if (cables[i].ExpiresAt <= time) continue;
+                    snapshot.cables.Add(new ElectricCableSnapshot
+                    {
+                        slotIndex = i,
+                        start = cables[i].Start,
+                        end = cables[i].End,
+                        expiresAt = cables[i].ExpiresAt,
+                        damage = cables[i].Damage
+                    });
+                }
+            }
+            if (blasts != null)
+            {
+                for (int i = 0; i < blastCount; i++)
+                {
+                    Blast b = blasts[i];
+                    snapshot.blasts.Add(new UpgradeBlastSnapshot
+                    {
+                        position = b.Position,
+                        damage = b.Damage,
+                        radius = b.Radius,
+                        delay = b.Delay,
+                        stun = b.Stun,
+                        push = b.Push,
+                        freeze = b.Freeze,
+                        implosion = b.Implosion,
+                        echo = b.Echo,
+                        shockwave = b.Shockwave,
+                        sourceType = (int)b.Source,
+                        damageType = (int)b.DamageType
+                    });
+                }
+            }
+            if (voltaicChains != null)
+            {
+                for (int i = 0; i < voltaicChains.Length; i++)
+                {
+                    VoltaicChain chain = voltaicChains[i];
+                    if (chain == null || !chain.Active) continue;
+                    var item = new VoltaicChainSnapshot
+                    {
+                        count = chain.Count,
+                        next = chain.Next,
+                        order = chain.Order,
+                        previousEnemyIndex = FindEnemyIndex(enemyLookup, chain.PreviousActor, chain.PreviousVersion),
+                        origin = chain.Origin,
+                        previous = chain.Previous,
+                        damage = chain.Damage,
+                        radius = chain.Radius,
+                        wait = chain.Wait,
+                        hopDelay = chain.HopDelay
+                    };
+                    for (int t = 0; t < chain.Targets.Length && t < item.targetEnemyIndices.Length; t++)
+                        item.targetEnemyIndices[t] = FindEnemyIndex(enemyLookup, chain.Targets[t], chain.Versions[t]);
+                    snapshot.chains.Add(item);
+                }
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(UpgradeRuntimeSnapshot snapshot, IReadOnlyList<EnemyActor> enemyLookup)
+        {
+            if (!bound) return;
+            ResetForSession();
+            if (snapshot == null) return;
+            if (snapshot.attackTiers != null)
+                System.Array.Copy(snapshot.attackTiers, attackTiers, Mathf.Min(attackTiers.Length, snapshot.attackTiers.Length));
+            dashStart = snapshot.dashStart;
+            wallSlamReadyAt = snapshot.wallSlamReadyAt;
+            trackingDash = snapshot.trackingDash;
+            time = Mathf.Max(0f, snapshot.time);
+            blizzardTimer = snapshot.blizzardTimer;
+            turretTimer = snapshot.turretTimer;
+            regenTimer = snapshot.regenTimer;
+            emergencyReady = snapshot.emergencyReady;
+            overheal = Mathf.Max(0f, snapshot.overheal);
+            gems = Mathf.Max(0, snapshot.gems);
+            activeDecoys = Mathf.Max(0, snapshot.activeDecoys);
+            nextPlacementOrder = snapshot.nextPlacementOrder;
+            ExplosionsResolved = Mathf.Max(0, snapshot.explosionsResolved);
+            ProjectilesFired = Mathf.Max(0, snapshot.projectilesFired);
+            ChainsTriggered = Mathf.Max(0, snapshot.chainsTriggered);
+
+            if (snapshot.hasReturnMarker && effects != null)
+                returnMarker = effects.Acquire(UpgradeEffectPool.Shape.Decoy, dashStart, Plasma, .9f);
+
+            if (projectiles != null && snapshot.projectiles != null)
+            {
+                int slot = 0;
+                for (int i = 0; i < snapshot.projectiles.Count && slot < projectiles.Length; i++)
+                {
+                    UpgradeProjectileSnapshot item = snapshot.projectiles[i];
+                    Projectile p = projectiles[slot++];
+                    p.Active = true;
+                    p.Piercing = item.piercing;
+                    p.Position = item.position;
+                    p.Direction = Flat(item.direction);
+                    p.Damage = item.damage;
+                    p.Speed = item.speed;
+                    p.Life = item.life;
+                    p.Freeze = item.freeze;
+                    p.Radius = item.radius;
+                    p.Source = (DamageSourceType)item.sourceType;
+                    p.DamageType = (DamageType)item.damageType;
+                    EnemyActor target = item.targetEnemyIndex >= 0 && enemyLookup != null && item.targetEnemyIndex < enemyLookup.Count
+                        ? enemyLookup[item.targetEnemyIndex]
+                        : null;
+                    p.Target = target;
+                    p.TargetVersion = target != null ? target.SpawnVersion : 0;
+                    p.Hits.Clear();
+                    if (enemyLookup != null && item.hitEnemyIndices != null)
+                    {
+                        for (int h = 0; h < item.hitEnemyIndices.Count; h++)
+                        {
+                            int idx = item.hitEnemyIndices[h];
+                            if (idx >= 0 && idx < enemyLookup.Count && enemyLookup[idx] != null)
+                                p.Hits[enemyLookup[idx].TargetId] = enemyLookup[idx].SpawnVersion;
+                        }
+                    }
+                    if (effects != null)
+                    {
+                        var shape = p.Source == DamageSourceType.UpgradeBlade ? UpgradeEffectPool.Shape.Blade : UpgradeEffectPool.Shape.Dart;
+                        Color color = p.Freeze > 0 ? Ice : (p.DamageType == DamageType.Physical ? Amber : Plasma);
+                        float scale = p.Source == DamageSourceType.UpgradeBlade ? 1.5f : .65f;
+                        p.View = effects.Acquire(shape, p.Position, color, scale);
+                        if (p.View != null && p.Direction.sqrMagnitude > 0.0001f)
+                            p.View.Root.rotation = Quaternion.LookRotation(p.Direction);
+                    }
+                    ActiveProjectileCount++;
+                }
+            }
+
+            if (devices != null && snapshot.devices != null)
+            {
+                int slot = 0;
+                for (int i = 0; i < snapshot.devices.Count && slot < devices.Length; i++)
+                {
+                    UpgradeDeviceSnapshot item = snapshot.devices[i];
+                    Device d = devices[slot++];
+                    d.Active = true;
+                    d.Fresh = item.fresh;
+                    d.Kind = (DeviceKind)item.kind;
+                    d.Position = item.position;
+                    d.Life = item.infiniteLife ? float.PositiveInfinity : item.life;
+                    d.Damage = item.damage;
+                    d.ShotTimer = item.shotTimer;
+                    d.BurstTimer = item.burstTimer;
+                    d.PlacedAt = item.placedAt;
+                    d.Shots = item.shots;
+                    d.PlacementOrder = item.placementOrder;
+                    if (effects != null)
+                    {
+                        var shape = d.Kind == DeviceKind.Mine ? UpgradeEffectPool.Shape.Mine
+                            : d.Kind == DeviceKind.Decoy ? UpgradeEffectPool.Shape.Decoy : UpgradeEffectPool.Shape.Turret;
+                        Vector3 visualPos = d.Position;
+                        if (d.Kind != DeviceKind.Decoy)
+                            visualPos.y = ArenaSurface.Height(d.Position) + (d.Kind == DeviceKind.Turret ? .025f : .15f);
+                        d.View = effects.Acquire(shape, visualPos, d.Kind == DeviceKind.Decoy ? Plasma : Amber, d.Kind == DeviceKind.Mine ? .65f : 1f);
+                    }
+                    ActiveDeviceCount++;
+                }
+            }
+
+            if (cables != null && snapshot.cables != null)
+            {
+                for (int i = 0; i < snapshot.cables.Count; i++)
+                {
+                    ElectricCableSnapshot item = snapshot.cables[i];
+                    if (item.slotIndex < 0 || item.slotIndex >= cables.Length) continue;
+                    cables[item.slotIndex] = new ElectricCable
+                    {
+                        Start = item.start,
+                        End = item.end,
+                        ExpiresAt = item.expiresAt,
+                        Damage = item.damage
+                    };
+                    float remaining = item.expiresAt - time;
+                    if (remaining > 0f && lightning != null)
+                        lightning.ShowCable(item.slotIndex, item.start - Vector3.up * .45f, item.end - Vector3.up * .45f, remaining);
+                }
+            }
+
+            if (blasts != null && snapshot.blasts != null)
+            {
+                blastCount = 0;
+                for (int i = 0; i < snapshot.blasts.Count && blastCount < blasts.Length; i++)
+                {
+                    UpgradeBlastSnapshot item = snapshot.blasts[i];
+                    blasts[blastCount++] = new Blast
+                    {
+                        Position = item.position,
+                        Damage = item.damage,
+                        Radius = item.radius,
+                        Delay = item.delay,
+                        Stun = item.stun,
+                        Push = item.push,
+                        Freeze = item.freeze,
+                        Implosion = item.implosion,
+                        Echo = item.echo,
+                        Shockwave = item.shockwave,
+                        Source = (DamageSourceType)item.sourceType,
+                        DamageType = (DamageType)item.damageType
+                    };
+                }
+            }
+
+            if (voltaicChains != null && snapshot.chains != null)
+            {
+                int slot = 0;
+                for (int i = 0; i < snapshot.chains.Count && slot < voltaicChains.Length; i++)
+                {
+                    VoltaicChainSnapshot item = snapshot.chains[i];
+                    VoltaicChain chain = voltaicChains[slot++];
+                    chain.Active = true;
+                    chain.Count = Mathf.Clamp(item.count, 0, chain.Targets.Length);
+                    chain.Next = Mathf.Clamp(item.next, 0, chain.Count);
+                    chain.Order = item.order;
+                    EnemyActor prevActor = item.previousEnemyIndex >= 0 && enemyLookup != null && item.previousEnemyIndex < enemyLookup.Count
+                        ? enemyLookup[item.previousEnemyIndex] : null;
+                    chain.PreviousActor = prevActor;
+                    chain.PreviousVersion = prevActor != null ? prevActor.SpawnVersion : 0;
+                    chain.Origin = item.origin;
+                    chain.Previous = item.previous;
+                    chain.Damage = item.damage;
+                    chain.Radius = item.radius;
+                    chain.Wait = item.wait;
+                    chain.HopDelay = item.hopDelay;
+                    for (int t = 0; t < chain.Targets.Length; t++)
+                    {
+                        int idx = item.targetEnemyIndices != null && t < item.targetEnemyIndices.Length ? item.targetEnemyIndices[t] : -1;
+                        EnemyActor actor = idx >= 0 && enemyLookup != null && idx < enemyLookup.Count ? enemyLookup[idx] : null;
+                        chain.Targets[t] = actor;
+                        chain.Versions[t] = actor != null ? actor.SpawnVersion : 0;
+                    }
+                    ActiveChainCount++;
+                }
+            }
+            StepStatusViews();
+        }
+
+        private static int FindEnemyIndex(IReadOnlyList<EnemyActor> enemyLookup, EnemyActor actor, int version)
+        {
+            if (enemyLookup == null || actor == null) return -1;
+            for (int i = 0; i < enemyLookup.Count; i++)
+                if (enemyLookup[i] == actor && enemyLookup[i].SpawnVersion == version) return i;
+            return -1;
+        }
     }
 }

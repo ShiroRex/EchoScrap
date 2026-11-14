@@ -421,5 +421,72 @@ namespace EchoScrap.Player
                 cancelled, returned, returnOrigin);
             OnDashStateChanged?.Invoke(evt);
         }
+        public PlayerMotorData CaptureMotorState()
+        {
+            return new PlayerMotorData
+            {
+                position = body != null ? body.position : transform.position,
+                rotation = body != null ? body.rotation : transform.rotation,
+                velocity = body != null ? body.linearVelocity : Vector3.zero,
+                facingDirection = FacingDirection,
+                isDashing = isDashing,
+                dashDirection = dashDirection,
+                activeDashSpeed = activeDashSpeed,
+                dashTimeRemaining = dashTimeRemaining,
+                dashInvulnerabilityRemaining = dashInvulnerabilityRemaining,
+                cooldownRemaining = cooldownRemaining,
+                activeCooldownDuration = activeCooldownDuration,
+                wallBlockedThisDash = wallBlockedThisDash,
+                wallBlockReactionCount = WallBlockReactionCount,
+                returnAnchor = returnAnchor,
+                returnAnchorRemaining = returnAnchorRemaining
+            };
+        }
+
+        public void RestoreMotorState(PlayerMotorData snapshot, bool isAlive = true)
+        {
+            if (snapshot == null) return;
+            transform.SetPositionAndRotation(snapshot.position, snapshot.rotation);
+            if (body != null)
+            {
+                body.position = snapshot.position;
+                body.rotation = snapshot.rotation;
+                body.linearVelocity = isAlive ? snapshot.velocity : Vector3.zero;
+            }
+            isDashing = snapshot.isDashing;
+            dashDirection = snapshot.dashDirection.sqrMagnitude > 0.0001f ? snapshot.dashDirection.normalized : Vector3.forward;
+            activeDashSpeed = snapshot.activeDashSpeed;
+            dashTimeRemaining = Mathf.Max(0f, snapshot.dashTimeRemaining);
+            dashInvulnerabilityRemaining = Mathf.Max(0f, snapshot.dashInvulnerabilityRemaining);
+            cooldownRemaining = Mathf.Max(0f, snapshot.cooldownRemaining);
+            activeCooldownDuration = Mathf.Max(0.05f, snapshot.activeCooldownDuration);
+            wallBlockedThisDash = snapshot.wallBlockedThisDash;
+            WallBlockReactionCount = Mathf.Max(0, snapshot.wallBlockReactionCount);
+            FacingDirection = snapshot.facingDirection.sqrMagnitude > 0.0001f ? snapshot.facingDirection.normalized : Vector3.forward;
+            returnAnchor = snapshot.returnAnchor;
+            returnAnchorRemaining = Mathf.Max(0f, snapshot.returnAnchorRemaining);
+            ApplyDashLayer(isDashing);
+            enabled = isAlive;
+        }
+    }
+
+    [Serializable]
+    public sealed class PlayerMotorData
+    {
+        public Vector3 position;
+        public Quaternion rotation = Quaternion.identity;
+        public Vector3 velocity;
+        public Vector3 facingDirection = Vector3.forward;
+        public bool isDashing;
+        public Vector3 dashDirection = Vector3.forward;
+        public float activeDashSpeed = 22f;
+        public float dashTimeRemaining;
+        public float dashInvulnerabilityRemaining;
+        public float cooldownRemaining;
+        public float activeCooldownDuration = 1f;
+        public bool wallBlockedThisDash;
+        public int wallBlockReactionCount;
+        public Vector3 returnAnchor;
+        public float returnAnchorRemaining;
     }
 }

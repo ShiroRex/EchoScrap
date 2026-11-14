@@ -107,5 +107,36 @@ namespace EchoScrap.Combat.Prototype
         {
             if (telegraph != null) Destroy(telegraph.gameObject);
         }
+
+        internal void CaptureSnapshot(EnemySnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            snapshot.hasMoth = true;
+            snapshot.mothIsPrimed = IsPrimed;
+            snapshot.mothHasDetonated = HasDetonated;
+            snapshot.mothFuseRemaining = FuseRemaining;
+            snapshot.mothActiveFuseDuration = activeFuseDuration;
+            snapshot.mothBlinkTimer = blinkTimer;
+            snapshot.mothIsWhite = isWhite;
+        }
+
+        internal void RestoreFromSnapshot(EnemySnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.hasMoth) return;
+            ResetPooledState();
+            IsPrimed = snapshot.mothIsPrimed;
+            HasDetonated = snapshot.mothHasDetonated;
+            activeFuseDuration = Mathf.Max(0.05f, snapshot.mothActiveFuseDuration);
+            FuseRemaining = Mathf.Max(0f, snapshot.mothFuseRemaining);
+            blinkTimer = snapshot.mothBlinkTimer;
+            isWhite = snapshot.mothIsWhite;
+            if (telegraph != null && IsPrimed && !HasDetonated && actor != null)
+            {
+                bool reduced = actor.Session != null && actor.Session.Effects.ReducedEffectsMode;
+                telegraph.gameObject.SetActive(true);
+                telegraph.SetCenter(actor.WorldCenter);
+                telegraph.SetProgress(FuseProgress, reduced);
+            }
+        }
     }
 }

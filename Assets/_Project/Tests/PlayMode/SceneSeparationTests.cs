@@ -37,7 +37,7 @@ namespace EchoScrap.Tests
             var scene = SceneManager.GetActiveScene();
             SceneManager.SetActiveScene(SceneManager.CreateScene("SceneSeparationCleanup"));
             yield return SceneManager.UnloadSceneAsync(scene);
-            SceneTransitionState.Reset(); CombatTargetRegistry.Clear(); Time.timeScale = 1;
+            SceneTransitionState.Reset(); SaveSlotService.DeleteAllSlotsAndMigrationForTesting(); CombatTargetRegistry.Clear(); Time.timeScale = 1;
             InputSystem.settings.backgroundBehavior = previousBackground;
             InputSystem.settings.editorInputBehaviorInPlayMode = previousEditorInput;
         }
@@ -58,6 +58,8 @@ namespace EchoScrap.Tests
         private IEnumerator NewCollection()
         {
             Menu.View.NewCollectionButton.onClick.Invoke();
+            if (Menu.IsSlotSelectorOpen) Menu.View.SlotCardButton(0).onClick.Invoke();
+            if (Menu.IsConfirming) Menu.AcceptConfirmation();
             if (Menu.IsConfirming) Menu.AcceptConfirmation();
             yield return World();
         }
@@ -78,6 +80,8 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator NewCollectionLoadsOnlyWorldAndEntersVaultWithoutTitleAssets()
         {
             Menu.View.NewCollectionButton.onClick.Invoke();
+            Assert.IsTrue(Menu.View.IsSlotSelectorVisible);
+            Menu.View.SlotCardButton(0).onClick.Invoke();
             Assert.IsTrue(Menu.IsConfirming);
             Assert.IsTrue(Menu.View.ConfirmNameInput.gameObject.activeInHierarchy);
             Menu.AcceptConfirmation();
@@ -130,7 +134,10 @@ namespace EchoScrap.Tests
             Assert.IsNull(Object.FindAnyObjectByType<LoadingScreen>());
             Assert.IsNull(Game); Assert.IsNull(Object.FindAnyObjectByType<FusionStation>());
             Assert.IsTrue(Menu.HasCollection); Assert.IsTrue(Menu.View.ContinueButton.interactable);
-            Menu.ContinueCollection(); yield return World();
+            Menu.ContinueCollection();
+            Assert.IsTrue(Menu.View.IsSlotSelectorVisible);
+            Menu.View.SlotCardButton(0).onClick.Invoke();
+            yield return World();
             station = Object.FindAnyObjectByType<FusionStation>();
             Assert.AreEqual(6, station.Progress.owned[4]); Assert.AreEqual(result, station.Progress.result);
             Assert.AreEqual(FusionPhase.Fusing, station.Progress.phase);
@@ -139,13 +146,38 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator NewCollectionConfirmationPreservesOldDataUntilAccepted()
         {
-            yield return NewCollection(); Object.FindAnyObjectByType<FusionStation>().Progress.owned[4] = 8;
+            yield return NewCollection();
+            var station = Object.FindAnyObjectByType<FusionStation>();
+            station.Progress.owned[4] = 8;
+            station.Save();
             Game.Flow.ShowMainMenu(); yield return Title();
-            Menu.RequestNewCollection(); Assert.IsTrue(Menu.IsConfirming);
-            Menu.CancelConfirmation(); Menu.ContinueCollection(); yield return World();
+            Menu.RequestNewCollection();
+            Assert.IsTrue(Menu.IsSlotSelectorOpen);
+            Menu.View.SlotCardButton(0).onClick.Invoke();
+            Assert.IsTrue(Menu.IsConfirming);
+            Menu.CancelConfirmation();
+            Menu.CloseSlotSelector();
+            Menu.ContinueCollection();
+            Menu.View.SlotCardButton(0).onClick.Invoke();
+            yield return World();
             Assert.AreEqual(8, Object.FindAnyObjectByType<FusionStation>().Progress.owned[4]);
             Game.Flow.ShowMainMenu(); yield return Title();
-            Menu.RequestNewCollection(); Menu.AcceptConfirmation(); yield return World();
+            Menu.RequestNewCollection();
+            Menu.View.SlotCardButton(0).onClick.Invoke();
+            Menu.AcceptConfirmation();
+            Assert.IsTrue(Menu.IsConfirming);
+            Menu.CancelConfirmation();
+            Menu.CloseSlotSelector();
+            Menu.ContinueCollection();
+            Menu.View.SlotCardButton(0).onClick.Invoke();
+            yield return World();
+            Assert.AreEqual(8, Object.FindAnyObjectByType<FusionStation>().Progress.owned[4]);
+            Game.Flow.ShowMainMenu(); yield return Title();
+            Menu.RequestNewCollection();
+            Menu.View.SlotCardButton(0).onClick.Invoke();
+            Menu.AcceptConfirmation();
+            Menu.AcceptConfirmation();
+            yield return World();
             Assert.AreEqual(0, Object.FindAnyObjectByType<FusionStation>().Progress.owned[4]);
         }
         [UnityTest] public IEnumerator SettingsWorkWithoutArenaAndSurviveBothSceneDirections()
@@ -214,6 +246,11 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator GamepadSubmitCannotCauseDashAfterSceneTransition()
         {
             var pad = InputSystem.AddDevice<Gamepad>(); device = pad;
+            InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
+            yield return null; yield return null;
+            Assert.IsTrue(Menu.IsSlotSelectorOpen);
+            InputSystem.QueueStateEvent(pad, new GamepadState());
+            yield return null;
             InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
             yield return null; yield return null;
             Assert.IsTrue(Menu.IsConfirming);

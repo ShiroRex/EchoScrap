@@ -437,5 +437,27 @@ namespace EchoScrap.Combat
 
             events.PublishSessionState(new SessionStateEvent(state, clock.ActiveReasons, clock.GameplayTime, snapshot));
         }
+        internal CombatSessionSnapshot CaptureSnapshot()
+        {
+            return new CombatSessionSnapshot
+            {
+                state = (int)State,
+                pauseMask = (int)Clock.ActiveReasons,
+                simulationStep = Clock.SimulationStep,
+                gameplayTime = Clock.GameplayTime,
+                isInWarehouse = IsInWarehouse,
+                bossIntroRequested = bossIntroRequested
+            };
+        }
+
+        internal void RestoreFromSnapshot(CombatSessionSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            IsInWarehouse = snapshot.isInWarehouse;
+            bossIntroRequested = snapshot.bossIntroRequested;
+            state = (SessionState)snapshot.state;
+            Clock.RestoreState(snapshot.gameplayTime, snapshot.simulationStep, (PauseReason)snapshot.pauseMask, false);
+            PublishSessionState();
+        }
     }
 }

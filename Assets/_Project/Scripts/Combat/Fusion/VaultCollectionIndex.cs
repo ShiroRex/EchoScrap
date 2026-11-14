@@ -76,6 +76,8 @@ namespace EchoScrap.Combat
         private Text rarityHeading;
         private ScrollRect rarityScroll;
         private Scrollbar rarityScrollbar;
+        private ScrollRect vaultScroll;
+        private Scrollbar vaultScrollbar;
         private Button previousCollectible, nextCollectible;
         private Sprite bookFrame;
         private readonly Dictionary<string, string> stories = new Dictionary<string, string>();
@@ -385,16 +387,38 @@ namespace EchoScrap.Combat
         {
             vaultSummaryLabel = BookLabel(parent, "", new Vector2(0, 3), new Vector2(475, 41), 21, TextAnchor.MiddleCenter);
 
+            var viewport = Panel("VistaBoveda", parent, new Vector2(0, 48), new Vector2(468, 580), new Color(1, 1, 1, .004f));
+            viewport.gameObject.AddComponent<RectMask2D>();
+            var content = Panel("CartasBoveda", viewport, Vector2.zero, new Vector2(468, 1040), Color.clear);
+            content.GetComponent<Image>().raycastTarget = false;
+            vaultScroll = viewport.gameObject.AddComponent<ScrollRect>();
+            vaultScroll.viewport = viewport;
+            vaultScroll.content = content;
+            vaultScroll.horizontal = false;
+            vaultScroll.movementType = ScrollRect.MovementType.Clamped;
+            vaultScroll.scrollSensitivity = 60f;
+
+            var track = Panel("DesplazamientoBoveda", parent, new Vector2(472, 48), new Vector2(12, 580), new Color(.19f, .095f, .075f, .22f));
+            var handle = Panel("Control", track, Vector2.zero, track.sizeDelta, BookInk);
+            handle.anchorMin = Vector2.zero;
+            handle.anchorMax = Vector2.one;
+            handle.offsetMin = handle.offsetMax = Vector2.zero;
+            vaultScrollbar = track.gameObject.AddComponent<Scrollbar>();
+            vaultScrollbar.handleRect = handle;
+            vaultScrollbar.targetGraphic = handle.GetComponent<Image>();
+            vaultScrollbar.direction = Scrollbar.Direction.BottomToTop;
+            vaultScroll.verticalScrollbar = vaultScrollbar;
+
             for (int slot = 0; slot < FusionProgress.Capacity; slot++)
             {
                 int capturedSlot = slot;
                 int col = slot % 2;
                 int row = slot / 2;
-                var pos = new Vector2(8 + col * 240, 53 + row * 113);
+                var pos = new Vector2(8 + col * 228, 8 + row * 113);
                 var card = BuildPixelCollectibleCard(
-                    parent,
+                    content,
                     $"CartaBoveda_{slot}",
-                    new Vector2(198, 300),
+                    new Vector2(220, 104),
                     out vaultCardFrames[slot],
                     out vaultPortraitFrames[slot],
                     out vaultPortraits[slot],
@@ -406,12 +430,12 @@ namespace EchoScrap.Combat
                         if (capturedSlot < displayedVaultUnits.Count)
                             InspectCollectible(displayedVaultUnits[capturedSlot]);
                     });
-                Rect(card, pos, new Vector2(225, 104));
+                Rect(card, pos, new Vector2(220, 104));
                 Rect(vaultPortraitFrames[slot].rectTransform, new Vector2(8, 16), new Vector2(66, 66));
                 Rect(vaultPortraits[slot].rectTransform, new Vector2(4, 4), new Vector2(58, 58));
-                Rect(vaultNameLabels[slot].rectTransform, new Vector2(79, 9), new Vector2(137, 26));
-                Rect(vaultBadgeLabels[slot].rectTransform, new Vector2(79, 34), new Vector2(137, 22));
-                Rect(vaultStatusLabels[slot].rectTransform, new Vector2(79, 56), new Vector2(137, 39));
+                Rect(vaultNameLabels[slot].rectTransform, new Vector2(79, 9), new Vector2(133, 26));
+                Rect(vaultBadgeLabels[slot].rectTransform, new Vector2(79, 34), new Vector2(133, 22));
+                Rect(vaultStatusLabels[slot].rectTransform, new Vector2(79, 56), new Vector2(133, 39));
                 vaultNameLabels[slot].alignment = vaultBadgeLabels[slot].alignment = vaultStatusLabels[slot].alignment = TextAnchor.MiddleLeft;
                 vaultNameLabels[slot].fontSize = 16;
                 vaultNameLabels[slot].resizeTextForBestFit = true;
@@ -606,6 +630,11 @@ namespace EchoScrap.Combat
             Refresh(true);
             if (tab == IndexTab.ByRarity)
                 RevealRaritySelection();
+            else if (vaultScroll != null)
+            {
+                vaultScroll.StopMovement();
+                vaultScroll.verticalNormalizedPosition = 1f;
+            }
         }
 
         public void SetRarityFilter(int rarityIndex)
@@ -626,6 +655,7 @@ namespace EchoScrap.Combat
             if (ActiveTab == IndexTab.InVault)
             {
                 Refresh(true);
+                RevealVaultSelection();
                 return;
             }
             RefreshRaritySelection();
@@ -654,6 +684,29 @@ namespace EchoScrap.Combat
             float targetOffset = Mathf.Clamp(currentOffset, top + card.rect.height - height, top);
             rarityScroll.StopMovement();
             rarityScroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(targetOffset / maxOffset);
+        }
+
+        private void RevealVaultSelection()
+        {
+            if (vaultScroll == null || !vaultScroll.vertical)
+                return;
+
+            int slot = displayedVaultUnits.IndexOf(selectedCollectibleId);
+            if (slot < 0)
+                return;
+
+            var card = vaultCards[slot];
+            float top = -card.anchoredPosition.y;
+            float height = vaultScroll.viewport.rect.height > 1f ? vaultScroll.viewport.rect.height : vaultScroll.viewport.sizeDelta.y;
+            float contentHeight = vaultScroll.content.rect.height > 1f ? vaultScroll.content.rect.height : vaultScroll.content.sizeDelta.y;
+            float maxOffset = contentHeight - height;
+            if (maxOffset <= 0.5f)
+                return;
+
+            float currentOffset = vaultScroll.content.anchoredPosition.y;
+            float targetOffset = Mathf.Clamp(currentOffset, top + card.rect.height - height, top);
+            vaultScroll.StopMovement();
+            vaultScroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(targetOffset / maxOffset);
         }
 
         public void Refresh(bool force = false)
@@ -821,6 +874,19 @@ namespace EchoScrap.Combat
                 string equipTag = isEquippedCopy ? "EN EQUIPO ACTIVO" : "EN BÓVEDA";
                 vaultStatusLabels[slot].text = copyTag + equipTag;
                 vaultStatusLabels[slot].color = isEquippedCopy ? new Color(0.98f, 0.88f, 0.54f, 1f) : Pale;
+            }
+
+            if (vaultScroll != null)
+            {
+                float viewportHeight = vaultScroll.viewport.rect.height > 1f ? vaultScroll.viewport.rect.height : vaultScroll.viewport.sizeDelta.y;
+                float contentHeight = displayedVaultUnits.Count == 0
+                    ? viewportHeight
+                    : Mathf.Max(viewportHeight, ((displayedVaultUnits.Count - 1) / 2) * 113f + 104f + 16f);
+                vaultScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, contentHeight);
+                bool canScroll = contentHeight > viewportHeight + 0.5f;
+                vaultScroll.vertical = canScroll;
+                if (vaultScrollbar != null)
+                    vaultScrollbar.gameObject.SetActive(canScroll);
             }
         }
 

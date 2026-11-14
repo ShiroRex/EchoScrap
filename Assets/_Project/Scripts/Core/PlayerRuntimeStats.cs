@@ -263,5 +263,84 @@ namespace EchoScrap.Core
                 MagnetRadius,
                 MedkitHealAmount);
         }
+
+        public PlayerRuntimeStatsData CaptureSerializableState()
+        {
+            var data = new PlayerRuntimeStatsData
+            {
+                bonusMaxHealth = bonusMaxHealth,
+                bonusArmor = bonusArmor,
+                bonusEvasion = bonusEvasion,
+                bonusBlockChance = bonusBlockChance,
+                bonusCritChance = bonusCritChance,
+                bonusMoveSpeed = bonusMoveSpeed,
+                companionHealth = companionHealth,
+                companionHealthMultiplier = companionHealthMultiplier,
+                companionDamageMultiplier = CompanionDamageMultiplier,
+                companionMoveMultiplier = CompanionMoveMultiplier,
+                companionDamageReduction = CompanionDamageReduction,
+                companionAttackSpeed = companionAttackSpeed,
+                companionArmor = companionArmor,
+                combatMedkitRemaining = combatMedkitRemaining,
+                tiers = (int[])tiers.Clone(),
+                companionTiers = (int[])companionTiers.Clone()
+            };
+            return data;
+        }
+
+        public void RestoreSerializableState(PlayerRuntimeStatsData data, bool notify = false)
+        {
+            if (data == null) return;
+            bonusMaxHealth = data.bonusMaxHealth;
+            bonusArmor = data.bonusArmor;
+            bonusEvasion = data.bonusEvasion;
+            bonusBlockChance = data.bonusBlockChance;
+            bonusCritChance = data.bonusCritChance;
+            bonusMoveSpeed = data.bonusMoveSpeed;
+            companionHealth = data.companionHealth;
+            companionHealthMultiplier = data.companionHealthMultiplier > 0f ? data.companionHealthMultiplier : 1f;
+            CompanionDamageMultiplier = data.companionDamageMultiplier > 0f ? data.companionDamageMultiplier : 1f;
+            CompanionMoveMultiplier = data.companionMoveMultiplier > 0f ? data.companionMoveMultiplier : 1f;
+            CompanionDamageReduction = Mathf.Clamp01(data.companionDamageReduction);
+            companionAttackSpeed = data.companionAttackSpeed;
+            companionArmor = data.companionArmor;
+            combatMedkitRemaining = Mathf.Max(0f, data.combatMedkitRemaining);
+            Array.Clear(tiers, 0, tiers.Length);
+            if (data.tiers != null)
+            {
+                int count = Mathf.Min(tiers.Length, data.tiers.Length);
+                for (int i = 0; i < count; i++)
+                    tiers[i] = Mathf.Clamp(data.tiers[i], 0, UpgradeRules.MaxTier((UpgradeId)i));
+            }
+            Array.Clear(companionTiers, 0, companionTiers.Length);
+            if (data.companionTiers != null)
+            {
+                int count = Mathf.Min(companionTiers.Length, data.companionTiers.Length);
+                for (int i = 0; i < count; i++)
+                    companionTiers[i] = Mathf.Clamp(data.companionTiers[i], 0, UpgradeRules.MaxTier((UpgradeId)i));
+            }
+            if (notify) OnStatsChanged?.Invoke();
+        }
+    }
+
+    [Serializable]
+    public sealed class PlayerRuntimeStatsData
+    {
+        public float bonusMaxHealth;
+        public float bonusArmor;
+        public float bonusEvasion;
+        public float bonusBlockChance;
+        public float bonusCritChance;
+        public float bonusMoveSpeed;
+        public float companionHealth;
+        public float companionHealthMultiplier = 1f;
+        public float companionDamageMultiplier = 1f;
+        public float companionMoveMultiplier = 1f;
+        public float companionDamageReduction;
+        public float companionAttackSpeed;
+        public float companionArmor;
+        public float combatMedkitRemaining;
+        public int[] tiers = Array.Empty<int>();
+        public int[] companionTiers = Array.Empty<int>();
     }
 }

@@ -736,5 +736,172 @@ namespace EchoScrap.Combat
             mesh.RecalculateNormals(); mesh.RecalculateBounds();
             return mesh;
         }
+
+        internal CorrosivePuddlePoolSnapshot CaptureSnapshot()
+        {
+            EnsureInitialized();
+            var snapshot = new CorrosivePuddlePoolSnapshot
+            {
+                sequenceId = sequenceId,
+                totalProjectilesLaunched = TotalProjectilesLaunched,
+                totalPuddlesCreated = TotalPuddlesCreated
+            };
+            for (int i = 0; i < puddles.Length; i++)
+            {
+                PuddleSlot slot = puddles[i];
+                if (slot == null || (!slot.Active && !slot.Reserved)) continue;
+                snapshot.puddles.Add(new PuddleSnapshot
+                {
+                    slotIndex = i,
+                    sourceId = slot.SourceId,
+                    sequenceId = slot.SequenceId,
+                    center = slot.Center,
+                    radius = slot.Radius,
+                    duration = slot.Duration,
+                    elapsed = slot.Elapsed,
+                    nextTickAge = slot.NextTickAge,
+                    tickDamage = slot.TickDamage,
+                    tickInterval = slot.TickInterval,
+                    fadeAlpha = slot.FadeAlpha,
+                    damageSource = (int)slot.DamageSource,
+                    style = (int)slot.Style,
+                    active = slot.Active,
+                    reserved = slot.Reserved
+                });
+            }
+            for (int i = 0; i < projectiles.Length; i++)
+            {
+                ProjectileSlot slot = projectiles[i];
+                if (slot == null || !slot.Active) continue;
+                snapshot.projectiles.Add(new PuddleProjectileSnapshot
+                {
+                    elapsed = slot.Elapsed,
+                    reservedPuddleIndex = slot.ReservedPuddle,
+                    origin = slot.Spec.LaunchOrigin,
+                    target = slot.Spec.TargetPosition,
+                    flightDuration = slot.Spec.FlightDuration,
+                    arcHeight = slot.Spec.ArcPeakHeight,
+                    impactRadius = slot.Spec.ImpactRadius,
+                    directImpactDamage = slot.Spec.DirectImpactDamage,
+                    directImpactSource = (int)slot.Spec.DirectImpactSource,
+                    puddleRadius = slot.Spec.PuddleRadius,
+                    puddleDuration = slot.Spec.PuddleDuration,
+                    tickDamage = slot.Spec.PuddleTickDamage,
+                    tickInterval = slot.Spec.PuddleTickInterval,
+                    sourceId = slot.Spec.SourceId,
+                    damageSource = (int)slot.Spec.PuddleDamageSource,
+                    style = (int)slot.Spec.Style
+                });
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(CorrosivePuddlePoolSnapshot snapshot)
+        {
+            EnsureInitialized();
+            ClearAll();
+            if (snapshot == null) return;
+            sequenceId = Mathf.Max(0, snapshot.sequenceId);
+            TotalProjectilesLaunched = Mathf.Max(0, snapshot.totalProjectilesLaunched);
+            TotalPuddlesCreated = Mathf.Max(0, snapshot.totalPuddlesCreated);
+
+            if (snapshot.puddles != null)
+            {
+                for (int i = 0; i < snapshot.puddles.Count; i++)
+                {
+                    PuddleSnapshot item = snapshot.puddles[i];
+                    if (item.slotIndex < 0 || item.slotIndex >= puddles.Length) continue;
+                    PuddleSlot slot = puddles[item.slotIndex];
+                    slot.Reserved = item.reserved;
+                    slot.Active = item.active;
+                    slot.SourceId = item.sourceId;
+                    slot.SequenceId = item.sequenceId;
+                    slot.Center = item.center;
+                    slot.Radius = item.radius;
+                    slot.Duration = item.duration;
+                    slot.Elapsed = item.elapsed;
+                    slot.NextTickAge = item.nextTickAge;
+                    slot.TickDamage = item.tickDamage;
+                    slot.TickInterval = item.tickInterval;
+                    slot.FadeAlpha = item.fadeAlpha;
+                    slot.DamageSource = (DamageSourceType)item.damageSource;
+                    slot.Style = (HazardStyle)item.style;
+                    if (slot.Active)
+                    {
+                        bool magma = slot.Style == HazardStyle.BossMagma;
+                        if (magma) EnsureMagmaArt();
+                        if (magma && slot.MagmaVisual == null)
+                            slot.MagmaVisual = new GolgoraMeteorVfx.Impact(slot.Root.transform, magmaArt);
+                        if (slot.MagmaVisual != null) slot.MagmaVisual.Root.SetActive(magma);
+                        slot.CoreRenderer.sharedMaterial = magma
+                            ? (enemyArt != null ? enemyArt.material : magmaGroundMaterial)
+                            : (acidArt != null ? acidArt.puddleMaterial : acidMaterial);
+                        slot.ImpactRenderer.sharedMaterial = magma
+                            ? magmaGroundMaterial
+                            : (acidArt != null ? acidArt.impactMaterial : acidMaterial);
+                        slot.BorderRenderer.sharedMaterial = magma ? magmaOutlineMaterial : acidMaterial;
+                        slot.Root.SetActive(true);
+                        ProjectGroundVisual(slot.Border, slot.BorderPatch, slot.Center, slot.Radius * 2f, 0.033f);
+                        ProjectGroundVisual(slot.Core, slot.CorePatch, slot.Center, slot.Radius * (magma ? 2f : 1.85f), 0.03f);
+                        UpdatePuddleVisuals(slot);
+                    }
+                }
+            }
+
+            if (snapshot.projectiles != null)
+            {
+                int slotIdx = 0;
+                for (int i = 0; i < snapshot.projectiles.Count && slotIdx < projectiles.Length; i++)
+                {
+                    PuddleProjectileSnapshot item = snapshot.projectiles[i];
+                    ProjectileSlot slot = projectiles[slotIdx++];
+                    slot.Active = true;
+                    slot.Elapsed = Mathf.Max(0f, item.elapsed);
+                    slot.ReservedPuddle = item.reservedPuddleIndex;
+                    if (slot.ReservedPuddle >= 0 && slot.ReservedPuddle < puddles.Length)
+                        puddles[slot.ReservedPuddle].Reserved = true;
+                    slot.Spec = new ProjectileSpec
+                    {
+                        Style = (HazardStyle)item.style,
+                        SourceId = item.sourceId,
+                        LaunchOrigin = item.origin,
+                        TargetPosition = item.target,
+                        FlightDuration = item.flightDuration,
+                        ArcPeakHeight = item.arcHeight,
+                        ImpactRadius = item.impactRadius,
+                        DirectImpactDamage = item.directImpactDamage,
+                        DirectImpactSource = (DamageSourceType)item.directImpactSource,
+                        PuddleRadius = item.puddleRadius,
+                        PuddleDuration = item.puddleDuration,
+                        PuddleTickDamage = item.tickDamage,
+                        PuddleTickInterval = item.tickInterval,
+                        PuddleDamageSource = (DamageSourceType)item.damageSource
+                    };
+                    bool magma = slot.Spec.Style == HazardStyle.BossMagma;
+                    if (magma) EnsureMagmaArt();
+                    if (magma && slot.MagmaVisual == null)
+                        slot.MagmaVisual = new GolgoraMeteorVfx.Flight(slot.Root.transform, magmaArt);
+                    slot.ShellRenderer.enabled = !magma;
+                    slot.ReticleRenderer.sharedMaterial = magma ? magmaOutlineMaterial : acidMaterial;
+                    if (slot.MagmaVisual != null) slot.MagmaVisual.Root.SetActive(magma);
+                    slot.ShellRenderer.sharedMaterial = acidArt != null ? acidArt.projectileMaterial : acidMaterial;
+                    slot.Shell.localScale = Vector3.one * (acidArt != null ? acidArt.projectileSize : .34f);
+                    float duration = Mathf.Max(0.05f, slot.Spec.FlightDuration);
+                    float t = Mathf.Clamp01(slot.Elapsed / duration);
+                    Vector3 position = Vector3.Lerp(slot.Spec.LaunchOrigin, slot.Spec.TargetPosition, t);
+                    position.y += 4f * slot.Spec.ArcPeakHeight * t * (1f - t);
+                    slot.Shell.position = position;
+                    slot.Trail.Clear();
+                    slot.Trail.emitting = !magma && DecorativeIntensity > 0f;
+                    float radius = Mathf.Max(slot.Spec.PuddleRadius, slot.Spec.ImpactRadius);
+                    ProjectGroundVisual(slot.Reticle, slot.ReticlePatch, slot.Spec.TargetPosition, radius * 2f, 0.035f);
+                    ApplyColor(slot.ReticleRenderer, WarningColor);
+                    ProjectGroundVisual(slot.Fill, slot.FillPatch, slot.Spec.TargetPosition, Mathf.Lerp(0.05f, radius * 2f, t), 0.025f);
+                    ApplyColor(slot.FillRenderer, new Color(1f, Mathf.Lerp(0.64f, 0.2f, t), 0.1f, 0.16f + t * 0.14f));
+                    slot.Root.SetActive(true);
+                    UpdateProjectileVisual(slot);
+                }
+            }
+        }
     }
 }

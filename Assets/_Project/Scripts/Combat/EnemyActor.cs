@@ -590,7 +590,7 @@ namespace EchoScrap.Combat
 
             // 2. Muestreo determinista de velocidad inicial (p.ej. Residual 3.5 m/s ±15%)
             float variance = Mathf.Clamp(runtimeArchetype.SpeedVarianceFraction, 0f, 0.5f);
-            if (variance > 0.0001f)
+            if (variance > 0.0001f && !SuppressSpawnRngDuringRestore)
             {
                 DeterministicRandom rng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
                 float mult = rng.Range(1f - variance, 1f + variance);
@@ -613,12 +613,19 @@ namespace EchoScrap.Combat
             attackCooldownTimer = 0f;
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
             {
-                DeterministicRandom attackRng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
                 float interval = Mathf.Max(0.5f, MortarAttack.FireInterval);
-                float warning = Mathf.Clamp(MortarAttack.WarningDuration, 0.1f, interval);
-                float minimumDelay = Mathf.Max(warning, Mathf.Min(1f, interval));
-                float maximumDelay = Mathf.Max(minimumDelay, Mathf.Min(2f, interval));
-                attackCooldownTimer = interval - attackRng.Range(minimumDelay, maximumDelay);
+                if (!SuppressSpawnRngDuringRestore)
+                {
+                    DeterministicRandom attackRng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
+                    float warning = Mathf.Clamp(MortarAttack.WarningDuration, 0.1f, interval);
+                    float minimumDelay = Mathf.Max(warning, Mathf.Min(1f, interval));
+                    float maximumDelay = Mathf.Max(minimumDelay, Mathf.Min(2f, interval));
+                    attackCooldownTimer = interval - attackRng.Range(minimumDelay, maximumDelay);
+                }
+                else
+                {
+                    attackCooldownTimer = interval;
+                }
                 EnsurePuddlePool();
                 mortarRecoilRemaining = 0f;
                 if (mortarEmitter != null)
@@ -1432,6 +1439,8 @@ namespace EchoScrap.Combat
                 gameObject.SetActive(false);
         }
 
+        internal static bool SuppressSpawnRngDuringRestore { get; set; }
+
         public void SetTimersForTesting(float contactTime, float attackCd, float fuse, float telegraph)
         {
             nextContactReadyTime = contactTime;
@@ -1439,6 +1448,119 @@ namespace EchoScrap.Combat
             fuseTimer = fuse;
             telegraphTimer = telegraph;
             isFuseActive = fuse > 0f;
+        }
+
+        internal EnemySnapshot CaptureSnapshot()
+        {
+            var snapshot = new EnemySnapshot
+            {
+                archetypeId = (int)runtimeArchetype.ArchetypeId,
+                position = body != null ? body.position : transform.position,
+                rotation = body != null ? body.rotation : transform.rotation,
+                velocity = body != null ? body.linearVelocity : Vector3.zero,
+                currentHealth = currentHealth,
+                assignedMoveSpeed = assignedMoveSpeed,
+                knockbackVelocity = knockbackVelocity,
+                wallSlamTimeRemaining = wallSlamTimeRemaining,
+                wallSlamTier = wallSlamTier,
+                facingDirection = facingDirection,
+                nextContactReadyTime = nextContactReadyTime,
+                attackCooldownTimer = attackCooldownTimer,
+                fuseTimer = fuseTimer,
+                telegraphTimer = telegraphTimer,
+                isFuseActive = isFuseActive,
+                slowFraction = slowFraction,
+                slowRemaining = SlowRemaining,
+                frozenRemaining = FrozenRemaining,
+                stunRemaining = StunRemaining,
+                frozenVisualCoverage = FrozenVisualCoverage,
+                coldHits = coldHits,
+                cableSlow = cableSlow,
+                cableSlowRemaining = cableSlowRemaining,
+                cableDamageReadyAt = cableDamageReadyAt,
+                mortarShotsFiredCount = MortarShotsFiredCount
+            };
+            colossusCharge?.CaptureSnapshot(snapshot);
+            elite?.CaptureSnapshot(snapshot);
+            prototypeMoth?.CaptureSnapshot(snapshot);
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(EnemySnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            EnsureInitialized();
+            currentHealth = Mathf.Clamp(snapshot.currentHealth, 0.001f, Mathf.Max(1f, runtimeArchetype.MaxHealth));
+            assignedMoveSpeed = Mathf.Max(0f, snapshot.assignedMoveSpeed);
+            knockbackVelocity = snapshot.knockbackVelocity;
+            wallSlamTimeRemaining = Mathf.Max(0f, snapshot.wallSlamTimeRemaining);
+            wallSlamTier = Mathf.Max(0, snapshot.wallSlamTier);
+            facingDirection = snapshot.facingDirection.sqrMagnitude > 0.0001f ? snapshot.facingDirection.normalized : Vector3.forward;
+            nextContactReadyTime = Mathf.Max(0f, snapshot.nextContactReadyTime);
+            attackCooldownTimer = Mathf.Max(0f, snapshot.attackCooldownTimer);
+            fuseTimer = Mathf.Max(0f, snapshot.fuseTimer);
+            telegraphTimer = Mathf.Max(0f, snapshot.telegraphTimer);
+            isFuseActive = snapshot.isFuseActive;
+            slowFraction = Mathf.Clamp01(snapshot.slowFraction);
+            SlowRemaining = Mathf.Max(0f, snapshot.slowRemaining);
+            FrozenRemaining = Mathf.Max(0f, snapshot.frozenRemaining);
+            StunRemaining = Mathf.Max(0f, snapshot.stunRemaining);
+            FrozenVisualCoverage = Mathf.Clamp01(snapshot.frozenVisualCoverage);
+            coldHits = Mathf.Max(0, snapshot.coldHits);
+            cableSlow = Mathf.Clamp01(snapshot.cableSlow);
+            cableSlowRemaining = Mathf.Max(0f, snapshot.cableSlowRemaining);
+            cableDamageReadyAt = Mathf.Max(0f, snapshot.cableDamageReadyAt);
+            MortarShotsFiredCount = Mathf.Max(0, snapshot.mortarShotsFiredCount);
+            if (body != null)
+            {
+                body.position = snapshot.position;
+                body.rotation = snapshot.rotation;
+                if (!body.isKinematic) body.linearVelocity = snapshot.velocity;
+            }
+            transform.SetPositionAndRotation(snapshot.position, snapshot.rotation);
+            RefreshColdTint();
+            colossusCharge?.RestoreFromSnapshot(snapshot);
+            elite?.RestoreFromSnapshot(snapshot);
+            prototypeMoth?.RestoreFromSnapshot(snapshot);
+        }
+
+        protected void CaptureActorFieldsInto(GolgoraSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            snapshot.currentHealth = currentHealth;
+            snapshot.maxHealth = runtimeArchetype.MaxHealth;
+            snapshot.assignedMoveSpeed = assignedMoveSpeed;
+            snapshot.facingDirection = facingDirection;
+            snapshot.slowFraction = slowFraction;
+            snapshot.slowRemaining = SlowRemaining;
+            snapshot.frozenRemaining = FrozenRemaining;
+            snapshot.stunRemaining = StunRemaining;
+            snapshot.cableSlow = cableSlow;
+            snapshot.cableSlowRemaining = cableSlowRemaining;
+            snapshot.cableDamageReadyAt = cableDamageReadyAt;
+        }
+
+        protected void RestoreActorFieldsFrom(GolgoraSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            currentHealth = Mathf.Clamp(snapshot.currentHealth, 0.001f, Mathf.Max(1f, runtimeArchetype.MaxHealth));
+            assignedMoveSpeed = Mathf.Max(0f, snapshot.assignedMoveSpeed);
+            facingDirection = snapshot.facingDirection.sqrMagnitude > 0.0001f ? snapshot.facingDirection.normalized : Vector3.forward;
+            slowFraction = Mathf.Clamp01(snapshot.slowFraction);
+            SlowRemaining = Mathf.Max(0f, snapshot.slowRemaining);
+            FrozenRemaining = Mathf.Max(0f, snapshot.frozenRemaining);
+            StunRemaining = Mathf.Max(0f, snapshot.stunRemaining);
+            cableSlow = Mathf.Clamp01(snapshot.cableSlow);
+            cableSlowRemaining = Mathf.Max(0f, snapshot.cableSlowRemaining);
+            cableDamageReadyAt = Mathf.Max(0f, snapshot.cableDamageReadyAt);
+            FrozenVisualCoverage = FrozenRemaining > 0f ? 1f : 0f;
+            if (Body != null)
+            {
+                Body.position = snapshot.position;
+                Body.rotation = snapshot.rotation;
+            }
+            transform.SetPositionAndRotation(snapshot.position, snapshot.rotation);
+            RefreshColdTint();
         }
     }
 

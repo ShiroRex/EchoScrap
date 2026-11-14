@@ -402,5 +402,42 @@ namespace EchoScrap.Combat
             else
                 OnHealthChanged?.Invoke(currentHealth, stats.MaxHealth);
         }
+        internal void CaptureSnapshot(PlayerSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            EnsureInitialized();
+            snapshot.currentHealth = currentHealth;
+            snapshot.lastMaxHealth = lastMaxHealth;
+            snapshot.protectionRemaining = protectionRemaining;
+            snapshot.dashInvulnerable = dashInvulnerable;
+            snapshot.upgradeProtection = upgradeProtection;
+            snapshot.isDead = isDead;
+            snapshot.isEncounterTransferProtected = IsEncounterTransferProtected;
+            snapshot.isBossCinematicProtected = IsBossCinematicProtected;
+            if (motor != null) snapshot.motor = motor.CaptureMotorState();
+            if (stats != null) snapshot.stats = stats.CaptureSerializableState();
+        }
+
+        internal void RestoreFromSnapshot(PlayerSnapshot snapshot, bool notifyUi = false)
+        {
+            if (snapshot == null) return;
+            EnsureInitialized();
+            if (stats != null && snapshot.stats != null)
+                stats.RestoreSerializableState(snapshot.stats, notify: notifyUi);
+            currentHealth = snapshot.currentHealth;
+            lastMaxHealth = snapshot.lastMaxHealth;
+            protectionRemaining = snapshot.protectionRemaining;
+            dashInvulnerable = snapshot.dashInvulnerable;
+            upgradeProtection = snapshot.upgradeProtection;
+            isDead = snapshot.isDead;
+            IsEncounterTransferProtected = snapshot.isEncounterTransferProtected;
+            IsBossCinematicProtected = snapshot.isBossCinematicProtected;
+            if (hurtboxCollider != null) hurtboxCollider.enabled = !isDead;
+            if (motor != null && snapshot.motor != null)
+                motor.RestoreMotorState(snapshot.motor, isAlive: !isDead);
+            if (visualComposer != null)
+                visualComposer.ResetVisualState(resetOrientation: false);
+            if (notifyUi) OnHealthChanged?.Invoke(currentHealth, stats != null ? stats.MaxHealth : lastMaxHealth);
+        }
     }
 }

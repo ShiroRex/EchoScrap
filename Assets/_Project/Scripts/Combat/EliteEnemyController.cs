@@ -162,5 +162,33 @@ namespace EchoScrap.Combat
             State = EliteEnemyState.Pursuit; phaseTime = 0f;
             presentation?.Refresh();
         }
+
+        internal void CaptureSnapshot(EnemySnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            snapshot.hasElite = true;
+            snapshot.eliteState = (int)State;
+            snapshot.elitePhaseTime = phaseTime;
+            snapshot.eliteLockedDirection = LockedDirection;
+            snapshot.eliteWarningOrigin = WarningOrigin;
+            snapshot.eliteCooldownRemaining = CooldownRemaining;
+            snapshot.eliteAttacksResolved = AttacksResolved;
+            snapshot.elitePlayerHitAttempts = PlayerHitAttempts;
+        }
+
+        internal void RestoreFromSnapshot(EnemySnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.hasElite) return;
+            State = (EliteEnemyState)snapshot.eliteState;
+            phaseTime = Mathf.Max(0f, snapshot.elitePhaseTime);
+            LockedDirection = snapshot.eliteLockedDirection.sqrMagnitude > 0.0001f
+                ? snapshot.eliteLockedDirection.normalized
+                : (actor != null ? actor.FacingDirection : Vector3.forward);
+            WarningOrigin = snapshot.eliteWarningOrigin;
+            CooldownRemaining = Mathf.Max(0f, snapshot.eliteCooldownRemaining);
+            AttacksResolved = Mathf.Max(0, snapshot.eliteAttacksResolved);
+            PlayerHitAttempts = Mathf.Max(0, snapshot.elitePlayerHitAttempts);
+            presentation?.Refresh();
+        }
     }
 }

@@ -231,7 +231,7 @@ namespace EchoScrap.Combat
         public void ShowInventoryFull()
         {
             status.text="INVENTARIO LLENO · LIBERA ESPACIO";
-            resultDescription.text="Tu colección tiene 10 unidades. Libera una en la bóveda y vuelve: el resultado de esta fusión seguirá aquí.";
+            resultDescription.text=$"Tu colección tiene {FusionProgress.Capacity} unidades. Libera una en la bóveda y vuelve: el resultado de esta fusión seguirá aquí.";
         }
         private void LateUpdate()
         {

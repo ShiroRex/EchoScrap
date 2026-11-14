@@ -197,7 +197,7 @@ namespace EchoScrap.Combat
                 {
                     foreach (var target in EnemyActor.ActiveEnemies)
                     {
-                        if (target.TargetId != hit.TargetId) continue;
+                        if (target == null || target.TargetId != hit.TargetId) continue;
                         enemy = target;
                         break;
                     }
@@ -291,6 +291,104 @@ namespace EchoScrap.Combat
             game.Session.Events.OnDamageResolved-=OnDamage;game.Session.Events.OnActorDied-=OnDeath;
             game.Motor.OnDashStateChanged-=OnDash;game.Session.SessionReset-=ResetExpedition;
             if(game.Player!=null&&game.Player.CompanionPowers==this)game.Player.CompanionPowers=null;
+        }
+
+        internal CompanionPowerSnapshot CaptureSnapshot(System.Collections.Generic.IReadOnlyList<EnemyActor> enemyLookup)
+        {
+            var snapshot = new CompanionPowerSnapshot
+            {
+                shieldCooldowns = (float[])shieldCooldowns.Clone(),
+                cooldowns = (float[])cooldowns.Clone(),
+                boltActive = boltLife > 0f,
+                boltLife = boltLife,
+                boltPosition = boltPosition,
+                boltDirection = boltDirection,
+                speedBuff = speedBuff,
+                kills = kills,
+                rescuesUsed = rescuesUsed
+            };
+            if (enemyLookup != null)
+            {
+                for (int i = 0; i < enemyLookup.Count; i++)
+                {
+                    EnemyActor enemy = enemyLookup[i];
+                    if (enemy != null && boltHits.TryGetValue(enemy.TargetId, out int version) && version == enemy.SpawnVersion)
+                        snapshot.boltHitEnemyIndices.Add(i);
+                }
+                for (int i = 0; i < burns.Count; i++)
+                {
+                    Burn burn = burns[i];
+                    if (burn == null || burn.Enemy == null) continue;
+                    int index = IndexOfEnemy(enemyLookup, burn.Enemy, burn.Version);
+                    if (index < 0) continue;
+                    snapshot.burns.Add(new CompanionBurnSnapshot
+                    {
+                        enemyIndex = index,
+                        ticks = burn.Ticks,
+                        copyIndex = burn.CopyIndex,
+                        nextTime = burn.Next
+                    });
+                }
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(CompanionPowerSnapshot snapshot, System.Collections.Generic.IReadOnlyList<EnemyActor> enemyLookup)
+        {
+            ResetExpedition();
+            if (snapshot == null) return;
+            if (snapshot.shieldCooldowns != null)
+                System.Array.Copy(snapshot.shieldCooldowns, shieldCooldowns, Mathf.Min(shieldCooldowns.Length, snapshot.shieldCooldowns.Length));
+            if (snapshot.cooldowns != null)
+                System.Array.Copy(snapshot.cooldowns, cooldowns, Mathf.Min(cooldowns.Length, snapshot.cooldowns.Length));
+            boltLife = snapshot.boltActive ? Mathf.Max(0f, snapshot.boltLife) : 0f;
+            boltPosition = snapshot.boltPosition;
+            boltDirection = snapshot.boltDirection.sqrMagnitude > 0.0001f ? snapshot.boltDirection.normalized : Vector3.forward;
+            speedBuff = Has(9) ? Mathf.Max(0f, snapshot.speedBuff) : 0f;
+            RefreshStats();
+            kills = Mathf.Max(0, snapshot.kills);
+            rescuesUsed = Mathf.Max(0, snapshot.rescuesUsed);
+            if (enemyLookup != null)
+            {
+                if (snapshot.boltHitEnemyIndices != null)
+                {
+                    for (int i = 0; i < snapshot.boltHitEnemyIndices.Count; i++)
+                    {
+                        int idx = snapshot.boltHitEnemyIndices[i];
+                        if (idx >= 0 && idx < enemyLookup.Count && enemyLookup[idx] != null)
+                            boltHits[enemyLookup[idx].TargetId] = enemyLookup[idx].SpawnVersion;
+                    }
+                }
+                if (snapshot.burns != null)
+                {
+                    for (int i = 0; i < snapshot.burns.Count; i++)
+                    {
+                        CompanionBurnSnapshot item = snapshot.burns[i];
+                        if (item.enemyIndex < 0 || item.enemyIndex >= enemyLookup.Count) continue;
+                        EnemyActor enemy = enemyLookup[item.enemyIndex];
+                        if (enemy == null) continue;
+                        burns.Add(new Burn
+                        {
+                            Enemy = enemy,
+                            Version = enemy.SpawnVersion,
+                            Ticks = item.ticks,
+                            CopyIndex = item.copyIndex,
+                            Next = item.nextTime
+                        });
+                    }
+                }
+            }
+        }
+
+        private static int IndexOfEnemy(System.Collections.Generic.IReadOnlyList<EnemyActor> enemyLookup, EnemyActor target, int version)
+        {
+            if (enemyLookup == null || target == null) return -1;
+            for (int i = 0; i < enemyLookup.Count; i++)
+            {
+                EnemyActor candidate = enemyLookup[i];
+                if (candidate == target && candidate.SpawnVersion == version) return i;
+            }
+            return -1;
         }
     }
 }
