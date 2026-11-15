@@ -272,6 +272,29 @@ namespace EchoScrap.Tests
             yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
         }
 
+        [Test] public void VaultStairInfillClosesTheSidesBelowTheTreads()
+        {
+            var infill = station.transform.parent.Find("RellenoBajoEscalera");
+            Assert.IsNotNull(infill);
+            var collider = infill.GetComponent<MeshCollider>();
+            Assert.IsFalse(collider.isTrigger);
+            Assert.AreSame(infill.GetComponent<MeshFilter>().sharedMesh, collider.sharedMesh);
+            Assert.AreEqual("ParedCueva", infill.GetComponent<MeshRenderer>().sharedMaterial.name);
+
+            foreach (float z in new[] { 4f, 7f, 10f, 13f, 14.8f })
+            {
+                float tread = ArenaSurface.Height(new Vector3(160f, 0f, z));
+                Assert.IsTrue(collider.Raycast(new Ray(new Vector3(160f, 6f, z), Vector3.down), out var roof, 7f));
+                Assert.That(roof.point.y, Is.InRange(tread - .5f, tread - .02f), "Rock top under tread at " + z);
+                foreach (float y in new[] { .1f, roof.point.y - .2f })
+                {
+                    Assert.IsTrue(collider.Raycast(new Ray(new Vector3(165f, y, z), Vector3.left), out _, 2f));
+                    Assert.IsTrue(collider.Raycast(new Ray(new Vector3(155f, y, z), Vector3.right), out _, 2f));
+                }
+            }
+        }
+
+
         [UnityTest] public IEnumerator VaultWallClosesOpeningBesideTheStairs()
         {
             var travel = Object.FindAnyObjectByType<WarehouseTravel>();
