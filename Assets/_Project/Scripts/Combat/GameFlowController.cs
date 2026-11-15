@@ -100,6 +100,22 @@ namespace EchoScrap.Combat
             EnterLoadedSlot(newCollection ? SceneTransitionState.Entry.NewCollection : SceneTransitionState.Entry.Continue, SaveSlotService.ActiveSlotIndex);
         }
 
+        public void EnterBenchmarkExpedition(CombatWaveSettings waves)
+        {
+            IsConfiguring = IsSelectingExpedition = IsFadingExpeditionSelection = IsLoading = false;
+            slots?.Reset();
+            if (waves != null) game.SelectWaveSettings(waves);
+            State = GameFlowState.Expedition;
+            vaultSaveClock = 0f;
+            expeditionSaveClock = 0f;
+            pendingStepSave = false;
+            game.ResetRun(false);
+            travel?.PlaceInWarehouse(false);
+            game.Session.Clock.SetPause(PauseReason.FrontEnd, false);
+            game.Session.ResumeAllUserPauses();
+            Sync();
+        }
+
         internal CombatWaveSettings ResolveWaveSettings(int modeMinutes)
         {
             if (entrySettings == null) return game != null ? game.WaveSettings : null;

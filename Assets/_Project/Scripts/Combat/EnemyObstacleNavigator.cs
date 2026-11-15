@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using EchoScrap.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -13,6 +14,18 @@ namespace EchoScrap.Combat
     /// </summary>
     public sealed class EnemyObstacleNavigator
     {
+        public struct NavigationTelemetry
+        {
+            public long OverlapBoxQueries;
+            public long CapsuleCastQueries;
+            public long OverlapCapsuleQueries;
+            public long TotalQueries => OverlapBoxQueries + CapsuleCastQueries + OverlapCapsuleQueries;
+            public int PendingRequests;
+            public double OldestPendingRequestAgeMs;
+            public double MaxRequestAgeMs;
+            public double TotalNavigationMs;
+        }
+
         private const float Skin = 0.06f;
         private const int ExpansionsPerFrame = 192;
         private const int MaximumSearchExpansions = 12000;
@@ -23,6 +36,10 @@ namespace EchoScrap.Combat
         private static SceneHandle contextScene = SceneHandle.None;
         private static EntityId contextSurface = EntityId.None;
         private static int budgetFrame = -1, usedExpansions;
+        private static long overlapBoxQueries, capsuleCastQueries, overlapCapsuleQueries, totalNavigationTicks;
+        private static long searchStartedTick;
+        private static double maxObservedRequestAgeMs;
+        private static readonly double ticksToMs = 1000.0 / Stopwatch.Frequency;
 
         private readonly Vector3[] route = new Vector3[256];
         private int routeCount, routeIndex, wallSide;
@@ -30,6 +47,37 @@ namespace EchoScrap.Combat
         private Vector3 lastPosition, routeGoal;
         private bool hasPosition;
         private Grid grid;
+
+        public static void ResetTelemetry()
+        {
+            overlapBoxQueries = 0;
+            capsuleCastQueries = 0;
+            overlapCapsuleQueries = 0;
+            totalNavigationTicks = 0;
+            maxObservedRequestAgeMs = 0.0;
+            if (search != null && search.Owner != null)
+                searchStartedTick = Stopwatch.GetTimestamp();
+            else
+                searchStartedTick = 0;
+        }
+
+        public static NavigationTelemetry CaptureTelemetry()
+        {
+            bool hasPending = search != null && search.Owner != null;
+            double oldestPendingMs = 0.0;
+            if (hasPending && searchStartedTick != 0)
+                oldestPendingMs = Math.Max(0.0, (Stopwatch.GetTimestamp() - searchStartedTick) * ticksToMs);
+            return new NavigationTelemetry
+            {
+                OverlapBoxQueries = overlapBoxQueries,
+                CapsuleCastQueries = capsuleCastQueries,
+                OverlapCapsuleQueries = overlapCapsuleQueries,
+                PendingRequests = hasPending ? 1 : 0,
+                OldestPendingRequestAgeMs = oldestPendingMs,
+                MaxRequestAgeMs = Math.Max(maxObservedRequestAgeMs, oldestPendingMs),
+                TotalNavigationMs = totalNavigationTicks * ticksToMs
+            };
+        }
 
         public void Reset()
         {
@@ -41,6 +89,20 @@ namespace EchoScrap.Combat
         }
 
         public Vector3 Steer(EnemyActor actor, Vector3 desiredDirection, Vector3 goal,
+            float lookAhead, float deltaTime)
+        {
+            long startTick = Stopwatch.GetTimestamp();
+            try
+            {
+                return SteerInternal(actor, desiredDirection, goal, lookAhead, deltaTime);
+            }
+            finally
+            {
+                totalNavigationTicks += Stopwatch.GetTimestamp() - startTick;
+            }
+        }
+
+        private Vector3 SteerInternal(EnemyActor actor, Vector3 desiredDirection, Vector3 goal,
             float lookAhead, float deltaTime)
         {
             if (desiredDirection.sqrMagnitude < 0.001f) return Vector3.zero;
@@ -156,6 +218,8 @@ namespace EchoScrap.Combat
         {
             grids.Clear(); search = null;
             contextScene = SceneHandle.None; contextSurface = EntityId.None; budgetFrame = -1; usedExpansions = 0;
+            overlapBoxQueries = capsuleCastQueries = overlapCapsuleQueries = totalNavigationTicks = searchStartedTick = 0;
+            maxObservedRequestAgeMs = 0.0;
         }
 
         private static float PlanarSqrDistance(Vector3 a, Vector3 b)
@@ -225,6 +289,7 @@ namespace EchoScrap.Combat
             {
                 if (occupancy[index] != 0) return occupancy[index] > 0;
                 Capsule(Position(index), out Vector3 bottom, out Vector3 top);
+                overlapCapsuleQueries++;
                 int count = Physics.OverlapCapsuleNonAlloc(bottom, top, Key.Radius, overlaps,
                     1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore);
                 bool free = count < overlaps.Length;
@@ -260,6 +325,7 @@ namespace EchoScrap.Combat
                 Vector3 padding = Vector3.one * Key.Radius;
                 Vector3 min = Vector3.Min(bottom, endBottom) - padding;
                 Vector3 max = Vector3.Max(top, endTop) + padding;
+                overlapBoxQueries++;
                 int count = Physics.OverlapBoxNonAlloc((min + max) * 0.5f, (max - min) * 0.5f,
                     overlaps, Quaternion.identity, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore);
                 if (count < overlaps.Length)
@@ -269,11 +335,13 @@ namespace EchoScrap.Combat
                     if (!needsSweep) return true;
                 }
 
+                capsuleCastQueries++;
                 count = Physics.CapsuleCastNonAlloc(bottom, top, Key.Radius, delta / distance, hits,
                     distance, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore);
                 if (count == hits.Length) return false;
                 for (int i = 0; i < count; i++) if (IsObstacle(hits[i].collider)) return false;
                 // A cast deliberately ignores its starting overlap; test the destination as well.
+                overlapCapsuleQueries++;
                 count = Physics.OverlapCapsuleNonAlloc(endBottom, endTop, Key.Radius, overlaps,
                     1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore);
                 if (count == overlaps.Length) return false;
@@ -315,10 +383,21 @@ namespace EchoScrap.Combat
             private int[] parent, seen, closed, heap, heapIndex, reverse;
             private int generation, heapCount, goal, expanded;
 
-            public void Cancel() { Owner = null; heapCount = 0; }
+            public void Cancel()
+            {
+                if (Owner != null && searchStartedTick != 0)
+                {
+                    double ageMs = Math.Max(0.0, (Stopwatch.GetTimestamp() - searchStartedTick) * ticksToMs);
+                    if (ageMs > maxObservedRequestAgeMs) maxObservedRequestAgeMs = ageMs;
+                    searchStartedTick = 0;
+                }
+                Owner = null;
+                heapCount = 0;
+            }
             public void Begin(EnemyObstacleNavigator owner, Grid grid, Vector3 from, Vector3 destination)
             {
                 Owner = owner; map = grid;
+                searchStartedTick = Stopwatch.GetTimestamp();
                 if (cost == null || cost.Length < grid.Count)
                 {
                     cost = new float[grid.Count]; score = new float[grid.Count]; parent = new int[grid.Count];
