@@ -272,37 +272,44 @@ namespace EchoScrap.Tests
             yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
         }
 
-        [UnityTest] public IEnumerator VaultPassageBelowBalconyKeepsPlayerOnLowerFloor()
+        [UnityTest] public IEnumerator VaultWallClosesOpeningBesideTheStairs()
         {
             var travel = Object.FindAnyObjectByType<WarehouseTravel>();
             Assert.IsTrue(travel.TryTravel(false, game.Player));
             var body = game.Player.GetComponent<Rigidbody>();
-            var start = new Vector3(164.7f, 1f, 13.9f);
+            var start = new Vector3(164.7f, 1f, 13.1f);
             PlacePlayer(start);
-            Assert.AreEqual(5f, ArenaSurface.Height(new Vector3(start.x, 0f, 17f)), .05f);
             yield return new WaitForFixedUpdate();
 
+            Assert.IsTrue(Physics.Raycast(start, Vector3.forward, out var hit, 3f,
+                1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore));
+            Assert.AreEqual("ParedCueva", hit.collider.name);
+            Assert.IsNotNull(hit.collider.GetComponentInChildren<MeshRenderer>());
+
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W));
-            for (int i = 0; i < 120 && body.position.z < 17f; i++)
+            for (int i = 0; i < 36; i++)
             {
                 yield return new WaitForFixedUpdate();
-                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f),
-                    "Walking below the balcony must stay on the lower floor at " + body.position);
+                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f));
+                Assert.Less(body.position.z, hit.point.z, "The rock must stop walking into the old opening.");
             }
-            Assert.GreaterOrEqual(body.position.z, 17f, "The passage beside the stairs must remain usable.");
+            Assert.Greater(body.position.z, start.z + .4f, "The player must reach the new rock face.");
 
             bool dashed = false;
-            // Return through the passage at dash speed without snapping to the balcony.
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S, Key.Space));
-            for (int i = 0; i < 80 && body.position.z > 14f; i++)
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W, Key.Space));
+            for (int i = 0; i < 24; i++)
             {
                 yield return new WaitForFixedUpdate();
-                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f),
-                    "Dashing below the balcony must stay on the lower floor at " + body.position);
                 dashed |= game.Motor.IsDashing;
+                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f));
+                Assert.Less(body.position.z, hit.point.z, "The rock must stop dashing into the old opening.");
             }
-            Assert.IsTrue(dashed, "This route must also be exercised during an actual dash.");
-            Assert.LessOrEqual(body.position.z, 14f, "The player must be able to leave the passage.");
+            Assert.IsTrue(dashed);
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S));
+            for (int i = 0; i < 40 && body.position.z >= start.z; i++)
+                yield return new WaitForFixedUpdate();
+            Assert.Less(body.position.z, start.z, "The player must be able to back away from the rock.");
         }
 
         [UnityTest] public IEnumerator VaultLayoutSupportsTravelStairsAndFusion()
