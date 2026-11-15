@@ -149,8 +149,8 @@ namespace EchoScrap.Tests
             Assert.GreaterOrEqual(Mathf.Abs(a - b), 32f);
         }
 
-        [Test]
-        public void VictorySummaryWaitsForBossExplosionAndGem_WhileGameplayRemainsFrozen()
+        [UnityTest]
+        public IEnumerator VictorySummaryWaitsForBossExplosionAndGem_WhileGameplayRemainsFrozen()
         {
             game.Session.Clock.SetGameplayTimeForTesting(game.WaveSettings.BossStartTime);
             game.Director.Step();
@@ -167,11 +167,15 @@ namespace EchoScrap.Tests
             game.Hud.RefreshNow(); Assert.IsFalse(game.Hud.IsResultVisible);
             game.Encounter.DeathPresentation.StepUnscaled(1.29f);
             game.Hud.RefreshNow(); Assert.IsFalse(game.Hud.IsResultVisible);
+            yield return null;
+            Assert.IsTrue(game.GameplayCamera.enabled);
             game.Encounter.DeathPresentation.StepUnscaled(0.02f);
             game.Hud.RefreshNow(); Assert.IsTrue(game.Hud.IsResultVisible,
                 $"state={game.Session.State}, age={game.Encounter.DeathPresentation.PresentationTime}, playing={game.Encounter.DeathPresentation.IsPlaying}, bossState={boss.State}, bossHP={boss.CurrentHealth}");
             Assert.IsTrue(game.Encounter.DeathPresentation.GemAbsorbed);
             Assert.AreEqual(0f, Time.timeScale);
+            yield return null;
+            Assert.IsFalse(game.GameplayCamera.enabled);
         }
 
         [TestCase(30)]

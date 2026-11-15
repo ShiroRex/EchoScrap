@@ -107,6 +107,9 @@ namespace EchoScrap.Combat
         private bool hubMode;
         private bool pickupFeedbackVisible;
         private Text resultActionLabel;
+        private bool resultWorldHidden;
+        private Camera resultCamera;
+        private CombatReadabilityLights resultLights;
 
         public void SetHubMode(bool active)
         {
@@ -155,6 +158,7 @@ namespace EchoScrap.Combat
         private void OnDisable()
         {
             HideCardTooltip();
+            RestoreResultWorld();
             Unsubscribe();
         }
         private void OnDestroy()
@@ -262,10 +266,44 @@ namespace EchoScrap.Combat
             if (IsPauseVisible) FitPauseToCanvas();
             else if (IsResultVisible)
             {
+                HideResultWorld();
                 FitResultToCanvas();
                 if (resultAnimating)
                     AnimateResult(Time.unscaledTime - resultStartedAt);
             }
+        }
+
+        private void HideResultWorld()
+        {
+            if (resultWorldHidden) return;
+            resultWorldHidden = true;
+
+            // The opaque overlay has taken over after the outcome events and boss finale.
+            var camera = game.GameplayCamera;
+            if (camera != null && camera.enabled)
+            {
+                resultCamera = camera;
+                resultCamera.enabled = false;
+            }
+
+            var lights = game.Session.GetComponent<CombatReadabilityLights>();
+            if (lights != null && lights.enabled)
+            {
+                resultLights = lights;
+                resultLights.enabled = false;
+            }
+
+            game.Enemies.DespawnAllActive();
+        }
+
+        private void RestoreResultWorld()
+        {
+            if (!resultWorldHidden) return;
+            if (resultCamera != null) resultCamera.enabled = true;
+            if (resultLights != null) resultLights.enabled = true;
+            resultCamera = null;
+            resultLights = null;
+            resultWorldHidden = false;
         }
 
         public void RefreshNow()
@@ -500,6 +538,7 @@ namespace EchoScrap.Combat
             if (openingResult) BeginResult(state);
             if (!showResult && hadResult)
             {
+                RestoreResultWorld();
                 resultConfetti.gameObject.SetActive(false);
                 resultPulse.gameObject.SetActive(false);
             }

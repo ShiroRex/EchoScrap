@@ -322,16 +322,28 @@ namespace EchoScrap.Tests
 
         [UnityTest] public IEnumerator DefeatReturnsToVaultAndAllowsAnotherRun()
         {
-            yield return StartRun(); game.Player.TakeContactOrHazardDamage(10000, Vector3.right);
+            yield return StartRun();
+            var enemy = game.Enemies.Spawn(EnemyArchetypeId.Residual, Vector3.right * 12 + Vector3.up);
+            var lights = CombatReadabilityLights.GetOrCreate(game.Session);
+            Assert.IsTrue(enemy.gameObject.activeSelf);
+            Assert.IsTrue(lights.enabled);
+            Assert.IsTrue(game.GameplayCamera.enabled);
+            game.Player.TakeContactOrHazardDamage(10000, Vector3.right);
             game.Session.ResolveSimulationStepOutcome(); game.Hud.RefreshNow();
             Assert.That(game.Session.State, Is.EqualTo(SessionState.Defeat));
             Assert.That(game.Hud.IsResultVisible, Is.True);
             Assert.AreSame(PixelControlArtwork.Load("Presentation/Defeat"), game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Result/ResultArtwork").GetComponent<UnityEngine.UI.Image>().sprite);
+            yield return null;
+            Assert.IsFalse(enemy.gameObject.activeSelf);
+            Assert.IsFalse(lights.enabled);
+            Assert.IsFalse(game.GameplayCamera.enabled);
             HudButton("Result/Restart").onClick.Invoke();
             yield return null;
             Assert.That(flow.State, Is.EqualTo(GameFlowState.Vault));
             Assert.That(game.Player.IsAlive, Is.True);
             Assert.That(game.Session.IsPaused, Is.False);
+            Assert.IsTrue(game.GameplayCamera.enabled);
+            Assert.IsTrue(lights.enabled);
             flow.View.StartButton.onClick.Invoke();
             yield return ChooseRound();
             Assert.That(game.Session.IsInWarehouse, Is.False);
