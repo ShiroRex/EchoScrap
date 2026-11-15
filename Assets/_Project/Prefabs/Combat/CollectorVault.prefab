@@ -19571,6 +19571,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2135652140}
   - component: {fileID: 2135652141}
+  - component: {fileID: 3100000120}
   m_Layer: 0
   m_Name: BovedaModular
   m_TagString: Untagged
@@ -20115,3 +20116,51 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: e71c1fe3bc1c9a24cae8524d50fae98e, type: 2}
+--- !u!114 &3100000120
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2135652139}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5cfc48364bf411f85cec83c241ed509, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EchoScrap.Combat::EchoScrap.Combat.WarehouseLightScope
+  interiorLights:
+  - {fileID: 118605666}
+  - {fileID: 856210748}
+  - {fileID: 475662571}
+  - {fileID: 340997140}
+  - {fileID: 949599989}
+  - {fileID: 1488119818}
+  - {fileID: 174735419}
+  - {fileID: 1046788477}
+  - {fileID: 1985824802}
+  - {fileID: 586652727}
+  - {fileID: 736721463}
+  - {fileID: 1931344640}
+  - {fileID: 1650822922}
+  - {fileID: 705353213}
+  - {fileID: 368568100}
+  - {fileID: 2101873123}
+  - {fileID: 1247843994}
+  - {fileID: 426579710}
+  - {fileID: 1224214460}
+  - {fileID: 1611555922}
+  - {fileID: 1460893845}
+  - {fileID: 382291256}
+  - {fileID: 1274054907}
+  - {fileID: 518866242}
+  - {fileID: 352276341}
+  - {fileID: 1297580383}
+  - {fileID: 1948323688}
+  - {fileID: 1504817595}
+  - {fileID: 1061358870}
+  - {fileID: 1879513318}
+  - {fileID: 1699969007}
+  - {fileID: 837939772}
+  - {fileID: 955274707}
+  - {fileID: 1469502433}
+  - {fileID: 1912139938}

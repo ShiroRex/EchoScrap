@@ -16,6 +16,7 @@ namespace EchoScrap.Combat
         [Min(0f)] public float InteriorCameraWallPadding = 5f;
         [Min(0f)] public float InteriorFloorMargin = 16f;
         [Min(.1f)] public float InteriorBoundaryFadeWidth = 8f;
+        [SerializeField] private WarehouseLightScope lightScope;
         private WarehouseCameraDirector cameraDirector;
         private CombatGameBootstrap game;
         private float nextTravel;
@@ -25,14 +26,34 @@ namespace EchoScrap.Combat
         private struct FrozenBody { public Rigidbody Body; public Vector3 Velocity; public RigidbodyInterpolation Interpolation; }
         private readonly List<FrozenBody> frozen=new List<FrozenBody>();
         public bool IsInWarehouse => game != null && game.Session.IsInWarehouse;
+        public WarehouseLightScope LightScope => ResolveLightScope();
         private void Start()
         {
             Initialize(FindAnyObjectByType<CombatGameBootstrap>());
+        }
+        internal WarehouseLightScope ResolveLightScope()
+        {
+            if (lightScope == null)
+                lightScope = GetComponentInChildren<WarehouseLightScope>(true);
+            if (lightScope == null)
+            {
+                var scopes = FindObjectsByType<WarehouseLightScope>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                for (int i = 0; i < scopes.Length; i++)
+                {
+                    if (scopes[i] != null && scopes[i].gameObject.scene == gameObject.scene)
+                    {
+                        lightScope = scopes[i];
+                        break;
+                    }
+                }
+            }
+            return lightScope;
         }
         public void Initialize(CombatGameBootstrap owner)
         {
             if(game!=null) return;
             game=owner;
+            ResolveLightScope();
             if(game!=null) {
                 cameraDirector=GetComponent<WarehouseCameraDirector>();
                 if(cameraDirector==null) cameraDirector=gameObject.AddComponent<WarehouseCameraDirector>();
@@ -42,8 +63,21 @@ namespace EchoScrap.Combat
         }
         private void OnDestroy()
         { if(game!=null) game.Session.SessionReset-=ResetVisit; }
-        private void ResetVisit() { RestoreEnemies(); cameraDirector?.ResetView(); nextTravel=0f; hasSavedReturnPose=false; game.Session.SetWarehouseVisit(false); }
-        private void SetInteriorCamera(bool inside) => cameraDirector?.SetWarehouse(inside);
+        private void ResetVisit()
+        {
+            RestoreEnemies();
+            cameraDirector?.ResetView();
+            if (cameraDirector == null)
+                ResolveLightScope()?.SetInteriorActive(false);
+            nextTravel=0f; hasSavedReturnPose=false; game.Session.SetWarehouseVisit(false);
+        }
+        private void SetInteriorCamera(bool inside)
+        {
+            if (cameraDirector != null)
+                cameraDirector.SetWarehouse(inside);
+            if (cameraDirector == null || !cameraDirector.IsInitialized)
+                ResolveLightScope()?.SetInteriorActive(inside);
+        }
         private void RestoreEnemies()
         {
             foreach(var snapshot in frozen)
