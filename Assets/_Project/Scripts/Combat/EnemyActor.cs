@@ -397,6 +397,11 @@ namespace EchoScrap.Combat
                 body.linearVelocity = Vector3.zero;
         }
 
+        private void OnDestroy()
+        {
+            obstacleNavigator.Reset();
+        }
+
         internal void UnregisterFromCombat()
         {
             activeEnemies.Remove(this);
@@ -1381,6 +1386,7 @@ namespace EchoScrap.Combat
 
             session?.Upgrades?.EnemyDied(this, capturedPosition);
             isDead = true;
+            obstacleNavigator.Reset();
             CombatTargetRegistry.Unregister(this);
             activeEnemies.Remove(this);
             InvalidateNeighbors();

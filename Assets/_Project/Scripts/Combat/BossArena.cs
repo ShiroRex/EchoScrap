@@ -350,6 +350,7 @@ namespace EchoScrap.Combat
                 }
                 if (fieldRenderers[i] != null) fieldRenderers[i].enabled = closed;
             }
+            EnemyObstacleNavigator.InvalidateStaticObstacles();
         }
 
         private void BuildFoundry()
