@@ -271,6 +271,40 @@ namespace EchoScrap.Tests
             FusionRecipe.TryCreate(new[]{0,0,0,0},out var expected);foreach(int id in FusionCatalog.FusionIds.Where(id=>expected.ResultWeight(id)>0))StringAssert.Contains(expected.DisplayPercent(id)+"%",text);
             yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
         }
+
+        [UnityTest] public IEnumerator VaultPassageBelowBalconyKeepsPlayerOnLowerFloor()
+        {
+            var travel = Object.FindAnyObjectByType<WarehouseTravel>();
+            Assert.IsTrue(travel.TryTravel(false, game.Player));
+            var body = game.Player.GetComponent<Rigidbody>();
+            var start = new Vector3(164.7f, 1f, 13.9f);
+            PlacePlayer(start);
+            Assert.AreEqual(5f, ArenaSurface.Height(new Vector3(start.x, 0f, 17f)), .05f);
+            yield return new WaitForFixedUpdate();
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W));
+            for (int i = 0; i < 120 && body.position.z < 17f; i++)
+            {
+                yield return new WaitForFixedUpdate();
+                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f),
+                    "Walking below the balcony must stay on the lower floor at " + body.position);
+            }
+            Assert.GreaterOrEqual(body.position.z, 17f, "The passage beside the stairs must remain usable.");
+
+            bool dashed = false;
+            // Return through the passage at dash speed without snapping to the balcony.
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S, Key.Space));
+            for (int i = 0; i < 80 && body.position.z > 14f; i++)
+            {
+                yield return new WaitForFixedUpdate();
+                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f),
+                    "Dashing below the balcony must stay on the lower floor at " + body.position);
+                dashed |= game.Motor.IsDashing;
+            }
+            Assert.IsTrue(dashed, "This route must also be exercised during an actual dash.");
+            Assert.LessOrEqual(body.position.z, 14f, "The player must be able to leave the passage.");
+        }
+
         [UnityTest] public IEnumerator VaultLayoutSupportsTravelStairsAndFusion()
         {
             var travel=Object.FindAnyObjectByType<WarehouseTravel>();
