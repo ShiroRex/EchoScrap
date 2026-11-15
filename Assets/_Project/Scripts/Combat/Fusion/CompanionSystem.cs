@@ -26,6 +26,7 @@ namespace EchoScrap.Combat
         private FusionStation station;
         private CombatGameBootstrap game;
         private CompanionView view;
+        private VaultReleaseInteraction releaseInteraction;
         private CollectiblePickupFeedback pickupFeedback;
         private Material pickupSparkMaterial;
         private float elapsed;
@@ -42,7 +43,7 @@ namespace EchoScrap.Combat
                 return slot;
             }
         }
-        public bool CanEquip => (GetComponent<VaultReleaseInteraction>()?.NearestSlot??-1)<3 && NearestSlot>=0 && (!IsOpen || NearestSlot==SelectedSlot);
+        public bool CanEquip => NearestSlot >= 0 && (!IsOpen || NearestSlot == SelectedSlot) && ((releaseInteraction != null ? releaseInteraction : (releaseInteraction = GetComponent<VaultReleaseInteraction>()))?.NearestSlot ?? -1) < 3;
         public bool CanCollect => NearestPickup()>=0;
         public int PickupId(int index)=>index>=0&&index<pickups.Count?pickups[index].Id:-1;
         public Vector3 PickupPosition(int index)=>index>=0&&index<pickups.Count?pickups[index].Ground:Vector3.zero;
@@ -51,6 +52,7 @@ namespace EchoScrap.Combat
         public void Initialize(FusionStation owner, CombatGameBootstrap bootstrap)
         {
             station=owner;game=bootstrap;
+            releaseInteraction=GetComponent<VaultReleaseInteraction>();
             Abilities=game.Player.gameObject.AddComponent<CompanionPowerRuntime>();Abilities.Initialize(game);
             view=gameObject.AddComponent<CompanionView>();view.Build(this,station,game);
             pickupFeedback=GetComponentInChildren<CollectiblePickupFeedback>();
@@ -99,7 +101,7 @@ namespace EchoScrap.Combat
         {
             game.Stats.SetCompanionUpgrades(System.Array.Empty<UpgradeId>());
             Abilities.SetEquipment(station.Progress.equipped);
-            station.RefreshDisplays();if(view!=null)view.Refresh();
+            station.RefreshDisplays();if(view!=null)view.RefreshEquipment();
         }
         private void ResetRun() { elapsed=0;ClearPickups();view.ClearAnnouncement();Close();RefreshEquipment(); }
         public void Advance(float seconds)
@@ -137,6 +139,7 @@ namespace EchoScrap.Combat
                 if(blocked)continue;
                 var o=new GameObject("ColeccionableArena_"+FusionCatalog.Names[id]);o.transform.position=p-Vector3.up*.85f;
                 var display = o.AddComponent<CollectibleDisplay>();
+                display.Bind(game, CollectibleDisplayScope.CombatPickup);
                 display.Configure(id, 2.2f, true);
                 display.SetPickupTimeRemaining(PickupLifetime);
 
@@ -317,6 +320,7 @@ namespace EchoScrap.Combat
                 var o = new GameObject("ColeccionableArena_" + FusionCatalog.Names[item.id]);
                 o.transform.position = item.ground;
                 var display = o.AddComponent<CollectibleDisplay>();
+                display.Bind(game, CollectibleDisplayScope.CombatPickup);
                 display.Configure(item.id, 2.2f, true);
                 display.SetPickupTimeRemaining(Mathf.Clamp(item.life, 0.01f, PickupLifetime));
 

@@ -18,6 +18,12 @@ namespace EchoScrap.Combat
         private readonly StringBuilder powersBuilder=new StringBuilder(320);
         private Text equippedPowers;
         private int displayedPowersHash=int.MinValue;
+        private readonly int[] lastEquippedIds = { int.MinValue, int.MinValue, int.MinValue };
+        private int lastSelectedSlot = int.MinValue;
+        private int lastInventoryHash = int.MinValue;
+        private int lastTitleSlot = int.MinValue;
+        private string lastEquipAction;
+        private static readonly Color EmptySlotColor = new Color(.72f, .66f, .7f, .85f);
         private readonly Text[] slots=new Text[3];
         private readonly Sprite[] faces=new Sprite[FusionCatalog.Count];
         private int selected=>system.SelectedSlot;
@@ -126,46 +132,122 @@ namespace EchoScrap.Combat
         private int AvailableForSlot(int id)=>station.Progress.Available(id);
         public void Show(bool value)
         {
-            if (value)
+            if (value && lastTitleSlot != selected)
+            {
+                lastTitleSlot = selected;
                 title.text = $"PUESTO DE EQUIPO {selected + 1}";
+            }
             if (!value) CollectionMenuStyle.ClearFocus(modal);
             modal.SetActive(value);
-            Refresh();
+            RefreshFrame();
+            RefreshContent(forceGrid: value);
             if (value) CollectionMenuStyle.Focus(unitGrid.FirstButton ?? closeButton);
         }
+
         public void Refresh()
         {
             if (modal == null || game == null || !game.IsInitialized) return;
+            RefreshFrame();
+            RefreshContent(forceGrid: false);
+        }
+
+        public void RefreshEquipment()
+        {
+            if (modal == null || game == null || !game.IsInitialized) return;
+            RefreshFrame();
+            RefreshContent(forceGrid: true);
+        }
+
+        private void RefreshFrame()
+        {
             bool playing=!game.Session.IsPaused && game.Session.State==SessionState.Running && game.Player.IsAlive;
             bool showNotice=playing&&!game.Session.IsInWarehouse&&announcementAge<2f;
             bool bossVisible=game.Encounter!=null&&game.Encounter.IsEncounterActive&&game.Encounter.Boss!=null&&game.Encounter.Boss.IsAlive;
-            announcementRoot.anchoredPosition=new Vector2(0,bossVisible?-252:-184);
-            announcement.gameObject.SetActive(showNotice);
+            Vector2 targetNoticePos = new Vector2(0, bossVisible ? -252 : -184);
+            if (announcementRoot.anchoredPosition != targetNoticePos)
+                announcementRoot.anchoredPosition = targetNoticePos;
+            if (announcement.gameObject.activeSelf != showNotice)
+                announcement.gameObject.SetActive(showNotice);
             if(showNotice){announcementAge+=Time.deltaTime;float enter=Mathf.Clamp01(announcementAge/.26f),leave=Mathf.Clamp01((announcementAge-1.68f)/.32f);float decoration=game.Session.Effects.ReducedEffectsMode?0:game.Session.Effects.DecorativeIntensity;
                 announcement.alpha=Mathf.SmoothStep(0,1,enter)*(1-leave);float pop=1+2.7f*Mathf.Pow(enter-1,3)+1.7f*Mathf.Pow(enter-1,2);
                 announcementText.localScale=Vector3.one*(decoration>.01f?Mathf.Lerp(.72f,1,pop):1);announcementText.anchoredPosition=Vector2.up*(leave*32*decoration);}
             bool showEquipmentPrompt = !IsOpen && playing && system.CanEquip;
-            prompt.SetActive(showEquipmentPrompt);
-            if (showEquipmentPrompt) equipPrompt.SetAction(station.Progress.equipped[system.NearestSlot] < 0 ? "EQUIPAR" : "EDITAR");
-            collectPrompt.SetActive(!IsOpen&&playing&&system.CanCollect);
-            if(prompt.activeSelf)equipPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
-            if(collectPrompt.activeSelf)pickupPrompt.PlaceNear(game.GameplayCamera,game.Player.transform.position);
+            if (prompt.activeSelf != showEquipmentPrompt)
+                prompt.SetActive(showEquipmentPrompt);
+            if (showEquipmentPrompt)
+            {
+                int nearestSlot = system.NearestSlot;
+                string action = (nearestSlot >= 0 && nearestSlot < 3 && station.Progress.equipped[nearestSlot] < 0) ? "EQUIPAR" : "EDITAR";
+                if (!string.Equals(lastEquipAction, action, System.StringComparison.Ordinal))
+                {
+                    lastEquipAction = action;
+                    equipPrompt.SetAction(action);
+                }
+                equipPrompt.PlaceNear(game.GameplayCamera, game.Player.transform.position);
+            }
+            bool showCollectPrompt = !IsOpen && playing && system.CanCollect;
+            if (collectPrompt.activeSelf != showCollectPrompt)
+                collectPrompt.SetActive(showCollectPrompt);
+            if (collectPrompt.activeSelf)
+                pickupPrompt.PlaceNear(game.GameplayCamera, game.Player.transform.position);
             bool hudVisible = !game.Session.IsInWarehouse && game.Player.IsAlive &&
                 (playing || game.Hud.IsPauseVisible || game.Draft.IsOpen);
-            hud.SetActive(hudVisible);
-            equippedPowers.gameObject.SetActive(playing && (SceneTransitionState.ShowCompanionPowers || game.Hud.IsHudDetailHeld));
-            int powersHash=17;
-            for(int i=0;i<3;i++){
-                int id=station.Progress.equipped[i];portraits[i].enabled=id>=0;portraits[i].sprite=id>=0?faces[id]:null;
-                backgrounds[i].color=id>=0?Color.white:new Color(.72f,.66f,.7f,.85f);
-                powersHash=powersHash*31+id;
-                slots[i].text=(selected==i?"▸ ":"")+"PUESTO "+(i+1)+"\n"+(id>=0?FusionCatalog.Names[id]+" · "+CompanionSystem.PowerNames[id]:"VACÍO");
-                slots[i].transform.parent.gameObject.SetActive(i==selected);
+            if (hud.activeSelf != hudVisible)
+                hud.SetActive(hudVisible);
+            bool showPowers = playing && (SceneTransitionState.ShowCompanionPowers || game.Hud.IsHudDetailHeld);
+            if (equippedPowers.gameObject.activeSelf != showPowers)
+                equippedPowers.gameObject.SetActive(showPowers);
+        }
+
+        private void RefreshContent(bool forceGrid)
+        {
+            bool selectionChanged = lastSelectedSlot != selected;
+            bool anySlotChanged = false;
+            int powersHash = 17;
+            for (int i = 0; i < 3; i++)
+            {
+                int id = station.Progress.equipped[i];
+                powersHash = powersHash * 31 + id;
+                bool entryChanged = lastEquippedIds[i] != id;
+                if (entryChanged || selectionChanged)
+                {
+                    anySlotChanged = true;
+                    if (entryChanged)
+                    {
+                        lastEquippedIds[i] = id;
+                        portraits[i].enabled = id >= 0;
+                        portraits[i].sprite = id >= 0 ? faces[id] : null;
+                        backgrounds[i].color = id >= 0 ? Color.white : EmptySlotColor;
+                    }
+                    slots[i].text = (selected == i ? "▸ " : "") + "PUESTO " + (i + 1) + "\n" +
+                        (id >= 0 ? FusionCatalog.Names[id] + " · " + CompanionSystem.PowerNames[id] : "VACÍO");
+                    GameObject slotPanel = slots[i].transform.parent.gameObject;
+                    bool showSlot = i == selected;
+                    if (slotPanel.activeSelf != showSlot)
+                        slotPanel.SetActive(showSlot);
+                }
             }
-            if(powersHash!=displayedPowersHash){displayedPowersHash=powersHash;powersBuilder.Clear();
-                for(int i=0;i<3;i++){int id=station.Progress.equipped[i];if(id<0)continue;
-                    bool duplicate=false;for(int previous=0;previous<i;previous++)if(station.Progress.equipped[previous]==id)duplicate=true;
-                    if(duplicate)continue;
+
+            if (selectionChanged || anySlotChanged)
+            {
+                lastSelectedSlot = selected;
+                bool occupied = selected >= 0 && selected < 3 && station.Progress.equipped[selected] >= 0;
+                if (removeButton.interactable != occupied) removeButton.interactable = occupied;
+                if (releaseButton.interactable != occupied) releaseButton.interactable = occupied;
+            }
+
+            if (powersHash != displayedPowersHash)
+            {
+                displayedPowersHash = powersHash;
+                powersBuilder.Clear();
+                for (int i = 0; i < 3; i++)
+                {
+                    int id = station.Progress.equipped[i];
+                    if (id < 0) continue;
+                    bool duplicate = false;
+                    for (int previous = 0; previous < i; previous++)
+                        if (station.Progress.equipped[previous] == id) { duplicate = true; break; }
+                    if (duplicate) continue;
                     int copies = 1;
                     for (int next = i + 1; next < station.Progress.equipped.Length; next++)
                         if (station.Progress.equipped[next] == id) copies++;
@@ -175,11 +257,30 @@ namespace EchoScrap.Combat
                     if (copies > 1) powersBuilder.Append(" ×").Append(copies);
                     powersBuilder.Append("</color>  ").Append(CompanionPowerRuntime.DescribeHudPower(id, copies));
                 }
-                equippedPowers.text=powersBuilder.ToString();}
-            if(!IsOpen)return;
-            bool occupied = selected >= 0 && station.Progress.equipped[selected] >= 0;
-            removeButton.interactable = releaseButton.interactable = occupied;
-            unitGrid.Refresh();
+                equippedPowers.text = powersBuilder.ToString();
+            }
+
+            if (!IsOpen) return;
+            int inventoryHash = ComputeInventoryHash();
+            if (forceGrid || anySlotChanged || inventoryHash != lastInventoryHash)
+            {
+                lastInventoryHash = inventoryHash;
+                unitGrid.Refresh();
+            }
+        }
+
+        private int ComputeInventoryHash()
+        {
+            int hash = 17;
+            unchecked
+            {
+                for (int id = 0; id < FusionCatalog.Count; id++)
+                {
+                    hash = hash * 31 + station.Progress.owned[id];
+                    hash = hash * 31 + AvailableForSlot(id);
+                }
+            }
+            return hash;
         }
 
     }

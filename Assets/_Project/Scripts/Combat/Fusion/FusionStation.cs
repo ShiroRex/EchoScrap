@@ -71,11 +71,13 @@ namespace EchoScrap.Combat
             slatRenderers=Door.GetComponentsInChildren<MeshRenderer>().OrderBy(r=>r.transform.position.y).ToArray();slats=slatRenderers.Select(r=>r.transform).ToArray();closed=slats.Select(t=>t.position).ToArray();
             doorTop=slats.Length==0?Door.position.y+4.3f:slats.Max(t=>t.GetComponent<Renderer>().bounds.max.y);
             resultView=new GameObject("ResultadoFusion").AddComponent<CollectibleDisplay>();resultView.transform.SetParent(transform,false);resultView.transform.position=ResultPoint.position;
+            resultView.Bind(game, CollectibleDisplayScope.InteriorDisplay);
             displays=new CollectibleDisplay[DisplaySlots.Length];
             for(int i=0;i<displays.Length;i++)
             {
                 displays[i]=new GameObject("Coleccionable_"+(i+1)).AddComponent<CollectibleDisplay>();
                 displays[i].transform.SetParent(DisplaySlots[i],false);
+                displays[i].Bind(game, CollectibleDisplayScope.InteriorDisplay);
                 if(i<3) displays[i].MarkEquipmentSlot(i+1,game);
             }
             smoke=gameObject.AddComponent<FusionRevealSmoke>();
@@ -258,7 +260,7 @@ namespace EchoScrap.Combat
         public bool ReleaseCollectible(int id)
         {
             if(!FusionCatalog.Valid(id)||Progress.Available(id)<=0)return false;
-            Progress.owned[id]--;RefreshDisplays();Save();return true;
+            Progress.owned[id]--;RefreshDisplays();GetComponent<CompanionSystem>()?.RefreshEquipment();Save();return true;
         }
         public bool CollectFromArena(int id)
         {
@@ -271,7 +273,7 @@ namespace EchoScrap.Combat
                 return false;
             }
             EventLeaderboardSync.Instance?.NotifyCollectibleObtained(id, firstDiscovery, false);
-            RefreshDisplays();Save();return true;
+            RefreshDisplays();GetComponent<CompanionSystem>()?.RefreshEquipment();Save();return true;
         }
         public bool EquipCompanion(int slot,int id)
         {

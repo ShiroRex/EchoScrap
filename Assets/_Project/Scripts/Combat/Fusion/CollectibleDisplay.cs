@@ -1,7 +1,14 @@
+using EchoScrap.Core;
 using UnityEngine;
 using UnityEngine.UI;
 namespace EchoScrap.Combat
 {
+    public enum CollectibleDisplayScope
+    {
+        InteriorDisplay,
+        CombatPickup
+    }
+
     public sealed class CollectibleDisplay : MonoBehaviour
     {
         [System.Serializable] private sealed class Timing {public float[] durations;}
@@ -14,6 +21,15 @@ namespace EchoScrap.Combat
         private int displayedSeconds = -1;
         private readonly Vector3[] labelCorners = new Vector3[4];
         public int CollectibleId {get;private set;}=-1;
+        public CollectibleDisplayScope Scope { get; private set; } = CollectibleDisplayScope.InteriorDisplay;
+        public float AnimationElapsed => elapsed;
+        public void Bind(CombatGameBootstrap owner, CollectibleDisplayScope displayScope)
+        {
+            game = owner;
+            Scope = displayScope;
+            if (owner != null && owner.GameplayCamera != null)
+                cameraView = owner.GameplayCamera;
+        }
         public static Sprite FrontSprite(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/000"):null;
         public static Sprite CardPortrait(int id)=>FusionCatalog.Valid(id)?Resources.Load<Sprite>("Collectibles/"+FusionCatalog.ResourceKeys[id]+"/CardPortrait"):null;
         public void SetEquipmentReserve(bool reserve)
@@ -25,6 +41,9 @@ namespace EchoScrap.Combat
         public void MarkEquipmentSlot(int number,CombatGameBootstrap owner)
         {
             game=owner;
+            Scope = CollectibleDisplayScope.InteriorDisplay;
+            if (owner != null && owner.GameplayCamera != null)
+                cameraView = owner.GameplayCamera;
             equipmentLabel=new GameObject("PuestoEquipo",typeof(RectTransform),typeof(Canvas),typeof(Image)).GetComponent<Canvas>();
             equipmentLabel.transform.SetParent(transform,false);
             equipmentLabel.transform.localPosition=new Vector3(0,.2f,-2.55f);
@@ -106,31 +125,71 @@ namespace EchoScrap.Combat
         }
         private void LateUpdate()
         {
-            if(equipmentLabel!=null)
+            Camera activeCamera = (game != null && game.GameplayCamera != null) ? game.GameplayCamera : cameraView;
+            bool inActiveScope = true;
+            bool pausedOrResults = false;
+            if (game != null && game.Session != null)
             {
-                var camera = game != null ? game.GameplayCamera : null;
-                bool show=camera!=null&&game.Session.IsInWarehouse&&!game.Session.IsPaused&&game.Player.IsAlive;
+                inActiveScope = Scope == CollectibleDisplayScope.InteriorDisplay
+                    ? game.Session.IsInWarehouse
+                    : !game.Session.IsInWarehouse;
+                pausedOrResults = game.Session.IsPaused ||
+                    game.Session.State != SessionState.Running ||
+                    (game.Player != null && !game.Player.IsAlive);
+            }
+
+            if (!inActiveScope || pausedOrResults)
+            {
+                if (equipmentLabel != null && equipmentLabel.gameObject.activeSelf)
+                    equipmentLabel.gameObject.SetActive(false);
+                if (label != null && label.gameObject.activeSelf)
+                    label.gameObject.SetActive(false);
+                return;
+            }
+
+            if (equipmentLabel != null)
+            {
+                bool show = activeCamera != null && game != null && game.Session.IsInWarehouse && game.Player != null && game.Player.IsAlive;
                 if (show)
                 {
-                    equipmentLabel.transform.rotation = camera.transform.rotation;
+                    equipmentLabel.transform.rotation = activeCamera.transform.rotation;
                     Vector3 offset = game.Player.transform.position - equipmentLabel.transform.position;
                     offset.y = 0;
-                    show = offset.sqrMagnitude > 2.25f && FitsViewport(equipmentLabel, camera);
+                    show = offset.sqrMagnitude > 2.25f && FitsViewport(equipmentLabel, activeCamera);
                 }
-                if(equipmentLabel.gameObject.activeSelf!=show) equipmentLabel.gameObject.SetActive(show);
+                if (equipmentLabel.gameObject.activeSelf != show)
+                    equipmentLabel.gameObject.SetActive(show);
             }
-            if(CollectibleId<0||frames==null)return;
-            elapsed+=Time.deltaTime;
-            if(times.Length>1 && elapsed>=Mathf.Max(.03f,times[frame])){elapsed-=Mathf.Max(.03f,times[frame]);frame=(frame+1)%frames.Length;ApplyFrame();}
-            if(cameraView==null)cameraView=Camera.main;
-            if(cameraView!=null){
-                visual.transform.rotation=Quaternion.Euler(0,cameraView.transform.eulerAngles.y,0);
-                if(label!=null){
-                    if(game==null)game=FindAnyObjectByType<CombatGameBootstrap>();
-                    label.transform.rotation=cameraView.transform.rotation;
-                    label.transform.position=transform.position+Vector3.up*(height+(pickupTimer != null ? .8f : .35f));
-                    label.gameObject.SetActive(showTitle && (game==null || (!game.Session.IsPaused && game.Player.IsAlive))
-                        && (equipmentLabel == null || FitsViewport(label,cameraView)));
+
+            if (CollectibleId < 0 || frames == null)
+            {
+                if (label != null && label.gameObject.activeSelf)
+                    label.gameObject.SetActive(false);
+                return;
+            }
+
+            elapsed += Time.deltaTime;
+            if (times.Length > 1)
+            {
+                float frameDuration = Mathf.Max(.03f, times[frame]);
+                if (elapsed >= frameDuration)
+                {
+                    elapsed -= frameDuration;
+                    frame = (frame + 1) % frames.Length;
+                    ApplyFrame();
+                }
+            }
+
+            if (activeCamera != null)
+            {
+                visual.transform.rotation = Quaternion.Euler(0, activeCamera.transform.eulerAngles.y, 0);
+                if (label != null)
+                {
+                    label.transform.rotation = activeCamera.transform.rotation;
+                    label.transform.position = transform.position + Vector3.up * (height + (pickupTimer != null ? .8f : .35f));
+                    bool showLabel = showTitle && (equipmentLabel == null || FitsViewport(label, activeCamera));
+                    if (label.gameObject.activeSelf != showLabel)
+                        label.gameObject.SetActive(showLabel);
                 }
             }
         }
