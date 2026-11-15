@@ -302,7 +302,8 @@ namespace EchoScrap.Combat
                 primaryMat = new Material(litShader)
                 {
                     name = $"EnemyPrimary_{runtimeArchetype.ArchetypeId}",
-                    color = runtimeArchetype.PrimaryColor
+                    color = runtimeArchetype.PrimaryColor,
+                    enableInstancing = true
                 };
                 sharedPrimaryMaterials[key] = primaryMat;
             }
@@ -319,7 +320,8 @@ namespace EchoScrap.Combat
                 secondaryMat = new Material(litShader)
                 {
                     name = $"EnemySecondary_{runtimeArchetype.ArchetypeId}",
-                    color = runtimeArchetype.SecondaryColor
+                    color = runtimeArchetype.SecondaryColor,
+                    enableInstancing = true
                 };
                 sharedSecondaryMaterials[key] = secondaryMat;
             }

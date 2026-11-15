@@ -463,11 +463,15 @@ namespace EchoScrap.Core
                 if (r == null)
                     continue;
 
+                Material shared = r.sharedMaterial;
+                bool useLegacyColor = shared != null && !shared.HasProperty(BaseColorId) && shared.HasProperty(ColorId);
+
                 if (enableFlash)
                 {
                     r.GetPropertyBlock(flashBlock);
                     flashBlock.SetColor(BaseColorId, activeFlashColor);
-                    flashBlock.SetColor(ColorId, activeFlashColor);
+                    if (useLegacyColor)
+                        flashBlock.SetColor(ColorId, activeFlashColor);
                     flashBlock.SetColor(EmissionColorId, activeFlashColor * 1.6f);
                     flashBlock.SetFloat(StatusAmountId, 0f);
                     r.SetPropertyBlock(flashBlock);
@@ -479,13 +483,25 @@ namespace EchoScrap.Core
                     Color tinted = Color.Lerp(baseColor, statusTint, .65f);
                     tinted.a = baseColor.a;
                     flashBlock.SetColor(BaseColorId, tinted);
-                    flashBlock.SetColor(ColorId, tinted);
+                    if (useLegacyColor)
+                        flashBlock.SetColor(ColorId, tinted);
                     flashBlock.SetColor(EmissionColorId, statusTint * .06f);
                     flashBlock.SetColor(StatusTintId, statusTint);
                     flashBlock.SetFloat(StatusAmountId, .8f);
                     r.SetPropertyBlock(flashBlock);
                 }
-                else r.SetPropertyBlock(null);
+                else
+                {
+                    r.GetPropertyBlock(restoreBlock);
+                    Color baseColor = i < originalBaseColors.Length ? originalBaseColors[i] : Color.white;
+                    restoreBlock.SetColor(BaseColorId, baseColor);
+                    if (useLegacyColor)
+                        restoreBlock.SetColor(ColorId, baseColor);
+                    restoreBlock.SetColor(EmissionColorId, Color.clear);
+                    restoreBlock.SetColor(StatusTintId, Color.white);
+                    restoreBlock.SetFloat(StatusAmountId, 0f);
+                    r.SetPropertyBlock(restoreBlock);
+                }
             }
         }
 

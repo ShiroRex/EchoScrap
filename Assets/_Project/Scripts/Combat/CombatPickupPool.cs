@@ -674,7 +674,7 @@ namespace EchoScrap.Combat
         private static Material CreateMaterial(string materialName, Color color, bool transparent = false)
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
-            var material = new Material(shader) { name = materialName };
+            var material = new Material(shader) { name = materialName, enableInstancing = true };
             if (material.HasProperty(BaseColorId))
                 material.SetColor(BaseColorId, color);
             if (material.HasProperty(ColorId))
