@@ -271,6 +271,70 @@ namespace EchoScrap.Tests
             FusionRecipe.TryCreate(new[]{0,0,0,0},out var expected);foreach(int id in FusionCatalog.FusionIds.Where(id=>expected.ResultWeight(id)>0))StringAssert.Contains(expected.DisplayPercent(id)+"%",text);
             yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
         }
+
+        [Test] public void VaultStairInfillClosesTheSidesBelowTheTreads()
+        {
+            var infill = station.transform.parent.Find("RellenoBajoEscalera");
+            Assert.IsNotNull(infill);
+            var collider = infill.GetComponent<MeshCollider>();
+            Assert.IsFalse(collider.isTrigger);
+            Assert.AreSame(infill.GetComponent<MeshFilter>().sharedMesh, collider.sharedMesh);
+            Assert.AreEqual("ParedCueva", infill.GetComponent<MeshRenderer>().sharedMaterial.name);
+
+            foreach (float z in new[] { 4f, 7f, 10f, 13f, 14.8f })
+            {
+                float tread = ArenaSurface.Height(new Vector3(160f, 0f, z));
+                Assert.IsTrue(collider.Raycast(new Ray(new Vector3(160f, 6f, z), Vector3.down), out var roof, 7f));
+                Assert.That(roof.point.y, Is.InRange(tread - .5f, tread - .02f), "Rock top under tread at " + z);
+                foreach (float y in new[] { .1f, roof.point.y - .2f })
+                {
+                    Assert.IsTrue(collider.Raycast(new Ray(new Vector3(165f, y, z), Vector3.left), out _, 2f));
+                    Assert.IsTrue(collider.Raycast(new Ray(new Vector3(155f, y, z), Vector3.right), out _, 2f));
+                }
+            }
+        }
+
+
+        [UnityTest] public IEnumerator VaultWallClosesOpeningBesideTheStairs()
+        {
+            var travel = Object.FindAnyObjectByType<WarehouseTravel>();
+            Assert.IsTrue(travel.TryTravel(false, game.Player));
+            var body = game.Player.GetComponent<Rigidbody>();
+            var start = new Vector3(164.7f, 1f, 13.1f);
+            PlacePlayer(start);
+            yield return new WaitForFixedUpdate();
+
+            Assert.IsTrue(Physics.Raycast(start, Vector3.forward, out var hit, 3f,
+                1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore));
+            Assert.AreEqual("ParedCueva", hit.collider.name);
+            Assert.IsNotNull(hit.collider.GetComponentInChildren<MeshRenderer>());
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W));
+            for (int i = 0; i < 36; i++)
+            {
+                yield return new WaitForFixedUpdate();
+                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f));
+                Assert.Less(body.position.z, hit.point.z, "The rock must stop walking into the old opening.");
+            }
+            Assert.Greater(body.position.z, start.z + .4f, "The player must reach the new rock face.");
+
+            bool dashed = false;
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W, Key.Space));
+            for (int i = 0; i < 24; i++)
+            {
+                yield return new WaitForFixedUpdate();
+                dashed |= game.Motor.IsDashing;
+                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f));
+                Assert.Less(body.position.z, hit.point.z, "The rock must stop dashing into the old opening.");
+            }
+            Assert.IsTrue(dashed);
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S));
+            for (int i = 0; i < 40 && body.position.z >= start.z; i++)
+                yield return new WaitForFixedUpdate();
+            Assert.Less(body.position.z, start.z, "The player must be able to back away from the rock.");
+        }
+
         [UnityTest] public IEnumerator VaultLayoutSupportsTravelStairsAndFusion()
         {
             var travel=Object.FindAnyObjectByType<WarehouseTravel>();

@@ -371,6 +371,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -958,6 +962,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1176,6 +1184,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1371,6 +1383,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1501,6 +1517,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2074,6 +2094,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3130,6 +3154,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -5405,6 +5433,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -5910,6 +5942,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -6030,6 +6066,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -6951,6 +6991,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -7835,6 +7879,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -8515,6 +8563,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -9223,6 +9275,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -9289,6 +9345,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -10289,6 +10349,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -10386,6 +10450,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -10880,6 +10948,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -12382,6 +12454,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -12570,6 +12646,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -12726,6 +12806,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -13803,6 +13887,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -14607,6 +14695,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -14834,6 +14926,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -15416,6 +15512,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -15804,6 +15904,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -16068,6 +16172,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -16403,6 +16511,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -16792,6 +16904,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -17866,6 +17982,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -18297,6 +18417,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ParedCueva
       objectReference: {fileID: 0}
+    - target: {fileID: -5754084199372789682, guid: 04fa44b600e7592429ddf6604c049f96, type: 3}
+      propertyPath: m_Mesh
+      value:
+      objectReference: {fileID: 4300000, guid: fe671565a3d0f0248b3ccc27f17d1940, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -18333,8 +18457,8 @@ Transform:
   m_GameObject: {fileID: 1980973323}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 172, y: 0, z: 15.6}
-  m_LocalScale: {x: 12.46247, y: 6.0912056, z: 2.9083996}
+  m_LocalPosition: {x: 170.55, y: 0, z: 15.6}
+  m_LocalScale: {x: 15.48, y: 6.0912056, z: 2.9083996}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 676699333}
@@ -19553,6 +19677,7 @@ Transform:
   - {fileID: 1552682}
   - {fileID: 1205564020}
   - {fileID: 1117686001}
+  - {fileID: 3100000111}
   - {fileID: 1256690339}
   - {fileID: 97015922}
   - {fileID: 1020732131}
@@ -19877,3 +20002,116 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &3100000110
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3100000111}
+  - component: {fileID: 3100000113}
+  - component: {fileID: 3100000112}
+  - component: {fileID: 3100000114}
+  m_Layer: 0
+  m_Name: RellenoBajoEscalera
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3100000111
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3100000110}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 160, y: 0, z: 8}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2135652140}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!33 &3100000113
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3100000110}
+  m_Mesh: {fileID: 4300000, guid: e71c1fe3bc1c9a24cae8524d50fae98e, type: 2}
+--- !u!23 &3100000112
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3100000110}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: c648b2ee4a0501749b212f2445377ec3, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!64 &3100000114
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3100000110}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: e71c1fe3bc1c9a24cae8524d50fae98e, type: 2}

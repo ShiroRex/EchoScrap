@@ -179,9 +179,11 @@ namespace EchoScrap.Core
         // ALTURA DEL TERRENO
         // =====================================================
 
-        public static float Height(Vector3 position)
+        public static float Height(Vector3 position) => Height(position, float.PositiveInfinity);
+
+        private static float Height(Vector3 position, float maxVaultHeight)
         {
-            if (VaultFloorSurface.Active != null && VaultFloorSurface.Active.TryHeight(position, out float vaultHeight))
+            if (VaultFloorSurface.Active != null && VaultFloorSurface.Active.TryHeight(position, maxVaultHeight, out float vaultHeight))
                 return vaultHeight;
             if (Active == null)
                 return 0f;
@@ -239,7 +241,8 @@ namespace EchoScrap.Core
 
         public static float SupportHeight(
             Vector3 position,
-            float radius)
+            float radius,
+            float maxVaultHeight = float.PositiveInfinity)
         {
             float sample = radius * 0.6f;
             var vault = VaultFloorSurface.Active;
@@ -264,7 +267,7 @@ namespace EchoScrap.Core
             }
 
             // Outside the vault and stair footprint all five probes use the analytic terrain.
-            float Probe(float x, float z) => special ? Height(new Vector3(x, position.y, z))
+            float Probe(float x, float z) => special ? Height(new Vector3(x, position.y, z), maxVaultHeight)
                 : size > 0f ? Profile(x, z, size) : 0f;
             float h = Probe(position.x, position.z);
             float rim = Mathf.Max(Probe(position.x + sample, position.z), Probe(position.x - sample, position.z));

@@ -7,6 +7,8 @@ namespace EchoScrap.Player
     internal sealed class TerrainPlayerCollision
     {
         private const float Skin = 0.015f;
+        private const float RootHeight = 1f;
+        private const float MaxVaultStep = 0.75f;
         private const int Mask = 1 << PhysicsLayers.DefaultLayer;
         private readonly Rigidbody body;
         private readonly CapsuleCollider capsule;
@@ -133,7 +135,12 @@ namespace EchoScrap.Player
         }
 
         private Vector3 Grounded(Vector3 point)
-        { point.y = ArenaSurface.SupportHeight(point, radius) + 1f; return point; }
+        {
+            // A balcony or upper tread can share the same XZ as the floor below.
+            float reachableHeight = point.y - RootHeight + MaxVaultStep;
+            point.y = ArenaSurface.SupportHeight(point, radius, reachableHeight) + RootHeight;
+            return point;
+        }
 
         private void Ends(Vector3 root, out Vector3 bottom, out Vector3 top)
         {

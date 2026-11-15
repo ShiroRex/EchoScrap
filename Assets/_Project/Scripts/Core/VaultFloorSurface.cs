@@ -41,7 +41,10 @@ namespace EchoScrap.Core
             return position.x + padding >= min.x && position.x - padding <= max.x &&
                    position.z + padding >= min.z && position.z - padding <= max.z;
         }
-        public bool TryHeight(Vector3 position, out float height)
+        public bool TryHeight(Vector3 position, out float height) =>
+            TryHeight(position, float.PositiveInfinity, out height);
+
+        internal bool TryHeight(Vector3 position, float maxHeight, out float height)
         {
             height = float.NegativeInfinity;
             if (!IntersectsFootprint(position, 0f)) return false;
@@ -51,7 +54,8 @@ namespace EchoScrap.Core
                 var b = surface.bounds;
                 if (position.x < b.min.x || position.x > b.max.x || position.z < b.min.z || position.z > b.max.z) continue;
                 var ray = new Ray(new Vector3(position.x, b.max.y + 1, position.z), Vector3.down);
-                if (surface.Raycast(ray, out var hit, b.size.y + 2)) height = Mathf.Max(height, hit.point.y);
+                if (surface.Raycast(ray, out var hit, b.size.y + 2) && hit.point.y <= maxHeight)
+                    height = Mathf.Max(height, hit.point.y);
             }
             return !float.IsNegativeInfinity(height);
         }
