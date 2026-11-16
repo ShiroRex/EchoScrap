@@ -68,6 +68,7 @@ namespace EchoScrap.Combat
         private readonly EffectPreferences preferences;
         private uint sequence;
         private static readonly int Tint = Shader.PropertyToID("_Color"), BaseTint = Shader.PropertyToID("_BaseColor"), Phase = Shader.PropertyToID("_Phase"), Glow = Shader.PropertyToID("_Glow");
+        private static readonly int Billboard = Shader.PropertyToID("_Billboard");
         private static readonly int VisualKind = Shader.PropertyToID("_VisualKind"), ImpactStrength = Shader.PropertyToID("_ImpactStrength"), ImpactDirection = Shader.PropertyToID("_ImpactDirection");
         private static readonly string[] TextureNames = { "Saw", "Mine", "Turret", "Spark", "Frost", "Smoke", "Shockwave", "Shield", "Wind", "Explosion", "Frost" };
         public int ActiveCount { get; private set; }
@@ -161,7 +162,9 @@ namespace EchoScrap.Combat
                     v.Filter.sharedMesh = collector.CharacterMesh; v.Renderer.sharedMaterial = collector.AfterimageMaterial;
                     collector.CopyAfterimageTo(v.Root, v.Renderer); v.Root.position += position - collector.transform.position; color.a = .42f;
                 }
-                SetColor(v, color); v.Root.gameObject.SetActive(true); ActiveCount++;
+                // Burst sets the property block once its kind and blend mode are resolved.
+                if (shape != Shape.Wave) SetColor(v, color);
+                v.Root.gameObject.SetActive(true); ActiveCount++;
                 if (Decorative && WantsLoop(v)) v.Rig = AcquireRig(v, LoopProfile(v));
                 if (shape == Shape.Shield) AddLight(v, new Color(.25f, .65f, .85f), 2.1f, .14f, 1.1f);
                 return v;
@@ -203,7 +206,7 @@ namespace EchoScrap.Combat
             Color render = v.Shape == Shape.Saw && sawMaterial != null ? sawMaterial.GetColor(BaseTint) : art ? Color.white : color;
             if (v.Shape == Shape.Ring) render.a *= .34f;
             if (v.Shape == Shape.Ice) render = new Color(.35f, .72f, .9f, .75f);
-            targetBlock.SetColor(Tint, render); targetBlock.SetColor(BaseTint, render); targetBlock.SetFloat(Phase, v.Age); targetBlock.SetFloat("_Billboard", v.Shape == Shape.Turret ? 1f : 0f); targetBlock.SetFloat(Glow, 1f);
+            targetBlock.SetColor(Tint, render); targetBlock.SetColor(BaseTint, render); targetBlock.SetFloat(Phase, v.Age); targetBlock.SetFloat(Billboard, v.Shape == Shape.Turret ? 1f : 0f); targetBlock.SetFloat(Glow, 1f);
             float kind = v.Shape == Shape.Ring ? 1 : v.Shape == Shape.Dart ? 2 : v.Shape == Shape.Blade ? 3 : v.Shape == Shape.Ice ? 4 : v.Shape == Shape.Wave ? v.Kind == BurstKind.Collection ? 6 : v.Inward ? 5 : IsImpact(v.Kind) ? 7 : 1 : 0;
             targetBlock.SetFloat(VisualKind, kind); targetBlock.SetFloat(ImpactStrength, v.Reaction); targetBlock.SetVector(ImpactDirection, v.ReactionDirection);
             v.HasStaticColor = true;

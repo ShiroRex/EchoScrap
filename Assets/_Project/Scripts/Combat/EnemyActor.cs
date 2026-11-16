@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using EchoScrap.Core;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace EchoScrap.Combat
@@ -25,6 +26,9 @@ namespace EchoScrap.Combat
         public const float MothArmDistance = 2f;
 
         private static readonly List<EnemyActor> activeEnemies = new List<EnemyActor>(256);
+        private static readonly ProfilerMarker deathMarker = new ProfilerMarker("EchoScrap.EnemyDeath");
+        private bool inActiveEnemies;
+        internal bool IsInSimulationIndex => inActiveEnemies;
         private static readonly List<EnemyActor> indexedEnemies = new List<EnemyActor>(256);
         private static readonly EnemyNeighborIndex neighborIndex=new EnemyNeighborIndex();
         private static readonly List<int> neighborCandidates=new List<int>(64);
@@ -415,8 +419,7 @@ namespace EchoScrap.Combat
         private void OnEnable()
         {
             EnsureInitialized();
-            if (!activeEnemies.Contains(this))
-                activeEnemies.Add(this);
+            RegisterActiveEnemy();
             InvalidateNeighbors();
             if (IsAlive)
                 CombatTargetRegistry.Register(this);
@@ -425,8 +428,11 @@ namespace EchoScrap.Combat
         private void OnDisable()
         {
             wallSlamTimeRemaining = 0f;
-            obstacleNavigator.Reset();
-            UnregisterFromCombat();
+            if (!isDead)
+            {
+                obstacleNavigator.Reset();
+                UnregisterFromCombat();
+            }
             if (body != null && !body.isKinematic)
                 body.linearVelocity = Vector3.zero;
         }
@@ -438,10 +444,21 @@ namespace EchoScrap.Combat
 
         internal void UnregisterFromCombat()
         {
-            activeEnemies.Remove(this);
+            if (inActiveEnemies)
+            {
+                inActiveEnemies = false;
+                activeEnemies.Remove(this);
+            }
             if (!isDead)
                 InvalidateNeighbors();
             CombatTargetRegistry.Unregister(this);
+        }
+
+        private void RegisterActiveEnemy()
+        {
+            if (inActiveEnemies) return;
+            activeEnemies.Add(this);
+            inActiveEnemies = true;
         }
 
         /// <summary>
@@ -750,8 +767,7 @@ namespace EchoScrap.Combat
             if (!gameObject.activeSelf)
                 gameObject.SetActive(true);
 
-            if (!activeEnemies.Contains(this))
-                activeEnemies.Add(this);
+            RegisterActiveEnemy();
             InvalidateNeighbors();
             CombatTargetRegistry.Register(this);
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
@@ -1419,11 +1435,11 @@ namespace EchoScrap.Combat
             if (isDead)
                 return;
 
+            using var sample = deathMarker.Auto();
             session?.Upgrades?.EnemyDied(this, capturedPosition);
             isDead = true;
             obstacleNavigator.Reset();
-            CombatTargetRegistry.Unregister(this);
-            activeEnemies.Remove(this);
+            UnregisterFromCombat();
 
             // Desactivar inmediatamente daño, selección y colisión del actor
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)

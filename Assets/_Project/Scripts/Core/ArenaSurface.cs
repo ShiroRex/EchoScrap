@@ -168,6 +168,9 @@ namespace EchoScrap.Core
                 (x - cx) * (x - cx) / (rx * rx) +
                 (z - cz) * (z - cz) / (rz * rz);
 
+            if (r >= 1f)
+                return 0f;
+
             return height * Mathf.SmoothStep(
                 0f,
                 1f,
@@ -247,24 +250,26 @@ namespace EchoScrap.Core
         // ALTURA DE APOYO PARA PERSONAJES
         // =====================================================
 
+        public static bool HasSpecialSurfaceInArea(Vector3 position, float padding)
+        {
+            var vault = VaultFloorSurface.Active;
+            if (vault != null && vault.IntersectsFootprint(position, padding)) return true;
+            var stairs = WalkableStairs.Active;
+            if (stairs == null || stairs.Surface == null) return false;
+            var bounds = stairs.Surface.bounds;
+            var min = bounds.min;
+            var max = bounds.max;
+            return position.x + padding >= min.x && position.x - padding <= max.x &&
+                   position.z + padding >= min.z && position.z - padding <= max.z;
+        }
+
         public static float SupportHeight(
             Vector3 position,
             float radius,
             float maxVaultHeight = float.PositiveInfinity)
         {
             float sample = radius * 0.6f;
-            var vault = VaultFloorSurface.Active;
-            var stairs = WalkableStairs.Active;
-            bool special = vault != null && vault.IntersectsFootprint(position, sample);
-            if (!special && stairs != null && stairs.Surface != null)
-            {
-                var bounds = stairs.Surface.bounds;
-                var min = bounds.min;
-                var max = bounds.max;
-                special = position.x + sample >= min.x && position.x - sample <= max.x &&
-                          position.z + sample >= min.z && position.z - sample <= max.z;
-            }
-
+            bool special = HasSpecialSurfaceInArea(position, sample);
             var terrain = Active;
             float size = terrain != null ? terrain.WorldSize : 0f;
             if (!special && size >= 200f && sample <= 22f)

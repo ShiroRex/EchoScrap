@@ -393,13 +393,13 @@ namespace EchoScrap.Tests
                         note = "Onda ámbar que sale del enemigo muerto al activar la cadena.";
                         break;
                     case "DEMO_03":
-                        game.Upgrades.Step(4f);
+                        GalleryDash(p, true);
                         game.Motor.transform.position+=Vector3.left*2f;game.Motor.GetComponent<Rigidbody>().position=game.Motor.transform.position;
                         Assert.That(game.Upgrades.ActiveDeviceCount, Is.EqualTo(1));
                         yield return GalleryCapture(camera, folder, "DEMO_03_mina", false);
                         manifest.Add("DEMO_03_mina.png\tDEMO_03\tMinas: colocación\tPieza ámbar dentada en el suelo."); captures++;
                         GalleryEnemy(p + Vector3.forward * .7f);
-                        game.Upgrades.Step(.01f); game.Upgrades.Step(.12f);
+                        game.Upgrades.Step(.25f); game.Upgrades.Step(.12f);
                         note = "Explosión ámbar de la mina al acercarse un enemigo.";
                         break;
                     case "DEMO_04":
@@ -487,7 +487,8 @@ namespace EchoScrap.Tests
             Assert.That(game.DamageNumbers.ActiveNumberCount,Is.EqualTo(5));
             yield return GalleryCapture(camera,folder,"DamageChannels",false);
             File.WriteAllLines(Path.Combine(folder, "Manifest.tsv"), manifest);
-            Assert.That(captures, Is.EqualTo(40));
+            const int referenceAndDetailCaptures = 5;
+            Assert.That(captures, Is.EqualTo(UpgradeCatalog.Cards.Count + referenceAndDetailCaptures));
             Object.Destroy(camera.gameObject); source.enabled = true;
         }
         private EnemyActor GalleryEnemy(Vector3 position)

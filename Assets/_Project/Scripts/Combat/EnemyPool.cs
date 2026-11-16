@@ -151,7 +151,7 @@ namespace EchoScrap.Combat
                 return;
 
             // Disabled simulation components do not receive OnDisable when their object is pooled.
-            actor.UnregisterFromCombat();
+            if (!actor.isActiveAndEnabled) actor.UnregisterFromCombat();
             actor.gameObject.SetActive(false);
 
             EnemyArchetypeId id = actor.ArchetypeId;

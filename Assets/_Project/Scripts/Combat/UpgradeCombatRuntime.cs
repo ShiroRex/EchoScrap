@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using EchoScrap.Core;
 using EchoScrap.Player;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace EchoScrap.Combat
@@ -10,6 +11,9 @@ namespace EchoScrap.Combat
     [DisallowMultipleComponent]
     public sealed class UpgradeCombatRuntime : MonoBehaviour
     {
+        private static readonly ProfilerMarker blastsMarker = new ProfilerMarker("EchoScrap.ChainedBlasts");
+        private bool allTargetsIndexed;
+
         private sealed class Projectile
         {
             public bool Active, Piercing;
@@ -210,6 +214,7 @@ namespace EchoScrap.Combat
         private void Gather()
         {
             targets.Clear(); targetById.Clear();
+            allTargetsIndexed = true;
             var active = CombatTargetRegistry.ActiveTargets;
             for (int i = 0; i < active.Count; i++)
             {
@@ -217,6 +222,8 @@ namespace EchoScrap.Combat
                 {
                     targets.Add(enemy);
                     targetById[enemy.TargetId] = enemy;
+                    // A registered target can have its locomotion component disabled.
+                    allTargetsIndexed &= enemy.IsInSimulationIndex;
                 }
             }
         }
@@ -231,7 +238,7 @@ namespace EchoScrap.Combat
         private EnemyActor Nearest(Vector3 origin,float radius, int exclude=0, bool unique=false)
         {
             EnemyActor best=null; float distance=radius*radius;
-            if(!unique && radius <= 24f)
+            if (allTargetsIndexed && !unique && radius <= 24f)
             {
                 EnemyActor.GatherCandidatesUnsorted(origin, radius, nearestCandidates);
                 for(int i=0;i<nearestCandidates.Count;i++)
@@ -523,8 +530,13 @@ namespace EchoScrap.Combat
             {
                 var cable = cables[i];
                 if (cable.ExpiresAt <= time) continue;
-                EnemyActor.GatherSegmentCandidatesUnsorted(cable.Start, cable.End, tuning.cableWidth, segmentTargets);
-                foreach (EnemyActor enemy in segmentTargets)
+                List<EnemyActor> candidates = targets;
+                if (allTargetsIndexed)
+                {
+                    EnemyActor.GatherSegmentCandidatesUnsorted(cable.Start, cable.End, tuning.cableWidth, segmentTargets);
+                    candidates = segmentTargets;
+                }
+                foreach (EnemyActor enemy in candidates)
                 {
                     if (!CanResolveContextualUpgrade) return;
                     if (enemy == null || !enemy.IsAlive || enemy.CurrentHealth <= 0f || enemy.Session != session ||
@@ -748,12 +760,17 @@ namespace EchoScrap.Combat
                 if(blocked) to=wall.point;
                 p.Position=to;p.Life-=dt;
                 if(p.View!=null) {p.View.Root.position=to;p.View.Root.rotation=Quaternion.LookRotation(p.Direction);}
-                EnemyActor.GatherSegmentCandidatesUnsorted(from, to, p.Radius, spatialCandidates);
+                List<EnemyActor> candidates = targets;
+                if (allTargetsIndexed)
+                {
+                    EnemyActor.GatherSegmentCandidatesUnsorted(from, to, p.Radius, spatialCandidates);
+                    candidates = spatialCandidates;
+                }
                 var delta=to-from;delta.y=0;
                 float deltaSqr = delta.sqrMagnitude;
-                for(int e=0;e<spatialCandidates.Count;e++)
+                for(int e=0;e<candidates.Count;e++)
                 {
-                    var enemy=spatialCandidates[e];
+                    var enemy=candidates[e];
                     if(enemy==null || !enemy.IsAlive || enemy.CurrentHealth<=0 || enemy.Session!=session || (p.Hits.TryGetValue(enemy.TargetId,out int version)&&version==enemy.SpawnVersion)) continue;
                     var offset=enemy.WorldCenter-from;offset.y=0;
                     float t=deltaSqr>0?Mathf.Clamp01(Vector3.Dot(offset,delta)/deltaSqr):0;
@@ -779,6 +796,8 @@ namespace EchoScrap.Combat
         }
         private void StepBlasts(float dt)
         {
+            if (blastCount == 0) return;
+            using var sample = blastsMarker.Auto();
             // Drain the ready prefix including chained deaths. Delayed echoes are compacted in place.
             int count=blastCount; int write=0;
             for(int i=0;i<blastCount;i++)
@@ -787,7 +806,7 @@ namespace EchoScrap.Combat
                 if(b.Delay>0) {blasts[write++]=b;continue;}
                 effects.Burst(b.Position,b.Radius,b.Freeze>0?Ice:b.DamageType==DamageType.Supernatural?Plasma:Amber,b.Implosion,b.Freeze>0?UpgradeEffectPool.BurstKind.Frost:b.Implosion?UpgradeEffectPool.BurstKind.Implosion:b.Shockwave||b.Damage<=0?UpgradeEffectPool.BurstKind.Shock:b.DamageType==DamageType.Supernatural?UpgradeEffectPool.BurstKind.PlasmaExplosion:UpgradeEffectPool.BurstKind.Explosion);
                 List<EnemyActor> list = targets;
-                if (b.Radius <= 24f)
+                if (allTargetsIndexed && b.Radius <= 24f)
                 {
                     EnemyActor.GatherCandidatesUnsorted(b.Position, b.Radius, spatialCandidates);
                     list = spatialCandidates;
@@ -796,7 +815,8 @@ namespace EchoScrap.Combat
                 {
                     var enemy=list[e];if(enemy==null||!enemy.IsAlive||enemy.CurrentHealth<=0||enemy.Session!=session)continue;
                     var delta=enemy.WorldCenter-b.Position;delta.y=0;
-                    if(delta.sqrMagnitude>(b.Radius+enemy.HitRadius)*(b.Radius+enemy.HitRadius))continue;
+                    float hitRange = b.Radius + enemy.HitRadius;
+                    if (delta.sqrMagnitude > hitRange * hitRange) continue;
                     if(b.Damage>0 && !Deal(enemy,b.Damage,b.Position,b.Source,b.DamageType,canCrit:b.Source!=DamageSourceType.WallSlam).AppliedRealDamage) continue;
                     if(!enemy.IsAlive||enemy.CurrentHealth<=0)continue;
                     if(b.Freeze>0)enemy.ApplyFreeze(b.Freeze);
@@ -823,10 +843,15 @@ namespace EchoScrap.Combat
                 Vector3 p=player.WorldCenter+new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle))*tuning.sawRadius;
                 sawViews[i]??=effects.Acquire(UpgradeEffectPool.Shape.Saw,p,Amber,.55f);
                 if(sawViews[i]!=null) {sawViews[i].Root.position=p;sawViews[i].Root.rotation=Quaternion.Euler(0,-time*720,0);}
-                EnemyActor.GatherCandidatesUnsorted(p, tuning.sawHitRadius, spatialCandidates);
-                for(int e=0;e<spatialCandidates.Count;e++)
+                List<EnemyActor> candidates = targets;
+                if (allTargetsIndexed)
                 {
-                    var enemy=spatialCandidates[e];if(enemy==null||!enemy.IsAlive||enemy.CurrentHealth<=0||enemy.Session!=session)continue;
+                    EnemyActor.GatherCandidatesUnsorted(p, tuning.sawHitRadius, spatialCandidates);
+                    candidates = spatialCandidates;
+                }
+                for(int e=0;e<candidates.Count;e++)
+                {
+                    var enemy=candidates[e];if(enemy==null||!enemy.IsAlive||enemy.CurrentHealth<=0||enemy.Session!=session)continue;
                     var delta=enemy.WorldCenter-p;delta.y=0;
                     float hitRadius = enemy.HitRadius + tuning.sawHitRadius;
                     if (delta.sqrMagnitude > hitRadius * hitRadius) continue;

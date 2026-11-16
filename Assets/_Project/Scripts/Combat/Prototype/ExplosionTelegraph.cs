@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using EchoScrap.Core;
 
 /// <summary>
@@ -40,6 +41,7 @@ public class ExplosionTelegraph : MonoBehaviour
     private float appliedFlatScale = -1f;
     private float lastCenterX;
     private float lastCenterZ;
+    private float lastTerrainSize;
     private ArenaSurface lastSurface;
     private VaultFloorSurface lastVault;
     private WalkableStairs lastStairs;
@@ -47,6 +49,7 @@ public class ExplosionTelegraph : MonoBehaviour
     private bool hasRingPositions;
     private bool isFlatUnitMesh;
     private bool areaIsFlat;
+    private bool hasSpecialSurface;
     private float radius;
     private float groundY;
 
@@ -103,7 +106,9 @@ public class ExplosionTelegraph : MonoBehaviour
         ArenaSurface surface = ArenaSurface.Active;
         VaultFloorSurface vault = VaultFloorSurface.Active;
         WalkableStairs stairs = WalkableStairs.Active;
-        if (hasCenter && surface == lastSurface && vault == lastVault && stairs == lastStairs)
+        float size = surface != null ? surface.WorldSize : 0f;
+        bool sameTerrain = surface == lastSurface && vault == lastVault && stairs == lastStairs && size == lastTerrainSize;
+        if (hasCenter && sameTerrain)
         {
             float dx = worldPosition.x - lastCenterX;
             float dz = worldPosition.z - lastCenterZ;
@@ -114,33 +119,23 @@ public class ExplosionTelegraph : MonoBehaviour
         lastSurface = surface;
         lastVault = vault;
         lastStairs = stairs;
+        lastTerrainSize = size;
         lastCenterX = worldPosition.x;
         lastCenterZ = worldPosition.z;
 
-        float nextGroundY = surface != null ? ArenaSurface.Height(worldPosition)
-            : VfxRuntimeUtils.FindGroundY(worldPosition, 0f);
-        groundY = nextGroundY;
+        hasSpecialSurface = surface != null && ArenaSurface.HasSpecialSurfaceInArea(worldPosition, radius);
+        groundY = surface != null ? SurfaceHeight(worldPosition) : VfxRuntimeUtils.FindGroundY(worldPosition, 0f);
         transform.position = new Vector3(worldPosition.x, groundY, worldPosition.z);
-        areaIsFlat = CheckFlatClearing(worldPosition, radius);
-    }
-
-    private static bool CheckFlatClearing(Vector3 worldPosition, float r)
-    {
-        ArenaSurface surface = ArenaSurface.Active;
-        if (surface == null)
-            return true;
-        float maxFlatRadius = surface.WorldSize >= 200f ? 21.8f : 10.9f * surface.HorizontalScale;
-        float limit = maxFlatRadius - r;
-        if (limit <= 0f)
-            return false;
-        float distSq = worldPosition.x * worldPosition.x + worldPosition.z * worldPosition.z;
-        if (distSq > limit * limit)
-            return false;
-        if (VaultFloorSurface.Active != null && VaultFloorSurface.Active.TryHeight(worldPosition, out _))
-            return false;
-        if (WalkableStairs.Active != null && WalkableStairs.Active.TryHeight(worldPosition, out _))
-            return false;
-        return true;
+        float flatRadius = size >= 200f ? 21.8f : 10.9f * (size / ArenaSurface.ReferenceSize);
+        float limit = flatRadius - radius;
+        bool flat = surface == null || (!hasSpecialSurface && limit > 0f
+            && worldPosition.x * worldPosition.x + worldPosition.z * worldPosition.z <= limit * limit);
+        if (!sameTerrain || flat != areaIsFlat)
+        {
+            hasRingPositions = false;
+            lastFillProgress = -1f;
+        }
+        areaIsFlat = flat;
     }
 
     private Mesh BuildTerrainDisc()
@@ -180,7 +175,8 @@ public class ExplosionTelegraph : MonoBehaviour
         return mesh;
     }
 
-    private float SurfaceHeight(Vector3 position) => ArenaSurface.Active != null ? ArenaSurface.Height(position) : groundY;
+    private float SurfaceHeight(Vector3 position) => hasSpecialSurface ? ArenaSurface.Height(position)
+        : ArenaSurface.Profile(position.x, position.z, lastTerrainSize);
 
     /// <summary>Actualiza el indicador. progress = 0 (recién cebada) a 1 (detonación).</summary>
     public void SetProgress(float progress, bool reducedEffects = false)
@@ -265,14 +261,18 @@ public class ExplosionTelegraph : MonoBehaviour
                     lastFillCenter = centerPos;
                     lastFillProgress = progress;
                     fillVertices[0] = new Vector3(0f, FillHeightOffset, 0f);
+                    float minY = FillHeightOffset, maxY = FillHeightOffset;
                     for (int i = 1; i < fillVertices.Length; i++)
                     {
                         Vector3 offset = fillDirections[i] * fillRadius;
                         offset.y = SurfaceHeight(centerPos + offset) + FillHeightOffset - groundY;
                         fillVertices[i] = offset;
+                        minY = Mathf.Min(minY, offset.y);
+                        maxY = Mathf.Max(maxY, offset.y);
                     }
-                    fillMesh.SetVertices(fillVertices);
-                    fillMesh.RecalculateBounds();
+                    fillMesh.SetVertices(fillVertices, 0, fillVertices.Length, MeshUpdateFlags.DontRecalculateBounds);
+                    fillMesh.bounds = new Bounds(new Vector3(0f, (minY + maxY) * .5f, 0f),
+                        new Vector3(fillRadius * 2f + .002f, maxY - minY + .002f, fillRadius * 2f + .002f));
                 }
             }
 
