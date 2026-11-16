@@ -22,10 +22,20 @@ namespace EchoScrap.Combat
         DiagnosticOffscreen = 1
     }
 
+    public enum CombatBenchmarkRenderProbe
+    {
+        All,
+        NoShadows,
+        NoFocus,
+        NoSsao,
+        NoAtmosphere
+    }
+
     public sealed class CombatBenchmarkOptions
     {
         public CombatBenchmarkScenario Scenario = CombatBenchmarkScenario.LegacyDefault;
         public CombatBenchmarkPresentationMode PresentationMode = CombatBenchmarkPresentationMode.Normal;
+        public CombatBenchmarkRenderProbe RenderProbe;
         public string OutputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "CombatBenchmark");
         public int Width = 1920;
         public int Height = 1080;
@@ -56,6 +66,7 @@ namespace EchoScrap.Combat
         }
 
         public string TestKind => PresentationMode == CombatBenchmarkPresentationMode.DiagnosticOffscreen
+            || RenderProbe != CombatBenchmarkRenderProbe.All
             ? "diagnostic"
             : "acceptance";
 
@@ -69,6 +80,8 @@ namespace EchoScrap.Combat
         public struct FrameSample
         {
             public float ms, cpu, gpu, playerSpeed;
+            public float mainThreadMs, renderThreadMs, presentWaitMs;
+            public bool threadTimesAvailable;
             public double navTotalMs, navOldestAgeMs;
             public long gc, memory;
             public int enemies, puddles, projectiles, chargingColossi, windingColossi;
@@ -138,9 +151,19 @@ namespace EchoScrap.Combat
         public sealed class Report
         {
             public string unity, cpu, gpu, os, scenario, presentationMode, testKind;
+            public string renderProbe, graphicsApi;
             public int seed, width, height;
             public float warmupSeconds, secondsPerCase;
             public CaseSummary[] results;
+        }
+
+        internal static void ReadThreadTiming(in FrameTiming timing, ref FrameSample sample)
+        {
+            // A zero present wait is meaningful only when Unity measured the CPU frame.
+            sample.threadTimesAvailable = sample.cpuValid;
+            sample.mainThreadMs = (float)timing.cpuMainThreadFrameTime;
+            sample.renderThreadMs = (float)timing.cpuRenderThreadFrameTime;
+            sample.presentWaitMs = (float)timing.cpuMainThreadPresentWaitTime;
         }
 
         public static void ExtractTiming(in FrameTiming timing, uint availableCount,
@@ -311,7 +334,7 @@ namespace EchoScrap.Combat
                 Directory.CreateDirectory(directory);
 
             using var writer = new StreamWriter(path, false, Encoding.UTF8, 65536);
-            writer.WriteLine("frame,ms,cpu_ms,gpu_ms,gc_bytes,enemies,puddles,projectiles,charging_colossi,winding_colossi,nav_overlap_box,nav_capsule_cast,nav_overlap_capsule,nav_total_queries,nav_pending,nav_oldest_age_ms,nav_total_ms");
+            writer.WriteLine("frame,ms,cpu_ms,gpu_ms,gc_bytes,enemies,puddles,projectiles,charging_colossi,winding_colossi,nav_overlap_box,nav_capsule_cast,nav_overlap_capsule,nav_total_queries,nav_pending,nav_oldest_age_ms,nav_total_ms,cpu_main_thread_ms,cpu_render_thread_ms,cpu_present_wait_ms");
 
             for (int i = 0; i < count; i++)
             {
@@ -333,9 +356,17 @@ namespace EchoScrap.Combat
                     .Append(f.navOverlapBox + f.navCapsuleCast + f.navOverlapCapsule).Append(',')
                     .Append(f.navPending).Append(',')
                     .Append(f.navOldestAgeMs.ToString("F3", CultureInfo.InvariantCulture)).Append(',')
-                    .Append(f.navTotalMs.ToString("F4", CultureInfo.InvariantCulture));
+                    .Append(f.navTotalMs.ToString("F4", CultureInfo.InvariantCulture)).Append(',')
+                    .Append(FormatThreadTime(f.mainThreadMs, f.threadTimesAvailable, allowZero: false)).Append(',')
+                    .Append(FormatThreadTime(f.renderThreadMs, f.threadTimesAvailable, allowZero: false)).Append(',')
+                    .Append(FormatThreadTime(f.presentWaitMs, f.threadTimesAvailable, allowZero: true));
                 writer.WriteLine(buffer.ToString());
             }
         }
+
+        private static string FormatThreadTime(float milliseconds, bool available, bool allowZero)
+            => available && float.IsFinite(milliseconds) && (allowZero ? milliseconds >= 0f : milliseconds > 0f)
+                ? milliseconds.ToString("F4", CultureInfo.InvariantCulture)
+                : "no disponible";
     }
 }

@@ -91,7 +91,8 @@ namespace EchoScrap.Tests
                 {
                     ms = 16.5f, cpu = 3.2f, gpu = 0f, cpuValid = true, gpuValid = false,
                     gc = -1L, enemies = 150, navOverlapBox = 5, navCapsuleCast = 1, navOverlapCapsule = 2,
-                    navPending = 1, navOldestAgeMs = 12.25, navTotalMs = 0.75
+                    navPending = 1, navOldestAgeMs = 12.25, navTotalMs = 0.75,
+                    threadTimesAvailable = true, mainThreadMs = 2.1f, renderThreadMs = 1.5f, presentWaitMs = 0f
                 },
                 new CombatBenchmarkMetrics.FrameSample
                 {
@@ -110,11 +111,27 @@ namespace EchoScrap.Tests
                 Assert.IsTrue(lines[0].Contains("nav_overlap_box") && lines[0].Contains("nav_oldest_age_ms"));
                 Assert.IsTrue(lines[1].Contains(",3.2000,no disponible,"), lines[1]);
                 Assert.IsTrue(lines[2].Contains(",no disponible,8.4000,"), lines[2]);
+                Assert.IsTrue(lines[1].EndsWith(",2.1000,1.5000,0.0000"), lines[1]);
+                Assert.IsTrue(lines[2].EndsWith(",no disponible,no disponible,no disponible"), lines[2]);
             }
             finally
             {
                 if (File.Exists(path)) File.Delete(path);
             }
+        }
+
+        [TestCase("NoShadows", CombatBenchmarkRenderProbe.NoShadows)]
+        [TestCase("NoFocus", CombatBenchmarkRenderProbe.NoFocus)]
+        [TestCase("NoSsao", CombatBenchmarkRenderProbe.NoSsao)]
+        [TestCase("NoAtmosphere", CombatBenchmarkRenderProbe.NoAtmosphere)]
+        public void RenderProbe_UsesNormalPresentationButReportsDiagnostic(string argument, CombatBenchmarkRenderProbe expected)
+        {
+            var options = CombatBenchmarkRunner.ParseOptions(new[] { "-benchmarkRenderProbe", argument });
+            Assert.AreEqual(expected, options.RenderProbe);
+            Assert.AreEqual("diagnostic", options.TestKind);
+            Assert.AreEqual(CombatBenchmarkPresentationMode.Normal, options.PresentationMode);
+            Assert.AreEqual(PresentationCondition.FullEffects, options.EnforcedCondition);
+            Assert.Throws<ArgumentException>(() => CombatBenchmarkRunner.ParseOptions(new[] { "-benchmarkRenderProbe" }));
         }
 
         [Test]

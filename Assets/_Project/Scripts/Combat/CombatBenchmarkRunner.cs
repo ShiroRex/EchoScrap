@@ -119,6 +119,11 @@ namespace EchoScrap.Combat
                 opts.PresentationMode = CombatBenchmarkPresentationMode.DiagnosticOffscreen;
 
             opts.CaptureVisuals = Array.IndexOf(args, "-benchmarkCaptureVisuals") >= 0;
+            int probeIndex = Array.IndexOf(args, "-benchmarkRenderProbe");
+            if (probeIndex >= 0 && (probeIndex + 1 >= args.Length
+                || !Enum.TryParse(args[probeIndex + 1], true, out opts.RenderProbe)
+                || !Enum.IsDefined(typeof(CombatBenchmarkRenderProbe), opts.RenderProbe)))
+                throw new ArgumentException("Use -benchmarkRenderProbe All, NoShadows, NoFocus, NoSsao or NoAtmosphere.");
 
             if (stressTrial) opts.Scenario = CombatBenchmarkScenario.Stress;
             else if (fullCombatTrial) opts.Scenario = CombatBenchmarkScenario.FullCombat;
@@ -291,7 +296,18 @@ namespace EchoScrap.Combat
             yield return null;
             yield return null;
 
-            options = ParseOptions(Environment.GetCommandLineArgs());
+            try
+            {
+                options = ParseOptions(Environment.GetCommandLineArgs());
+                ApplyRenderProbe();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[CombatBenchmark] {ex.Message}");
+                Application.Quit(1);
+                yield break;
+            }
+
             Directory.CreateDirectory(options.OutputDirectory);
 
             Application.runInBackground = true;
@@ -345,6 +361,8 @@ namespace EchoScrap.Combat
                 scenario = DescribeScenario(options),
                 presentationMode = options.PresentationModeLabel,
                 testKind = options.TestKind,
+                renderProbe = options.RenderProbe.ToString(),
+                graphicsApi = SystemInfo.graphicsDeviceType.ToString(),
                 seed = options.Seed,
                 width = Screen.width,
                 height = Screen.height,
@@ -608,7 +626,7 @@ namespace EchoScrap.Combat
                 double dNavMs = Math.Max(0.0, curNav.TotalNavigationMs - prevNav.TotalNavigationMs);
                 prevNav = curNav;
 
-                frames[count++] = new CombatBenchmarkMetrics.FrameSample
+                var sample = new CombatBenchmarkMetrics.FrameSample
                 {
                     ms = Time.unscaledDeltaTime * 1000f,
                     cpu = cpuMs,
@@ -631,6 +649,9 @@ namespace EchoScrap.Combat
                     navOldestAgeMs = curNav.OldestPendingRequestAgeMs,
                     navTotalMs = dNavMs
                 };
+                // These hardware timings arrive several frames after the wall-clock sample.
+                CombatBenchmarkMetrics.ReadThreadTiming(in timings[0], ref sample);
+                frames[count++] = sample;
             }
 
             EnemyObstacleNavigator.NavigationTelemetry finalNav = EnemyObstacleNavigator.CaptureTelemetry();
@@ -675,6 +696,47 @@ namespace EchoScrap.Combat
             game.Enemies.DespawnAllActive();
             game.Hazards.ClearAll();
             game.MothExplosions.ClearAll();
+        }
+
+        private void ApplyRenderProbe()
+        {
+            if (options.RenderProbe == CombatBenchmarkRenderProbe.All) return;
+            if (!Debug.isDebugBuild || Application.isEditor)
+                throw new InvalidOperationException("Render probes require a standalone Development Build.");
+
+            switch (options.RenderProbe)
+            {
+                case CombatBenchmarkRenderProbe.NoShadows:
+                    game.GameplayCamera.GetUniversalAdditionalCameraData().renderShadows = false;
+                    break;
+                case CombatBenchmarkRenderProbe.NoFocus:
+                    if (game.Lighting == null) throw new InvalidOperationException("Arena lighting is unavailable.");
+                    game.Lighting.SetFocusEnabled(false);
+                    break;
+                case CombatBenchmarkRenderProbe.NoAtmosphere:
+                    if (game.Lighting == null) throw new InvalidOperationException("Arena lighting is unavailable.");
+                    game.Lighting.SetAtmosphereEnabled(false);
+                    break;
+                case CombatBenchmarkRenderProbe.NoSsao:
+                    bool found = false;
+                    if (GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset pipeline)
+                    {
+                        foreach (var renderer in pipeline.rendererDataList)
+                        {
+                            if (renderer == null) continue;
+                            foreach (var feature in renderer.rendererFeatures)
+                            {
+                                if (feature is not ScreenSpaceAmbientOcclusion ssao || !ssao.isActive) continue;
+                                ssao.SetActive(false);
+                                found = true;
+                            }
+                        }
+                    }
+                    if (!found) throw new InvalidOperationException("No active URP SSAO feature was found.");
+                    break;
+            }
+
+            Debug.Log($"[CombatBenchmark] Render probe {options.RenderProbe} applied.");
         }
 
         private IEnumerator CaptureReferenceVisuals()
