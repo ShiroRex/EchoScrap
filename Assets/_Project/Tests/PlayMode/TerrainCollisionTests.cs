@@ -54,6 +54,12 @@ namespace EchoScrap.Tests
             }
             CombatTargetRegistry.Clear();
         }
+        private static int TotalIndexCount(Mesh mesh)
+        {
+            int count = 0;
+            for (int s = 0; s < mesh.subMeshCount; s++) count += (int)mesh.GetIndexCount(s);
+            return count;
+        }
         [Test] public void ObstaclesUseVisibleMeshCollisions_AndTerrainMatchesExpandedProfile()
         {
             var world=GameObject.Find("Mundo3D_EchoScrap");
@@ -64,8 +70,15 @@ namespace EchoScrap.Tests
             Assert.Greater(colliders.Length,100);
             foreach(var collider in colliders){
                 Assert.IsInstanceOf<MeshCollider>(collider,collider.name);Assert.IsFalse(collider.isTrigger);
-                Assert.AreSame(collider.GetComponent<MeshFilter>().sharedMesh,((MeshCollider)collider).sharedMesh);
-                Assert.IsFalse(((MeshCollider)collider).convex,"Do not fill concave gaps with a convex hull.");
+                MeshCollider meshCollider=(MeshCollider)collider;
+                Mesh visibleMesh=collider.GetComponent<MeshFilter>().sharedMesh;
+                Mesh colliderMesh=meshCollider.sharedMesh;
+                Assert.IsNotNull(visibleMesh,collider.name);
+                Assert.IsNotNull(colliderMesh,collider.name);
+                Assert.GreaterOrEqual(TotalIndexCount(colliderMesh),TotalIndexCount(visibleMesh),collider.name);
+                Assert.LessOrEqual(Vector3.Distance(colliderMesh.bounds.center,visibleMesh.bounds.center),0.15f,collider.name);
+                Assert.LessOrEqual(Vector3.Distance(colliderMesh.bounds.size,visibleMesh.bounds.size),0.25f,collider.name);
+                Assert.IsFalse(meshCollider.convex,"Do not fill concave gaps with a convex hull.");
             }
             Assert.AreSame(game.ArenaGround,ArenaSurface.Active.GroundCollider);
             Assert.AreEqual(200f,ArenaSurface.Active.WorldSize,0.001f);

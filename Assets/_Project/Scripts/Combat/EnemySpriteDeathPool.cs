@@ -11,9 +11,11 @@ namespace EchoScrap.Combat
         private sealed class Slot
         {
             public GameObject root;
+            public MeshFilter pixelFilter, shadowFilter;
             public MeshRenderer pixels, shadow;
-            public EnemySpriteSet sprites;
+            public EnemySpriteSet sprites, appliedSprites;
             public CharacterFacing facing;
+            public int appliedFrame = -1;
             public float age;
             public bool active;
         }
@@ -46,9 +48,11 @@ namespace EchoScrap.Combat
             {
                 var root = new GameObject("Enemy Corpse " + i);
                 root.transform.SetParent(transform, false);
+                var pixels = MothSpriteView.CreateRenderer("Corpse Pixels", root.transform, sprites.mesh, sprites.material);
+                var shadow = MothSpriteView.CreateRenderer("Corpse Shadow", root.transform, sprites.shadowMesh, sprites.shadowMaterial);
                 slots[i] = new Slot { root = root,
-                    pixels = MothSpriteView.CreateRenderer("Corpse Pixels", root.transform, sprites.mesh, sprites.material),
-                    shadow = MothSpriteView.CreateRenderer("Corpse Shadow", root.transform, sprites.shadowMesh, sprites.shadowMaterial) };
+                    pixelFilter = pixels.GetComponent<MeshFilter>(), shadowFilter = shadow.GetComponent<MeshFilter>(),
+                    pixels = pixels, shadow = shadow };
                 root.SetActive(false);
             }
         }
@@ -56,17 +60,24 @@ namespace EchoScrap.Combat
         {
             Prewarm(sprites);
             var slot = slots[next]; next = (next + 1) % Capacity;
+            bool wasActive = slot.active;
+            bool spriteChanged = slot.sprites != sprites;
             slot.sprites = sprites; slot.facing = facing; slot.age = 0f; slot.active = true;
+            slot.appliedFrame = -1;
             slot.root.transform.SetPositionAndRotation(feet, Quaternion.identity);
-            slot.pixels.GetComponent<MeshFilter>().sharedMesh = sprites.mesh;
-            slot.pixels.sharedMaterial = sprites.material;
+            if (spriteChanged)
+            {
+                slot.pixelFilter.sharedMesh = sprites.mesh;
+                slot.pixels.sharedMaterial = sprites.material;
+                slot.shadowFilter.sharedMesh = sprites.shadowMesh;
+                slot.shadow.sharedMaterial = sprites.shadowMaterial;
+            }
             slot.pixels.transform.localRotation = yaw;
             slot.pixels.transform.localScale = scale;
-            slot.shadow.GetComponent<MeshFilter>().sharedMesh = sprites.shadowMesh;
-            slot.shadow.sharedMaterial = sprites.shadowMaterial;
             slot.shadow.transform.SetPositionAndRotation(ArenaSurface.OnGround(ground, .035f), Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(ground)));
             slot.shadow.transform.localScale = scale;
-            slot.root.SetActive(true); Apply(slot); TotalPlayed++;
+            if (!wasActive) slot.root.SetActive(true);
+            Apply(slot); TotalPlayed++;
         }
         private void Update() => Step(Time.deltaTime);
         public void Step(float delta)
@@ -84,8 +95,12 @@ namespace EchoScrap.Combat
         private void Apply(Slot slot)
         {
             var clip = slot.sprites.GetClip(EnemySpriteMotion.Death, slot.facing);
+            int frame = clip.FrameAt(slot.age);
+            if (slot.appliedSprites == slot.sprites && slot.appliedFrame == frame) return;
+            slot.appliedSprites = slot.sprites;
+            slot.appliedFrame = frame;
             block.Clear();
-            block.SetVector("_FrameRect", clip.frames[clip.FrameAt(slot.age)].uvRect);
+            block.SetVector("_FrameRect", clip.frames[frame].uvRect);
             block.SetColor("_BaseColor", Color.white);
             block.SetColor("_EmissionColor", Color.clear);
             block.SetFloat("_StatusAmount", 0f);

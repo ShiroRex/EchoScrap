@@ -53,6 +53,10 @@ namespace EchoScrap.Combat
             public EnemyActor Actor;
             public int Version;
             public UpgradeEffectPool.View View;
+            public byte AppliedKind;
+            public float AppliedScale = -1f;
+            public Vector3 AppliedPos;
+            public bool HasPos;
         }
         private sealed class VoltaicChain
         {
@@ -83,6 +87,8 @@ namespace EchoScrap.Combat
         private StatusView[] statuses;
         private readonly int[] attackTiers = new int[UpgradeRules.Count];
         private readonly List<EnemyActor> targets = new List<EnemyActor>(512);
+        private readonly Dictionary<int, EnemyActor> targetById = new Dictionary<int, EnemyActor>(256);
+        private readonly Dictionary<int, StatusView> statusByActorId = new Dictionary<int, StatusView>(64);
         private readonly HashSet<int> selectedTargets = new HashSet<int>();
         private readonly UpgradeEffectPool.View[] sawViews = new UpgradeEffectPool.View[4];
         private UpgradeEffectPool.View shield;
@@ -93,6 +99,9 @@ namespace EchoScrap.Combat
         private bool trackingDash;
         private readonly ElectricCable[] cables = new ElectricCable[MaxElectricCables];
         private readonly List<EnemyActor> segmentTargets = new List<EnemyActor>(64);
+        private readonly List<EnemyActor> spatialCandidates = new List<EnemyActor>(64);
+        private readonly List<EnemyActor> nearestCandidates = new List<EnemyActor>(64);
+        private int activeStatusCount;
         private readonly RaycastHit[] ramSweepHits = new RaycastHit[32];
         private float time, blizzardTimer, turretTimer, regenTimer, emergencyReady, overheal;
         private int gems, activeDecoys;
@@ -188,29 +197,52 @@ namespace EchoScrap.Combat
             ClearVoltaicChains();lightning.Clear();
             foreach(var p in projectiles) {p.Active=false;p.View=null;p.Hits.Clear();p.Target=null;}
             foreach(var d in devices) {d.Active=false;d.View=null;}
-            foreach(var s in statuses) {s.Actor=null;s.View=null;}
+            foreach(var s in statuses) {s.Actor=null;s.View=null;s.AppliedKind=0;s.AppliedScale=-1f;s.HasPos=false;}
+            activeStatusCount = 0;
             for(int i=0;i<4;i++) sawViews[i]=null;
             shield=null; blastCount=0; time=blizzardTimer=turretTimer=regenTimer=emergencyReady=overheal=0f;
             nextPlacementOrder = 0;
-            gems=activeDecoys=0; collecting=false; targets.Clear(); selectedTargets.Clear();
+            gems=activeDecoys=0; collecting=false; targets.Clear(); targetById.Clear(); statusByActorId.Clear(); selectedTargets.Clear();
             ActiveProjectileCount=ActiveDeviceCount=ExplosionsResolved=ProjectilesFired=0;
             ChainsTriggered=ChainHitsResolved=ChainTargetsInvalidated=ChainOverflowResolutions=0;
             stats.CopyUpgradeTiers(attackTiers);
         }
         private void Gather()
         {
-            targets.Clear(); var active=CombatTargetRegistry.ActiveTargets;
-            for(int i=0;i<active.Count;i++) if(active[i] is EnemyActor enemy && enemy.IsAlive && enemy.Session==session) targets.Add(enemy);
+            targets.Clear(); targetById.Clear();
+            var active = CombatTargetRegistry.ActiveTargets;
+            for (int i = 0; i < active.Count; i++)
+            {
+                if (active[i] is EnemyActor enemy && enemy.IsAlive && enemy.Session == session)
+                {
+                    targets.Add(enemy);
+                    targetById[enemy.TargetId] = enemy;
+                }
+            }
         }
         private EnemyActor Find(int id)
         {
-            var active=CombatTargetRegistry.ActiveTargets;
-            for(int i=0;i<active.Count;i++) if(active[i].TargetId==id) return active[i] as EnemyActor;
+            if (targetById.TryGetValue(id, out EnemyActor cached) && cached != null && cached.TargetId == id)
+                return cached;
+            var active = CombatTargetRegistry.ActiveTargets;
+            for (int i = 0; i < active.Count; i++) if (active[i].TargetId == id) return active[i] as EnemyActor;
             return null;
         }
         private EnemyActor Nearest(Vector3 origin,float radius, int exclude=0, bool unique=false)
         {
             EnemyActor best=null; float distance=radius*radius;
+            if(!unique && radius <= 24f)
+            {
+                EnemyActor.GatherCandidatesUnsorted(origin, radius, nearestCandidates);
+                for(int i=0;i<nearestCandidates.Count;i++)
+                {
+                    EnemyActor e=nearestCandidates[i];
+                    if(e==null || !e.IsAlive || e.CurrentHealth<=0 || e.Session!=session || e.TargetId==exclude) continue;
+                    var d=e.WorldCenter-origin;d.y=0;float square=d.sqrMagnitude;
+                    if(square>distance) continue; best=e;distance=square;
+                }
+                return best;
+            }
             var active=CombatTargetRegistry.ActiveTargets;
             for(int i=0;i<active.Count;i++)
             {
@@ -491,7 +523,7 @@ namespace EchoScrap.Combat
             {
                 var cable = cables[i];
                 if (cable.ExpiresAt <= time) continue;
-                EnemyActor.GatherSegmentCandidates(cable.Start, cable.End, tuning.cableWidth, segmentTargets);
+                EnemyActor.GatherSegmentCandidatesUnsorted(cable.Start, cable.End, tuning.cableWidth, segmentTargets);
                 foreach (EnemyActor enemy in segmentTargets)
                 {
                     if (!CanResolveContextualUpgrade) return;
@@ -623,6 +655,7 @@ namespace EchoScrap.Combat
         public void Step(float dt)
         {
             if(!bound || dt<=0 || session.IsPaused || session.State == SessionState.BossIntro || !session.IsGameplayFlowActive() || !player.IsAlive || !isActiveAndEnabled) return;
+            EnemyActor.InvalidateNeighbors();
             time+=dt; effects.Step(dt);lightning.Step(dt);
             stats.StepCombatMedkit(dt);
             if (returnMarker != null && (motor == null || !motor.HasReturnAnchor))
@@ -689,7 +722,8 @@ namespace EchoScrap.Combat
                 if(d.Shots==0 && d.BurstTimer<=0) {d.Shots=tuning.turretBurstCount;d.BurstTimer=tuning.turretBurstInterval;d.ShotTimer=0;}
                 while(d.Shots>0&&d.ShotTimer<=0)
                 {
-                    var target=Nearest(d.Position,tuning.turretRange);
+                    var target = tracked != null && tracked.IsAlive && tracked.CurrentHealth > 0 ? tracked : Nearest(d.Position, tuning.turretRange);
+                    tracked = target;
                     if(target!=null)
                     {
                         var turret=d.View!=null?d.View.Turret:null;
@@ -714,13 +748,15 @@ namespace EchoScrap.Combat
                 if(blocked) to=wall.point;
                 p.Position=to;p.Life-=dt;
                 if(p.View!=null) {p.View.Root.position=to;p.View.Root.rotation=Quaternion.LookRotation(p.Direction);}
-                Gather();
-                for(int e=0;e<targets.Count;e++)
+                EnemyActor.GatherSegmentCandidatesUnsorted(from, to, p.Radius, spatialCandidates);
+                var delta=to-from;delta.y=0;
+                float deltaSqr = delta.sqrMagnitude;
+                for(int e=0;e<spatialCandidates.Count;e++)
                 {
-                    var enemy=targets[e];
-                    if(!enemy.IsAlive || enemy.CurrentHealth<=0 || (p.Hits.TryGetValue(enemy.TargetId,out int version)&&version==enemy.SpawnVersion)) continue;
-                    var delta=to-from;delta.y=0;var offset=enemy.WorldCenter-from;offset.y=0;
-                    float t=delta.sqrMagnitude>0?Mathf.Clamp01(Vector3.Dot(offset,delta)/delta.sqrMagnitude):0;
+                    var enemy=spatialCandidates[e];
+                    if(enemy==null || !enemy.IsAlive || enemy.CurrentHealth<=0 || enemy.Session!=session || (p.Hits.TryGetValue(enemy.TargetId,out int version)&&version==enemy.SpawnVersion)) continue;
+                    var offset=enemy.WorldCenter-from;offset.y=0;
+                    float t=deltaSqr>0?Mathf.Clamp01(Vector3.Dot(offset,delta)/deltaSqr):0;
                     float radius=enemy.HitRadius+p.Radius;
                     if((offset-delta*t).sqrMagnitude>radius*radius)continue;
                     p.Hits[enemy.TargetId]=enemy.SpawnVersion;
@@ -750,10 +786,15 @@ namespace EchoScrap.Combat
                 var b=blasts[i]; if(i<count)b.Delay-=dt;
                 if(b.Delay>0) {blasts[write++]=b;continue;}
                 effects.Burst(b.Position,b.Radius,b.Freeze>0?Ice:b.DamageType==DamageType.Supernatural?Plasma:Amber,b.Implosion,b.Freeze>0?UpgradeEffectPool.BurstKind.Frost:b.Implosion?UpgradeEffectPool.BurstKind.Implosion:b.Shockwave||b.Damage<=0?UpgradeEffectPool.BurstKind.Shock:b.DamageType==DamageType.Supernatural?UpgradeEffectPool.BurstKind.PlasmaExplosion:UpgradeEffectPool.BurstKind.Explosion);
-                Gather();
-                for(int e=0;e<targets.Count;e++)
+                List<EnemyActor> list = targets;
+                if (b.Radius <= 24f)
                 {
-                    var enemy=targets[e];if(!enemy.IsAlive||enemy.CurrentHealth<=0)continue;
+                    EnemyActor.GatherCandidatesUnsorted(b.Position, b.Radius, spatialCandidates);
+                    list = spatialCandidates;
+                }
+                for(int e=0;e<list.Count;e++)
+                {
+                    var enemy=list[e];if(enemy==null||!enemy.IsAlive||enemy.CurrentHealth<=0||enemy.Session!=session)continue;
                     var delta=enemy.WorldCenter-b.Position;delta.y=0;
                     if(delta.sqrMagnitude>(b.Radius+enemy.HitRadius)*(b.Radius+enemy.HitRadius))continue;
                     if(b.Damage>0 && !Deal(enemy,b.Damage,b.Position,b.Source,b.DamageType,canCrit:b.Source!=DamageSourceType.WallSlam).AppliedRealDamage) continue;
@@ -782,10 +823,11 @@ namespace EchoScrap.Combat
                 Vector3 p=player.WorldCenter+new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle))*tuning.sawRadius;
                 sawViews[i]??=effects.Acquire(UpgradeEffectPool.Shape.Saw,p,Amber,.55f);
                 if(sawViews[i]!=null) {sawViews[i].Root.position=p;sawViews[i].Root.rotation=Quaternion.Euler(0,-time*720,0);}
-                Gather();
-                for(int e=0;e<targets.Count;e++)
+                EnemyActor.GatherCandidatesUnsorted(p, tuning.sawHitRadius, spatialCandidates);
+                for(int e=0;e<spatialCandidates.Count;e++)
                 {
-                    var enemy=targets[e];var delta=enemy.WorldCenter-p;delta.y=0;
+                    var enemy=spatialCandidates[e];if(enemy==null||!enemy.IsAlive||enemy.CurrentHealth<=0||enemy.Session!=session)continue;
+                    var delta=enemy.WorldCenter-p;delta.y=0;
                     float hitRadius = enemy.HitRadius + tuning.sawHitRadius;
                     if (delta.sqrMagnitude > hitRadius * hitRadius) continue;
                     var sawHit=Deal(enemy,At(tuning.sawDamage,tier),p,DamageSourceType.UpgradeSaw);
@@ -794,29 +836,73 @@ namespace EchoScrap.Combat
                 }
             }
         }
+        private static readonly Color SlowStatusColor = new Color(.2f, .6f, .8f);
         private void StepStatusViews()
         {
-            for(int i=0;i<statuses.Length;i++)
+            for (int i = 0; i < statuses.Length; i++)
             {
-                var s=statuses[i];
-                if(s.Actor!=null && (!s.Actor.IsAlive || s.Actor.SpawnVersion!=s.Version || (!s.Actor.IsControlLocked && s.Actor.SlowRemaining<=0)))
-                {effects.Release(s.View);s.View=null;s.Actor=null;}
-            }
-            Gather();
-            for(int e=0;e<targets.Count;e++)
-            {
-                var enemy=targets[e];if(!enemy.IsControlLocked && enemy.SlowRemaining<=0)continue;
-                StatusView found=null,free=null;
-                for(int i=0;i<statuses.Length;i++) {if(statuses[i].Actor==enemy){found=statuses[i];break;} if(free==null&&statuses[i].Actor==null)free=statuses[i];}
-                found??=free;if(found==null)continue;
-                found.Actor=enemy;found.Version=enemy.SpawnVersion;
-                found.View??=effects.Acquire(UpgradeEffectPool.Shape.Ring,enemy.WorldCenter,Ice,enemy.HitRadius+ .25f);
-                if(found.View!=null)
+                var s = statuses[i];
+                if (s.Actor != null && (!s.Actor.IsAlive || s.Actor.SpawnVersion != s.Version || (!s.Actor.IsControlLocked && s.Actor.SlowRemaining <= 0)))
                 {
-                    found.View.Root.position=enemy.WorldCenter+Vector3.down*.6f;
-                    effects.SetShape(found.View,enemy.IsFrozen?UpgradeEffectPool.Shape.Ice:UpgradeEffectPool.Shape.Ring);
-                    effects.SetColor(found.View,enemy.IsFrozen?Ice:enemy.StunRemaining>0?Amber:new Color(.2f,.6f,.8f));
-                    found.View.Root.localScale=Vector3.one*(enemy.HitRadius+(enemy.IsFrozen?.45f:.2f));
+                    statusByActorId.Remove(s.Actor.TargetId);
+                    effects.Release(s.View);
+                    s.View = null;
+                    s.Actor = null;
+                    s.AppliedKind = 0;
+                    s.AppliedScale = -1f;
+                    s.HasPos = false;
+                    activeStatusCount = Mathf.Max(0, activeStatusCount - 1);
+                }
+            }
+            for (int e = 0; e < targets.Count; e++)
+            {
+                var enemy = targets[e];
+                if (!enemy.IsControlLocked && enemy.SlowRemaining <= 0) continue;
+                int id = enemy.TargetId;
+                if (!statusByActorId.TryGetValue(id, out StatusView found) || found.Actor != enemy)
+                {
+                    if (activeStatusCount >= statuses.Length) continue;
+                    found = null;
+                    for (int i = 0; i < statuses.Length; i++)
+                    {
+                        if (statuses[i].Actor == null) { found = statuses[i]; break; }
+                    }
+                    if (found == null) continue;
+                    found.Actor = enemy;
+                    found.Version = enemy.SpawnVersion;
+                    found.AppliedKind = 0;
+                    found.AppliedScale = -1f;
+                    found.HasPos = false;
+                    activeStatusCount++;
+                    statusByActorId[id] = found;
+                }
+                else
+                {
+                    found.Version = enemy.SpawnVersion;
+                }
+                found.View ??= effects.Acquire(UpgradeEffectPool.Shape.Ring, enemy.WorldCenter, Ice, enemy.HitRadius + .25f);
+                if (found.View != null)
+                {
+                    Vector3 statusPos = enemy.WorldCenter + Vector3.down * .6f;
+                    if (!found.HasPos || (found.AppliedPos - statusPos).sqrMagnitude >= 0.0001f)
+                    {
+                        found.AppliedPos = statusPos;
+                        found.HasPos = true;
+                        found.View.Root.position = statusPos;
+                    }
+                    byte kind = enemy.IsFrozen ? (byte)1 : enemy.StunRemaining > 0 ? (byte)2 : (byte)3;
+                    if (found.AppliedKind != kind)
+                    {
+                        found.AppliedKind = kind;
+                        effects.SetShape(found.View, kind == 1 ? UpgradeEffectPool.Shape.Ice : UpgradeEffectPool.Shape.Ring);
+                        effects.SetColor(found.View, kind == 1 ? Ice : kind == 2 ? Amber : SlowStatusColor);
+                    }
+                    float scale = enemy.HitRadius + (kind == 1 ? .45f : .2f);
+                    if (!Mathf.Approximately(found.AppliedScale, scale))
+                    {
+                        found.AppliedScale = scale;
+                        found.View.Root.localScale = Vector3.one * scale;
+                    }
                 }
             }
         }

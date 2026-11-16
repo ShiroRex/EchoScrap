@@ -223,6 +223,14 @@ namespace EchoScrap.Core
                 return Vector3.up;
 
             const float d = 0.1f;
+            float size = Active.worldSize;
+            float scale = Active.HorizontalScale;
+            float flatRadius = size >= 200f ? 21.8f : 10.8f * scale;
+            if ((position.z < 59.8f || position.z > 83.2f || position.x < -6.2f || position.x > 6.2f)
+                && position.x * position.x + position.z * position.z <= flatRadius * flatRadius)
+            {
+                return Vector3.up;
+            }
 
             return new Vector3(
                 Profile(position.x - d, position.z) -

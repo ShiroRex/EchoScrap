@@ -22,12 +22,16 @@ namespace EchoScrap.Combat
         }
         public void Query(Vector3 position,float radius,List<int> results)
         {
+            QueryUnsorted(position, radius, results);
+            results.Sort();
+        }
+        public void QueryUnsorted(Vector3 position,float radius,List<int> results)
+        {
             results.Clear();LastCandidatesExamined=0;var min=Cell(position-new Vector3(radius,0,radius));var max=Cell(position+new Vector3(radius,0,radius));float squared=radius*radius;
             for(int z=min.y;z<=max.y;z++)for(int x=min.x;x<=max.x;x++){
                 if(!cells.TryGetValue(new Vector2Int(x,z),out var bucket))continue;
                 for(int i=0;i<bucket.Count;i++){int index=bucket[i];LastCandidatesExamined++;Vector3 delta=position-positions[index];delta.y=0;if(delta.sqrMagnitude<squared)results.Add(index);}
             }
-            results.Sort();
         }
     }
 }

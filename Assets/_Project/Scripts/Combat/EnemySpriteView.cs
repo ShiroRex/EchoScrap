@@ -25,6 +25,11 @@ namespace EchoScrap.Combat
         private CharacterSpriteSet.Clip appliedClip;
         private int appliedFrame;
         private uint appliedRevision;
+        private bool hasShadowCache;
+        private float lastShadowX, lastShadowZ, lastShadowScale;
+        private Vector3 lastShadowPos;
+        private Quaternion lastShadowRot;
+        private Vector3 lastRootScale = new Vector3(-1f, -1f, -1f);
         public EnemySpriteMotion Motion { get; private set; }
         public CharacterFacing Facing { get; private set; }
         public int FrameIndex { get; private set; }
@@ -62,6 +67,8 @@ namespace EchoScrap.Combat
             Motion = EnemySpriteMotion.Idle;
             Facing = ResolveFacing();
             clipTime = attackRemaining = hitRemaining = 0f;
+            hasShadowCache = false;
+            lastRootScale = new Vector3(-1f, -1f, -1f);
             ApplyFrame();
             AlignToSurface();
         }
@@ -198,9 +205,23 @@ namespace EchoScrap.Combat
             pixels.transform.SetPositionAndRotation(feet, yaw);
             float scale = actor.Archetype.VisualScale.x * sprites.presentationScale;
             ApplyWorldScale(pixels.transform, scale);
-            shadow.transform.SetPositionAndRotation(ArenaSurface.OnGround(transform.position, .035f),
-                Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(transform.position)));
-            ApplyWorldScale(shadow.transform, scale);
+            Vector3 rootPos = transform.position;
+            if (!hasShadowCache || Mathf.Abs(rootPos.x - lastShadowX) > 0.005f || Mathf.Abs(rootPos.z - lastShadowZ) > 0.005f)
+            {
+                hasShadowCache = true;
+                lastShadowX = rootPos.x;
+                lastShadowZ = rootPos.z;
+                lastShadowPos = ArenaSurface.OnGround(rootPos, .035f);
+                lastShadowRot = Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(rootPos));
+                shadow.transform.SetPositionAndRotation(lastShadowPos, lastShadowRot);
+            }
+            Vector3 parentScale = transform.lossyScale;
+            if (parentScale != lastRootScale || lastShadowScale != scale)
+            {
+                lastRootScale = parentScale;
+                lastShadowScale = scale;
+                shadow.transform.localScale = new Vector3(scale / parentScale.x, scale / parentScale.y, scale / parentScale.z);
+            }
         }
 
         private static void ApplyWorldScale(Transform visual, float scale)

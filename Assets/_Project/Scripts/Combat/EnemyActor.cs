@@ -25,21 +25,24 @@ namespace EchoScrap.Combat
         public const float MothArmDistance = 2f;
 
         private static readonly List<EnemyActor> activeEnemies = new List<EnemyActor>(256);
+        private static readonly List<EnemyActor> indexedEnemies = new List<EnemyActor>(256);
         private static readonly EnemyNeighborIndex neighborIndex=new EnemyNeighborIndex();
         private static readonly List<int> neighborCandidates=new List<int>(64);
         private static double neighborStep = double.NaN;
         private static bool neighborsCapturedInPhysics;
         private static float largestHitRadius;
-        private static void InvalidateNeighbors() => neighborStep = double.NaN;
+        internal static void InvalidateNeighbors() => neighborStep = double.NaN;
         private static void RefreshNeighborIndex()
         {
             bool inPhysics = Time.inFixedTimeStep;
             if (neighborStep == Time.fixedTimeAsDouble && neighborsCapturedInPhysics == inPhysics) return;
             neighborIndex.Clear();
+            indexedEnemies.Clear();
             largestHitRadius = 0f;
             for (int i = 0; i < activeEnemies.Count; i++)
             {
                 EnemyActor enemy = activeEnemies[i];
+                indexedEnemies.Add(enemy);
                 neighborIndex.Add(enemy != null ? enemy.WorldCenter : Vector3.zero);
                 if (enemy != null) largestHitRadius = Mathf.Max(largestHitRadius, enemy.HitRadius);
             }
@@ -55,7 +58,36 @@ namespace EchoScrap.Combat
             neighborIndex.Query(start + delta * .5f, delta.magnitude * .5f + radius + largestHitRadius + .02f, neighborCandidates);
             results.Clear();
             foreach (int index in neighborCandidates)
-                results.Add(activeEnemies[index]);
+            {
+                EnemyActor enemy = indexedEnemies[index];
+                if (enemy != null && enemy.IsAlive) results.Add(enemy);
+            }
+        }
+
+        internal static void GatherCandidatesUnsorted(Vector3 center, float radius, List<EnemyActor> results)
+        {
+            RefreshNeighborIndex();
+            neighborIndex.QueryUnsorted(center, radius + largestHitRadius + .02f, neighborCandidates);
+            results.Clear();
+            for (int i = 0; i < neighborCandidates.Count; i++)
+            {
+                EnemyActor enemy = indexedEnemies[neighborCandidates[i]];
+                if (enemy != null && enemy.IsAlive) results.Add(enemy);
+            }
+        }
+
+        internal static void GatherSegmentCandidatesUnsorted(Vector3 start, Vector3 end, float radius, List<EnemyActor> results)
+        {
+            RefreshNeighborIndex();
+            Vector3 delta = end - start;
+            delta.y = 0f;
+            neighborIndex.QueryUnsorted(start + delta * .5f, delta.magnitude * .5f + radius + largestHitRadius + .02f, neighborCandidates);
+            results.Clear();
+            for (int i = 0; i < neighborCandidates.Count; i++)
+            {
+                EnemyActor enemy = indexedEnemies[neighborCandidates[i]];
+                if (enemy != null && enemy.IsAlive) results.Add(enemy);
+            }
         }
 
         internal static bool TouchesSegment(Vector3 from, Vector3 to, Vector3 center, float radius, out float fraction)
@@ -407,7 +439,8 @@ namespace EchoScrap.Combat
         internal void UnregisterFromCombat()
         {
             activeEnemies.Remove(this);
-            InvalidateNeighbors();
+            if (!isDead)
+                InvalidateNeighbors();
             CombatTargetRegistry.Unregister(this);
         }
 
@@ -980,7 +1013,7 @@ namespace EchoScrap.Combat
             bool indexed=!neighborIndex.IsDense(myPos);
             if(indexed)neighborIndex.Query(myPos,minSepDist,neighborCandidates);
             int checkedNeighbors = 0;
-            for (int i = 0; i < (indexed?neighborCandidates.Count:activeEnemies.Count) && checkedNeighbors < 16; i++)
+            for (int i = 0; i < (indexed?neighborCandidates.Count:indexedEnemies.Count) && checkedNeighbors < 16; i++)
             {
                 int index = indexed ? neighborCandidates[i] : i;
                 Vector3 diff = myPos - neighborIndex.PositionAt(index);
@@ -989,7 +1022,7 @@ namespace EchoScrap.Combat
                 if (distSqr >= minSepSqr)
                     continue;
 
-                EnemyActor other = activeEnemies[index];
+                EnemyActor other = indexedEnemies[index];
                 if (other == null || other == this || !other.IsAlive)
                     continue;
                 checkedNeighbors++;
@@ -1391,7 +1424,6 @@ namespace EchoScrap.Combat
             obstacleNavigator.Reset();
             CombatTargetRegistry.Unregister(this);
             activeEnemies.Remove(this);
-            InvalidateNeighbors();
 
             // Desactivar inmediatamente daño, selección y colisión del actor
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)

@@ -243,6 +243,7 @@ namespace EchoScrap.Combat
         private static bool allowPlanningSpareQuota;
         private static bool immediateExhaustedInStep;
 
+        private static int planningDemandNavCount;
         private static int currentPhysicsStepId;
         private static int immediateCursor;
         private static int planningCursor;
@@ -311,6 +312,7 @@ namespace EchoScrap.Combat
 
         // Optional single-candidate shortcut smoothing state.
         private bool shortcutActive;
+        private bool countedInPlanningDemand;
         private int shortcutTargetIndex;
         private Vector3 shortcutOrigin;
         private ResumableSegmentCheck shortcutCheck;
@@ -985,6 +987,7 @@ namespace EchoScrap.Combat
         private void EnqueueRouteRequest(Vector3 from, Vector3 goal)
         {
             routeRequested = true;
+            RefreshPlanningDemandRegistration();
             routeRequestFrom = from;
             routeRequestGoal = goal;
             if (routeRequestStartTick == 0)
@@ -1000,6 +1003,7 @@ namespace EchoScrap.Combat
                     maxObservedRequestAgeMs = ageMs;
             }
             routeRequested = false;
+            RefreshPlanningDemandRegistration();
             routeRequestStartTick = 0;
         }
 
@@ -1033,6 +1037,7 @@ namespace EchoScrap.Combat
         private void ClearPendingShortcut()
         {
             shortcutActive = false;
+            RefreshPlanningDemandRegistration();
             shortcutCheck.Reset();
             shortcutBlockedAtRouteIndex = -1;
             shortcutRetryAfterStep = -1;
@@ -1152,6 +1157,7 @@ namespace EchoScrap.Combat
                     PlanarSqrDistance(position, route[shortcutTargetIndex]) > 49f)
                 {
                     shortcutActive = false;
+                    RefreshPlanningDemandRegistration();
                     shortcutCheck.Reset();
                 }
             }
@@ -1163,6 +1169,7 @@ namespace EchoScrap.Combat
                     return QueryResult.Clear;
 
                 shortcutActive = true;
+                RefreshPlanningDemandRegistration();
                 shortcutTargetIndex = candidate;
                 shortcutOrigin = position;
                 shortcutCheck.Begin(grid, position, route[candidate], environmentGeneration);
@@ -1173,6 +1180,7 @@ namespace EchoScrap.Combat
                 return QueryResult.Pending;
 
             shortcutActive = false;
+            RefreshPlanningDemandRegistration();
             if (res == QueryResult.Clear)
             {
                 if (shortcutTargetIndex > routeIndex && shortcutTargetIndex < routeCount)
@@ -1192,6 +1200,7 @@ namespace EchoScrap.Combat
                 return;
             nav.registeredIndex = registered.Count;
             registered.Add(nav);
+            nav.RefreshPlanningDemandRegistration();
         }
 
         private static void Unregister(EnemyObstacleNavigator nav)
@@ -1200,6 +1209,7 @@ namespace EchoScrap.Combat
             if (idx < 0 || idx >= registered.Count)
             {
                 nav.registeredIndex = -1;
+                nav.RefreshPlanningDemandRegistration();
                 return;
             }
 
@@ -1212,6 +1222,7 @@ namespace EchoScrap.Combat
             }
             registered.RemoveAt(last);
             nav.registeredIndex = -1;
+            nav.RefreshPlanningDemandRegistration();
 
             if (registered.Count == 0)
             {
@@ -1238,17 +1249,20 @@ namespace EchoScrap.Combat
             }
         }
 
+        private void RefreshPlanningDemandRegistration()
+        {
+            bool active = registeredIndex >= 0 && (routeRequested || shortcutActive);
+            if (active == countedInPlanningDemand)
+                return;
+            countedInPlanningDemand = active;
+            planningDemandNavCount += active ? 1 : -1;
+            if (planningDemandNavCount < 0)
+                planningDemandNavCount = 0;
+        }
+
         private static bool HasAnyPlanningDemand()
         {
-            if (search != null && search.Owner != null)
-                return true;
-            for (int i = 0; i < registered.Count; i++)
-            {
-                EnemyObstacleNavigator nav = registered[i];
-                if (nav.routeRequested || nav.shortcutActive)
-                    return true;
-            }
-            return false;
+            return (search != null && search.Owner != null) || planningDemandNavCount > 0;
         }
 
         private static void RefreshBudgetFrameIfNeeded()
@@ -1359,8 +1373,14 @@ namespace EchoScrap.Combat
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ClearSharedState()
         {
+            for (int i = 0; i < registered.Count; i++)
+            {
+                registered[i].registeredIndex = -1;
+                registered[i].countedInPlanningDemand = false;
+            }
             grids.Clear();
             registered.Clear();
+            planningDemandNavCount = 0;
             search = null;
             contextScene = SceneHandle.None;
             contextSurface = EntityId.None;

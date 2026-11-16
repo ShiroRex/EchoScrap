@@ -18,7 +18,8 @@ namespace EchoScrap.Combat
             public MeshFilter Filter;
             public MeshRenderer Renderer;
             public ScrapTurretView Turret;
-            public bool Used, Transient, Inward;
+            public MaterialPropertyBlock Block;
+            public bool Used, Transient, Inward, HasStaticColor;
             public float Age, Life, Radius, Reaction;
             public Color Color;
             public Vector3 ReactionDirection;
@@ -41,6 +42,7 @@ namespace EchoScrap.Combat
             public View Owner;
             public float Life, AppliedIntensity = -1f;
             public uint Seed;
+            public byte AppliedTintMode;
         }
         private sealed class LightSlot
         {
@@ -150,7 +152,8 @@ namespace EchoScrap.Combat
             {
                 View v = views[i]; if (v.Used) continue;
                 if((shape==Shape.Turret)!=(v.Turret!=null))continue;
-                v.Used = true; v.Transient = false; v.Inward = false; v.Age = 0; v.Color = color; v.Shape = shape; v.Kind = BurstKind.Auto; v.Rig = null; v.Reaction = 0; v.ReactionDirection = Vector3.forward;
+                v.Used = true; v.Transient = false; v.Inward = false; v.HasStaticColor = false; v.Age = 0; v.Color = color; v.Shape = shape; v.Kind = BurstKind.Auto; v.Rig = null; v.Reaction = 0; v.ReactionDirection = Vector3.forward;
+                v.Block ??= new MaterialPropertyBlock(); v.Block.Clear();
                 v.Root.SetPositionAndRotation(position, Quaternion.identity); v.Root.localScale = Vector3.one * scale;
                 v.Renderer.SetPropertyBlock(null); ConfigureRenderer(v);
                 if (shape == Shape.Decoy && collector != null && collector.CharacterRenderer != null)
@@ -188,20 +191,30 @@ namespace EchoScrap.Combat
         public void SetShape(View v, Shape shape)
         {
             if (v == null || v.Shape == shape) return;
-            ReleaseRig(v.Rig); v.Rig = null; v.Shape = shape; v.Age = 0; ConfigureRenderer(v); SetColor(v, v.Color);
-            if (Decorative && WantsLoop(v)) v.Rig = AcquireRig(v, LoopProfile(v));
+            ReleaseRig(v.Rig); v.Rig = null; v.Shape = shape; v.HasStaticColor = false; v.Age = 0; ConfigureRenderer(v); SetColor(v, v.Color);
+            if (Decorative && WantsLoop(v) && (v.Shape == Shape.Shield || ActiveParticleRigCount < ParticleRigCapacity - 8)) v.Rig = AcquireRig(v, LoopProfile(v));
         }
         public void SetColor(View v, Color color)
         {
             if (v == null) return;
-            v.Color = color; v.Renderer.GetPropertyBlock(block);
+            v.Color = color;
+            MaterialPropertyBlock targetBlock = v.Block ??= new MaterialPropertyBlock();
             bool art = v.Shape == Shape.Saw || v.Shape == Shape.Mine || v.Shape == Shape.Turret;
             Color render = v.Shape == Shape.Saw && sawMaterial != null ? sawMaterial.GetColor(BaseTint) : art ? Color.white : color;
             if (v.Shape == Shape.Ring) render.a *= .34f;
             if (v.Shape == Shape.Ice) render = new Color(.35f, .72f, .9f, .75f);
-            block.SetColor(Tint, render); block.SetColor(BaseTint, render); block.SetFloat(Phase, v.Age); block.SetFloat("_Billboard", v.Shape == Shape.Turret ? 1f : 0f); block.SetFloat(Glow, 1f);
+            targetBlock.SetColor(Tint, render); targetBlock.SetColor(BaseTint, render); targetBlock.SetFloat(Phase, v.Age); targetBlock.SetFloat("_Billboard", v.Shape == Shape.Turret ? 1f : 0f); targetBlock.SetFloat(Glow, 1f);
             float kind = v.Shape == Shape.Ring ? 1 : v.Shape == Shape.Dart ? 2 : v.Shape == Shape.Blade ? 3 : v.Shape == Shape.Ice ? 4 : v.Shape == Shape.Wave ? v.Kind == BurstKind.Collection ? 6 : v.Inward ? 5 : IsImpact(v.Kind) ? 7 : 1 : 0;
-            block.SetFloat(VisualKind, kind); block.SetFloat(ImpactStrength, v.Reaction); block.SetVector(ImpactDirection, v.ReactionDirection); v.Renderer.SetPropertyBlock(block);
+            targetBlock.SetFloat(VisualKind, kind); targetBlock.SetFloat(ImpactStrength, v.Reaction); targetBlock.SetVector(ImpactDirection, v.ReactionDirection);
+            v.HasStaticColor = true;
+            v.Renderer.SetPropertyBlock(targetBlock);
+        }
+        private static void StepAnimatedPhase(View v)
+        {
+            MaterialPropertyBlock targetBlock = v.Block;
+            if (targetBlock == null) return;
+            targetBlock.SetFloat(Phase, v.Age);
+            v.Renderer.SetPropertyBlock(targetBlock);
         }
         public void PulseShield(View v, Vector3 incomingDirection)
         {
@@ -251,7 +264,7 @@ namespace EchoScrap.Combat
                 v.Age += dt; v.Reaction = Mathf.Max(0f, v.Reaction - dt * 4.5f);
                 if(v.Turret!=null)v.Turret.Step(dt);
                 if (!Decorative && v.Rig != null) { ReleaseRig(v.Rig); v.Rig = null; }
-                if (Decorative && !v.Transient && v.Rig == null && WantsLoop(v)) v.Rig = AcquireRig(v, LoopProfile(v));
+                if (Decorative && !v.Transient && v.Rig == null && WantsLoop(v) && (v.Shape == Shape.Shield || ActiveParticleRigCount < ParticleRigCapacity - 8)) v.Rig = AcquireRig(v, LoopProfile(v));
                 if (v.Transient)
                 {
                     float t = v.Age / v.Life; if (t >= 1f) { Release(v); continue; }
@@ -259,7 +272,11 @@ namespace EchoScrap.Combat
                     v.Root.localScale = Vector3.one * (IsImpact(v.Kind) ? v.Radius : Mathf.Max(.05f, reach));
                     Color original = v.Color, fade = original; fade.a *= Mathf.Pow(1f - t, 1.1f) * .6f; SetColor(v, fade); v.Color = original; ConfigureTransientRenderer(v);
                 }
-                else if (v.Shape == Shape.Ice || v.Shape == Shape.Ring || v.Shape == Shape.Shield || v.Shape == Shape.Dart || v.Shape == Shape.Blade) SetColor(v, v.Color);
+                else if (v.Shape == Shape.Ice || v.Shape == Shape.Ring || v.Shape == Shape.Shield || v.Shape == Shape.Dart || v.Shape == Shape.Blade)
+                {
+                    if (v.HasStaticColor) StepAnimatedPhase(v);
+                    else SetColor(v, v.Color);
+                }
                 if (v.Rig != null) StepRig(v.Rig, dt);
             }
             for (int i = 0; i < lights.Length; i++)
@@ -289,7 +306,7 @@ namespace EchoScrap.Combat
             for (int i = 0; i < rigs.Length; i++)
             {
                 ParticleRig rig = rigs[i]; if (rig != free) continue;
-                rig.Owner = owner; rig.AppliedIntensity = -1f; rig.Root.SetPositionAndRotation(owner.Root.position, Quaternion.identity);
+                rig.Owner = owner; rig.Root.SetPositionAndRotation(owner.Root.position, Quaternion.identity);
                 rig.Root.localScale = Vector3.one * (owner.Transient ? owner.Radius : Mathf.Max(.25f, owner.Root.localScale.x)); rig.Root.gameObject.SetActive(true); ActiveParticleRigCount++; sequence++;
                 ApplyIntensity(rig);
                 for (int layer = 0; layer < rig.Layers.Length; layer++)
@@ -303,18 +320,27 @@ namespace EchoScrap.Combat
         }
         private void ApplyIntensity(ParticleRig rig)
         {
-            float intensity = Intensity; if (Mathf.Approximately(rig.AppliedIntensity, intensity)) return;
+            float intensity = Intensity;
+            byte tintMode = rig.Owner != null && rig.Owner.Kind == BurstKind.PlasmaImpact ? (byte)2 : (byte)1;
+            bool intensityChanged = !Mathf.Approximately(rig.AppliedIntensity, intensity);
+            bool tintChanged = intensityChanged || rig.AppliedTintMode != tintMode;
+            if (!tintChanged) return;
             rig.AppliedIntensity = intensity;
+            rig.AppliedTintMode = tintMode;
             for (int i = 0; i < rig.Layers.Length; i++)
             {
-                ParticleLayer layer = rig.Layers[i]; var emission = layer.System.emission; emission.rateOverTimeMultiplier = layer.Rate * intensity;
-                for (int b = 0; b < layer.Bursts.Length; b++)
+                ParticleLayer layer = rig.Layers[i];
+                if (intensityChanged)
                 {
-                    ParticleSystem.Burst burst = layer.Bursts[b]; var count = burst.count;
-                    count.constantMin = Mathf.Ceil(layer.Bursts[b].count.constantMin * intensity); count.constantMax = Mathf.Ceil(layer.Bursts[b].count.constantMax * intensity);
-                    burst.count = count; emission.SetBurst(b, burst);
+                    var emission = layer.System.emission; emission.rateOverTimeMultiplier = layer.Rate * intensity;
+                    for (int b = 0; b < layer.Bursts.Length; b++)
+                    {
+                        ParticleSystem.Burst burst = layer.Bursts[b]; var count = burst.count;
+                        count.constantMin = Mathf.Ceil(layer.Bursts[b].count.constantMin * intensity); count.constantMax = Mathf.Ceil(layer.Bursts[b].count.constantMax * intensity);
+                        burst.count = count; emission.SetBurst(b, burst);
+                    }
                 }
-                block.Clear(); Color tint = rig.Owner.Kind == BurstKind.PlasmaImpact ? new Color(.85f, .42f, 1f, Mathf.Sqrt(intensity)) : new Color(1f, 1f, 1f, Mathf.Sqrt(intensity));
+                block.Clear(); Color tint = tintMode == 2 ? new Color(.85f, .42f, 1f, Mathf.Sqrt(intensity)) : new Color(1f, 1f, 1f, Mathf.Sqrt(intensity));
                 block.SetColor(Tint, tint); layer.Renderer.SetPropertyBlock(block);
             }
         }

@@ -236,9 +236,9 @@ namespace EchoScrap.Combat
                     break;
                 case CombatBenchmarkScenario.Boss:
                     if (!opts.ExplicitWarmup) opts.WarmupSeconds = 5f;
-                    if (!opts.ExplicitDuration) opts.DurationSeconds = 60f;
+                    if (!opts.ExplicitDuration) opts.DurationSeconds = 180f;
                     if (!opts.ExplicitPopulations) opts.Populations = new[] { 0 };
-                    if (!opts.ExplicitUpgrades) opts.UseMaxUpgrades = false;
+                    if (!opts.ExplicitUpgrades) opts.UseMaxUpgrades = true;
                     break;
                 case CombatBenchmarkScenario.LegacySpawner:
                     if (!opts.ExplicitDuration) opts.DurationSeconds = Mathf.Min(opts.DurationSeconds, 50f);
@@ -353,8 +353,17 @@ namespace EchoScrap.Combat
                 results = results.ToArray()
             };
             File.WriteAllText(Path.Combine(options.OutputDirectory, "Summary.json"), JsonUtility.ToJson(report, true));
-            Debug.Log("[CombatBenchmark] COMPLETE " + options.OutputDirectory);
-            Application.Quit(0);
+            bool allCompleted = true;
+            for (int i = 0; i < results.Count; i++)
+            {
+                if (!results[i].completedAsExpected)
+                {
+                    allCompleted = false;
+                    Debug.LogError($"[CombatBenchmark] INCOMPLETE {results[i].condition} scenario={results[i].scenario} reason={results[i].completionReason}");
+                }
+            }
+            Debug.Log("[CombatBenchmark] COMPLETE " + options.OutputDirectory + $" allCompleted={allCompleted}");
+            Application.Quit(allCompleted ? 0 : 2);
         }
 
         private void SetupOffscreenDiagnosticCamera()
@@ -511,28 +520,68 @@ namespace EchoScrap.Combat
             int count = 0;
             float startGameTime = game.Session.GameplayTime;
             float realDeadline = Time.realtimeSinceStartup + (isFullCombat ? options.DurationSeconds * 2.5f + 120f : options.DurationSeconds);
+            string completionReason = "frame-buffer-full";
+            bool completedAsExpected = false;
 
             using var gcRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame", 1);
             while (count < frames.Length)
             {
                 if (isFullCombat)
                 {
-                    if (game.Session.GameplayTime - startGameTime >= options.DurationSeconds
-                        || Time.realtimeSinceStartup >= realDeadline
-                        || !game.Player.IsAlive)
+                    if (game.Session.GameplayTime - startGameTime >= options.DurationSeconds)
+                    {
+                        completionReason = "completed";
+                        completedAsExpected = game.Player.IsAlive;
                         break;
+                    }
+                    if (!game.Player.IsAlive)
+                    {
+                        completionReason = "player-died";
+                        completedAsExpected = false;
+                        break;
+                    }
+                    if (Time.realtimeSinceStartup >= realDeadline)
+                    {
+                        completionReason = "timeout-wall-clock";
+                        completedAsExpected = false;
+                        break;
+                    }
                 }
                 else if (isBoss)
                 {
-                    if (Time.realtimeSinceStartup >= realDeadline
-                        || game.Session.State == SessionState.Victory
-                        || game.Session.State == SessionState.Defeat)
+                    if (game.Session.State == SessionState.Victory)
+                    {
+                        completionReason = "boss-defeated";
+                        completedAsExpected = true;
                         break;
+                    }
+                    if (game.Session.State == SessionState.Defeat || !game.Player.IsAlive)
+                    {
+                        completionReason = "player-died";
+                        completedAsExpected = false;
+                        break;
+                    }
+                    if (Time.realtimeSinceStartup >= realDeadline)
+                    {
+                        completionReason = "timeout-wall-clock";
+                        completedAsExpected = false;
+                        break;
+                    }
                 }
                 else
                 {
-                    if (Time.realtimeSinceStartup >= realDeadline)
+                    if (!game.Player.IsAlive)
+                    {
+                        completionReason = "player-died";
+                        completedAsExpected = false;
                         break;
+                    }
+                    if (Time.realtimeSinceStartup >= realDeadline)
+                    {
+                        completionReason = "completed";
+                        completedAsExpected = count > 0;
+                        break;
+                    }
                 }
 
                 yield return null;
@@ -607,14 +656,16 @@ namespace EchoScrap.Combat
                 DirectorPlanningMs = game.Director.TotalPlanningMilliseconds - measuredPlanning,
                 NavMaxRequestAgeMs = finalNav.MaxRequestAgeMs,
                 CurrentAllocatedMb = Profiler.GetTotalAllocatedMemoryLong() / 1048576f,
-                CurrentReservedMb = Profiler.GetTotalReservedMemoryLong() / 1048576f
+                CurrentReservedMb = Profiler.GetTotalReservedMemoryLong() / 1048576f,
+                CompletionReason = completionReason,
+                CompletedAsExpected = completedAsExpected
             };
 
             CombatBenchmarkMetrics.CaseSummary result = CombatBenchmarkMetrics.Summarize(in inputs, frames, count, sortedMsScratch);
             results.Add(result);
             CombatBenchmarkMetrics.WriteFramesCsv(Path.Combine(options.OutputDirectory, caseName + ".csv"), frames, count, csvBuffer);
 
-            Debug.Log($"[CombatBenchmark] RESULT {caseName} frames={count} mean={result.meanMs:F2} p50={result.p50Ms:F2} p95={result.p95Ms:F2} p99={result.p99Ms:F2} max={result.maximumMs:F2} gt33={result.framesOver33_3Ms} gt50={result.framesOver50Ms} gt100={result.framesOver100Ms} cpu={result.cpuMsText} gpu={result.gpuMsText} pop={result.meanPopulation:F1} navQ={result.navTotalQueries} navMs={result.navTotalMs:F2}");
+            Debug.Log($"[CombatBenchmark] RESULT {caseName} frames={count} completed={result.completedAsExpected} reason={result.completionReason} mean={result.meanMs:F2} p50={result.p50Ms:F2} p95={result.p95Ms:F2} p99={result.p99Ms:F2} max={result.maximumMs:F2} gt33={result.framesOver33_3Ms} gt50={result.framesOver50Ms} gt100={result.framesOver100Ms} cpu={result.cpuMsText} gpu={result.gpuMsText} pop={result.meanPopulation:F1} navQ={result.navTotalQueries} navMs={result.navTotalMs:F2}");
 
             if (options.PresentationMode == CombatBenchmarkPresentationMode.DiagnosticOffscreen || options.CaptureVisuals)
                 yield return CaptureScreenshot(caseName + ".png");
@@ -701,7 +752,8 @@ namespace EchoScrap.Combat
             float radius = Mathf.Max(0.5f, Mathf.Sqrt(dx * dx + dz * dz));
             Vector2 tangent = new Vector2(-dz, dx) / radius;
             if (radius < 1f) tangent = Vector2.right;
-            Vector2 correction = new Vector2(dx, dz) / radius * ((8f - radius) * 0.3f);
+            float targetRadius = options != null && options.Scenario == CombatBenchmarkScenario.Boss ? 5.2f : 8f;
+            Vector2 correction = new Vector2(dx, dz) / radius * ((targetRadius - radius) * 0.3f);
             var state = new GamepadState { leftStick = Vector2.ClampMagnitude(tangent + correction, 1f) };
             if (caseAge % 1.5f < 0.06f) state = state.WithButton(GamepadButton.South);
             InputSystem.QueueStateEvent(pad, state);

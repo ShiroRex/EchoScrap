@@ -106,6 +106,7 @@ namespace EchoScrap.Tests
             GameObject world = GameObject.Find("Mundo3D_EchoScrap");
             Assert.IsNotNull(world);
             int checkedProps = 0;
+            int splitColliderProps = 0;
             foreach (MeshFilter mf in world.GetComponentsInChildren<MeshFilter>(true))
             {
                 if (mf.name.Contains("Floor") || mf.name == "PortalVortex" || mf.name == "Emblema_triangular")
@@ -116,9 +117,18 @@ namespace EchoScrap.Tests
                 Assert.Greater(tris, 10, mf.name);
                 Assert.LessOrEqual(tris, 20000, $"Unexpectedly high tri count on {mf.name}: {tris}");
                 Assert.IsTrue(mf.sharedMesh.HasVertexAttribute(VertexAttribute.TexCoord0), $"Missing UVs on {mf.name}");
+                MeshCollider mc = mf.GetComponent<MeshCollider>();
+                if (mc != null && mc.sharedMesh != null)
+                {
+                    int colTris = CountTriangles(mc.sharedMesh);
+                    Assert.GreaterOrEqual(colTris, tris, $"Collider should keep original detail on {mf.name}");
+                    if (mc.sharedMesh != mf.sharedMesh)
+                        splitColliderProps++;
+                }
                 checkedProps++;
             }
             Assert.Greater(checkedProps, 100);
+            Assert.Greater(splitColliderProps, 200, "Expected decimated arena props to preserve distinct original collider meshes.");
         }
     }
 }

@@ -99,6 +99,8 @@ namespace EchoScrap.Combat
             public double NavMaxRequestAgeMs;
             public float CurrentAllocatedMb;
             public float CurrentReservedMb;
+            public string CompletionReason;
+            public bool CompletedAsExpected;
         }
 
         [Serializable]
@@ -108,6 +110,8 @@ namespace EchoScrap.Combat
             public string scenario;
             public string presentationMode;
             public string testKind;
+            public string completionReason;
+            public bool completedAsExpected;
             public int seed, repeat, population, targetFps, width, height, frames, peakPopulation, dashes, deadFrames;
             public bool bossDefeated;
             public float warmupSeconds, durationSeconds;
@@ -241,6 +245,8 @@ namespace EchoScrap.Combat
                 scenario = inputs.Scenario,
                 presentationMode = inputs.PresentationMode,
                 testKind = inputs.TestKind,
+                completionReason = string.IsNullOrEmpty(inputs.CompletionReason) ? "completed" : inputs.CompletionReason,
+                completedAsExpected = inputs.CompletedAsExpected,
                 seed = inputs.Seed,
                 repeat = inputs.Repeat,
                 population = inputs.Population,

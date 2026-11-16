@@ -24,6 +24,7 @@ namespace EchoScrap.Combat.Prototype
         private float activeFuseDuration;
         private float blinkTimer;
         private bool isWhite;
+        private bool telegraphDirty;
         public bool IsPrimed { get; private set; }
         public bool HasDetonated { get; private set; }
         public float FuseRemaining { get; private set; }
@@ -48,6 +49,7 @@ namespace EchoScrap.Combat.Prototype
             IsPrimed = HasDetonated = false;
             FuseRemaining = 0f;
             blinkTimer = 0f; isWhite = false;
+            telegraphDirty = false;
             if (telegraph != null) telegraph.gameObject.SetActive(false);
             if (renderers != null)
                 for (int i = 0; i < renderers.Length; i++)
@@ -61,9 +63,10 @@ namespace EchoScrap.Combat.Prototype
             activeFuseDuration = Mathf.Max(0.05f, lethalDamage ? deathFuseDuration : proximityFuseDuration);
             FuseRemaining = activeFuseDuration;
             blinkTimer = 0f; isWhite = false;
+            telegraphDirty = false;
             telegraph.gameObject.SetActive(true);
             telegraph.SetCenter(actor.WorldCenter);
-            telegraph.SetProgress(0f);
+            telegraph.SetProgress(0f, actor.Session != null && actor.Session.Effects.ReducedEffectsMode);
             return FuseRemaining;
         }
 
@@ -83,9 +86,33 @@ namespace EchoScrap.Combat.Prototype
                 for (int i = 0; i < renderers.Length; i++)
                     if (renderers[i] != null) renderers[i].SetPropertyBlock(properties);
             }
+            if (FuseRemaining <= 0.00001f)
+            {
+                telegraphDirty = false;
+                Detonate();
+                return;
+            }
+            if (!Time.inFixedTimeStep)
+                SyncTelegraphVisual(progress, reduced);
+            else
+                telegraphDirty = true;
+        }
+
+        private void LateUpdate()
+        {
+            if (!telegraphDirty || !IsPrimed || HasDetonated || actor == null || telegraph == null)
+                return;
+            if (actor.Session != null && actor.Session.IsPaused)
+                return;
+            telegraphDirty = false;
+            bool reduced = actor.Session != null && actor.Session.Effects.ReducedEffectsMode;
+            SyncTelegraphVisual(FuseProgress, reduced);
+        }
+
+        private void SyncTelegraphVisual(float progress, bool reduced)
+        {
             telegraph.SetCenter(actor.WorldCenter);
             telegraph.SetProgress(progress, reduced);
-            if (FuseRemaining <= 0.00001f) Detonate();
         }
 
         private void Detonate()
