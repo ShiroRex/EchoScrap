@@ -170,8 +170,26 @@ namespace EchoScrap.Combat
 
         private static bool PreferredFullscreen => PlayerPrefs.GetInt(FullScreenPreference, 1) != 0;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void LoadDisplayMode() => ApplySavedDisplayMode(true);
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void LoadDisplayMode()
+        {
+            ApplySavedDisplayMode(true);
+            if (Application.isBatchMode || Application.isEditor) return;
+            var host = new GameObject("EchoScrapDisplayModeLoader") { hideFlags = HideFlags.HideAndDontSave };
+            Object.DontDestroyOnLoad(host);
+            host.AddComponent<DisplayModeStartupApplier>();
+        }
+
+        private sealed class DisplayModeStartupApplier : MonoBehaviour
+        {
+            private System.Collections.IEnumerator Start()
+            {
+                ApplySavedDisplayMode(true);
+                yield return null;
+                ApplySavedDisplayMode(true);
+                Destroy(gameObject);
+            }
+        }
 
         internal static void ApplySavedDisplayMode(bool fallbackFullscreen)
         {
@@ -187,16 +205,18 @@ namespace EchoScrap.Combat
             if (fullscreen)
             {
                 if (systemWidth > 0 && systemHeight > 0) Screen.SetResolution(systemWidth, systemHeight, FullScreenMode.FullScreenWindow);
-                else Screen.fullScreenMode = FullScreenMode.FullScreenWindow;
-                Screen.fullScreen = true;
+                else Screen.fullScreen = true;
                 return;
             }
-            Screen.fullScreen = false;
             if (systemWidth > 0 && systemHeight > 0 && Screen.width >= systemWidth && Screen.height >= systemHeight)
             {
                 int windowWidth = Mathf.Clamp(Mathf.RoundToInt(systemWidth * .8f), 960, Mathf.Max(960, systemWidth - 80));
                 int windowHeight = Mathf.Clamp(Mathf.RoundToInt(windowWidth * 9f / 16f), 540, Mathf.Max(540, systemHeight - 80));
                 Screen.SetResolution(windowWidth, windowHeight, FullScreenMode.Windowed);
+            }
+            else if (Screen.width > 0 && Screen.height > 0)
+            {
+                Screen.SetResolution(Screen.width, Screen.height, FullScreenMode.Windowed);
             }
             else
             {
