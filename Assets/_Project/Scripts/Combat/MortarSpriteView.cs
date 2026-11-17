@@ -11,6 +11,7 @@ namespace EchoScrap.Combat
     {
         private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
         private static readonly int StatusTintId = Shader.PropertyToID("_StatusTint");
         private static readonly int StatusAmountId = Shader.PropertyToID("_StatusAmount");
         private static readonly int GlowStrengthId = Shader.PropertyToID("_GlowStrength");
@@ -27,6 +28,17 @@ namespace EchoScrap.Combat
         private const float FireVolume = 0.6f;
         private AudioSource fireSource;
         private AudioClip fireClip;
+        private CharacterSpriteSet.Clip appliedClip;
+        private int appliedFrame = -1;
+        private uint appliedRevision = uint.MaxValue;
+        private bool appliedFlash;
+        private float appliedGlowStrength = -1f;
+        private bool hasShadowCache;
+        private float lastShadowX, lastShadowZ, lastTargetScale;
+        private Vector3 lastShadowPos;
+        private Quaternion lastShadowRot;
+        private Vector3 lastParentScale = new Vector3(-1f, -1f, -1f);
+        private Vector3 lastRootScale = new Vector3(-1f, -1f, -1f);
         public MortarMotion Motion { get; private set; }
         public CharacterFacing Facing { get; private set; }
         public int FrameIndex { get; private set; }
@@ -68,6 +80,10 @@ namespace EchoScrap.Combat
             FrameIndex = 0;
             clock = clipTime = chargeProgress = 0f;
             pendingFire = false;
+            properties.Clear();
+            appliedClip = null; appliedFrame = -1; appliedRevision = uint.MaxValue; appliedFlash = false; appliedGlowStrength = -1f;
+            hasShadowCache = false;
+            lastParentScale = lastRootScale = new Vector3(-1f, -1f, -1f);
             Advance(0f);
         }
 
@@ -167,12 +183,9 @@ namespace EchoScrap.Combat
         {
             CharacterSpriteSet.Clip clip = sprites.GetClip(Motion, Facing);
             FrameIndex = clip.FrameAt(clipTime);
-            pixels.GetPropertyBlock(properties);
-            properties.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
-            if (!actor.VisualComposer.IsFlashActive) properties.SetColor(BaseColorId, Color.white);
+            uint revision = actor.VisualComposer.RendererPropertyRevision;
+            bool flash = actor.VisualComposer.IsFlashActive;
             Color status = actor.VisualComposer.StatusTint;
-            properties.SetColor(StatusTintId, status);
-            properties.SetFloat(StatusAmountId, !actor.VisualComposer.IsFlashActive && status != Color.white ? .9f : 0f);
             glow.Color = status != Color.white ? status : new Color(.2f, 1f, .04f);
             bool reduced = actor.Session != null && actor.Session.Effects.ReducedEffectsMode;
             float pulse = reduced || paused ? 1f : 1f + 0.06f * Mathf.Sin(clock * 6f);
@@ -185,8 +198,31 @@ namespace EchoScrap.Combat
             float strength = Motion == MortarMotion.Charge ? Mathf.Lerp(1.2f, chargePeak, charge)
                 : Motion == MortarMotion.Fire ? firePeak
                 : Motion == MortarMotion.Recover ? Mathf.Lerp(reduced ? 1.5f : 2.5f, 0.7f, recovery) : 0.7f;
-            properties.SetFloat(GlowStrengthId, strength * pulse);
-            pixels.SetPropertyBlock(properties);
+            float glowStrength = strength * pulse;
+            bool baseDirty = appliedClip != clip || appliedFrame != FrameIndex || appliedRevision != revision || appliedFlash != flash;
+            bool strengthDirty = Mathf.Abs(glowStrength - appliedGlowStrength) > 0.01f;
+            if (baseDirty || strengthDirty)
+            {
+                if (baseDirty)
+                {
+                    appliedClip = clip;
+                    appliedFrame = FrameIndex;
+                    appliedRevision = revision;
+                    appliedFlash = flash;
+                    pixels.GetPropertyBlock(properties);
+                    if (!flash)
+                    {
+                        properties.SetColor(BaseColorId, Color.white);
+                        properties.SetColor(EmissionColorId, Color.clear);
+                    }
+                    properties.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
+                    properties.SetColor(StatusTintId, status);
+                    properties.SetFloat(StatusAmountId, !flash && status != Color.white ? .9f : 0f);
+                }
+                appliedGlowStrength = glowStrength;
+                properties.SetFloat(GlowStrengthId, glowStrength);
+                pixels.SetPropertyBlock(properties);
+            }
             float lightPeak = reduced ? 2f : 4.8f;
             glow.Intensity = (Motion == MortarMotion.Charge ? Mathf.Lerp(1.1f, lightPeak, charge)
                 : Motion == MortarMotion.Fire ? reduced ? 2.3f : 5.5f
@@ -201,11 +237,28 @@ namespace EchoScrap.Combat
             Vector3 parentScale = pixels.transform.parent.lossyScale;
             float scale = actor.Archetype.VisualScale.x;
             pixels.transform.SetPositionAndRotation(actor.VisualComposer.PresentationPivot.position + Vector3.up * sprites.hoverOffset, Quaternion.identity);
-            pixels.transform.localScale = new Vector3(scale / parentScale.x, scale / parentScale.y, scale / parentScale.z);
-            shadow.transform.SetPositionAndRotation(ArenaSurface.OnGround(transform.position, 0.035f),
-                Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(transform.position)));
+            if (parentScale != lastParentScale || scale != lastTargetScale)
+            {
+                lastParentScale = parentScale;
+                pixels.transform.localScale = new Vector3(scale / parentScale.x, scale / parentScale.y, scale / parentScale.z);
+            }
+            Vector3 rootPos = transform.position;
+            if (!hasShadowCache || Mathf.Abs(rootPos.x - lastShadowX) > 0.005f || Mathf.Abs(rootPos.z - lastShadowZ) > 0.005f)
+            {
+                hasShadowCache = true;
+                lastShadowX = rootPos.x;
+                lastShadowZ = rootPos.z;
+                lastShadowPos = ArenaSurface.OnGround(rootPos, 0.035f);
+                lastShadowRot = Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(rootPos));
+                shadow.transform.SetPositionAndRotation(lastShadowPos, lastShadowRot);
+            }
             Vector3 rootScale = transform.lossyScale;
-            shadow.transform.localScale = new Vector3(scale / rootScale.x, scale / rootScale.y, scale / rootScale.z);
+            if (rootScale != lastRootScale || scale != lastTargetScale)
+            {
+                lastRootScale = rootScale;
+                lastTargetScale = scale;
+                shadow.transform.localScale = new Vector3(scale / rootScale.x, scale / rootScale.y, scale / rootScale.z);
+            }
             glow.Offset = LaunchOrigin - pixels.transform.position + Vector3.down * 0.8f + Vector3.back * 0.35f;
         }
     }

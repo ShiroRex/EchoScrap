@@ -14,6 +14,7 @@ namespace EchoScrap.Combat
         private CinemachineFollow follow;
         private Collider floor;
         private CollectorSpriteView collector;
+        private Collider playerCollider;
         private Renderer visibleFloor;
         private MeshFilter visualFloor;
         private Mesh originalFloorMesh, presentationFloorMesh, fadeMesh;
@@ -30,6 +31,7 @@ namespace EchoScrap.Combat
             game = owner; travel = connection;
             follow = game.CameraRig.GetComponent<CinemachineFollow>();
             collector = game.Player.GetComponent<CollectorSpriteView>();
+            playerCollider = game.Player.GetComponent<Collider>();
             var surfaces = travel.GetComponentInChildren<VaultFloorSurface>();
             if (surfaces != null && surfaces.Surfaces != null)
                 foreach (var candidate in surfaces.Surfaces)
@@ -137,17 +139,54 @@ namespace EchoScrap.Combat
 
             // A narrow viewport can need less side padding to keep the collector visible.
             // Correct translation only; the authored perspective, pitch and zoom stay intact.
-            if (collector != null)
+            if (collector != null || playerCollider != null)
             {
                 Quaternion inverse = Quaternion.Inverse(rotation);
                 float tangent = Mathf.Tan(state.Lens.FieldOfView * .5f * Mathf.Deg2Rad);
-                float lower = float.NegativeInfinity, upper = float.PositiveInfinity;
-                for (int corner = 0; corner < 4; corner++)
+                bool hasCollider = playerCollider != null;
+                Bounds body = hasCollider ? playerCollider.bounds : default;
+
+                Vector3 forwardInView = inverse * Vector3.forward;
+                float bottomSlope = tangent * .97f;
+                float denom = forwardInView.y + bottomSlope * forwardInView.z;
+                if (denom > 1e-4f)
                 {
-                    Vector3 view = inverse * (collector.GetFramingCorner(corner) - position);
-                    float halfWidth = Mathf.Max(.01f, view.z) * tangent * game.GameplayCamera.aspect * .96f;
-                    lower = Mathf.Max(lower, view.x - halfWidth); upper = Mathf.Min(upper, view.x + halfWidth);
+                    float maxDeltaZ = 0f;
+                    void CheckBottom(Vector3 point)
+                    {
+                        Vector3 view = inverse * (point - position);
+                        float delta = (view.y + bottomSlope * view.z) / denom;
+                        if (delta < maxDeltaZ) maxDeltaZ = delta;
+                    }
+                    if (collector != null)
+                        for (int corner = 0; corner < 4; corner++)
+                            CheckBottom(collector.GetFramingCorner(corner));
+                    if (hasCollider)
+                        for (int i = 0; i < 8; i++)
+                            CheckBottom(new Vector3(
+                                (i & 1) == 0 ? body.min.x : body.max.x,
+                                (i & 2) == 0 ? body.min.y : body.max.y,
+                                (i & 4) == 0 ? body.min.z : body.max.z));
+                    if (maxDeltaZ < 0f) position += Vector3.forward * maxDeltaZ;
                 }
+
+                float lower = float.NegativeInfinity, upper = float.PositiveInfinity;
+                void CheckHorizontal(Vector3 point)
+                {
+                    Vector3 view = inverse * (point - position);
+                    float halfWidth = Mathf.Max(.01f, view.z) * tangent * game.GameplayCamera.aspect * .96f;
+                    lower = Mathf.Max(lower, view.x - halfWidth);
+                    upper = Mathf.Min(upper, view.x + halfWidth);
+                }
+                if (collector != null)
+                    for (int corner = 0; corner < 4; corner++)
+                        CheckHorizontal(collector.GetFramingCorner(corner));
+                if (hasCollider)
+                    for (int i = 0; i < 8; i++)
+                        CheckHorizontal(new Vector3(
+                            (i & 1) == 0 ? body.min.x : body.max.x,
+                            (i & 2) == 0 ? body.min.y : body.max.y,
+                            (i & 4) == 0 ? body.min.z : body.max.z));
                 if (lower <= upper) position += rotation * Vector3.right * Mathf.Clamp(0, lower, upper);
             }
             state.PositionCorrection += position - original;

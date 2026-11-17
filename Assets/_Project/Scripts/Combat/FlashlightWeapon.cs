@@ -34,19 +34,29 @@ namespace EchoScrap.Combat
         private bool isBurstInitialized;
         private bool isInRestPhase;
         private int emittedPulsesInCurrentBurst; // 0..4
-        private float burstAnchorTime;
+        private float nextPulseTime;
         private float restEndTime;
+        private float stationaryTime;
+        private float stationaryDamageBonus;
+        private float pulseInterval;
+        private float restDuration;
 
         // Parámetros capturados al inicio de la ráfaga activa
         private float capturedRange = 7f;
         private float capturedAngle = 60f;
         private float capturedDamagePerPulse = 3.75f;
         private float capturedPulseInterval = 0.20f;
+        private float capturedAttackSpeed = 1f;
         private float capturedRestDuration = 0.40f;
         private float capturedKnockbackImpulse = 10f;
         private float capturedCritChance;
         private float capturedCritMultiplier = 1.75f;
         private bool capturedSolarMode;
+        private bool capturedSolarCapacitor;
+        private bool capturedVacuumBeacon;
+        private int capturedWallSlamTier;
+        private float capturedRearDamage;
+        private int burstKills;
 
         private Vector3 currentAimDirection = Vector3.forward;
         private IDamageTarget currentTarget;
@@ -70,11 +80,13 @@ namespace EchoScrap.Combat
 
         public float EffectiveRange => Stats != null ? Stats.FlashlightRange : 7f;
         public float EffectiveAngle => Stats != null ? Stats.FlashlightAngle : 60f;
-        public float ActiveBurstRange => isBurstInitialized && !isInRestPhase ? capturedRange : EffectiveRange;
+        public float ActiveBurstRange => (isBurstInitialized && !isInRestPhase ? capturedRange : EffectiveRange) +
+            (stationaryDamageBonus > 0f ? Stats.Upgrades.stationaryRange : 0f);
         public float ActiveBurstAngle => isBurstInitialized && !isInRestPhase ? capturedAngle : EffectiveAngle;
-        public float ActivePulseInterval => isBurstInitialized ? capturedPulseInterval : (Stats != null ? Stats.EffectivePulseInterval : 0.20f);
-        public float ActiveRestDuration => isBurstInitialized ? capturedRestDuration : (Stats != null ? Stats.EffectiveBurstRestDuration : 0.40f);
-        public float ActiveDamagePerPulse => isBurstInitialized && !isInRestPhase ? capturedDamagePerPulse : (Stats != null ? Stats.FlashlightDamagePerPulse : 3.75f);
+        public float ActivePulseInterval => isBurstInitialized ? pulseInterval : Stats.EffectivePulseInterval;
+        public float ActiveRestDuration => isBurstInitialized ? restDuration : Stats.EffectiveBurstRestDuration;
+        public float ActiveDamagePerPulse => (isBurstInitialized && !isInRestPhase ? capturedDamagePerPulse : Stats.FlashlightDamagePerPulse) +
+            Stats.Settings.DamagePerPulse * stationaryDamageBonus;
 
         public int CurrentBurstId => currentBurstId;
         public int EmittedPulsesInCurrentBurst => emittedPulsesInCurrentBurst;
@@ -173,6 +185,7 @@ namespace EchoScrap.Combat
             isInRestPhase = false;
             emittedPulsesInCurrentBurst = 0;
             currentTarget = null;
+            stationaryTime = stationaryDamageBonus = 0f;
             OnWeaponStopped?.Invoke();
         }
 
@@ -180,12 +193,16 @@ namespace EchoScrap.Combat
         {
             EnsureInitialized();
             weaponTime = 0f;
+            stationaryTime = stationaryDamageBonus = 0f;
             guaranteedPending = guaranteedActive = 0;
             currentBurstId = 0;
             TotalPulsesEmitted = 0;
             isBurstInitialized = false;
             isInRestPhase = false;
             emittedPulsesInCurrentBurst = 0;
+            burstKills = 0;
+            capturedSolarCapacitor = false;
+            capturedVacuumBeacon = false;
             StartNewBurst(0f);
         }
 
@@ -231,6 +248,8 @@ namespace EchoScrap.Combat
             if (playerHealth != null && playerHealth.IsDead)
                 return;
 
+            UpdateStationaryPosture(deltaTime);
+            RefreshCadence();
             UpdateAim(deltaTime);
             CheckAndPublishGeometryChange();
 
@@ -248,25 +267,25 @@ namespace EchoScrap.Combat
                 if (!isInRestPhase)
                 {
                     int nextPulseNumber = emittedPulsesInCurrentBurst + 1;
-                    float scheduledPulseTime = burstAnchorTime + nextPulseNumber * capturedPulseInterval;
+                    float scheduledPulseTime = nextPulseTime;
 
                     if (weaponTime + 0.00001f >= scheduledPulseTime)
                     {
                         emittedPulsesInCurrentBurst = nextPulseNumber;
                         ExecutePulse(nextPulseNumber);
+                        nextPulseTime += pulseInterval;
 
                         if (emittedPulsesInCurrentBurst >= PulsesPerBurst)
                         {
-                            float fourthPulseTime = burstAnchorTime + PulsesPerBurst * capturedPulseInterval;
-                            if (capturedRestDuration <= 0.0001f)
+                            if (restDuration <= 0.0001f)
                             {
                                 // Modo Hiper-Rayo Solar (sin descanso entre ráfagas)
-                                StartNewBurst(fourthPulseTime);
+                                StartNewBurst(scheduledPulseTime);
                             }
                             else
                             {
                                 isInRestPhase = true;
-                                restEndTime = fourthPulseTime + capturedRestDuration;
+                                restEndTime = scheduledPulseTime + restDuration;
                                 OnBurstEnteredRest?.Invoke(currentBurstId);
                             }
                         }
@@ -292,22 +311,75 @@ namespace EchoScrap.Combat
             isBurstInitialized = true;
             isInRestPhase = false;
             emittedPulsesInCurrentBurst = 0;
-            burstAnchorTime = anchorTime;
+            burstKills = 0;
             currentBurstId++;
 
             // Capturar parámetros de la ráfaga al comenzar; mejoras durante la ráfaga aplican a la siguiente
             capturedSolarMode = runtimeStats != null && runtimeStats.IsSolarActive;
-            capturedRange = EffectiveRange;
+            capturedSolarCapacitor = Stats.GetUpgradeTier(UpgradeId.FLASH_13) > 0 && Stats.ConsumeSolarCapacitorBurst();
+            capturedVacuumBeacon = Stats.GetUpgradeTier(UpgradeId.FLASH_14) > 0;
+            capturedRange = EffectiveRange * (capturedSolarCapacitor ? Stats.Upgrades.solarCapacitorRangeMultiplier : 1f);
             capturedAngle = EffectiveAngle;
-            capturedDamagePerPulse = runtimeStats != null ? runtimeStats.FlashlightDamagePerPulse : 3.75f;
-            capturedPulseInterval = runtimeStats != null ? runtimeStats.EffectivePulseInterval : 0.20f;
-            capturedRestDuration = runtimeStats != null ? runtimeStats.EffectiveBurstRestDuration : 0.40f;
+            capturedDamagePerPulse = (runtimeStats != null ? runtimeStats.FlashlightDamagePerPulse : 3.75f) *
+                (capturedSolarCapacitor ? Stats.Upgrades.solarCapacitorDamageMultiplier : 1f);
+            capturedAttackSpeed = Stats.BaseAttackSpeedMultiplier;
+            capturedPulseInterval = Stats.Settings.PulseInterval / capturedAttackSpeed;
+            capturedRestDuration = capturedSolarMode ? 0f : Stats.Settings.BurstRestDuration / capturedAttackSpeed;
+            capturedWallSlamTier = Stats.GetUpgradeTier(UpgradeId.FLASH_06);
+            capturedRearDamage = UpgradeTuning.At(Stats.Upgrades.rearBeamDamage, Stats.GetUpgradeTier(UpgradeId.FLASH_07));
+            CalculateCadence(out pulseInterval, out restDuration);
+            nextPulseTime = anchorTime + pulseInterval;
             capturedKnockbackImpulse = runtimeStats != null ? runtimeStats.FlashlightKnockback : 10f;
             capturedCritChance = runtimeStats != null ? runtimeStats.CritChance : 0f;
             capturedCritMultiplier = runtimeStats != null ? runtimeStats.CritMultiplier : 1.75f;
 
             CheckAndPublishGeometryChange();
             OnBurstStarted?.Invoke(currentBurstId);
+        }
+
+        private void UpdateStationaryPosture(float deltaTime)
+        {
+            int tier = Stats.GetUpgradeTier(UpgradeId.FLASH_08);
+            if (tier == 0 || motor == null || motor.IsDashing || motor.DashedThisStep || motor.HasMovementIntent ||
+                Vector3.ProjectOnPlane(motor.Velocity, Vector3.up).sqrMagnitude >= .01f)
+            {
+                stationaryTime = stationaryDamageBonus = 0f;
+                return;
+            }
+
+            stationaryTime = Mathf.Min(stationaryTime + deltaTime, Stats.Upgrades.stationaryDelay);
+            stationaryDamageBonus = stationaryTime >= Stats.Upgrades.stationaryDelay
+                ? UpgradeTuning.At(Stats.Upgrades.stationaryDamage, tier) : 0f;
+        }
+
+        private void CalculateCadence(out float interval, out float rest)
+        {
+            var tuning = Stats.Upgrades;
+            bool medkit = Stats.IsCombatMedkitActive;
+            float speedRatio = medkit ? capturedAttackSpeed / (capturedAttackSpeed + tuning.medkitAttackBonus) : 1f;
+            interval = capturedPulseInterval * speedRatio;
+            float restFactor = medkit ? tuning.medkitRestFactor : 1f;
+            if (stationaryDamageBonus > 0f) restFactor = Mathf.Min(restFactor, tuning.stationaryRestFactor);
+            int overloadTier = Stats.GetUpgradeTier(UpgradeId.FLASH_12);
+            if (overloadTier > 0 && burstKills > 0)
+            {
+                float reduction = Mathf.Min(tuning.pulseOverloadMaxReduction, burstKills * UpgradeTuning.At(tuning.pulseOverloadRestPerKill, overloadTier));
+                restFactor *= 1f - reduction;
+            }
+            rest = capturedRestDuration * speedRatio * restFactor;
+        }
+
+        private void RefreshCadence()
+        {
+            if (!isBurstInitialized) return;
+            CalculateCadence(out float interval, out float rest);
+            // Preserve the progress of the current interval when a temporary bonus starts or ends.
+            if (!isInRestPhase && interval != pulseInterval)
+                nextPulseTime = weaponTime + Mathf.Max(0f, nextPulseTime - weaponTime) * (interval / pulseInterval);
+            if (isInRestPhase && rest != restDuration && restDuration > 0f)
+                restEndTime = weaponTime + Mathf.Max(0f, restEndTime - weaponTime) * (rest / restDuration);
+            pulseInterval = interval;
+            restDuration = rest;
         }
 
         public void UpdateAim(float deltaTime)
@@ -392,87 +464,87 @@ namespace EchoScrap.Combat
             TotalPulsesEmitted++;
             Vector3 origin = OriginPosition;
             Vector3 forward = FlatDirection(currentAimDirection, Vector3.forward);
-
-            float range = capturedRange;
+            float range = ActiveBurstRange;
             float angle = capturedAngle;
-            float damage = capturedDamagePerPulse;
-            float critChance = pulseNumber <= guaranteedActive ? 1f : capturedCritChance;
-            float critMultiplier = capturedCritMultiplier;
-
-            bool applyKnockback = capturedSolarMode || pulseNumber == PulsesPerBurst;
-            float knockbackImpulse = applyKnockback ? capturedKnockbackImpulse : 0f;
+            float damage = ActiveDamagePerPulse;
+            float rearRange = capturedRearDamage > 0f ? range * Stats.Upgrades.rearBeamRange : 0f;
 
             hitTargetIdsThisPulse.Clear();
             GatherCandidateTargets(origin, range + 4f);
 
-            int hitCount = 0;
-            int killCount = 0;
-            int critCount = 0;
-            int sourceId = gameObject.GetHashCode();
-            DamageSourceType sourceType = capturedSolarMode ? DamageSourceType.SolarPulse : DamageSourceType.FlashlightPulse;
+            ResolveCone(origin, forward, range, angle, damage, pulseNumber, rear: false,
+                out int hitCount, out int killCount, out int critCount);
+            if (rearRange > 0f)
+            {
+                ResolveCone(origin, -forward, rearRange, angle, damage * capturedRearDamage, pulseNumber,
+                    rear: true, out int rearHits, out int rearKills, out _);
+                hitCount += rearHits;
+                killCount += rearKills;
+            }
+            if (killCount > 0)
+            {
+                burstKills += killCount;
+                RefreshCadence();
+            }
+
+            var pulseEvent = new PulseResolvedEvent(currentBurstId, pulseNumber, capturedSolarMode,
+                hitCount, killCount, critCount, origin, forward, range, angle, rearRange);
+            OnPulseEmitted?.Invoke(pulseEvent);
+            session?.Events.PublishPulse(in pulseEvent);
+        }
+
+        private void ResolveCone(Vector3 origin, Vector3 forward, float range, float angle, float damage,
+            int pulseNumber, bool rear, out int hits, out int kills, out int crits)
+        {
+            hits = kills = crits = 0;
+            bool finisher = pulseNumber == PulsesPerBurst;
+            float knockbackImpulse = finisher || (capturedSolarMode && !rear) ? capturedKnockbackImpulse : 0f;
+            if (rear) knockbackImpulse *= capturedRearDamage;
+            float critChance = !rear && pulseNumber <= guaranteedActive ? 1f : capturedCritChance;
+            var source = rear ? DamageSourceType.RearFlashlightPulse :
+                capturedSolarMode ? DamageSourceType.SolarPulse : DamageSourceType.FlashlightPulse;
 
             for (int i = 0; i < candidateTargets.Count; i++)
             {
                 IDamageTarget target = candidateTargets[i];
-                if (!IsValidEnemyTarget(target))
+                if (!IsValidEnemyTarget(target) || hitTargetIdsThisPulse.Contains(target.TargetId))
                     continue;
-
-                int targetId = target.TargetId;
-                if (hitTargetIdsThisPulse.Contains(targetId))
-                    continue;
-
-                if (!IsTargetInsideConeXZ(origin, forward, range, angle, target.WorldCenter, target.HitRadius, out Vector3 planarOffset))
+                if (!IsTargetInsideConeXZ(origin, forward, range, angle, target.WorldCenter, target.HitRadius, out Vector3 offset))
                     continue;
                 if (Physics.Linecast(origin, target.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
                     continue;
 
-                // Garantizar un único impacto por objetivo y pulso aunque tenga múltiples colliders
-                hitTargetIdsThisPulse.Add(targetId);
-
-                Vector3 hitDir = planarOffset.sqrMagnitude > 0.0001f ? planarOffset.normalized : forward;
-                var request = new DamageRequest(
-                    sourceId,
-                    sourceType,
-                    origin,
-                    hitDir,
-                    damage,
-                    canCrit: true,
-                    critChance: critChance,
-                    critMultiplier: critMultiplier,
-                    burstId: currentBurstId,
-                    pulseIndex: pulseNumber,
-                    knockbackImpulse: knockbackImpulse);
+                hitTargetIdsThisPulse.Add(target.TargetId);
+                Vector3 hitDir = offset.sqrMagnitude > 0.0001f ? offset.normalized : forward;
+                var request = new DamageRequest(gameObject.GetHashCode(), source, origin, hitDir, damage,
+                    canCrit: true, critChance: critChance, critMultiplier: capturedCritMultiplier,
+                    burstId: currentBurstId, pulseIndex: pulseNumber, knockbackImpulse: knockbackImpulse);
 
                 DamageResult result = target.ReceiveDamage(in request);
                 if (result.AppliedRealDamage)
                 {
-                    hitCount++;
-                    if (result.IsCritical)
-                        critCount++;
-                    if (result.CausedDeath)
-                        killCount++;
-
+                    hits++;
+                    if (result.IsCritical) crits++;
+                    if (result.CausedDeath) kills++;
+                    if (capturedVacuumBeacon && target is EnemyActor vacuumEnemy && vacuumEnemy.IsAlive)
+                        vacuumEnemy.ApplyVulnerability(Stats.Upgrades.vacuumDamageBonus, Stats.Upgrades.vacuumDuration);
                 }
-                // Una Polilla armada con HP cero sigue siendo un cuerpo empujable durante su mecha.
-                if (applyKnockback && knockbackImpulse > 0f && target.IsAlive &&
+                if (capturedVacuumBeacon && knockbackImpulse <= 0f && target.IsAlive &&
                     (result.AppliedRealDamage || target is EnemyActor { IsFuseActive: true }))
-                    target.ApplyKnockback(hitDir * knockbackImpulse);
+                {
+                    target.ApplyKnockback(-hitDir * Stats.Upgrades.vacuumPullDistance);
+                }
+                // An armed moth is still a movable body at zero HP.
+                if (knockbackImpulse <= 0f || !target.IsAlive ||
+                    (!result.AppliedRealDamage && target is not EnemyActor { IsFuseActive: true }))
+                    continue;
+
+                Vector3 impulse = hitDir * knockbackImpulse;
+                if (finisher && capturedWallSlamTier > 0 && target is EnemyActor enemy)
+                    enemy.ApplyFlashlightFinisher(impulse, capturedWallSlamTier, Stats.Upgrades.wallSlamWindow);
+                else
+                    target.ApplyKnockback(impulse);
             }
-
-            var pulseEvent = new PulseResolvedEvent(
-                currentBurstId,
-                pulseNumber,
-                capturedSolarMode,
-                hitCount,
-                killCount,
-                critCount,
-                origin,
-                forward,
-                range,
-                angle);
-
-            OnPulseEmitted?.Invoke(pulseEvent);
-            session?.Events.PublishPulse(in pulseEvent);
         }
 
         /// <summary>
@@ -556,6 +628,84 @@ namespace EchoScrap.Combat
         {
             direction.y = 0f;
             return direction.sqrMagnitude > 0.0001f ? direction.normalized : fallback;
+        }
+
+        internal FlashlightWeaponSnapshot CaptureSnapshot()
+        {
+            return new FlashlightWeaponSnapshot
+            {
+                weaponTime = weaponTime,
+                currentBurstId = currentBurstId,
+                isBurstInitialized = isBurstInitialized,
+                isInRestPhase = isInRestPhase,
+                emittedPulsesInCurrentBurst = emittedPulsesInCurrentBurst,
+                nextPulseTime = nextPulseTime,
+                restEndTime = restEndTime,
+                stationaryTime = stationaryTime,
+                stationaryDamageBonus = stationaryDamageBonus,
+                pulseInterval = pulseInterval,
+                restDuration = restDuration,
+                capturedRange = capturedRange,
+                capturedAngle = capturedAngle,
+                capturedDamagePerPulse = capturedDamagePerPulse,
+                capturedPulseInterval = capturedPulseInterval,
+                capturedAttackSpeed = capturedAttackSpeed,
+                capturedRestDuration = capturedRestDuration,
+                capturedKnockbackImpulse = capturedKnockbackImpulse,
+                capturedCritChance = capturedCritChance,
+                capturedCritMultiplier = capturedCritMultiplier,
+                capturedSolarMode = capturedSolarMode,
+                capturedSolarCapacitor = capturedSolarCapacitor,
+                capturedVacuumBeacon = capturedVacuumBeacon,
+                capturedWallSlamTier = capturedWallSlamTier,
+                capturedRearDamage = capturedRearDamage,
+                currentAimDirection = currentAimDirection,
+                guaranteedPending = guaranteedPending,
+                guaranteedActive = guaranteedActive,
+                totalPulsesEmitted = TotalPulsesEmitted,
+                burstKills = burstKills
+            };
+        }
+
+        internal void RestoreFromSnapshot(FlashlightWeaponSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            EnsureInitialized();
+            weaponTime = Mathf.Max(0f, snapshot.weaponTime);
+            currentBurstId = snapshot.currentBurstId;
+            isBurstInitialized = snapshot.isBurstInitialized;
+            isInRestPhase = snapshot.isInRestPhase;
+            emittedPulsesInCurrentBurst = snapshot.emittedPulsesInCurrentBurst;
+            nextPulseTime = snapshot.nextPulseTime;
+            restEndTime = snapshot.restEndTime;
+            stationaryTime = snapshot.stationaryTime;
+            stationaryDamageBonus = snapshot.stationaryDamageBonus;
+            pulseInterval = snapshot.pulseInterval > 0f ? snapshot.pulseInterval : 0.20f;
+            restDuration = snapshot.restDuration > 0f ? snapshot.restDuration : 0.40f;
+            capturedRange = snapshot.capturedRange > 0f ? snapshot.capturedRange : EffectiveRange;
+            capturedAngle = snapshot.capturedAngle > 0f ? snapshot.capturedAngle : EffectiveAngle;
+            capturedDamagePerPulse = snapshot.capturedDamagePerPulse;
+            capturedPulseInterval = snapshot.capturedPulseInterval;
+            capturedAttackSpeed = snapshot.capturedAttackSpeed;
+            capturedRestDuration = snapshot.capturedRestDuration;
+            capturedKnockbackImpulse = snapshot.capturedKnockbackImpulse;
+            capturedCritChance = snapshot.capturedCritChance;
+            capturedCritMultiplier = snapshot.capturedCritMultiplier;
+            capturedSolarMode = snapshot.capturedSolarMode;
+            capturedSolarCapacitor = snapshot.capturedSolarCapacitor;
+            capturedVacuumBeacon = snapshot.capturedVacuumBeacon;
+            capturedWallSlamTier = snapshot.capturedWallSlamTier;
+            capturedRearDamage = snapshot.capturedRearDamage;
+            currentAimDirection = FlatDirection(snapshot.currentAimDirection, Vector3.forward);
+            guaranteedPending = Mathf.Max(0, snapshot.guaranteedPending);
+            guaranteedActive = Mathf.Max(0, snapshot.guaranteedActive);
+            TotalPulsesEmitted = Mathf.Max(0, snapshot.totalPulsesEmitted);
+            burstKills = Mathf.Max(0, snapshot.burstKills);
+            if (aimPivot != null && currentAimDirection.sqrMagnitude > 0.0001f)
+                aimPivot.rotation = Quaternion.LookRotation(currentAimDirection, Vector3.up);
+            lastNotifiedRange = -1f;
+            lastNotifiedAngle = -1f;
+            CheckAndPublishGeometryChange();
         }
     }
 }

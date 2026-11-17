@@ -122,13 +122,36 @@ namespace EchoScrap.Combat
             return actor;
         }
 
+        internal EnemyActor SpawnForRestore(EnemyArchetypeData data, Vector3 position, Quaternion rotation)
+        {
+            EnemyActor.SuppressSpawnRngDuringRestore = true;
+            try
+            {
+                EnemyActor actor = Spawn(data, position);
+                if (actor != null)
+                {
+                    actor.transform.SetPositionAndRotation(position, rotation);
+                    if (actor.Body != null)
+                    {
+                        actor.Body.position = position;
+                        actor.Body.rotation = rotation;
+                    }
+                }
+                return actor;
+            }
+            finally
+            {
+                EnemyActor.SuppressSpawnRngDuringRestore = false;
+            }
+        }
+
         public void ReturnToPool(EnemyActor actor)
         {
             if (actor == null)
                 return;
 
             // Disabled simulation components do not receive OnDisable when their object is pooled.
-            actor.UnregisterFromCombat();
+            if (!actor.isActiveAndEnabled) actor.UnregisterFromCombat();
             actor.gameObject.SetActive(false);
 
             EnemyArchetypeId id = actor.ArchetypeId;

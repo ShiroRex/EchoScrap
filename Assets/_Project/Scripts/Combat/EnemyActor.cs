@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using EchoScrap.Core;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace EchoScrap.Combat
@@ -25,16 +26,82 @@ namespace EchoScrap.Combat
         public const float MothArmDistance = 2f;
 
         private static readonly List<EnemyActor> activeEnemies = new List<EnemyActor>(256);
+        private static readonly ProfilerMarker deathMarker = new ProfilerMarker("EchoScrap.EnemyDeath");
+        private bool inActiveEnemies;
+        internal bool IsInSimulationIndex => inActiveEnemies;
+        private static readonly List<EnemyActor> indexedEnemies = new List<EnemyActor>(256);
         private static readonly EnemyNeighborIndex neighborIndex=new EnemyNeighborIndex();
         private static readonly List<int> neighborCandidates=new List<int>(64);
-        private static double neighborStep=double.NaN;
-        private static void InvalidateNeighbors(){neighborStep=double.NaN;}
+        private static double neighborStep = double.NaN;
+        private static bool neighborsCapturedInPhysics;
+        private static float largestHitRadius;
+        internal static void InvalidateNeighbors() => neighborStep = double.NaN;
         private static void RefreshNeighborIndex()
         {
-            if(neighborStep==Time.fixedTimeAsDouble)return;
+            bool inPhysics = Time.inFixedTimeStep;
+            if (neighborStep == Time.fixedTimeAsDouble && neighborsCapturedInPhysics == inPhysics) return;
             neighborIndex.Clear();
-            for(int i=0;i<activeEnemies.Count;i++)neighborIndex.Add(activeEnemies[i]!=null?activeEnemies[i].transform.position:Vector3.zero);
-            neighborStep=Time.fixedTimeAsDouble;
+            indexedEnemies.Clear();
+            largestHitRadius = 0f;
+            for (int i = 0; i < activeEnemies.Count; i++)
+            {
+                EnemyActor enemy = activeEnemies[i];
+                indexedEnemies.Add(enemy);
+                neighborIndex.Add(enemy != null ? enemy.WorldCenter : Vector3.zero);
+                if (enemy != null) largestHitRadius = Mathf.Max(largestHitRadius, enemy.HitRadius);
+            }
+            neighborStep = Time.fixedTimeAsDouble;
+            neighborsCapturedInPhysics = inPhysics;
+        }
+
+        internal static void GatherSegmentCandidates(Vector3 start, Vector3 end, float radius, List<EnemyActor> results)
+        {
+            RefreshNeighborIndex();
+            Vector3 delta = end - start;
+            delta.y = 0f;
+            neighborIndex.Query(start + delta * .5f, delta.magnitude * .5f + radius + largestHitRadius + .02f, neighborCandidates);
+            results.Clear();
+            foreach (int index in neighborCandidates)
+            {
+                EnemyActor enemy = indexedEnemies[index];
+                if (enemy != null && enemy.IsAlive) results.Add(enemy);
+            }
+        }
+
+        internal static void GatherCandidatesUnsorted(Vector3 center, float radius, List<EnemyActor> results)
+        {
+            RefreshNeighborIndex();
+            neighborIndex.QueryUnsorted(center, radius + largestHitRadius + .02f, neighborCandidates);
+            results.Clear();
+            for (int i = 0; i < neighborCandidates.Count; i++)
+            {
+                EnemyActor enemy = indexedEnemies[neighborCandidates[i]];
+                if (enemy != null && enemy.IsAlive) results.Add(enemy);
+            }
+        }
+
+        internal static void GatherSegmentCandidatesUnsorted(Vector3 start, Vector3 end, float radius, List<EnemyActor> results)
+        {
+            RefreshNeighborIndex();
+            Vector3 delta = end - start;
+            delta.y = 0f;
+            neighborIndex.QueryUnsorted(start + delta * .5f, delta.magnitude * .5f + radius + largestHitRadius + .02f, neighborCandidates);
+            results.Clear();
+            for (int i = 0; i < neighborCandidates.Count; i++)
+            {
+                EnemyActor enemy = indexedEnemies[neighborCandidates[i]];
+                if (enemy != null && enemy.IsAlive) results.Add(enemy);
+            }
+        }
+
+        internal static bool TouchesSegment(Vector3 from, Vector3 to, Vector3 center, float radius, out float fraction)
+        {
+            Vector3 delta = to - from;
+            Vector3 offset = center - from;
+            delta.y = offset.y = 0f;
+            float lengthSquared = delta.sqrMagnitude;
+            fraction = lengthSquared > .000001f ? Mathf.Clamp01(Vector3.Dot(offset, delta) / lengthSquared) : 0f;
+            return (offset - delta * fraction).sqrMagnitude <= radius * radius;
         }
 
         private static readonly Dictionary<int, Material> sharedPrimaryMaterials = new Dictionary<int, Material>();
@@ -65,6 +132,9 @@ namespace EchoScrap.Combat
         private float currentHealth;
         private float assignedMoveSpeed;
         private Vector3 knockbackVelocity;
+        private float wallSlamTimeRemaining;
+        private int wallSlamTier;
+        private static readonly List<EnemyActor> wallSlamCandidates = new List<EnemyActor>(64);
         private Vector3 currentDesiredVelocity;
         private Vector3 facingDirection = Vector3.forward;
 
@@ -268,7 +338,8 @@ namespace EchoScrap.Combat
                 primaryMat = new Material(litShader)
                 {
                     name = $"EnemyPrimary_{runtimeArchetype.ArchetypeId}",
-                    color = runtimeArchetype.PrimaryColor
+                    color = runtimeArchetype.PrimaryColor,
+                    enableInstancing = true
                 };
                 sharedPrimaryMaterials[key] = primaryMat;
             }
@@ -285,7 +356,8 @@ namespace EchoScrap.Combat
                 secondaryMat = new Material(litShader)
                 {
                     name = $"EnemySecondary_{runtimeArchetype.ArchetypeId}",
-                    color = runtimeArchetype.SecondaryColor
+                    color = runtimeArchetype.SecondaryColor,
+                    enableInstancing = true
                 };
                 sharedSecondaryMaterials[key] = secondaryMat;
             }
@@ -347,8 +419,7 @@ namespace EchoScrap.Combat
         private void OnEnable()
         {
             EnsureInitialized();
-            if (!activeEnemies.Contains(this))
-                activeEnemies.Add(this);
+            RegisterActiveEnemy();
             InvalidateNeighbors();
             if (IsAlive)
                 CombatTargetRegistry.Register(this);
@@ -356,17 +427,38 @@ namespace EchoScrap.Combat
 
         private void OnDisable()
         {
-            obstacleNavigator.Reset();
-            UnregisterFromCombat();
+            wallSlamTimeRemaining = 0f;
+            if (!isDead)
+            {
+                obstacleNavigator.Reset();
+                UnregisterFromCombat();
+            }
             if (body != null && !body.isKinematic)
                 body.linearVelocity = Vector3.zero;
         }
 
+        private void OnDestroy()
+        {
+            obstacleNavigator.Reset();
+        }
+
         internal void UnregisterFromCombat()
         {
-            activeEnemies.Remove(this);
-            InvalidateNeighbors();
+            if (inActiveEnemies)
+            {
+                inActiveEnemies = false;
+                activeEnemies.Remove(this);
+            }
+            if (!isDead)
+                InvalidateNeighbors();
             CombatTargetRegistry.Unregister(this);
+        }
+
+        private void RegisterActiveEnemy()
+        {
+            if (inActiveEnemies) return;
+            activeEnemies.Add(this);
+            inActiveEnemies = true;
         }
 
         /// <summary>
@@ -476,7 +568,9 @@ namespace EchoScrap.Combat
         /// - Escala, rotación y MaterialPropertyBlock.
         /// - Estado de muerte y recompensas.
         /// </summary>
-        public float SlowFraction { get; private set; }
+        private float slowFraction;
+        private float cableSlow, cableSlowRemaining, cableDamageReadyAt;
+        public float SlowFraction => Mathf.Max(slowFraction, cableSlow);
         public float SlowRemaining { get; private set; }
         public float FrozenRemaining { get; private set; }
         public float StunRemaining { get; private set; }
@@ -484,9 +578,23 @@ namespace EchoScrap.Combat
         public bool IsControlLocked => IsFrozen || StunRemaining > 0f;
         public int SpawnVersion { get; private set; }
         public float FrozenVisualCoverage { get; private set; }
+        public float VulnerabilityRemaining { get; private set; }
+        public float VulnerabilityBonus { get; private set; }
         private int coldHits;
         public Vector3 PursuitGoal => session != null && session.Upgrades != null ? session.Upgrades.PursuitGoal(transform.position, targetPlayer != null ? targetPlayer.WorldCenter : transform.position) : (targetPlayer != null ? targetPlayer.WorldCenter : transform.position);
-        public virtual void ApplySlow(float fraction, float duration) { SlowFraction = Mathf.Max(SlowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); RefreshColdTint(); }
+        public virtual void ApplySlow(float fraction, float duration) { slowFraction = Mathf.Max(slowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); RefreshColdTint(); }
+        public virtual void ApplyVulnerability(float bonus, float duration) { VulnerabilityBonus = Mathf.Max(VulnerabilityBonus, Mathf.Max(0f, bonus)); VulnerabilityRemaining = Mathf.Max(VulnerabilityRemaining, duration); }
+        internal bool TouchElectricCable(float time, float interval, float fraction)
+        {
+            cableSlow = LimitCableSlow(fraction);
+            cableSlowRemaining = .08f;
+            if (time < cableDamageReadyAt) return false;
+            cableDamageReadyAt = time + Mathf.Max(.01f, interval);
+            return true;
+        }
+
+        protected virtual float LimitCableSlow(float fraction) => fraction;
+
         public virtual void ApplyFreeze(float duration)
         {
             FrozenRemaining = Mathf.Max(FrozenRemaining, duration);
@@ -501,7 +609,11 @@ namespace EchoScrap.Combat
             SlowRemaining = Mathf.Max(0f, SlowRemaining - dt);
             FrozenRemaining = Mathf.Max(0f, FrozenRemaining - dt);
             StunRemaining = Mathf.Max(0f, StunRemaining - dt);
-            if (SlowRemaining <= 0f) { SlowFraction = 0f; coldHits = 0; }
+            VulnerabilityRemaining = Mathf.Max(0f, VulnerabilityRemaining - dt);
+            if (VulnerabilityRemaining <= 0f) VulnerabilityBonus = 0f;
+            if (SlowRemaining <= 0f) { slowFraction = 0f; coldHits = 0; }
+            cableSlowRemaining = Mathf.Max(0f, cableSlowRemaining - dt);
+            if (cableSlowRemaining <= 0f) cableSlow = 0f;
             FrozenVisualCoverage = Mathf.MoveTowards(FrozenVisualCoverage, IsFrozen ? 1f : 0f, Mathf.Max(0f, dt) / (IsFrozen ? .14f : .12f));
             RefreshColdTint();
         }
@@ -512,7 +624,10 @@ namespace EchoScrap.Combat
         }
         protected void ClearCrowdControl()
         {
-            SlowRemaining = FrozenRemaining = StunRemaining = SlowFraction = FrozenVisualCoverage = 0f;
+            SlowRemaining = FrozenRemaining = StunRemaining = slowFraction = FrozenVisualCoverage = 0f;
+            VulnerabilityRemaining = VulnerabilityBonus = 0f;
+            cableSlow = cableSlowRemaining = 0f;
+            wallSlamTimeRemaining = 0f;
             coldHits = 0;
             RefreshColdTint();
         }
@@ -527,7 +642,9 @@ namespace EchoScrap.Combat
             PhysicsLayers.EnsureConfigured();
 
             // 1. Salud máxima y estado de muerte/recompensas
-            SpawnVersion++; SlowRemaining = FrozenRemaining = StunRemaining = SlowFraction = FrozenVisualCoverage = 0f; coldHits = 0;
+            SpawnVersion++; SlowRemaining = FrozenRemaining = StunRemaining = slowFraction = FrozenVisualCoverage = 0f; coldHits = 0;
+            VulnerabilityRemaining = VulnerabilityBonus = 0f;
+            cableSlow = cableSlowRemaining = cableDamageReadyAt = 0f;
             currentHealth = Mathf.Max(1f, runtimeArchetype.MaxHealth);
             isDead = false;
             deathRewardResolved = false;
@@ -537,7 +654,7 @@ namespace EchoScrap.Combat
 
             // 2. Muestreo determinista de velocidad inicial (p.ej. Residual 3.5 m/s ±15%)
             float variance = Mathf.Clamp(runtimeArchetype.SpeedVarianceFraction, 0f, 0.5f);
-            if (variance > 0.0001f)
+            if (variance > 0.0001f && !SuppressSpawnRngDuringRestore)
             {
                 DeterministicRandom rng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
                 float mult = rng.Range(1f - variance, 1f + variance);
@@ -549,6 +666,7 @@ namespace EchoScrap.Combat
             }
 
             // 3. Velocidades y empuje a cero
+            wallSlamTimeRemaining = 0f;
             knockbackVelocity = Vector3.zero;
             currentDesiredVelocity = Vector3.zero;
             facingDirection = Vector3.forward;
@@ -559,12 +677,19 @@ namespace EchoScrap.Combat
             attackCooldownTimer = 0f;
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
             {
-                DeterministicRandom attackRng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
                 float interval = Mathf.Max(0.5f, MortarAttack.FireInterval);
-                float warning = Mathf.Clamp(MortarAttack.WarningDuration, 0.1f, interval);
-                float minimumDelay = Mathf.Max(warning, Mathf.Min(1f, interval));
-                float maximumDelay = Mathf.Max(minimumDelay, Mathf.Min(2f, interval));
-                attackCooldownTimer = interval - attackRng.Range(minimumDelay, maximumDelay);
+                if (!SuppressSpawnRngDuringRestore)
+                {
+                    DeterministicRandom attackRng = session != null ? session.Rng.Combat : new DeterministicRandom(1337);
+                    float warning = Mathf.Clamp(MortarAttack.WarningDuration, 0.1f, interval);
+                    float minimumDelay = Mathf.Max(warning, Mathf.Min(1f, interval));
+                    float maximumDelay = Mathf.Max(minimumDelay, Mathf.Min(2f, interval));
+                    attackCooldownTimer = interval - attackRng.Range(minimumDelay, maximumDelay);
+                }
+                else
+                {
+                    attackCooldownTimer = interval;
+                }
                 EnsurePuddlePool();
                 mortarRecoilRemaining = 0f;
                 if (mortarEmitter != null)
@@ -649,8 +774,7 @@ namespace EchoScrap.Combat
             if (!gameObject.activeSelf)
                 gameObject.SetActive(true);
 
-            if (!activeEnemies.Contains(this))
-                activeEnemies.Add(this);
+            RegisterActiveEnemy();
             InvalidateNeighbors();
             CombatTargetRegistry.Register(this);
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.ExplosiveMoth)
@@ -687,6 +811,8 @@ namespace EchoScrap.Combat
         {
             if (isDead || fixedDeltaTime <= 0f || (session != null && (session.IsPaused || !session.IsGameplayFlowActive())))
                 return;
+
+            StepWallSlam(fixedDeltaTime);
 
             if (IsControlLocked)
             {
@@ -910,7 +1036,7 @@ namespace EchoScrap.Combat
             bool indexed=!neighborIndex.IsDense(myPos);
             if(indexed)neighborIndex.Query(myPos,minSepDist,neighborCandidates);
             int checkedNeighbors = 0;
-            for (int i = 0; i < (indexed?neighborCandidates.Count:activeEnemies.Count) && checkedNeighbors < 16; i++)
+            for (int i = 0; i < (indexed?neighborCandidates.Count:indexedEnemies.Count) && checkedNeighbors < 16; i++)
             {
                 int index = indexed ? neighborCandidates[i] : i;
                 Vector3 diff = myPos - neighborIndex.PositionAt(index);
@@ -919,7 +1045,7 @@ namespace EchoScrap.Combat
                 if (distSqr >= minSepSqr)
                     continue;
 
-                EnemyActor other = activeEnemies[index];
+                EnemyActor other = indexedEnemies[index];
                 if (other == null || other == this || !other.IsAlive)
                     continue;
                 checkedNeighbors++;
@@ -1011,8 +1137,112 @@ namespace EchoScrap.Combat
         /// Aplica empuje según la fórmula de Arena: velocidadEmpuje = impulsoLinterna * susceptibilidad.
         /// Los enemigos inmunes (susceptibilidad == 0) no se desplazan pero registran deformación pesada.
         /// </summary>
+        internal void ApplyFlashlightFinisher(Vector3 impulse, int tier, float window)
+        {
+            ApplyKnockback(impulse);
+            if (isDead || !CanBeRamPushed || knockbackVelocity.sqrMagnitude <= .1f) return;
+            wallSlamTier = tier;
+            wallSlamTimeRemaining = window;
+        }
+
+        private void StepWallSlam(float dt)
+        {
+            if (wallSlamTimeRemaining <= 0f) return;
+            float step = Mathf.Min(dt, wallSlamTimeRemaining);
+            if (IsFrozen || knockbackVelocity.sqrMagnitude <= .1f)
+            {
+                wallSlamTimeRemaining = 0f;
+                return;
+            }
+
+            Vector3 start = body.position;
+            Vector3 travel = Vector3.MoveTowards(knockbackVelocity, Vector3.zero,
+                Mathf.Max(1f, runtimeArchetype.KnockbackBraking) * dt) * step;
+            Vector3 end = start + travel;
+            GatherSegmentCandidates(start, end, HitRadius, wallSlamCandidates);
+            float closest = float.PositiveInfinity;
+            Bounds bounds = bodyCollider.bounds;
+            foreach (EnemyActor other in wallSlamCandidates)
+            {
+                if (other == null || other == this || other.Session != session || !other.IsAlive ||
+                    other.BodyCollider == null || !other.BodyCollider.enabled ||
+                    other is GolgoraActor { IsAirborne: true } ||
+                    Vector3.Dot(other.WorldCenter - start, travel) <= 0f)
+                    continue;
+                Bounds otherBounds = other.BodyCollider.bounds;
+                if (bounds.max.y < otherBounds.min.y || otherBounds.max.y < bounds.min.y) continue;
+                if (TouchesSegment(start, end, other.WorldCenter, HitRadius + other.HitRadius, out float fraction) &&
+                    fraction < closest && !Physics.Linecast(start, other.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
+                    closest = fraction;
+            }
+            if (closest <= 1f) TriggerWallSlam(Vector3.Lerp(start, end, closest));
+            else wallSlamTimeRemaining = Mathf.Max(0f, wallSlamTimeRemaining - dt);
+        }
+
+        private void OnCollisionEnter(Collision collision) => CheckWallSlamContact(collision);
+        private void OnCollisionStay(Collision collision) => CheckWallSlamContact(collision);
+
+        private void CheckWallSlamContact(Collision collision)
+        {
+            if (wallSlamTimeRemaining <= 0f || IsFrozen || collision.gameObject.layer != PhysicsLayers.DefaultLayer ||
+                (ArenaSurface.Active != null && collision.collider == ArenaSurface.Active.GroundCollider))
+                return;
+
+            for (int i = 0; i < collision.contactCount; i++)
+            {
+                ContactPoint contact = collision.GetContact(i);
+                if (Mathf.Abs(contact.normal.y) > .6f || Vector3.Dot(knockbackVelocity, contact.normal) >= -.1f)
+                    continue;
+                TriggerWallSlam(body.position);
+                break;
+            }
+        }
+
+        private void TriggerWallSlam(Vector3 position)
+        {
+            wallSlamTimeRemaining = 0f;
+            session?.Upgrades?.TriggerWallSlam(position, wallSlamTier);
+        }
+
+        internal bool CanBeRamPushed => runtimeArchetype.KnockbackSusceptibility > .0001f;
+
+        internal Vector3 CarryAlongDash(Vector3 dashDirection, float distance, RaycastHit[] sweepHits)
+        {
+            Vector3 from = body.position;
+            if (!CanBeRamPushed || distance <= .001f) return from;
+            Vector3 center = bodyCollider.bounds.center;
+            float radius = HitRadius;
+            float span = Mathf.Max(0f, bodyCollider.bounds.extents.y - radius);
+            int count = Physics.CapsuleCastNonAlloc(center - Vector3.up * span, center + Vector3.up * span,
+                radius, dashDirection, sweepHits, distance, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore);
+            if (count == sweepHits.Length) return from;
+            Collider ground = ArenaSurface.Active != null ? ArenaSurface.Active.GroundCollider : null;
+            for (int i = 0; i < count; i++)
+            {
+                var hit = sweepHits[i];
+                if (hit.collider != ground && (hit.distance > 0f || Vector3.Dot(hit.normal, dashDirection) < -.05f))
+                    distance = Mathf.Min(distance, Mathf.Max(0f, hit.distance - .05f));
+            }
+
+            // Preserve the body height during the swept displacement. The next physics step follows the relief.
+            Vector3 carried = from + dashDirection * distance;
+            carried.y = from.y;
+            if (distance > .001f)
+            {
+                // Sync the interpolated pose now for damage feedback and other attacks this step.
+                body.position = carried;
+                transform.position = carried;
+                InvalidateNeighbors();
+            }
+            return carried;
+        }
+
+        internal void LaunchFromDash(Vector3 direction, float speed) =>
+            ApplyKnockback(direction * (speed / runtimeArchetype.KnockbackSusceptibility));
+
         public void ApplyKnockback(Vector3 planarImpulse)
         {
+            wallSlamTimeRemaining = 0f;
             if (isDead)
                 return;
 
@@ -1106,13 +1336,15 @@ namespace EchoScrap.Combat
                 : request.BaseDamage;
 
             bool executed = false;
-            bool playerAttack = request.SourceType == DamageSourceType.FlashlightPulse || request.SourceType == DamageSourceType.SolarPulse ||
-                (request.SourceType >= DamageSourceType.UpgradeProjectile && request.SourceType <= DamageSourceType.UpgradeBlade);
+            bool playerAttack = DamageTypes.IsFlashlight(request.SourceType) ||
+                (request.SourceType >= DamageSourceType.UpgradeProjectile && request.SourceType <= DamageSourceType.UpgradeBlade) ||
+                (request.SourceType >= DamageSourceType.RearFlashlightPulse && request.SourceType <= DamageSourceType.ShieldDeflect);
             var upgradeStats = session != null ? session.PlayerStats : null;
             if (playerAttack && upgradeStats != null)
             {
                 resolvedDamage *= upgradeStats.CompanionDamageMultiplier;
                 if (IsFrozen) resolvedDamage *= 1f + upgradeStats.Upgrades.frozenDamageBonus;
+                if (VulnerabilityRemaining > 0f) resolvedDamage *= 1f + VulnerabilityBonus;
                 if (isCritical && upgradeStats.GetUpgradeTier(UpgradeId.CRIT_05) > 0 && currentHealth / MaxHealth < upgradeStats.Upgrades.eyeHealthThreshold)
                     resolvedDamage *= upgradeStats.Upgrades.eyeCritMultiplier;
             }
@@ -1137,12 +1369,15 @@ namespace EchoScrap.Combat
                 ArmMoth(fromLethalDamage: true);
             bool causedDeath = lethal && !moth;
 
-            if (visualComposer != null)
+            bool skipHitFlash = request.SourceType is DamageSourceType.StaticAura
+                or DamageSourceType.PlasmaPuddle
+                or DamageSourceType.FlameTrail;
+            if (visualComposer != null && !skipHitFlash)
             {
                 bool reduced = session != null && session.Effects.ReducedEffectsMode;
                 visualComposer.TriggerHitReaction(request.HitDirection, isCritical, isPlayerHurt: false, reducedEffects: reduced);
             }
-            if (!lethal) groundSpriteView?.NotifyHit();
+            if (!lethal && !skipHitFlash) groundSpriteView?.NotifyHit();
 
             // El impacto conserva su posición y resultado antes de desactivar o devolver el enemigo al pool
             var result = new DamageResult(
@@ -1210,11 +1445,11 @@ namespace EchoScrap.Combat
             if (isDead)
                 return;
 
+            using var sample = deathMarker.Auto();
             session?.Upgrades?.EnemyDied(this, capturedPosition);
             isDead = true;
-            CombatTargetRegistry.Unregister(this);
-            activeEnemies.Remove(this);
-            InvalidateNeighbors();
+            obstacleNavigator.Reset();
+            UnregisterFromCombat();
 
             // Desactivar inmediatamente daño, selección y colisión del actor
             if (runtimeArchetype.ArchetypeId == EnemyArchetypeId.Mortar)
@@ -1270,6 +1505,8 @@ namespace EchoScrap.Combat
                 gameObject.SetActive(false);
         }
 
+        internal static bool SuppressSpawnRngDuringRestore { get; set; }
+
         public void SetTimersForTesting(float contactTime, float attackCd, float fuse, float telegraph)
         {
             nextContactReadyTime = contactTime;
@@ -1277,6 +1514,123 @@ namespace EchoScrap.Combat
             fuseTimer = fuse;
             telegraphTimer = telegraph;
             isFuseActive = fuse > 0f;
+        }
+
+        internal EnemySnapshot CaptureSnapshot()
+        {
+            var snapshot = new EnemySnapshot
+            {
+                archetypeId = (int)runtimeArchetype.ArchetypeId,
+                position = body != null ? body.position : transform.position,
+                rotation = body != null ? body.rotation : transform.rotation,
+                velocity = body != null ? body.linearVelocity : Vector3.zero,
+                currentHealth = currentHealth,
+                assignedMoveSpeed = assignedMoveSpeed,
+                knockbackVelocity = knockbackVelocity,
+                wallSlamTimeRemaining = wallSlamTimeRemaining,
+                wallSlamTier = wallSlamTier,
+                facingDirection = facingDirection,
+                nextContactReadyTime = nextContactReadyTime,
+                attackCooldownTimer = attackCooldownTimer,
+                fuseTimer = fuseTimer,
+                telegraphTimer = telegraphTimer,
+                isFuseActive = isFuseActive,
+                slowFraction = slowFraction,
+                slowRemaining = SlowRemaining,
+                frozenRemaining = FrozenRemaining,
+                stunRemaining = StunRemaining,
+                frozenVisualCoverage = FrozenVisualCoverage,
+                vulnerabilityBonus = VulnerabilityBonus,
+                vulnerabilityRemaining = VulnerabilityRemaining,
+                coldHits = coldHits,
+                cableSlow = cableSlow,
+                cableSlowRemaining = cableSlowRemaining,
+                cableDamageReadyAt = cableDamageReadyAt,
+                mortarShotsFiredCount = MortarShotsFiredCount
+            };
+            colossusCharge?.CaptureSnapshot(snapshot);
+            elite?.CaptureSnapshot(snapshot);
+            prototypeMoth?.CaptureSnapshot(snapshot);
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(EnemySnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            EnsureInitialized();
+            currentHealth = Mathf.Clamp(snapshot.currentHealth, 0.001f, Mathf.Max(1f, runtimeArchetype.MaxHealth));
+            assignedMoveSpeed = Mathf.Max(0f, snapshot.assignedMoveSpeed);
+            knockbackVelocity = snapshot.knockbackVelocity;
+            wallSlamTimeRemaining = Mathf.Max(0f, snapshot.wallSlamTimeRemaining);
+            wallSlamTier = Mathf.Max(0, snapshot.wallSlamTier);
+            facingDirection = snapshot.facingDirection.sqrMagnitude > 0.0001f ? snapshot.facingDirection.normalized : Vector3.forward;
+            nextContactReadyTime = Mathf.Max(0f, snapshot.nextContactReadyTime);
+            attackCooldownTimer = Mathf.Max(0f, snapshot.attackCooldownTimer);
+            fuseTimer = Mathf.Max(0f, snapshot.fuseTimer);
+            telegraphTimer = Mathf.Max(0f, snapshot.telegraphTimer);
+            isFuseActive = snapshot.isFuseActive;
+            slowFraction = Mathf.Clamp01(snapshot.slowFraction);
+            SlowRemaining = Mathf.Max(0f, snapshot.slowRemaining);
+            FrozenRemaining = Mathf.Max(0f, snapshot.frozenRemaining);
+            StunRemaining = Mathf.Max(0f, snapshot.stunRemaining);
+            FrozenVisualCoverage = Mathf.Clamp01(snapshot.frozenVisualCoverage);
+            VulnerabilityBonus = Mathf.Max(0f, snapshot.vulnerabilityBonus);
+            VulnerabilityRemaining = Mathf.Max(0f, snapshot.vulnerabilityRemaining);
+            coldHits = Mathf.Max(0, snapshot.coldHits);
+            cableSlow = Mathf.Clamp01(snapshot.cableSlow);
+            cableSlowRemaining = Mathf.Max(0f, snapshot.cableSlowRemaining);
+            cableDamageReadyAt = Mathf.Max(0f, snapshot.cableDamageReadyAt);
+            MortarShotsFiredCount = Mathf.Max(0, snapshot.mortarShotsFiredCount);
+            if (body != null)
+            {
+                body.position = snapshot.position;
+                body.rotation = snapshot.rotation;
+                if (!body.isKinematic) body.linearVelocity = snapshot.velocity;
+            }
+            transform.SetPositionAndRotation(snapshot.position, snapshot.rotation);
+            RefreshColdTint();
+            colossusCharge?.RestoreFromSnapshot(snapshot);
+            elite?.RestoreFromSnapshot(snapshot);
+            prototypeMoth?.RestoreFromSnapshot(snapshot);
+        }
+
+        protected void CaptureActorFieldsInto(GolgoraSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            snapshot.currentHealth = currentHealth;
+            snapshot.maxHealth = runtimeArchetype.MaxHealth;
+            snapshot.assignedMoveSpeed = assignedMoveSpeed;
+            snapshot.facingDirection = facingDirection;
+            snapshot.slowFraction = slowFraction;
+            snapshot.slowRemaining = SlowRemaining;
+            snapshot.frozenRemaining = FrozenRemaining;
+            snapshot.stunRemaining = StunRemaining;
+            snapshot.cableSlow = cableSlow;
+            snapshot.cableSlowRemaining = cableSlowRemaining;
+            snapshot.cableDamageReadyAt = cableDamageReadyAt;
+        }
+
+        protected void RestoreActorFieldsFrom(GolgoraSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            currentHealth = Mathf.Clamp(snapshot.currentHealth, 0.001f, Mathf.Max(1f, runtimeArchetype.MaxHealth));
+            assignedMoveSpeed = Mathf.Max(0f, snapshot.assignedMoveSpeed);
+            facingDirection = snapshot.facingDirection.sqrMagnitude > 0.0001f ? snapshot.facingDirection.normalized : Vector3.forward;
+            slowFraction = Mathf.Clamp01(snapshot.slowFraction);
+            SlowRemaining = Mathf.Max(0f, snapshot.slowRemaining);
+            FrozenRemaining = Mathf.Max(0f, snapshot.frozenRemaining);
+            StunRemaining = Mathf.Max(0f, snapshot.stunRemaining);
+            cableSlow = Mathf.Clamp01(snapshot.cableSlow);
+            cableSlowRemaining = Mathf.Max(0f, snapshot.cableSlowRemaining);
+            cableDamageReadyAt = Mathf.Max(0f, snapshot.cableDamageReadyAt);
+            FrozenVisualCoverage = FrozenRemaining > 0f ? 1f : 0f;
+            if (Body != null)
+            {
+                Body.position = snapshot.position;
+                Body.rotation = snapshot.rotation;
+            }
+            transform.SetPositionAndRotation(snapshot.position, snapshot.rotation);
+            RefreshColdTint();
         }
     }
 

@@ -54,6 +54,12 @@ namespace EchoScrap.Tests
             }
             CombatTargetRegistry.Clear();
         }
+        private static int TotalIndexCount(Mesh mesh)
+        {
+            int count = 0;
+            for (int s = 0; s < mesh.subMeshCount; s++) count += (int)mesh.GetIndexCount(s);
+            return count;
+        }
         [Test] public void ObstaclesUseVisibleMeshCollisions_AndTerrainMatchesExpandedProfile()
         {
             var world=GameObject.Find("Mundo3D_EchoScrap");
@@ -64,8 +70,15 @@ namespace EchoScrap.Tests
             Assert.Greater(colliders.Length,100);
             foreach(var collider in colliders){
                 Assert.IsInstanceOf<MeshCollider>(collider,collider.name);Assert.IsFalse(collider.isTrigger);
-                Assert.AreSame(collider.GetComponent<MeshFilter>().sharedMesh,((MeshCollider)collider).sharedMesh);
-                Assert.IsFalse(((MeshCollider)collider).convex,"Do not fill concave gaps with a convex hull.");
+                MeshCollider meshCollider=(MeshCollider)collider;
+                Mesh visibleMesh=collider.GetComponent<MeshFilter>().sharedMesh;
+                Mesh colliderMesh=meshCollider.sharedMesh;
+                Assert.IsNotNull(visibleMesh,collider.name);
+                Assert.IsNotNull(colliderMesh,collider.name);
+                Assert.GreaterOrEqual(TotalIndexCount(colliderMesh),TotalIndexCount(visibleMesh),collider.name);
+                Assert.LessOrEqual(Vector3.Distance(colliderMesh.bounds.center,visibleMesh.bounds.center),0.15f,collider.name);
+                Assert.LessOrEqual(Vector3.Distance(colliderMesh.bounds.size,visibleMesh.bounds.size),0.25f,collider.name);
+                Assert.IsFalse(meshCollider.convex,"Do not fill concave gaps with a convex hull.");
             }
             Assert.AreSame(game.ArenaGround,ArenaSurface.Active.GroundCollider);
             Assert.AreEqual(200f,ArenaSurface.Active.WorldSize,0.001f);
@@ -112,6 +125,60 @@ namespace EchoScrap.Tests
                 Assert.AreEqual(15f,collider.bounds.center.y,0.001f,edge);
                 Assert.AreEqual(50f,collider.bounds.size.y,0.001f,edge);
             }
+        }
+
+        [UnityTest] public IEnumerator CanSlideAlongAndBackAwayFromALowRock()
+        {
+            var body = game.Player.GetComponent<Rigidbody>();
+            var rock = GameObject.Find("roca_baja_-18_-23").GetComponentInChildren<MeshCollider>();
+            Assert.IsNotNull(rock);
+            Vector3 start = rock.bounds.center;
+            start.x = rock.bounds.min.x - 1.2f;
+            start = ArenaSurface.OnGround(start, 1f);
+            body.position = start;
+            game.Player.transform.position = start;
+            body.linearVelocity = Vector3.zero;
+            Physics.SyncTransforms();
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.D));
+            yield return null;
+            for (int i = 0; i < 24; ++i) yield return new WaitForFixedUpdate();
+            Vector3 contact = body.position;
+            Assert.That(contact.x, Is.GreaterThan(start.x + .2f));
+            Assert.That(contact.x, Is.LessThan(rock.bounds.center.x));
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.D, Key.S));
+            yield return null;
+            for (int i = 0; i < 20; ++i) yield return new WaitForFixedUpdate();
+            Assert.That(body.position.z, Is.LessThan(contact.z - .5f));
+
+            float slideX = body.position.x;
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.A));
+            yield return null;
+            for (int i = 0; i < 20; ++i) yield return new WaitForFixedUpdate();
+            Assert.That(body.position.x, Is.LessThan(slideX - .5f));
+        }
+
+        [UnityTest] public IEnumerator ShallowSceneryOverlapRecoversLocally()
+        {
+            var obstacle = new GameObject("Low rock edge");
+            var collider = obstacle.AddComponent<BoxCollider>();
+            collider.size = new Vector3(1f, .9f, 2f);
+            obstacle.transform.position = new Vector3(7f, .45f, 0f);
+            var body = game.Player.GetComponent<Rigidbody>();
+            var safe = new Vector3(4.5f, 1f, 0f);
+            body.position = safe;
+            game.Player.transform.position = safe;
+            Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+
+            // Simulate a small overlap after a heavy enemy pushed the player.
+            var contact = new Vector3(6.08f, 1f, 0f);
+            body.position = contact;
+            game.Player.transform.position = contact;
+            Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+            Assert.That(body.position.x, Is.InRange(5.8f, 6f), "Resolve the overlap without jumping back to the last safe pose.");
         }
 #if UNITY_EDITOR
         [Test] public void DebrisWestOfPortalRestsOnTheTerrain()
@@ -539,28 +606,38 @@ namespace EchoScrap.Tests
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.W,Key.Space));yield return null;yield return new WaitForFixedUpdate();yield return new WaitForFixedUpdate();
             Assert.IsTrue(game.Motor.IsDashing);Assert.Greater(game.Motor.DashDirection.z,.9f,"W + dash heads north toward the portal.");
         }
-        [Test] public void GarageHasTenAccessibleDisplayAreas()
+        [Test] public void GarageHasEighteenAccessibleDisplayAreas()
         {
-            var room=GameObject.Find("BovedaModular");Assert.IsNotNull(room);
-            var slots = Object.FindAnyObjectByType<FusionStation>().DisplaySlots;
-            Assert.AreEqual(10, slots.Length);
-            var aisle = new Bounds(new Vector3(180f, 3.5f, 1f), new Vector3(32f, 7f, 38f));
+            var station = Object.FindAnyObjectByType<FusionStation>();
+            var room = station.transform.parent.gameObject;
+            var slots = station.DisplaySlots;
+            Assert.AreEqual(18, slots.Length);
+            var aisle = new Bounds(new Vector3(183f, 1f, 0f), new Vector3(3f, 2f, 44f));
             for (int i = 0; i < slots.Length; i++)
             {
                 var slot = slots[i];
-                var capsule = room.transform.Find($"Capsula_{i + 1}").GetComponent<Collider>().bounds;
-                Assert.AreEqual(capsule.center.x, slot.position.x, .01f, slot.name);
-                Assert.AreEqual(capsule.center.z, slot.position.z, .01f, slot.name);
-                if (i >= 3) Assert.IsFalse(capsule.Intersects(aisle), slot.name + " blocks the central aisle");
+                var pod = room.transform.Find($"Capsula_{i + 1}");
+                Bounds collider = pod.GetComponent<Collider>().bounds;
+                Bounds model = pod.GetComponentInChildren<MeshRenderer>().bounds;
+                Assert.That(Vector3.Distance(collider.center, model.center), Is.LessThan(.01f), pod.name);
+                Assert.That(Vector3.Distance(collider.size, model.size), Is.LessThan(.01f), pod.name);
+                Assert.AreEqual(collider.center.x, slot.position.x, .01f, slot.name);
+                Assert.AreEqual(collider.center.z, slot.position.z, .01f, slot.name);
+                if (i >= 3) Assert.IsFalse(collider.Intersects(aisle), slot.name + " blocks the central aisle");
 
-                var p = ArenaSurface.OnGround(slot.position + Vector3.back * 4f, 1f);
-                Assert.IsFalse(Physics.CheckCapsule(p - Vector3.up * .5f, p + Vector3.up * .5f,
-                    .45f, 1, QueryTriggerInteraction.Ignore), slot.name + " approach is blocked");
+                var p = ArenaSurface.OnGround(slot.position - slot.forward * 3f, 1f);
+                var obstacles = Physics.OverlapCapsule(p - Vector3.up * .5f, p + Vector3.up * .5f,
+                    .45f, 1, QueryTriggerInteraction.Ignore);
+                Assert.IsEmpty(obstacles, slot.name + " approach: " + string.Join(", ", obstacles.Select(c => c.name)));
             }
             var capsuleModel = room.transform.Find("Capsula_1").GetComponentInChildren<MeshFilter>().sharedMesh;
-            Assert.AreEqual(10, room.GetComponentsInChildren<MeshFilter>().Count(filter => filter.sharedMesh == capsuleModel),
-                "Only the ten usable entity capsules should appear in the vault.");
-            Assert.IsFalse(room.transform.Find("BaseCircular").GetComponent<Collider>().bounds.Intersects(aisle));
+            Assert.AreEqual(18, room.GetComponentsInChildren<MeshFilter>().Count(filter => filter.sharedMesh == capsuleModel),
+                "Only the eighteen usable entity capsules should appear in the vault.");
+            for (int i = 3; i < slots.Length; i++)
+                for (int j = i + 1; j < slots.Length; j++)
+                    Assert.IsFalse(room.transform.Find($"Capsula_{i + 1}").GetComponent<Collider>().bounds
+                        .Intersects(room.transform.Find($"Capsula_{j + 1}").GetComponent<Collider>().bounds),
+                        $"{slots[i].name} intersects {slots[j].name}");
 
             var floor = room.transform.Find("ApoyoPlantaBaja").GetComponent<Collider>().bounds;
             Assert.GreaterOrEqual(floor.size.x, 47.9f);
@@ -607,7 +684,7 @@ namespace EchoScrap.Tests
             Assert.Greater(body.position.x,170f);
             var interior=GameObject.Find("BovedaModular"); Assert.IsNotNull(interior);
             int slots=Object.FindAnyObjectByType<FusionStation>().DisplaySlots.Length;
-            Assert.AreEqual(10,slots);
+            Assert.AreEqual(18,slots);
             var confiner=game.CameraRig.GetComponent<Unity.Cinemachine.CinemachineConfiner3D>();
             Assert.AreSame(travel.InteriorCameraBounds,confiner.BoundingVolume);
             Assert.IsTrue(game.CameraRig.GetComponent<WarehouseCameraFraming>().IsConfining,"The entire interior view must stay in the room.");

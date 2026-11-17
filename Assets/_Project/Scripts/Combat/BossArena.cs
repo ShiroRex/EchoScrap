@@ -350,6 +350,7 @@ namespace EchoScrap.Combat
                 }
                 if (fieldRenderers[i] != null) fieldRenderers[i].enabled = closed;
             }
+            EnemyObstacleNavigator.InvalidateStaticObstacles();
         }
 
         private void BuildFoundry()
@@ -484,6 +485,112 @@ namespace EchoScrap.Combat
         {
             RestoreCamera();
             Destroy(steel); Destroy(dormant); Destroy(hot); Destroy(warning); Destroy(field); Destroy(annulus);
+        }
+
+        internal BossArenaSnapshot CaptureSnapshot()
+        {
+            var snapshot = new BossArenaSnapshot
+            {
+                isClosed = IsClosed,
+                isTransferring = IsTransferring,
+                transferAge = transferAge,
+                transferred = transferred,
+                nextVent = nextVent,
+                spawnedMinions = SpawnedMinions,
+                pendingMinions = PendingMinions
+            };
+            for (int i = 0; i < pending.Length; i++)
+            {
+                if (!pending[i].Active) continue;
+                snapshot.pending.Add(new BossReinforcementSnapshot
+                {
+                    archetypeId = (int)pending[i].Archetype.ArchetypeId,
+                    age = pending[i].Age,
+                    position = pending[i].Position
+                });
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(BossArenaSnapshot snapshot, GolgoraActor actor, CombatWaveSettings waveSettings)
+        {
+            if (snapshot == null) return;
+            EndEncounter();
+            if (!snapshot.isClosed)
+            {
+                nextVent = snapshot.nextVent;
+                SpawnedMinions = snapshot.spawnedMinions;
+                return;
+            }
+            if (!initialized || game == null) return;
+            boss = actor;
+            var view = actor != null ? actor.GetComponent<MataColeccionistaView>() : null;
+            bossFramingSize = view != null && view.Model != null
+                ? Vector3.Scale(bossCameraBoundsSize, view.Model.localScale)
+                : bossCameraBoundsSize;
+            originalFollow = game.CameraRig.Follow;
+            originalOffset = follow != null ? follow.FollowOffset : Vector3.zero;
+            originalRotation = game.CameraRig.transform.rotation;
+            originalFov = game.CameraRig.Lens.FieldOfView;
+            cameraTargetDistance = originalOffset.magnitude;
+            cameraZoomVelocity = 0f;
+            cameraOwned = true;
+
+            IsClosed = true;
+            IsTransferring = snapshot.isTransferring;
+            transferAge = snapshot.transferAge;
+            transferred = snapshot.transferred;
+            nextVent = snapshot.nextVent;
+            SpawnedMinions = snapshot.spawnedMinions;
+            SetPerimeter(true);
+
+            if (transferred)
+            {
+                if (game.Player != null) cameraAnchor.position = game.Player.transform.position;
+                game.CameraRig.Follow = cameraAnchor;
+                UpdateCamera(0f, true);
+                game.CameraRig.PreviousStateIsValid = false;
+            }
+            if (IsTransferring)
+            {
+                SetTransferInput(false);
+                float alpha = transferAge <= transferFadeDuration
+                    ? transferAge / transferFadeDuration
+                    : 1f - (transferAge - transferFadeDuration) / transferFadeDuration;
+                SetFade(alpha);
+            }
+            else
+            {
+                SetFade(0f);
+                SetTransferInput(true);
+            }
+
+            if (snapshot.pending != null)
+            {
+                for (int i = 0; i < snapshot.pending.Count && i < pending.Length; i++)
+                {
+                    BossReinforcementSnapshot item = snapshot.pending[i];
+                    EnemyArchetypeId archetypeId = (EnemyArchetypeId)item.archetypeId;
+                    EnemyArchetypeData archetype = waveSettings != null
+                        ? waveSettings.GetArchetype(archetypeId)
+                        : EnemyArchetypeData.CreateDefault(archetypeId);
+                    pending[i] = new Reinforcement
+                    {
+                        Active = true,
+                        Age = item.age,
+                        Position = item.position,
+                        Archetype = archetype
+                    };
+                    PendingMinions++;
+                    if (spawnMarkers[i] != null)
+                    {
+                        spawnMarkers[i].position = ArenaSurface.OnGround(item.position, 0.07f);
+                        float progress = Mathf.Clamp01(item.age / reinforcementWarning);
+                        spawnMarkers[i].localScale = Vector3.one * Mathf.Lerp(1.1f, 2.2f, progress);
+                        spawnMarkers[i].gameObject.SetActive(true);
+                    }
+                }
+            }
         }
     }
 }

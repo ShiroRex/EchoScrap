@@ -11,12 +11,12 @@ namespace EchoScrap.Combat
         public Transform[] DisplaySlots;
         public float InteractionDistance=4.5f;
         internal const float DisplayInteractionDistance = 5f;
-        internal Vector3 DisplayApproachPoint(int slot) => DisplaySlots[slot].position + Vector3.back * 3f;
+        internal Vector3 DisplayApproachPoint(int slot) => DisplaySlots[slot].position - DisplaySlots[slot].forward * 3f;
         public float DisplayHeight=5.5f;
         public bool PersistProgress=true;
         public const string SaveKey="EchoScrap.Collection.Production.v1";
         private const string LegacySaveKey = "EchoScrap.Collection.v1";
-        public static bool HasSave => PlayerPrefs.HasKey(SaveKey) || PlayerPrefs.HasKey(LegacySaveKey);
+        public static bool HasSave => SaveSlotService.HasAnyContinuableOrRecoverableSlot();
         public FusionProgress Progress {get;private set;}
         public VaultCollectionIndex Index {get;private set;}
         public bool WorldLabelsAllowed=>game!=null&&!game.Session.IsPaused&&game.Player.IsAlive&&(Index==null||!Index.IsOpen);
@@ -31,9 +31,8 @@ namespace EchoScrap.Combat
         private CollectibleDisplay[] displays;private MeshRenderer[] slatRenderers;private Transform[] slats;private Vector3[] closed;private float doorTop,doorAmount,saveClock;
         private void Awake()
         {
-            if (transform.parent == null)
+            if (transform.parent == null || Vector3.Distance(transform.localPosition, new Vector3(180f, 0f, 6f)) < 1f)
             {
-                // The legacy arena scenes still have a scene-root station authored outside the vault.
                 transform.SetPositionAndRotation(new Vector3(189f, 0f, 28.88f), Quaternion.identity);
                 Physics.SyncTransforms();
             }
@@ -41,31 +40,44 @@ namespace EchoScrap.Combat
         private void Start()
         {
             game=FindAnyObjectByType<CombatGameBootstrap>();
+            bool disabledOnComponent = !PersistProgress;
             PersistProgress = PersistProgress && SceneTransitionState.SaveProgress;
-            Progress = new FusionProgress();
-            bool migrate = PersistProgress && !PlayerPrefs.HasKey(SaveKey) && PlayerPrefs.HasKey(LegacySaveKey);
-            if (PersistProgress && (migrate || PlayerPrefs.HasKey(SaveKey)))
+            if (disabledOnComponent && SceneTransitionState.SaveProgress)
             {
-                try
-                {
-                    var saved = JsonUtility.FromJson<FusionProgress>(PlayerPrefs.GetString(migrate ? LegacySaveKey : SaveKey));
-                    if (saved != null)
-                    {
-                        if (migrate && saved.owned != null) saved.version = 4;
-                        Progress = saved;
-                    }
-                }
-                catch (ArgumentException) { migrate = false; }
+                SaveSlotService.ResetRuntimeState();
+                Progress = new FusionProgress();
+            }
+            else if (SaveSlotService.HasLoadedProfile)
+            {
+                Progress = SaveSlotService.CloneActiveFusionProgress();
+            }
+            else if (PersistProgress &&
+                (SceneTransitionState.PendingEntry != SceneTransitionState.Entry.None ||
+                 (!Application.isBatchMode &&
+                  (SaveSlotService.HasAnyContinuableOrRecoverableSlot() ||
+                   PlayerPrefs.HasKey(SaveKey) ||
+                   PlayerPrefs.HasKey(LegacySaveKey)))))
+            {
+                SaveSlotService.EnsureLoadedFallbackForDirectArenaEntry();
+                Progress = SaveSlotService.HasLoadedProfile
+                    ? SaveSlotService.CloneActiveFusionProgress()
+                    : new FusionProgress();
+            }
+            else
+            {
+                Progress = new FusionProgress();
             }
             Progress.RestoreAfterLoading();
             slatRenderers=Door.GetComponentsInChildren<MeshRenderer>().OrderBy(r=>r.transform.position.y).ToArray();slats=slatRenderers.Select(r=>r.transform).ToArray();closed=slats.Select(t=>t.position).ToArray();
             doorTop=slats.Length==0?Door.position.y+4.3f:slats.Max(t=>t.GetComponent<Renderer>().bounds.max.y);
             resultView=new GameObject("ResultadoFusion").AddComponent<CollectibleDisplay>();resultView.transform.SetParent(transform,false);resultView.transform.position=ResultPoint.position;
+            resultView.Bind(game, CollectibleDisplayScope.InteriorDisplay);
             displays=new CollectibleDisplay[DisplaySlots.Length];
             for(int i=0;i<displays.Length;i++)
             {
                 displays[i]=new GameObject("Coleccionable_"+(i+1)).AddComponent<CollectibleDisplay>();
                 displays[i].transform.SetParent(DisplaySlots[i],false);
+                displays[i].Bind(game, CollectibleDisplayScope.InteriorDisplay);
                 if(i<3) displays[i].MarkEquipmentSlot(i+1,game);
             }
             smoke=gameObject.AddComponent<FusionRevealSmoke>();
@@ -74,7 +86,6 @@ namespace EchoScrap.Combat
             ui=gameObject.AddComponent<FusionStationUI>();ui.Build(this);
             Index=gameObject.AddComponent<VaultCollectionIndex>();Index.Initialize(this,game);
             RefreshDisplays();UpdateResult();
-            if (migrate) Save();
             if(game!=null){game.Session.SessionReset+=OnSessionReset;gameObject.AddComponent<CompanionSystem>().Initialize(this,game);gameObject.AddComponent<VaultReleaseInteraction>().Initialize(this,game);gameObject.AddComponent<EventLeaderboardSync>().Initialize(game,this);}
         }
 
@@ -158,8 +169,11 @@ namespace EchoScrap.Combat
         public void CloseMenu(){if(ui!=null)ui.Hide();if(game!=null&&(Index==null||!Index.IsOpen))game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}
         public bool StartFusion(int[] ingredients, int[] equipmentSlots = null)
         {
-            if(!IsMenuOpen||!CanInteract)return false;
-            if(!Progress.Begin(ingredients,UnityEngine.Random.Range(0,10000),UnityEngine.Random.Range(0,2),equipmentSlots))return false;
+            if (!CanInteract || !IsMenuOpen) return false;
+            var combatRng = game != null && game.Session != null ? game.Session.Rng.Combat : null;
+            int roll = combatRng != null ? combatRng.Range(0, 10000) : UnityEngine.Random.Range(0, 10000);
+            int tieBreaker = combatRng != null ? combatRng.Range(0, 2) : UnityEngine.Random.Range(0, 2);
+            if (!Progress.Begin(ingredients, roll, tieBreaker, equipmentSlots)) return false;
             saveClock = 0f;
             resultAudioPlayed = false;
             var companions = GetComponent<CompanionSystem>();
@@ -167,7 +181,10 @@ namespace EchoScrap.Combat
                 companions.RefreshEquipment();
             else
                 RefreshDisplays();
-            Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();CloseMenu();return true;
+            Notice="Fusión iniciada. Puedes seguir jugando.";UpdateResult();Save();
+            if (game != null && game.Flow != null && game.Flow.State == GameFlowState.Expedition)
+                ExpeditionSnapshotService.CaptureAndSave(game, this);
+            CloseMenu();return true;
         }
 
         private void ShowMenu()
@@ -199,7 +216,10 @@ namespace EchoScrap.Combat
             if(!Progress.Resolve(collect))return false;
             if(collect)EventLeaderboardSync.Instance?.NotifyCollectibleObtained(id, firstDiscovery, true);
             Notice=collect?FusionCatalog.Names[id]+" coleccionado. Guardado en tu inventario.":"Coleccionable liberado.";
-            RefreshDisplays();UpdateResult();Save();CloseMenu();return true;
+            RefreshDisplays();UpdateResult();Save();
+            if (game != null && game.Flow != null && game.Flow.State == GameFlowState.Expedition)
+                ExpeditionSnapshotService.CaptureAndSave(game, this);
+            CloseMenu();return true;
         }
         private void UpdateResult(){resultView.Configure(Progress.phase==FusionPhase.Opening||Progress.phase==FusionPhase.AwaitingDecision?Progress.result:-1,3.7f,false);}
         public void RestoreCollection(string snapshot)
@@ -240,15 +260,20 @@ namespace EchoScrap.Combat
         public bool ReleaseCollectible(int id)
         {
             if(!FusionCatalog.Valid(id)||Progress.Available(id)<=0)return false;
-            Progress.owned[id]--;RefreshDisplays();Save();return true;
+            Progress.owned[id]--;RefreshDisplays();GetComponent<CompanionSystem>()?.RefreshEquipment();Save();return true;
         }
         public bool CollectFromArena(int id)
         {
             if(!FusionCatalog.CanSpawn(id))return false;
             bool firstDiscovery = !Progress.IsDiscovered(id);
-            if(!Progress.TryCollect(id))return false;
+            if(!Progress.TryCollect(id))
+            {
+                if(!Progress.HasSpace)
+                    Notice = $"Bóveda llena ({FusionProgress.Capacity}/{FusionProgress.Capacity}). Libera espacio en la bóveda.";
+                return false;
+            }
             EventLeaderboardSync.Instance?.NotifyCollectibleObtained(id, firstDiscovery, false);
-            RefreshDisplays();Save();return true;
+            RefreshDisplays();GetComponent<CompanionSystem>()?.RefreshEquipment();Save();return true;
         }
         public bool EquipCompanion(int slot,int id)
         {
@@ -260,13 +285,39 @@ namespace EchoScrap.Combat
             RefreshDisplays();Save();return true;
 
         }
+        public void ReloadFromActiveSlot()
+        {
+            openingAudio?.Stop(); resultAudio?.Stop(); resultAudioPlayed = false; CloseMenu(); Index?.Close(); Notice = "";
+            Progress = SaveSlotService.CloneActiveFusionProgress();
+            RefreshDisplays(); UpdateResult(); GetComponent<CompanionSystem>()?.RefreshEquipment();
+        }
+
+        internal void RestoreFromSnapshotJson(string json)
+        {
+            openingAudio?.Stop(); resultAudio?.Stop(); resultAudioPlayed = false; CloseMenu(); Index?.Close(); Notice = "";
+            if (!string.IsNullOrEmpty(json))
+            {
+                Progress = JsonUtility.FromJson<FusionProgress>(json) ?? new FusionProgress();
+                Progress.Validate();
+            }
+            else
+            {
+                Progress = SaveSlotService.CloneActiveFusionProgress();
+            }
+            RefreshDisplays(); UpdateResult(); GetComponent<CompanionSystem>()?.RefreshEquipment();
+        }
         public void ResetCollection()
         {
             openingAudio.Stop();resultAudio.Stop();resultAudioPlayed=false;CloseMenu();Index?.Close();Notice="";Progress=new FusionProgress();Progress.Validate();
             RefreshDisplays();UpdateResult();Save();GetComponent<CompanionSystem>()?.RefreshEquipment();
         }
         private void OnSessionReset(){openingAudio.Stop();resultAudio.Stop();if(Progress.phase==FusionPhase.Opening){Progress.RestoreAfterLoading();UpdateResult();Save();}CloseMenu();Index?.Close();}
-        private void Save(){if(PersistProgress&&Progress!=null){PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(Progress));PlayerPrefs.Save();}}
+        public void Save()
+        {
+            if (Progress == null || !SaveSlotService.CanWriteActiveProfile) return;
+            if (SaveSlotService.IsPersistent && !PersistProgress) return;
+            SaveSlotService.SaveActiveFusionProgress(Progress);
+        }
         private void OnApplicationPause(bool paused){if(paused)Save();}
         private void OnApplicationQuit(){Save();}
         private void OnDestroy(){Save();if(game!=null){game.Session.SessionReset-=OnSessionReset;game.Session.Clock.SetPause(PauseReason.FusionMenu,false);}}

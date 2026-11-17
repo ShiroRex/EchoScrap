@@ -168,6 +168,9 @@ namespace EchoScrap.Core
                 (x - cx) * (x - cx) / (rx * rx) +
                 (z - cz) * (z - cz) / (rz * rz);
 
+            if (r >= 1f)
+                return 0f;
+
             return height * Mathf.SmoothStep(
                 0f,
                 1f,
@@ -179,9 +182,11 @@ namespace EchoScrap.Core
         // ALTURA DEL TERRENO
         // =====================================================
 
-        public static float Height(Vector3 position)
+        public static float Height(Vector3 position) => Height(position, float.PositiveInfinity);
+
+        private static float Height(Vector3 position, float maxVaultHeight)
         {
-            if (VaultFloorSurface.Active != null && VaultFloorSurface.Active.TryHeight(position, out float vaultHeight))
+            if (VaultFloorSurface.Active != null && VaultFloorSurface.Active.TryHeight(position, maxVaultHeight, out float vaultHeight))
                 return vaultHeight;
             if (Active == null)
                 return 0f;
@@ -221,6 +226,14 @@ namespace EchoScrap.Core
                 return Vector3.up;
 
             const float d = 0.1f;
+            float size = Active.worldSize;
+            float scale = Active.HorizontalScale;
+            float flatRadius = size >= 200f ? 21.8f : 10.8f * scale;
+            if ((position.z < 59.8f || position.z > 83.2f || position.x < -6.2f || position.x > 6.2f)
+                && position.x * position.x + position.z * position.z <= flatRadius * flatRadius)
+            {
+                return Vector3.up;
+            }
 
             return new Vector3(
                 Profile(position.x - d, position.z) -
@@ -237,23 +250,26 @@ namespace EchoScrap.Core
         // ALTURA DE APOYO PARA PERSONAJES
         // =====================================================
 
+        public static bool HasSpecialSurfaceInArea(Vector3 position, float padding)
+        {
+            var vault = VaultFloorSurface.Active;
+            if (vault != null && vault.IntersectsFootprint(position, padding)) return true;
+            var stairs = WalkableStairs.Active;
+            if (stairs == null || stairs.Surface == null) return false;
+            var bounds = stairs.Surface.bounds;
+            var min = bounds.min;
+            var max = bounds.max;
+            return position.x + padding >= min.x && position.x - padding <= max.x &&
+                   position.z + padding >= min.z && position.z - padding <= max.z;
+        }
+
         public static float SupportHeight(
             Vector3 position,
-            float radius)
+            float radius,
+            float maxVaultHeight = float.PositiveInfinity)
         {
             float sample = radius * 0.6f;
-            var vault = VaultFloorSurface.Active;
-            var stairs = WalkableStairs.Active;
-            bool special = vault != null && vault.IntersectsFootprint(position, sample);
-            if (!special && stairs != null && stairs.Surface != null)
-            {
-                var bounds = stairs.Surface.bounds;
-                var min = bounds.min;
-                var max = bounds.max;
-                special = position.x + sample >= min.x && position.x - sample <= max.x &&
-                          position.z + sample >= min.z && position.z - sample <= max.z;
-            }
-
+            bool special = HasSpecialSurfaceInArea(position, sample);
             var terrain = Active;
             float size = terrain != null ? terrain.WorldSize : 0f;
             if (!special && size >= 200f && sample <= 22f)
@@ -264,7 +280,7 @@ namespace EchoScrap.Core
             }
 
             // Outside the vault and stair footprint all five probes use the analytic terrain.
-            float Probe(float x, float z) => special ? Height(new Vector3(x, position.y, z))
+            float Probe(float x, float z) => special ? Height(new Vector3(x, position.y, z), maxVaultHeight)
                 : size > 0f ? Profile(x, z, size) : 0f;
             float h = Probe(position.x, position.z);
             float rim = Mathf.Max(Probe(position.x + sample, position.z), Probe(position.x - sample, position.z));

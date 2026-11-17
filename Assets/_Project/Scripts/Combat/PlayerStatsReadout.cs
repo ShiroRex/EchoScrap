@@ -29,7 +29,7 @@ namespace EchoScrap.Combat
         private static readonly Color Bronze = new Color(.91f, .76f, .44f);
         private static readonly Color Ivory = new Color(.92f, .94f, .92f);
         private static readonly Color Muted = new Color(.67f, .74f, .75f);
-        private readonly Row[] rows = new Row[20];
+        private readonly Row[] rows = new Row[22];
         private RectTransform canvasRect;
         private RectTransform accent;
         private RectTransform separator;
@@ -80,6 +80,8 @@ namespace EchoScrap.Combat
             readout.AddRow(17, "execution", "Ejecución", UpgradeIcon.Precision, ValueFormat.Execution, regular, strong, skin);
             readout.AddRow(18, "explosionDamage", "Daño explosivo", UpgradeIcon.Demolition, ValueFormat.BonusPercent, regular, strong, skin);
             readout.AddRow(19, "explosionRadius", "Radio explosivo", UpgradeIcon.Demolition, ValueFormat.BonusPercent, regular, strong, skin);
+            readout.AddRow(20, "dashDistance", "Distancia dash", UpgradeIcon.Dash, ValueFormat.Metres, regular, strong, skin);
+            readout.AddRow(21, "areaMultiplier", "Área efectos", UpgradeIcon.Lens, ValueFormat.BonusPercent, regular, strong, skin);
             readout.SetDisplayMode(StatsDisplayMode.Full);
             return readout;
         }
@@ -171,6 +173,8 @@ namespace EchoScrap.Combat
             SetValue(17, UpgradeTuning.At(upgrades.executionThreshold, stats.GetUpgradeTier(UpgradeId.CRIT_03)) * 100f);
             SetValue(18, (stats.ExplosionDamageMultiplier - 1f) * 100f);
             SetValue(19, (stats.ExplosionRadiusMultiplier - 1f) * 100f);
+            SetValue(20, stats.DashDistance, settings.DashSpeed * settings.DashDuration);
+            SetValue(21, (stats.AreaMultiplier - 1f) * 100f);
             if (layoutDirty) LayoutRows();
             else FitToCanvas();
         }

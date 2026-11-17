@@ -388,5 +388,95 @@ namespace EchoScrap.Combat
             foreach (Ring ring in rings) if (ring != null)
             { Destroy(ring.Mesh); Destroy(ring.CrestMesh); Destroy(ring.FragmentMesh); Destroy(ring.ResidueMesh); }
         }
+
+        internal MagmaRingPoolSnapshot CaptureSnapshot()
+        {
+            bool preview = gapGuides.Length > 0 && gapGuides[0] != null && gapGuides[0].enabled;
+            var snapshot = new MagmaRingPoolSnapshot
+            {
+                isGapPreviewVisible = preview,
+                previewGapAngle = PreviewGapAngle,
+                totalEmitted = TotalEmitted
+            };
+            if (rings == null) return snapshot;
+            for (int i = 0; i < rings.Length; i++)
+            {
+                Ring ring = rings[i];
+                if (ring == null || (!ring.Active && ring.ResidueRemaining <= 0f)) continue;
+                snapshot.rings.Add(new MagmaRingSnapshot
+                {
+                    center = ring.Center,
+                    radius = ring.Radius,
+                    maximumRadius = ring.MaximumRadius,
+                    speed = ring.Speed,
+                    width = ring.Width,
+                    gap = ring.Gap,
+                    gapSize = ring.GapSize,
+                    damage = ring.Damage,
+                    sourceId = ring.SourceId,
+                    visualAge = ring.VisualAge,
+                    residueRemaining = ring.ResidueRemaining,
+                    previousPlayer = ring.PreviousPlayer,
+                    playerResolved = ring.PlayerResolved,
+                    active = ring.Active
+                });
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(MagmaRingPoolSnapshot snapshot)
+        {
+            Clear();
+            if (snapshot == null) return;
+            TotalEmitted = Mathf.Max(0, snapshot.totalEmitted);
+            PreviewGapAngle = snapshot.previewGapAngle;
+            if (initialized && snapshot.rings != null)
+            {
+                int slot = 0;
+                for (int i = 0; i < snapshot.rings.Count && slot < rings.Length; i++)
+                {
+                    MagmaRingSnapshot item = snapshot.rings[i];
+                    Ring ring = rings[slot++];
+                    if (ring == null) continue;
+                    ring.Center = item.center;
+                    ring.Radius = item.radius;
+                    ring.MaximumRadius = item.maximumRadius;
+                    ring.Speed = item.speed;
+                    ring.Width = item.width;
+                    ring.Gap = item.gap;
+                    ring.GapSize = item.gapSize;
+                    ring.Damage = item.damage;
+                    ring.SourceId = item.sourceId;
+                    ring.VisualAge = item.visualAge;
+                    ring.ResidueRemaining = item.residueRemaining;
+                    ring.PreviousPlayer = item.previousPlayer;
+                    ring.PlayerResolved = item.playerResolved;
+                    ring.Active = item.active;
+                    if (ring.Active)
+                    {
+                        ActiveCount++;
+                        if (ring.Root != null) ring.Root.SetActive(true);
+                        Draw(ring);
+                    }
+                    else
+                    {
+                        if (ring.Root != null) ring.Root.SetActive(false);
+                        if (ring.ResidueRoot != null)
+                            ring.ResidueRoot.SetActive(ring.ResidueRemaining > 0f && DecorativeIntensity > 0f);
+                        if (ring.ResidueRemaining > 0f)
+                            ApplyVisualProperties(ring, DecorativeIntensity, ring.ResidueRemaining / .28f);
+                    }
+                }
+            }
+            if (snapshot.isGapPreviewVisible && owner != null)
+            {
+                float reach = Mathf.Min(owner.ArenaRadius, owner.Settings.RingMaximumRadius);
+                ShowGapPreview(owner.ArenaCenter, PreviewGapAngle, owner.Settings.RingStartRadius, reach, owner.Settings.RingGapDegrees);
+            }
+            else
+            {
+                HideGapPreview();
+            }
+        }
     }
 }

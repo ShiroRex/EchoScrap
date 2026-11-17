@@ -92,11 +92,16 @@ namespace EchoScrap.Tests
         {
             yield return Approach();Assert.IsTrue(station.Progress.Begin(new[]{0,0,0,0},9999,0));
             while(station.Progress.HasSpace)Assert.IsTrue(station.CollectFromArena(0));
+            Assert.AreEqual(18,station.Progress.OwnedCount);
+            Assert.IsFalse(station.CollectFromArena(0));
+            StringAssert.Contains("LLENA",station.Notice.ToUpperInvariant());
             station.Advance(180);Assert.IsTrue(station.TryOpenMenu());station.Advance(1.3f);
             int resultId=station.Progress.result;Assert.IsFalse(station.Resolve(true));
             Assert.AreEqual(FusionPhase.AwaitingDecision,station.Progress.phase);Assert.AreEqual(resultId,station.Progress.result);
-            Assert.AreEqual(10,station.Progress.OwnedCount);Assert.IsTrue(station.IsMenuOpen);StringAssert.Contains("INVENTARIO LLENO",station.Notice);
-            Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsTrue(station.Resolve(true));Assert.AreEqual(10,station.Progress.OwnedCount);
+            Assert.AreEqual(FusionProgress.Capacity,station.Progress.OwnedCount);Assert.IsTrue(station.IsMenuOpen);StringAssert.Contains("INVENTARIO LLENO",station.Notice);
+            var desc=station.GetComponentInChildren<Canvas>().GetComponentsInChildren<UnityEngine.UI.Text>(true).FirstOrDefault(t=>t.text.Contains("unidades"));
+            Assert.IsNotNull(desc);StringAssert.Contains("18 unidades",desc.text);
+            Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsTrue(station.Resolve(true));Assert.AreEqual(FusionProgress.Capacity,station.Progress.OwnedCount);
             Assert.AreEqual(1,station.Progress.owned[resultId]);Assert.IsFalse(station.Resolve(true));
         }
         [UnityTest] public IEnumerator LegendaryRevealOpensDoorAndReleaseRemovesIt()
@@ -266,12 +271,77 @@ namespace EchoScrap.Tests
             FusionRecipe.TryCreate(new[]{0,0,0,0},out var expected);foreach(int id in FusionCatalog.FusionIds.Where(id=>expected.ResultWeight(id)>0))StringAssert.Contains(expected.DisplayPercent(id)+"%",text);
             yield return Capture("MarcoYFuenteCorregidos",true);station.CloseMenu();game.Session.SetManualPause(false);
         }
+
+        [Test] public void VaultStairInfillClosesTheSidesBelowTheTreads()
+        {
+            var infill = station.transform.parent.Find("RellenoBajoEscalera");
+            Assert.IsNotNull(infill);
+            var collider = infill.GetComponent<MeshCollider>();
+            Assert.IsFalse(collider.isTrigger);
+            Assert.AreSame(infill.GetComponent<MeshFilter>().sharedMesh, collider.sharedMesh);
+            Assert.AreEqual("ParedCueva", infill.GetComponent<MeshRenderer>().sharedMaterial.name);
+
+            foreach (float z in new[] { 4f, 7f, 10f, 13f, 14.8f })
+            {
+                float tread = ArenaSurface.Height(new Vector3(160f, 0f, z));
+                Assert.IsTrue(collider.Raycast(new Ray(new Vector3(160f, 6f, z), Vector3.down), out var roof, 7f));
+                Assert.That(roof.point.y, Is.InRange(tread - .5f, tread - .02f), "Rock top under tread at " + z);
+                foreach (float y in new[] { .1f, roof.point.y - .2f })
+                {
+                    Assert.IsTrue(collider.Raycast(new Ray(new Vector3(165f, y, z), Vector3.left), out _, 2f));
+                    Assert.IsTrue(collider.Raycast(new Ray(new Vector3(155f, y, z), Vector3.right), out _, 2f));
+                }
+            }
+        }
+
+
+        [UnityTest] public IEnumerator VaultWallClosesOpeningBesideTheStairs()
+        {
+            var travel = Object.FindAnyObjectByType<WarehouseTravel>();
+            Assert.IsTrue(travel.TryTravel(false, game.Player));
+            var body = game.Player.GetComponent<Rigidbody>();
+            var start = new Vector3(164.7f, 1f, 13.1f);
+            PlacePlayer(start);
+            yield return new WaitForFixedUpdate();
+
+            Assert.IsTrue(Physics.Raycast(start, Vector3.forward, out var hit, 3f,
+                1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore));
+            Assert.AreEqual("ParedCueva", hit.collider.name);
+            Assert.IsNotNull(hit.collider.GetComponentInChildren<MeshRenderer>());
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W));
+            for (int i = 0; i < 36; i++)
+            {
+                yield return new WaitForFixedUpdate();
+                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f));
+                Assert.Less(body.position.z, hit.point.z, "The rock must stop walking into the old opening.");
+            }
+            Assert.Greater(body.position.z, start.z + .4f, "The player must reach the new rock face.");
+
+            bool dashed = false;
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W, Key.Space));
+            for (int i = 0; i < 24; i++)
+            {
+                yield return new WaitForFixedUpdate();
+                dashed |= game.Motor.IsDashing;
+                Assert.That(body.position.y, Is.EqualTo(start.y).Within(.15f));
+                Assert.Less(body.position.z, hit.point.z, "The rock must stop dashing into the old opening.");
+            }
+            Assert.IsTrue(dashed);
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S));
+            for (int i = 0; i < 40 && body.position.z >= start.z; i++)
+                yield return new WaitForFixedUpdate();
+            Assert.Less(body.position.z, start.z, "The player must be able to back away from the rock.");
+        }
+
         [UnityTest] public IEnumerator VaultLayoutSupportsTravelStairsAndFusion()
         {
             var travel=Object.FindAnyObjectByType<WarehouseTravel>();
             Assert.IsTrue(travel.TryTravel(false,game.Player));yield return new WaitForFixedUpdate();
             Assert.IsTrue(game.Session.IsInWarehouse);Assert.Greater(station.transform.position.x,150);
-            Assert.AreEqual(10,station.DisplaySlots.Length);
+            Assert.That(Vector3.Distance(station.transform.position, new Vector3(189f, 0f, 28.88f)), Is.LessThan(0.05f));
+            Assert.AreEqual(18,station.DisplaySlots.Length);
             Bounds capsule=GameObject.Find("Capsula_7").GetComponent<Collider>().bounds;
             Bounds stairEdge=GameObject.Find("BordeEscaleraDerecho").GetComponent<Collider>().bounds;
             Assert.IsFalse(capsule.Intersects(stairEdge));
@@ -446,7 +516,7 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator EAtGalleryOpensReleaseAndEscapeCancelsWithoutChangingInventory()
         {
             station.ResetCollection();station.Progress.owned[0]=1;station.RefreshDisplays();Object.FindAnyObjectByType<WarehouseTravel>().PlaceInWarehouse(true);
-            var p=ArenaSurface.OnGround(station.DisplaySlots[3].position+Vector3.back*3,1);game.Player.transform.position=p;game.Player.GetComponent<Rigidbody>().position=p;Physics.SyncTransforms();yield return null;
+            var p=ArenaSurface.OnGround(station.DisplaySlots[3].position - station.DisplaySlots[3].forward * 3f,1);game.Player.transform.position=p;game.Player.GetComponent<Rigidbody>().position=p;Physics.SyncTransforms();yield return null;
             var release=station.GetComponent<VaultReleaseInteraction>();Assert.AreEqual(3,release.NearestSlot);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.E));yield return null;yield return null;Assert.IsTrue(release.IsOpen);Assert.IsFalse(station.IsMenuOpen);Assert.IsFalse(station.GetComponent<CompanionSystem>().IsOpen);
             InputSystem.QueueStateEvent(keyboard,new KeyboardState());yield return null;InputSystem.QueueStateEvent(keyboard,new KeyboardState(Key.Escape));yield return null;yield return null;Assert.IsFalse(release.IsOpen);Assert.AreEqual(1,station.Progress.owned[0]);
@@ -496,7 +566,7 @@ namespace EchoScrap.Tests
             Assert.AreEqual(-1, station.Progress.equipped[0]);
 
             var release = station.GetComponent<VaultReleaseInteraction>();
-            PlacePlayer(ArenaSurface.OnGround(station.DisplaySlots[3].position + Vector3.back * 3f, 1f));
+            PlacePlayer(ArenaSurface.OnGround(station.DisplaySlots[3].position - station.DisplaySlots[3].forward * 3f, 1f));
             yield return null;
             yield return PressPad(GamepadButton.West);
             Assert.IsTrue(release.IsOpen);
@@ -534,8 +604,8 @@ namespace EchoScrap.Tests
         [UnityTest] public IEnumerator VaultMachineInCentralAisleAndIndexByRarity()
         {
             var floor = station.transform.parent.Find("SueloContinuo");
-            Assert.That(station.transform.position.x, Is.EqualTo(floor.position.x).Within(.05f));
-            Assert.That(station.transform.position.z, Is.EqualTo(floor.position.z + 6f).Within(.05f));
+            Assert.That(station.transform.position.x, Is.EqualTo(floor.position.x + 9f).Within(.05f));
+            Assert.That(station.transform.position.z, Is.EqualTo(floor.position.z + 28.88f).Within(.05f));
             Assert.Less(station.InteractionPoint.position.z,station.transform.position.z);
             station.ResetCollection();
             station.Progress.TryCollect(0);
@@ -626,6 +696,14 @@ namespace EchoScrap.Tests
             var cards=canvas.GetComponentsInChildren<RectTransform>().Where(t=>t.name.StartsWith("CartaBoveda_")).ToArray();
             Assert.AreEqual(10,cards.Length);
             foreach(var card in cards) Assert.That(-card.anchoredPosition.y+card.rect.height,Is.LessThanOrEqualTo(766));
+            while(station.Progress.HasSpace) Assert.IsTrue(station.Progress.TryCollect(6));
+            index.Refresh(true);
+            Assert.AreEqual(18,index.VisibleVaultCardsCount);
+            var vaultScroll=book.Find("SeccionEnTuBoveda/VistaBoveda").GetComponent<UnityEngine.UI.ScrollRect>();
+            Assert.IsNotNull(vaultScroll);
+            Assert.IsTrue(vaultScroll.vertical);
+            cards=canvas.GetComponentsInChildren<RectTransform>().Where(t=>t.name.StartsWith("CartaBoveda_")).ToArray();
+            Assert.AreEqual(18,cards.Length);
             yield return Capture("IndiceTuBoveda",true,false,canvas);
             var close = book.Find("CerrarIndice").GetComponent<UnityEngine.UI.Button>();
             Assert.AreEqual("X   CERRAR · [I]",close.GetComponentInChildren<UnityEngine.UI.Text>().text);

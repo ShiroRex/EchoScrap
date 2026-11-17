@@ -183,8 +183,9 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
         void IntegrateLantern(float3 ray, float maximumDistance, inout float3 scattering)
         {
             if (_EchoArenaLanternLightIndex < 0 || _EchoArenaLanternColor.w <= 0) return;
+            float3 axis = normalize(_EchoArenaLanternDirection.xyz);
             float enter, leave;
-            if (!ConeInterval(ray, _EchoArenaLanternPosition.xyz, normalize(_EchoArenaLanternDirection.xyz),
+            if (!ConeInterval(ray, _EchoArenaLanternPosition.xyz, axis,
                 _EchoArenaLanternDirection.w, _EchoArenaLanternPosition.w, maximumDistance, enter, leave)) return;
             // Sample the short light interval independently of the distant atmosphere.
             // A camera-wide march could skip the whole beam as the camera moved.
@@ -196,9 +197,11 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
                 float3 fromLantern = position - _EchoArenaLanternPosition.xyz;
                 float distanceToLight = max(.05, length(fromLantern));
                 float cone = smoothstep(_EchoArenaLanternDirection.w, min(.999, _EchoArenaLanternDirection.w + .08),
-                    dot(fromLantern / distanceToLight, normalize(_EchoArenaLanternDirection.xyz)));
+                    dot(fromLantern / distanceToLight, axis));
                 float attenuation = saturate(1 - distanceToLight / max(.1, _EchoArenaLanternPosition.w));
+                if (cone == 0 || attenuation == 0) continue;
                 float density = DensityAt(position);
+                if (density == 0) continue;
                 float shadow = AdditionalShadow(_EchoArenaLanternLightIndex, position);
                 float transmission = exp(-density * (enter + (sampleIndex + .5) * segment));
                 scattering += transmission * (1-exp(-density * segment)) * _EchoArenaLanternColor.rgb
@@ -227,6 +230,9 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
             int count = clamp(_EchoArenaRaymarchSteps, 16, 48);
             float transmission = 1;
             float3 scattering = 0;
+            Light sun = GetMainLight();
+            float sunPhase = .22 + .18 * pow(saturate(dot(-ray, sun.direction)), 3);
+            float3 ambient = _EchoArenaAtmosphereColor.rgb * _EchoArenaScattering.x;
             [loop] for (int step = 0; step < count; step++)
             {
                 // Smaller intervals near the ground preserve thin mist banks at half resolution.
@@ -238,10 +244,8 @@ Shader "Hidden/EchoScrap/ArenaAtmosphere"
                 float density = DensityAt(position);
                 if (density < .00001) continue;
                 float extinction = 1 - exp(-density * segment);
-                Light sun = GetMainLight(TransformWorldToShadowCoord(position));
-                float sunPhase = .22 + .18 * pow(saturate(dot(-ray, sun.direction)), 3);
-                float3 illumination = _EchoArenaAtmosphereColor.rgb * _EchoArenaScattering.x
-                    + sun.color * sun.shadowAttenuation * _EchoArenaAtmosphereColor.rgb * sunPhase;
+                half shadow = MainLightRealtimeShadow(TransformWorldToShadowCoord(position));
+                float3 illumination = ambient + sun.color * shadow * _EchoArenaAtmosphereColor.rgb * sunPhase;
                 scattering += transmission * extinction * illumination;
                 transmission *= 1 - extinction;
                 if (transmission < .015) break;

@@ -26,6 +26,7 @@ namespace EchoScrap.Combat
         private FusionStation station;
         private CombatGameBootstrap game;
         private CompanionView view;
+        private VaultReleaseInteraction releaseInteraction;
         private CollectiblePickupFeedback pickupFeedback;
         private Material pickupSparkMaterial;
         private float elapsed;
@@ -42,7 +43,7 @@ namespace EchoScrap.Combat
                 return slot;
             }
         }
-        public bool CanEquip => (GetComponent<VaultReleaseInteraction>()?.NearestSlot??-1)<3 && NearestSlot>=0 && (!IsOpen || NearestSlot==SelectedSlot);
+        public bool CanEquip => NearestSlot >= 0 && (!IsOpen || NearestSlot == SelectedSlot) && ((releaseInteraction != null ? releaseInteraction : (releaseInteraction = GetComponent<VaultReleaseInteraction>()))?.NearestSlot ?? -1) < 3;
         public bool CanCollect => NearestPickup()>=0;
         public int PickupId(int index)=>index>=0&&index<pickups.Count?pickups[index].Id:-1;
         public Vector3 PickupPosition(int index)=>index>=0&&index<pickups.Count?pickups[index].Ground:Vector3.zero;
@@ -51,6 +52,7 @@ namespace EchoScrap.Combat
         public void Initialize(FusionStation owner, CombatGameBootstrap bootstrap)
         {
             station=owner;game=bootstrap;
+            releaseInteraction=GetComponent<VaultReleaseInteraction>();
             Abilities=game.Player.gameObject.AddComponent<CompanionPowerRuntime>();Abilities.Initialize(game);
             view=gameObject.AddComponent<CompanionView>();view.Build(this,station,game);
             pickupFeedback=GetComponentInChildren<CollectiblePickupFeedback>();
@@ -99,7 +101,7 @@ namespace EchoScrap.Combat
         {
             game.Stats.SetCompanionUpgrades(System.Array.Empty<UpgradeId>());
             Abilities.SetEquipment(station.Progress.equipped);
-            station.RefreshDisplays();if(view!=null)view.Refresh();
+            station.RefreshDisplays();if(view!=null)view.RefreshEquipment();
         }
         private void ResetRun() { elapsed=0;ClearPickups();view.ClearAnnouncement();Close();RefreshEquipment(); }
         public void Advance(float seconds)
@@ -114,16 +116,20 @@ namespace EchoScrap.Combat
                 if (animateSparks && p.Sparks != null) p.Sparks.Simulate(seconds, false, false, false);
             }
             elapsed+=seconds;
-            while(elapsed>=SpawnInterval){elapsed-=SpawnInterval;int count=Random.Range(1,4);
-                for(int i=0;i<count&&pickups.Count<PickupCapacity;i++)TrySpawn(RollSpawn(Random.Range(0,100)));
+            var combatRng = game != null && game.Session != null ? game.Session.Rng.Combat : null;
+            while(elapsed>=SpawnInterval){elapsed-=SpawnInterval;int count=combatRng!=null?combatRng.Range(1,4):Random.Range(1,4);
+                for(int i=0;i<count&&pickups.Count<PickupCapacity;i++)TrySpawn(RollSpawn(combatRng!=null?combatRng.Range(0,100):Random.Range(0,100)));
             }
         }
         public bool TrySpawn(int id)
         {
             if(!FusionCatalog.CanSpawn(id)||pickups.Count>=PickupCapacity||game.Session.IsInWarehouse||game.Session.IsPaused||game.Session.State!=SessionState.Running)return false;
+            var combatRng = game != null && game.Session != null ? game.Session.Rng.Combat : null;
             for(int attempt=0;attempt<64;attempt++){
                 float limit=(ArenaSurface.Active!=null?ArenaSurface.Active.WorldSize:200)*.5f-4;
-                var p=new Vector3(Random.Range(-limit,limit),0,Random.Range(-limit,limit));
+                var p=combatRng!=null
+                    ?new Vector3(combatRng.Range(-limit,limit),0,combatRng.Range(-limit,limit))
+                    :new Vector3(Random.Range(-limit,limit),0,Random.Range(-limit,limit));
                 if(Mathf.Abs(p.x)<8 && p.z>58)continue; // Keep the portal trench and stairs clear.
                 p=ArenaSurface.OnGround(p,1);
                 if(pickups.Any(item=>Vector3.Distance(item.Ground,p)<4))continue;
@@ -133,6 +139,7 @@ namespace EchoScrap.Combat
                 if(blocked)continue;
                 var o=new GameObject("ColeccionableArena_"+FusionCatalog.Names[id]);o.transform.position=p-Vector3.up*.85f;
                 var display = o.AddComponent<CollectibleDisplay>();
+                display.Bind(game, CollectibleDisplayScope.CombatPickup);
                 display.Configure(id, 2.2f, true);
                 display.SetPickupTimeRemaining(PickupLifetime);
 
@@ -241,11 +248,13 @@ namespace EchoScrap.Combat
         {
             int index=NearestPickup();if(index<0)return false;
             var item=pickups[index];
-            if(!station.Progress.HasSpace){pickupFeedback.Reject();return false;}
+            if(!station.Progress.HasSpace){station.CollectFromArena(item.Id);pickupFeedback.Reject();return false;}
             bool isNew = !station.Progress.IsDiscovered(item.Id);
             if(!station.CollectFromArena(item.Id))return false;
             RemovePickup(index);
             view.AnnounceCollected(item.Id, isNew);
+            if (game != null && game.Flow != null && game.Flow.State == GameFlowState.Expedition)
+                ExpeditionSnapshotService.CaptureAndSave(game, station);
             return true;
         }
         private void RemovePickup(int index)
@@ -269,6 +278,72 @@ namespace EchoScrap.Combat
             game.Session.SessionReset -= ResetRun;
             game.Session.Effects.OnPreferencesChanged -= RefreshPickupSparks;
             game.Session.Clock.SetPause(PauseReason.CompanionMenu, false);
+        }
+
+        internal CompanionFieldSnapshot CaptureSnapshot()
+        {
+            var snapshot = new CompanionFieldSnapshot
+            {
+                elapsed = elapsed
+            };
+            for (int i = 0; i < pickups.Count; i++)
+            {
+                Pickup pickup = pickups[i];
+                if (pickup == null) continue;
+                snapshot.pickups.Add(new CompanionPickupSnapshot
+                {
+                    id = pickup.Id,
+                    ground = pickup.Ground,
+                    life = pickup.Life
+                });
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(CompanionFieldSnapshot snapshot)
+        {
+            ClearPickups();
+            if (view != null) view.ClearAnnouncement();
+            Close();
+            RefreshEquipment();
+            if (snapshot == null)
+            {
+                elapsed = 0f;
+                return;
+            }
+            elapsed = Mathf.Max(0f, snapshot.elapsed);
+            if (snapshot.pickups == null) return;
+            for (int i = 0; i < snapshot.pickups.Count; i++)
+            {
+                CompanionPickupSnapshot item = snapshot.pickups[i];
+                if (!FusionCatalog.Valid(item.id)) continue;
+                var o = new GameObject("ColeccionableArena_" + FusionCatalog.Names[item.id]);
+                o.transform.position = item.ground;
+                var display = o.AddComponent<CollectibleDisplay>();
+                display.Bind(game, CollectibleDisplayScope.CombatPickup);
+                display.Configure(item.id, 2.2f, true);
+                display.SetPickupTimeRemaining(Mathf.Clamp(item.life, 0.01f, PickupLifetime));
+
+                int rarity = (int)FusionCatalog.Rarities[item.id];
+                var glow = o.AddComponent<CombatGlowSource>();
+                glow.Color = FusionCatalog.ColorOf(item.id);
+                glow.Offset = Vector3.up * 1.1f;
+                glow.Range = 3.2f + rarity * .65f;
+                glow.Intensity = 1.5f + rarity * .85f;
+                glow.Priority = 2f + rarity * .5f;
+                if (game != null) glow.Bind(game.Session);
+
+                var pickup = new Pickup
+                {
+                    Id = item.id,
+                    Display = display,
+                    Ground = item.ground,
+                    Life = Mathf.Clamp(item.life, 0.01f, PickupLifetime)
+                };
+                if (rarity == (int)CollectibleRarity.Epic || rarity == (int)CollectibleRarity.Legendary)
+                    pickup.Sparks = CreatePickupSparks(o.transform, item.id, rarity == (int)CollectibleRarity.Legendary);
+                pickups.Add(pickup);
+            }
         }
     }
 }

@@ -10,6 +10,7 @@ namespace EchoScrap.Combat
     {
         private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
         private static readonly int GlowStrengthId = Shader.PropertyToID("_GlowStrength");
         private static readonly int StatusTintId = Shader.PropertyToID("_StatusTint");
         private static readonly int StatusAmountId = Shader.PropertyToID("_StatusAmount");
@@ -21,6 +22,18 @@ namespace EchoScrap.Combat
         private CombatGlowSource glow;
         private MaterialPropertyBlock properties;
         private float clock;
+        private CharacterSpriteSet.Clip appliedClip;
+        private int appliedFrame = -1;
+        private uint appliedRevision = uint.MaxValue;
+        private bool appliedFlash;
+        private float appliedGlowStrength = -1f;
+        private bool hasShadowCache;
+        private float lastShadowX, lastShadowZ;
+        private Vector3 lastShadowPos;
+        private Quaternion lastShadowRot;
+        private Vector3 lastAppliedLocalScale;
+        private Vector3 lastScaleCheckParent = new Vector3(-1f, -1f, -1f);
+        private float lastScaleCheckTarget = -1f;
         public CharacterFacing Facing { get; private set; }
         public int FrameIndex { get; private set; }
         public bool IsPrimed => fuse != null && fuse.IsPrimed;
@@ -48,7 +61,10 @@ namespace EchoScrap.Combat
             }
             pixels.sharedMaterial = sprites.material;
             glow.Bind(actor.Session);
+            properties.Clear();
             clock = 0f; Facing = CharacterFacing.Down; FrameIndex = 0;
+            appliedClip = null; appliedFrame = -1; appliedRevision = uint.MaxValue; appliedFlash = false; appliedGlowStrength = -1f;
+            hasShadowCache = false; lastScaleCheckTarget = -1f;
             Advance(0f);
         }
 
@@ -61,31 +77,65 @@ namespace EchoScrap.Combat
             if (!paused && !actor.VisualComposer.IsHitStopActive) clock += Mathf.Max(0f, delta);
             Facing = CollectorSpriteView.ResolveFacing(actor.FacingDirection,
                 viewCamera != null ? viewCamera.transform.rotation : Quaternion.Euler(60f, 0f, 0f), Facing, 0.12f);
-            CharacterSpriteSet.Clip clip = sprites.GetClip(IsPrimed, Facing);
-            float time = IsPrimed ? fuse.FuseProgress * clip.Duration + 0.00001f : clock;
+            bool primed = IsPrimed;
+            CharacterSpriteSet.Clip clip = sprites.GetClip(primed, Facing);
+            float time = primed ? fuse.FuseProgress * clip.Duration + 0.00001f : clock;
             FrameIndex = clip.FrameAt(time);
-            pixels.GetPropertyBlock(properties);
-            properties.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
-            // The old fuse blink belongs to placeholder meshes; the reactor communicates urgency through its core.
-            if (!actor.VisualComposer.IsFlashActive) properties.SetColor(BaseColorId, Color.white);
+            uint revision = actor.VisualComposer.RendererPropertyRevision;
+            bool flash = actor.VisualComposer.IsFlashActive;
             Color status = actor.VisualComposer.StatusTint;
-            properties.SetColor(StatusTintId, status);
-            properties.SetFloat(StatusAmountId, !actor.VisualComposer.IsFlashActive && status != Color.white ? .9f : 0f);
-            glow.Color = status != Color.white ? status : new Color(1f, .48f, .12f);
             bool reduced = actor.Session != null && actor.Session.Effects.ReducedEffectsMode;
-            float pulse = reduced || paused ? 1f : 1f + 0.12f * Mathf.Sin(clock * (IsPrimed ? 24f : 5f));
-            float strength = (IsPrimed ? Mathf.Lerp(1.2f, 2.8f, fuse.FuseProgress) : 0.9f) * pulse;
-            properties.SetFloat(GlowStrengthId, strength);
-            pixels.SetPropertyBlock(properties);
+            float pulse = reduced || paused ? 1f : 1f + 0.12f * Mathf.Sin(clock * (primed ? 24f : 5f));
+            float strength = (primed ? Mathf.Lerp(1.2f, 2.8f, fuse.FuseProgress) : 0.9f) * pulse;
+            bool baseDirty = appliedClip != clip || appliedFrame != FrameIndex || appliedRevision != revision || appliedFlash != flash;
+            bool strengthDirty = Mathf.Abs(strength - appliedGlowStrength) > 0.01f;
+            if (baseDirty || strengthDirty)
+            {
+                if (baseDirty)
+                {
+                    appliedClip = clip;
+                    appliedFrame = FrameIndex;
+                    appliedRevision = revision;
+                    appliedFlash = flash;
+                    pixels.GetPropertyBlock(properties);
+                    if (!flash)
+                    {
+                        properties.SetColor(BaseColorId, Color.white);
+                        properties.SetColor(EmissionColorId, Color.clear);
+                    }
+                    properties.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
+                    // The old fuse blink belongs to placeholder meshes; the reactor communicates urgency through its core.
+                    properties.SetColor(StatusTintId, status);
+                    properties.SetFloat(StatusAmountId, !flash && status != Color.white ? .9f : 0f);
+                }
+                appliedGlowStrength = strength;
+                properties.SetFloat(GlowStrengthId, strength);
+                pixels.SetPropertyBlock(properties);
+            }
+            glow.Color = status != Color.white ? status : new Color(1f, .48f, .12f);
             // A physical upright plane, with a floating shadow on the floor; no camera pitch billboard.
+            pixels.transform.SetPositionAndRotation(actor.VisualComposer.PresentationPivot.position + Vector3.up * 0.65f, Quaternion.identity);
             Vector3 parentScale = pixels.transform.parent.lossyScale;
             float scale = actor.Archetype.VisualScale.x;
-            pixels.transform.SetPositionAndRotation(actor.VisualComposer.PresentationPivot.position + Vector3.up * 0.65f, Quaternion.identity);
-            pixels.transform.localScale = new Vector3(scale / parentScale.x, scale / parentScale.y, scale / parentScale.z);
-            shadow.transform.position = ArenaSurface.OnGround(transform.position, .035f);
-            shadow.transform.rotation = Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(transform.position));
-            glow.Intensity = (IsPrimed ? 2.1f : 1.25f) * pulse;
-            glow.Priority = IsPrimed ? 2f : 1f;
+            if (parentScale != lastScaleCheckParent || scale != lastScaleCheckTarget)
+            {
+                lastScaleCheckParent = parentScale;
+                lastScaleCheckTarget = scale;
+                lastAppliedLocalScale = new Vector3(scale / parentScale.x, scale / parentScale.y, scale / parentScale.z);
+                pixels.transform.localScale = lastAppliedLocalScale;
+            }
+            Vector3 rootPos = transform.position;
+            if (!hasShadowCache || Mathf.Abs(rootPos.x - lastShadowX) > 0.005f || Mathf.Abs(rootPos.z - lastShadowZ) > 0.005f)
+            {
+                hasShadowCache = true;
+                lastShadowX = rootPos.x;
+                lastShadowZ = rootPos.z;
+                lastShadowPos = ArenaSurface.OnGround(rootPos, .035f);
+                lastShadowRot = Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(rootPos));
+                shadow.transform.SetPositionAndRotation(lastShadowPos, lastShadowRot);
+            }
+            glow.Intensity = (primed ? 2.1f : 1.25f) * pulse;
+            glow.Priority = primed ? 2f : 1f;
         }
 
         internal static MeshRenderer CreateRenderer(string name, Transform parent, Mesh mesh, Material material)

@@ -74,7 +74,7 @@ namespace EchoScrap.Combat
     [Serializable]
     public sealed class FusionProgress
     {
-        public const int Capacity=10;
+        public const int Capacity=18;
         // Equipped copies already belong to owned; count each unit once, including duplicates.
         public int OwnedCount { get { long total=0;if(owned!=null)foreach(int count in owned)total+=Math.Max(0,count);return (int)Math.Min(int.MaxValue,total); } }
         public int DiscoveredCount { get { int total=0;for(int i=0;i<FusionCatalog.Count;i++)if(IsDiscovered(i))total++;return total; } }
@@ -88,7 +88,7 @@ namespace EchoScrap.Combat
             discovered[id]=true;
             return true;
         }
-        public int version=4;
+        public int version=5;
         public bool hasEquippedCompanion;
         public int[] equipped={-1,-1,-1};
         public FusionPhase phase;
@@ -96,7 +96,7 @@ namespace EchoScrap.Combat
         public int result=-1;
         public int[] owned=new int[FusionCatalog.Count];
         public bool[] discovered=new bool[FusionCatalog.Count];
-        public int[] displays={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+        public int[] displays=Enumerable.Repeat(-1,Capacity).ToArray();
         public int Available(int id)=>FusionCatalog.Valid(id)?Mathf.Max(0,owned[id]-equipped.Count(value=>value==id)):0;
         public bool CanBegin(int[] ingredients, int[] equipmentSlots = null)
         {
@@ -161,13 +161,14 @@ namespace EchoScrap.Combat
             if(owned.Length!=FusionCatalog.Count)Array.Resize(ref owned,FusionCatalog.Count);
             if(discovered==null||discovered.Length!=FusionCatalog.Count)Array.Resize(ref discovered,FusionCatalog.Count);
             for(int i=0;i<owned.Length;i++){owned[i]=Mathf.Max(0,owned[i]);if(owned[i]>0)discovered[i]=true;}
-            if(displays==null||displays.Length!=10)displays=Enumerable.Repeat(-1,10).ToArray();
+            if(displays==null)displays=Enumerable.Repeat(-1,Capacity).ToArray();
+            else if(displays.Length!=Capacity){int prev=displays.Length;Array.Resize(ref displays,Capacity);for(int i=prev;i<Capacity;i++)displays[i]=-1;}
             for(int i=0;i<displays.Length;i++)if(!FusionCatalog.Valid(displays[i])||owned[displays[i]]==0)displays[i]=-1;
             if(phase<FusionPhase.Idle||phase>FusionPhase.Ready||(phase!=FusionPhase.Idle&&!FusionCatalog.Valid(result))){phase=FusionPhase.Idle;result=-1;}
             if(equipped==null||equipped.Length!=3)equipped=new[]{-1,-1,-1};var used=new int[FusionCatalog.Count];
             for(int i=0;i<3;i++){int id=equipped[i];if(!FusionCatalog.Valid(id)||++used[id]>owned[id])equipped[i]=-1;else discovered[id]=true;}
             hasEquippedCompanion |= Array.Exists(equipped, FusionCatalog.Valid);
-            version = 4;
+            version = 5;
             duration = phase == FusionPhase.Idle ? 0f : FusionRecipe.FusionSeconds;
             if (float.IsNaN(remaining) || float.IsInfinity(remaining)) remaining = duration;
             remaining = phase == FusionPhase.Fusing ? Mathf.Clamp(remaining, 0f, duration) : 0f;

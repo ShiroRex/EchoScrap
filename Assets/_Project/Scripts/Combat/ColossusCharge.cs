@@ -60,7 +60,7 @@ namespace EchoScrap.Combat
             phaseTime = 0f;
             LockedDirection = actor.FacingDirection;
             ChargesStarted = WallStops = PlayerHitAttempts = 0;
-            CooldownRemaining = NextCooldown();
+            CooldownRemaining = EnemyActor.SuppressSpawnRngDuringRestore ? settings.CooldownMin : NextCooldown();
             presentation.ResetPresentation();
         }
 
@@ -182,6 +182,43 @@ namespace EchoScrap.Combat
             State = ColossusChargeState.Pursuit;
             phaseTime = 0f;
             presentation?.ResetPresentation();
+        }
+
+        internal void CaptureSnapshot(EnemySnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            snapshot.hasColossusCharge = true;
+            snapshot.colossusState = (int)State;
+            snapshot.colossusPhaseTime = phaseTime;
+            snapshot.colossusLockedDirection = LockedDirection;
+            snapshot.colossusWarningOrigin = WarningOrigin;
+            snapshot.colossusWarningDistance = WarningDistance;
+            snapshot.colossusCooldownRemaining = CooldownRemaining;
+            snapshot.colossusChargesStarted = ChargesStarted;
+            snapshot.colossusWallStops = WallStops;
+            snapshot.colossusPlayerHitAttempts = PlayerHitAttempts;
+        }
+
+        internal void RestoreFromSnapshot(EnemySnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.hasColossusCharge) return;
+            State = (ColossusChargeState)snapshot.colossusState;
+            phaseTime = Mathf.Max(0f, snapshot.colossusPhaseTime);
+            LockedDirection = snapshot.colossusLockedDirection.sqrMagnitude > 0.0001f
+                ? snapshot.colossusLockedDirection.normalized
+                : (actor != null ? actor.FacingDirection : Vector3.forward);
+            WarningOrigin = snapshot.colossusWarningOrigin;
+            WarningDistance = snapshot.colossusWarningDistance;
+            CooldownRemaining = Mathf.Max(0f, snapshot.colossusCooldownRemaining);
+            ChargesStarted = Mathf.Max(0, snapshot.colossusChargesStarted);
+            WallStops = Mathf.Max(0, snapshot.colossusWallStops);
+            PlayerHitAttempts = Mathf.Max(0, snapshot.colossusPlayerHitAttempts);
+            if (presentation != null)
+            {
+                if (State == ColossusChargeState.Windup) presentation.BeginWarning();
+                else if (State == ColossusChargeState.Charging) presentation.BeginCharge();
+                else presentation.ResetPresentation();
+            }
         }
     }
 }

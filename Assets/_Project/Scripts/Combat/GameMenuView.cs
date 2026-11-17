@@ -44,19 +44,44 @@ namespace EchoScrap.Combat
         private MenuBackdrop backdrop;
         private Text status;
         private InputField confirmNameInput;
+        private Text acceptButtonLabel;
+        private GameObject slotSelector;
+        private Text slotHeaderTitle, slotHeaderSubtitle;
+        private Button slotBackButton;
+        private SlotCardUi[] slotCards;
+        private int lastHighlightedSlot = -1;
+        private string lastUiFocusGroup = "";
+
+        private sealed class SlotCardUi
+        {
+            public Button Button;
+            public GameObject FocusFrame;
+            public Text Number;
+            public Text PlayerName;
+            public Image StatusBadge;
+            public Text StatusText;
+            public Text Collectibles;
+            public Text PlayTime;
+            public Text Hint;
+        }
+
         public string PlayerName => EventLeaderboardSync.PlayerName;
         public string ConfirmedPlayerName => confirmNameInput != null ? confirmNameInput.text : "";
         public InputField ConfirmNameInput => confirmNameInput;
         public Canvas Canvas { get; private set; }
         public Button ContinueButton => continueButton;
         public Button NewCollectionButton => newButton;
+        public Button NewGameButton => newButton;
         public Button StartButton => startButton;
         public Button CancelButton => cancelButton;
         public Button AcceptButton => acceptButton;
+        public Button SlotBackButton => slotBackButton;
+        public Button SlotCardButton(int index) => slotCards != null && index >= 0 && index < slotCards.Length ? slotCards[index].Button : null;
         public Button DemoRoundButton => demoButton;
         public Button CompleteRoundButton => completeButton;
         public Button ExitExpeditionButton => exitExpeditionButton;
         public bool IsExpeditionSelectionVisible => expeditionSelection != null && expeditionSelection.activeSelf;
+        public bool IsSlotSelectorVisible => slotSelector != null && slotSelector.activeSelf;
         public bool IsTitleVisible => title != null && title.activeSelf;
         public bool IsVaultVisible => vault != null && vault.activeSelf;
         public bool IsConfirmationVisible => confirmation != null && confirmation.activeSelf;
@@ -84,11 +109,14 @@ namespace EchoScrap.Combat
                 var frame = Frame(title.transform, "TitleFrame");
                 frame.sizeDelta = new Vector2(552, 408);
                 backdrop.PlaceMenuPanel(frame);
-                Rect(title.transform, "LogoReservedArea", new Vector2(0, 420), new Vector2(640, 180));
+                frame.anchoredPosition = new Vector2(0, -76);
+                BuildStartLogo(title.transform);
                 continueButton = ButtonAt(frame, "Continue", "CONTINUAR", new Vector2(0, 123), new Vector2(336, 72), artwork.Green, flow.ContinueCollection);
-                newButton = ButtonAt(frame, "NewCollection", "NUEVA COLECCIÓN", new Vector2(0, 41), new Vector2(336, 72), artwork.Blue, flow.RequestNewCollection);
+                continueButton.interactable = false;
+                newButton = ButtonAt(frame, "NewCollection", "NUEVA PARTIDA", new Vector2(0, 41), new Vector2(336, 72), artwork.Blue, flow.RequestNewCollection);
                 settingsButton = ButtonAt(frame, "Settings", "CONFIGURACIÓN", new Vector2(0, -41), new Vector2(336, 72), artwork.Blue, flow.OpenConfiguration);
                 quitButton = ButtonAt(frame, "Quit", "SALIR", new Vector2(0, -123), new Vector2(336, 72), artwork.Red, flow.QuitGame);
+                BuildSlotSelector(root.transform);
             }
             if (game != null)
             {
@@ -127,15 +155,136 @@ namespace EchoScrap.Combat
 
             confirmation = Overlay(root.transform, "Confirmation", new Color(.025f, .035f, .055f, .94f));
             var confirmFrame = Frame(confirmation.transform, "ConfirmFrame");
-            confirmTitle = Label(confirmFrame, "", new Vector2(0, 155), new Vector2(670, 110), 34, new Color(.91f, .76f, .44f));
-            confirmMessage = Label(confirmFrame, "", new Vector2(0, 0), new Vector2(650, 170), 27, Color.white);
+            confirmTitle = Label(confirmFrame, "", new Vector2(0, 155), new Vector2(780, 110), 32, VaultGold);
+            confirmMessage = Label(confirmFrame, "", new Vector2(0, 0), new Vector2(760, 180), 25, Color.white);
             confirmNameInput = BuildPlayerNameBox(confirmFrame, "PlayerNameInput", new Vector2(0, -48), new Vector2(540, 64));
             confirmNameInput.gameObject.SetActive(false);
-            cancelButton = ButtonAt(confirmFrame, "Cancel", "CANCELAR", new Vector2(-170, -195), new Vector2(304, 112), artwork.Green, flow.CancelConfirmation);
-            acceptButton = ButtonAt(confirmFrame, "Confirm", "CONFIRMAR", new Vector2(170, -195), new Vector2(304, 112), artwork.Red, flow.AcceptConfirmation);
+            cancelButton = ButtonAt(confirmFrame, "Cancel", "CANCELAR", new Vector2(-180, -195), new Vector2(320, 112), artwork.Green, flow.CancelConfirmation);
+            acceptButton = ButtonAt(confirmFrame, "Confirm", "CONFIRMAR", new Vector2(180, -195), new Vector2(320, 112), artwork.Red, flow.AcceptConfirmation);
+            acceptButtonLabel = acceptButton.GetComponentInChildren<Text>();
             Link(cancelButton, acceptButton, acceptButton); Link(acceptButton, cancelButton, cancelButton);
             confirmation.SetActive(false);
-            status = Label(root.transform, "", new Vector2(0, -440), new Vector2(900, 56), 24, Color.white);
+            status = Label(root.transform, "", new Vector2(0, -440), new Vector2(960, 56), 24, Color.white);
+        }
+
+        private void BuildStartLogo(Transform parent)
+        {
+            var reserved = Rect(parent, "LogoReservedArea", new Vector2(0, 304), new Vector2(640, 286));
+            BuildLogoImage(reserved, "Logo", "Presentation/Logo", new Vector2(0, 60), new Vector2(100, 160));
+            BuildLogoImage(reserved, "Title", "Presentation/Title", new Vector2(0, -84), new Vector2(520, 108));
+        }
+
+        private static void BuildLogoImage(Transform parent, string objectName, string spriteKey, Vector2 position, Vector2 size)
+        {
+            var image = Rect(parent, objectName, position, size).gameObject.AddComponent<Image>();
+            image.sprite = PixelControlArtwork.Load(spriteKey);
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            image.color = Color.white;
+        }
+
+        private void BuildSlotSelector(Transform root)
+        {
+            slotSelector = Overlay(root, "SlotSelector", new Color(.02f, .03f, .05f, .84f));
+            var banner = Rect(slotSelector.transform, "Header", new Vector2(0, 304), new Vector2(820, 110));
+            VaultPlate(banner);
+            slotHeaderTitle = Label(banner, "SELECCIONAR ARCHIVO", new Vector2(0, 20), new Vector2(780, 46), 34, VaultGold);
+            slotHeaderSubtitle = Label(banner, "", new Vector2(0, -24), new Vector2(780, 34), 20, new Color(.88f, .92f, .98f));
+
+            var cardsRoot = Rect(slotSelector.transform, "Cards", Vector2.zero, new Vector2(1400, 440));
+            slotCards = new SlotCardUi[SaveSlotService.SlotCount];
+            for (int i = 0; i < SaveSlotService.SlotCount; i++)
+                slotCards[i] = BuildSlotCard(cardsRoot, i, new Vector2((i - 1) * 460f, 8f));
+
+            slotBackButton = ButtonAt(slotSelector.transform, "Back", "VOLVER", new Vector2(0, -284), new Vector2(300, 70), artwork.Red, flow.CloseSlotSelector);
+            slotSelector.SetActive(false);
+        }
+
+        private SlotCardUi BuildSlotCard(Transform parent, int slotIndex, Vector2 position)
+        {
+            var rect = Rect(parent, "Slot_" + slotIndex, position, new Vector2(424, 412));
+            var bg = rect.gameObject.AddComponent<Image>();
+            bg.sprite = artwork.Panel;
+            bg.type = Image.Type.Sliced;
+            bg.pixelsPerUnitMultiplier = 1f / 3f;
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = bg;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = colors.selectedColor = new Color(1.22f, 1.22f, 1.28f);
+            colors.pressedColor = new Color(.72f, .72f, .78f);
+            colors.disabledColor = new Color(.55f, .55f, .60f, .78f);
+            button.colors = colors;
+            int capture = slotIndex;
+            button.onClick.AddListener(() => flow.SelectSaveSlot(capture));
+
+            var focusFrame = BuildCardFocusBorder(rect, new Vector2(424, 412));
+
+            var numberPlate = Rect(rect, "NumberPlate", new Vector2(0, 152), new Vector2(364, 46));
+            VaultPlate(numberPlate);
+            var number = Label(numberPlate, $"ARCHIVO {slotIndex + 1}", Vector2.zero, new Vector2(340, 38), 24, VaultGold);
+            number.name = "SlotNumber";
+
+            var nameText = Label(rect, "—", new Vector2(0, 92), new Vector2(376, 48), 28, Color.white);
+            nameText.name = "ProfileName";
+
+            var statusPlate = Rect(rect, "StatusPlate", new Vector2(0, 30), new Vector2(356, 44));
+            var statusBg = statusPlate.gameObject.AddComponent<Image>();
+            statusBg.sprite = Resources.Load<Sprite>("UI/Controls/Pause/Inset");
+            statusBg.type = Image.Type.Sliced;
+            statusBg.pixelsPerUnitMultiplier = .5f;
+            statusBg.raycastTarget = false;
+            var statusText = Label(statusPlate, "Vacío", Vector2.zero, new Vector2(336, 34), 21, Color.white);
+            statusText.name = "StatusText";
+
+            var collLabel = Label(rect, "COLECCIONABLES", new Vector2(-84, -34), new Vector2(204, 34), 17, new Color(.78f, .82f, .90f));
+            collLabel.alignment = TextAnchor.MiddleLeft;
+            var collectibles = Label(rect, "—/18", new Vector2(102, -34), new Vector2(148, 36), 23, VaultGold);
+            collectibles.name = "Collectibles";
+            collectibles.alignment = TextAnchor.MiddleRight;
+
+            var timeLabel = Label(rect, "TIEMPO", new Vector2(-84, -80), new Vector2(204, 34), 17, new Color(.78f, .82f, .90f));
+            timeLabel.alignment = TextAnchor.MiddleLeft;
+            var playTime = Label(rect, "00:00:00", new Vector2(102, -80), new Vector2(148, 36), 22, Color.white);
+            playTime.name = "PlayTime";
+            playTime.alignment = TextAnchor.MiddleRight;
+
+            var hintPlate = Rect(rect, "HintPlate", new Vector2(0, -148), new Vector2(320, 44));
+            VaultPlate(hintPlate);
+            var hint = Label(hintPlate, "", Vector2.zero, new Vector2(300, 34), 19, new Color(.92f, .95f, 1f));
+            hint.name = "ActionHint";
+
+            return new SlotCardUi
+            {
+                Button = button,
+                FocusFrame = focusFrame,
+                Number = number,
+                PlayerName = nameText,
+                StatusBadge = statusBg,
+                StatusText = statusText,
+                Collectibles = collectibles,
+                PlayTime = playTime,
+                Hint = hint
+            };
+        }
+
+        private static GameObject BuildCardFocusBorder(Transform parent, Vector2 size)
+        {
+            var container = Rect(parent, "FocusFrame", Vector2.zero, size);
+            void Strip(string name, Vector2 pos, Vector2 dim)
+            {
+                var img = Rect(container, name, pos, dim).gameObject.AddComponent<Image>();
+                img.color = VaultGold;
+                img.raycastTarget = false;
+            }
+            float t = 4f;
+            Strip("Top", new Vector2(0, size.y * .5f - t * .5f), new Vector2(size.x, t));
+            Strip("Bottom", new Vector2(0, -size.y * .5f + t * .5f), new Vector2(size.x, t));
+            Strip("Left", new Vector2(-size.x * .5f + t * .5f, 0), new Vector2(t, size.y));
+            Strip("Right", new Vector2(size.x * .5f - t * .5f, 0), new Vector2(t, size.y));
+            container.gameObject.SetActive(false);
+            return container.gameObject;
         }
 
         private InputField BuildPlayerNameBox(Transform parent, string name, Vector2 position, Vector2 size)
@@ -166,8 +315,10 @@ namespace EchoScrap.Combat
 
         public void Refresh()
         {
-            bool showTitle = title != null && flow.State == GameFlowState.MainMenu && !flow.IsConfiguring;
+            bool showSlots = slotSelector != null && flow.State == GameFlowState.MainMenu && !flow.IsConfiguring && !flow.IsConfirming && flow.IsSlotSelectorOpen;
+            bool showTitle = title != null && flow.State == GameFlowState.MainMenu && !flow.IsConfiguring && !showSlots;
             if (backdrop != null) backdrop.gameObject.SetActive(flow.State == GameFlowState.MainMenu);
+            if (slotSelector != null) slotSelector.SetActive(showSlots);
             if (title != null) title.SetActive(showTitle);
             confirmation.SetActive(flow.IsConfirming);
             bool selectingExpedition = (flow as GameFlowController)?.IsSelectingExpedition == true;
@@ -186,15 +337,140 @@ namespace EchoScrap.Combat
                 Link(settingsButton, newButton, quitButton);
                 Link(quitButton, settingsButton, continueButton.interactable ? continueButton : newButton);
             }
+            Button defaultSlotFocus = null;
+            if (showSlots) defaultSlotFocus = RefreshSlotSelector();
             RefreshVault();
+
+            string focusGroup = selectingExpedition ? "Expedition"
+                : flow.IsLoading ? "Loading"
+                : flow.IsConfirming ? "Confirm"
+                : showSlots ? "Slots"
+                : showTitle ? "Title"
+                : vaultVisible ? "Vault" : "None";
+            bool groupChanged = focusGroup != lastUiFocusGroup;
+            lastUiFocusGroup = focusGroup;
+
             if (selectingExpedition) Select(demoButton);
             else if (flow.IsLoading) EventSystem.current?.SetSelectedGameObject(null);
-            else if (flow.IsConfirming) Select(cancelButton);
-            else if (showTitle && !flow.IsLoading) Select(continueButton.interactable ? continueButton : newButton);
+            else if (flow.IsConfirming) { if (groupChanged) Select(cancelButton); }
+            else if (showSlots) { if (groupChanged || !IsSelectionInside(slotSelector)) Select(defaultSlotFocus ?? slotBackButton); RefreshSlotFocusVisuals(); }
+            else if (showTitle && !flow.IsLoading) { if (groupChanged || !IsSelectionInside(title)) Select(continueButton.interactable ? continueButton : newButton); }
             else if (vaultVisible) EventSystem.current?.SetSelectedGameObject(null);
         }
 
-        private void LateUpdate() => RefreshVault();
+        private Button RefreshSlotSelector()
+        {
+            SlotSelectorMode mode = flow.SlotSelectionMode;
+            slotHeaderTitle.text = mode == SlotSelectorMode.Continue ? "CONTINUAR PARTIDA" : "NUEVA PARTIDA";
+            slotHeaderSubtitle.text = mode == SlotSelectorMode.Continue
+                ? "Elige un archivo guardado válido para reanudar."
+                : "Elige un archivo vacío o selecciona uno existente para reemplazarlo.";
+
+            var summaries = SaveSlotService.GetSlotSummaries();
+            var activeCards = new Button[SaveSlotService.SlotCount];
+            for (int i = 0; i < SaveSlotService.SlotCount; i++)
+            {
+                SlotSummary s = summaries[i];
+                SlotCardUi ui = slotCards[i];
+                bool canInteract = mode == SlotSelectorMode.NewGame || s.CanInteractInContinue;
+                ui.Button.interactable = canInteract && !flow.IsLoading;
+                activeCards[i] = ui.Button.interactable ? ui.Button : null;
+                ui.PlayerName.text = s.DisplayTitle;
+                ui.StatusText.text = s.StatusLabel;
+                ui.Collectibles.text = s.CollectiblesLabel;
+                ui.PlayTime.text = s.FormattedPlayTime;
+                ui.StatusText.color = s.Health switch
+                {
+                    SlotHealth.ValidExpedition => new Color(.45f, .95f, .55f),
+                    SlotHealth.ValidVault => VaultGold,
+                    SlotHealth.ExpeditionDamagedRecoverable => new Color(1f, .64f, .24f),
+                    SlotHealth.Corrupted => new Color(1f, .38f, .38f),
+                    _ => new Color(.68f, .74f, .84f)
+                };
+                ui.Hint.text = mode == SlotSelectorMode.Continue
+                    ? (s.CanRecoverVault ? "RECUPERAR BÓVEDA" : s.CanContinue ? "CARGAR" : "NO DISPONIBLE")
+                    : (s.IsOccupied ? "REEMPLAZAR" : "CREAR");
+            }
+
+            int preferred = Mathf.Clamp(flow.GetDefaultSlotFocus(mode), 0, SaveSlotService.SlotCount - 1);
+            Button focusTarget = activeCards[preferred] ?? System.Array.Find(activeCards, b => b != null) ?? slotBackButton;
+            WireSlotNavigation(activeCards, focusTarget);
+            return focusTarget;
+        }
+
+        private void WireSlotNavigation(Button[] interactableCards, Button defaultFocus)
+        {
+            for (int i = 0; i < SaveSlotService.SlotCount; i++)
+            {
+                Button card = slotCards[i].Button;
+                if (!card.interactable)
+                {
+                    card.navigation = new Navigation { mode = Navigation.Mode.None };
+                    continue;
+                }
+                Button left = FindAdjacentInteractable(interactableCards, i, -1);
+                Button right = FindAdjacentInteractable(interactableCards, i, 1);
+                card.navigation = new Navigation
+                {
+                    mode = Navigation.Mode.Explicit,
+                    selectOnLeft = left,
+                    selectOnRight = right,
+                    selectOnUp = slotBackButton,
+                    selectOnDown = slotBackButton
+                };
+            }
+            slotBackButton.navigation = new Navigation
+            {
+                mode = Navigation.Mode.Explicit,
+                selectOnUp = defaultFocus != slotBackButton ? defaultFocus : null,
+                selectOnDown = defaultFocus != slotBackButton ? defaultFocus : null,
+                selectOnLeft = defaultFocus != slotBackButton ? defaultFocus : null,
+                selectOnRight = defaultFocus != slotBackButton ? defaultFocus : null
+            };
+        }
+
+        private static Button FindAdjacentInteractable(Button[] cards, int start, int dir)
+        {
+            for (int step = 1; step < SaveSlotService.SlotCount; step++)
+            {
+                int idx = (start + dir * step + SaveSlotService.SlotCount) % SaveSlotService.SlotCount;
+                if (cards[idx] != null) return cards[idx];
+            }
+            return cards[start];
+        }
+
+        private static bool IsSelectionInside(GameObject root)
+        {
+            var selected = EventSystem.current?.currentSelectedGameObject;
+            return selected != null && selected.activeInHierarchy && root != null && selected.transform.IsChildOf(root.transform);
+        }
+
+        private void RefreshSlotFocusVisuals()
+        {
+            if (slotCards == null || slotSelector == null || !slotSelector.activeSelf) return;
+            var selected = EventSystem.current?.currentSelectedGameObject;
+            int activeSlot = -1;
+            for (int i = 0; i < slotCards.Length; i++)
+            {
+                bool isFocused = selected != null && selected == slotCards[i].Button.gameObject;
+                if (isFocused) activeSlot = i;
+                if (slotCards[i].FocusFrame != null && slotCards[i].FocusFrame.activeSelf != isFocused)
+                    slotCards[i].FocusFrame.SetActive(isFocused);
+            }
+            if (activeSlot >= 0 && activeSlot != lastHighlightedSlot && slotBackButton != null)
+            {
+                lastHighlightedSlot = activeSlot;
+                var nav = slotBackButton.navigation;
+                nav.selectOnUp = slotCards[activeSlot].Button;
+                slotBackButton.navigation = nav;
+            }
+        }
+
+        private void LateUpdate()
+        {
+            RefreshSlotFocusVisuals();
+            RefreshVault();
+        }
         private void RefreshVault()
         {
             if (vault == null) return;
@@ -390,13 +666,17 @@ namespace EchoScrap.Combat
                 tipDots[i].color = i == tipIndex ? VaultGold : new Color(.35f, .42f, .56f);
         }
 
-        public void ShowConfirmation(string heading, string message, bool askPlayerName = false)
+        public void ShowConfirmation(string heading, string message, bool askPlayerName = false, string acceptLabel = "CONFIRMAR")
         {
             confirmTitle.text = heading; confirmMessage.text = message;
             confirmTitle.rectTransform.anchoredPosition = new Vector2(0, askPlayerName ? 185 : 155);
             confirmMessage.rectTransform.anchoredPosition = new Vector2(0, askPlayerName ? 65 : 0);
+            if (acceptButtonLabel != null)
+                acceptButtonLabel.text = string.IsNullOrEmpty(acceptLabel) ? "CONFIRMAR" : acceptLabel;
+            acceptButton.interactable = cancelButton.interactable = true;
             if (confirmNameInput != null)
             {
+                confirmNameInput.interactable = true;
                 confirmNameInput.gameObject.SetActive(askPlayerName);
                 if (askPlayerName) confirmNameInput.SetTextWithoutNotify("");
             }
@@ -405,7 +685,19 @@ namespace EchoScrap.Combat
 
         public bool IsValidatingName { get; private set; }
 
-        public void ValidateCollectionName(System.Action create)
+        public void SetConfirmationMessage(string message)
+        {
+            if (confirmMessage != null) confirmMessage.text = message;
+        }
+
+        public void ValidateCollectionName(System.Action create) => ValidateCollectionName(validated =>
+        {
+            EventLeaderboardSync.StartNewPlayerSession(validated);
+            if (!string.IsNullOrEmpty(validated)) GamertagRegistry.ForgetReceipt(validated);
+            create?.Invoke();
+        });
+
+        public void ValidateCollectionName(System.Action<string> create)
         {
             if (IsValidatingName) return;
             string name;
@@ -416,12 +708,7 @@ namespace EchoScrap.Combat
                 confirmMessage.text = "Elige un gamertag visible de hasta 20 caracteres.";
                 return;
             }
-            if (name.Length == 0) { EventLeaderboardSync.StartNewPlayerSession(""); create(); return; }
-            if (EventLeaderboardSync.NameAlreadyUsed(name))
-            {
-                confirmMessage.text = "Ese gamertag ya está en uso. Elige otro.";
-                return;
-            }
+            if (name.Length == 0) { create?.Invoke(""); return; }
             IsValidatingName = true;
             acceptButton.interactable = cancelButton.interactable = confirmNameInput.interactable = false;
             confirmMessage.text = "Comprobando disponibilidad…";
@@ -430,9 +717,7 @@ namespace EchoScrap.Combat
                 IsValidatingName = false;
                 acceptButton.interactable = cancelButton.interactable = confirmNameInput.interactable = true;
                 if (error != null) { confirmMessage.text = error; return; }
-                EventLeaderboardSync.StartNewPlayerSession(name);
-                GamertagRegistry.ForgetReceipt(name);
-                create();
+                create?.Invoke(name);
             }));
         }
 

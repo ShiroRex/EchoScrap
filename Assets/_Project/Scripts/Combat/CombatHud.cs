@@ -28,8 +28,8 @@ namespace EchoScrap.Combat
         private const float DefeatPulseDuration = 2f * DefeatPulsePeriod;
         private const float ObjectiveHintSeconds = 5f;
         private const float DashReadySeconds = 2f;
-        private const int AcquiredCardColumns = 7;
-        private const float AcquiredCardStep = 46f;
+        private const int AcquiredCardColumns = 9;
+        private const float AcquiredCardStep = 34f;
         private const float AcquiredCardRightColumn = 144f;
         private static readonly Vector2 AcquiredCardsPosition = new Vector2(-206f, 182f);
         private CombatGameBootstrap game;
@@ -107,6 +107,9 @@ namespace EchoScrap.Combat
         private bool hubMode;
         private bool pickupFeedbackVisible;
         private Text resultActionLabel;
+        private bool resultWorldHidden;
+        private Camera resultCamera;
+        private CombatReadabilityLights resultLights;
 
         public void SetHubMode(bool active)
         {
@@ -155,6 +158,7 @@ namespace EchoScrap.Combat
         private void OnDisable()
         {
             HideCardTooltip();
+            RestoreResultWorld();
             Unsubscribe();
         }
         private void OnDestroy()
@@ -209,7 +213,7 @@ namespace EchoScrap.Combat
 
         private void HandleDashRequested()
         {
-            if (!hubMode && game.Motor.DashCooldownRemaining > .0001f)
+            if (!hubMode && !game.Motor.HasReturnAnchor && game.Motor.DashCooldownRemaining > .0001f)
                 dashDeniedUntil = game.Session.GameplayTime + .6f;
         }
 
@@ -262,10 +266,44 @@ namespace EchoScrap.Combat
             if (IsPauseVisible) FitPauseToCanvas();
             else if (IsResultVisible)
             {
+                HideResultWorld();
                 FitResultToCanvas();
                 if (resultAnimating)
                     AnimateResult(Time.unscaledTime - resultStartedAt);
             }
+        }
+
+        private void HideResultWorld()
+        {
+            if (resultWorldHidden) return;
+            resultWorldHidden = true;
+
+            // The opaque overlay has taken over after the outcome events and boss finale.
+            var camera = game.GameplayCamera;
+            if (camera != null && camera.enabled)
+            {
+                resultCamera = camera;
+                resultCamera.enabled = false;
+            }
+
+            var lights = game.Session.GetComponent<CombatReadabilityLights>();
+            if (lights != null && lights.enabled)
+            {
+                resultLights = lights;
+                resultLights.enabled = false;
+            }
+
+            game.Enemies.DespawnAllActive();
+        }
+
+        private void RestoreResultWorld()
+        {
+            if (!resultWorldHidden) return;
+            if (resultCamera != null) resultCamera.enabled = true;
+            if (resultLights != null) resultLights.enabled = true;
+            resultCamera = null;
+            resultLights = null;
+            resultWorldHidden = false;
         }
 
         public void RefreshNow()
@@ -298,16 +336,17 @@ namespace EchoScrap.Combat
                 if (cooldown == 0 && previousCooldown != -1)
                     dashReadyUntil = game.Session.GameplayTime + DashReadySeconds;
                 previousCooldown = cooldown;
-                dashFill.color = cooldown == 0 ? Apollo : new Color(0.44f, 0.48f, 0.49f);
             }
             bool dashReady = cooldown == 0 && game.Session.GameplayTime < dashReadyUntil;
             bool dashDenied = cooldown > 0 && game.Session.GameplayTime < dashDeniedUntil;
-            dashText.text = dashDenied ? "AÚN NO" : "LISTO";
-            dashText.gameObject.SetActive(!hubMode && (dashReady || dashDenied));
-            dashFill.fillAmount = game.Motor.IsDashing ? 0f : Mathf.Clamp01(1f - game.Motor.DashCooldownRemaining / Mathf.Max(0.05f, game.Motor.ActiveDashCooldownDuration));
+            bool returnReady = !game.Motor.IsDashing && game.Motor.HasReturnAnchor;
+            dashText.text = returnReady ? "VOLVER" : dashDenied ? "AÚN NO" : "LISTO";
+            dashText.gameObject.SetActive(!hubMode && (returnReady || dashReady || dashDenied));
+            dashFill.fillAmount = returnReady ? 1f : game.Motor.IsDashing ? 0f : Mathf.Clamp01(1f - game.Motor.DashCooldownRemaining / Mathf.Max(0.05f, game.Motor.ActiveDashCooldownDuration));
+            dashFill.color = returnReady || cooldown == 0 ? Apollo : new Color(.44f, .48f, .49f);
             if (cardsDirty) RefreshCards();
             // On narrow screens the centered XP bar reaches into the upgrades column.
-            var cardsPosition = AcquiredCardsPosition + (canvasRect.rect.width < 1530f ? Vector2.up * 64f : Vector2.zero);
+            var cardsPosition = AcquiredCardsPosition + (canvasRect.rect.width < 1530f ? Vector2.up * 100f : Vector2.zero);
             if (acquiredCards.anchoredPosition != cardsPosition) acquiredCards.anchoredPosition = cardsPosition;
             RefreshBoss();
             RefreshModal();
@@ -499,6 +538,7 @@ namespace EchoScrap.Combat
             if (openingResult) BeginResult(state);
             if (!showResult && hadResult)
             {
+                RestoreResultWorld();
                 resultConfetti.gameObject.SetActive(false);
                 resultPulse.gameObject.SetActive(false);
             }
@@ -606,6 +646,12 @@ namespace EchoScrap.Combat
             else if (game.Flow.State == GameFlowState.Expedition) game.Flow.RequestAbandon();
             else game.Flow.ShowMainMenu();
         }
+        public void ShowResultSaveError()
+        {
+            if (resultDescription != null)
+                resultDescription.text = "No se pudo guardar. Vuelve a pulsar para reintentar.";
+        }
+
         private void ResultAction()
         {
             if (game.Flow == null) RestartGame();
@@ -732,7 +778,7 @@ namespace EchoScrap.Combat
             for (int i = 0; i < acquiredCardLevels.Length; i++)
             {
                 var card = UpgradeCatalog.Cards[i];
-                var tile = ImageRect(acquiredCards, card.Id, Vector2.zero, Vector2.one * 42f, Color.white);
+                var tile = ImageRect(acquiredCards, card.Id, Vector2.zero, Vector2.one * 32f, Color.white);
                 tile.sprite = frame;
                 tile.type = Image.Type.Sliced;
                 tile.pixelsPerUnitMultiplier = 1f;
@@ -747,13 +793,13 @@ namespace EchoScrap.Combat
                     if (hoveredCardTile == tile.rectTransform) HideCardTooltip();
                 });
                 trigger.triggers.Add(exit);
-                var icon = ImageRect(tile.transform, "Icon", new Vector2(-3f, 3f), Vector2.one * 29f, UpgradeCatalog.RarityColor(card.Rarity));
+                var icon = ImageRect(tile.transform, "Icon", new Vector2(-2f, 2f), Vector2.one * 21f, UpgradeCatalog.RarityColor(card.Rarity));
                 icon.sprite = skin.icons[(int)card.Icon];
                 icon.preserveAspect = true;
-                var badgePosition = new Vector2(11f, -10f);
-                ImageRect(tile.transform, "LevelBadge", badgePosition, Vector2.one * 16f, Ink);
-                acquiredCardLevels[i] = Label(tile.transform, "Level", badgePosition, new Vector2(16f, 24f), "",
-                    15, TextAnchor.MiddleCenter, Pale);
+                var badgePosition = new Vector2(9f, -8f);
+                ImageRect(tile.transform, "LevelBadge", badgePosition, Vector2.one * 14f, Ink);
+                acquiredCardLevels[i] = Label(tile.transform, "Level", badgePosition, new Vector2(14f, 18f), "",
+                    12, TextAnchor.MiddleCenter, Pale);
                 tile.gameObject.SetActive(false);
             }
             BuildCardTooltip(skin);
@@ -912,6 +958,23 @@ namespace EchoScrap.Combat
         private static void Stretch(RectTransform rect)
         {
             rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
+        }
+
+        internal HudSnapshot CaptureSnapshot()
+        {
+            return new HudSnapshot
+            {
+                kills = kills
+            };
+        }
+
+        internal void RestoreFromSnapshot(HudSnapshot snapshot)
+        {
+            kills = snapshot != null ? Mathf.Max(0, snapshot.kills) : 0;
+            cardsDirty = true;
+            experienceDirty = true;
+            RefreshKills();
+            RefreshNow();
         }
     }
 }

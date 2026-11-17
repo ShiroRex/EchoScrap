@@ -25,18 +25,23 @@ Shader "EchoScrap/Character Pixel Lit"
             TEXTURE2D(_GlowMap); SAMPLER(sampler_GlowMap);
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_TexelSize;
-                float4 _FrameRect;
-                half4 _BaseColor, _EmissionColor;
-                half4 _GlowColor;
-                half _NormalStrength, _GlowStrength;
-                half4 _StatusTint;
-                half _StatusAmount;
+                half _NormalStrength;
             CBUFFER_END
+            UNITY_INSTANCING_BUFFER_START(Props)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _FrameRect)
+                UNITY_DEFINE_INSTANCED_PROP(half4, _BaseColor)
+                UNITY_DEFINE_INSTANCED_PROP(half4, _EmissionColor)
+                UNITY_DEFINE_INSTANCED_PROP(half4, _StatusTint)
+                UNITY_DEFINE_INSTANCED_PROP(half, _StatusAmount)
+                UNITY_DEFINE_INSTANCED_PROP(half4, _GlowColor)
+                UNITY_DEFINE_INSTANCED_PROP(half, _GlowStrength)
+            UNITY_INSTANCING_BUFFER_END(Props)
             // All geometry passes sample exactly the same animation frame and alpha cutoff.
             float2 SpriteAtlasUv(float2 uv)
             {
+                float4 frameRect=UNITY_ACCESS_INSTANCED_PROP(Props, _FrameRect);
                 float2 inset=_BaseMap_TexelSize.xy*0.5;
-                return clamp(_FrameRect.xy+uv*_FrameRect.zw,_FrameRect.xy+inset,_FrameRect.xy+_FrameRect.zw-inset);
+                return clamp(frameRect.xy+uv*frameRect.zw,frameRect.xy+inset,frameRect.xy+frameRect.zw-inset);
             }
             half4 SpriteSample(float2 uv)
             {
@@ -44,11 +49,13 @@ Shader "EchoScrap/Character Pixel Lit"
                 clip(color.a-0.5h);
                 return color;
             }
-            struct Attributes { float4 positionOS:POSITION; float3 normalOS:NORMAL; float4 tangentOS:TANGENT; float2 uv:TEXCOORD0; };
-            struct Varyings { float4 positionCS:SV_POSITION; float3 positionWS:TEXCOORD0; half3 normalWS:TEXCOORD1; half3 tangentWS:TEXCOORD2; half3 bitangentWS:TEXCOORD3; float2 uv:TEXCOORD4; half3 vertexLighting:TEXCOORD5; };
+            struct Attributes { float4 positionOS:POSITION; float3 normalOS:NORMAL; float4 tangentOS:TANGENT; float2 uv:TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Varyings { float4 positionCS:SV_POSITION; float3 positionWS:TEXCOORD0; half3 normalWS:TEXCOORD1; half3 tangentWS:TEXCOORD2; half3 bitangentWS:TEXCOORD3; float2 uv:TEXCOORD4; half3 vertexLighting:TEXCOORD5; UNITY_VERTEX_INPUT_INSTANCE_ID };
             Varyings Vert(Attributes input)
             {
-                Varyings o;
+                Varyings o=(Varyings)0;
+                UNITY_SETUP_INSTANCE_ID(input);
+                UNITY_TRANSFER_INSTANCE_ID(input, o);
                 VertexPositionInputs p=GetVertexPositionInputs(input.positionOS.xyz);
                 VertexNormalInputs n=GetVertexNormalInputs(input.normalOS,input.tangentOS);
                 o.positionCS=p.positionCS; o.positionWS=p.positionWS;
@@ -93,6 +100,7 @@ Shader "EchoScrap/Character Pixel Lit"
             }
             half4 Frag(Varyings input, FRONT_FACE_TYPE face:FRONT_FACE_SEMANTIC):SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 float2 uv=SpriteAtlasUv(input.uv);
                 half4 color=SpriteSample(uv);
                 half3 normalTS=UnpackNormalScale(SAMPLE_TEXTURE2D(_BumpMap,sampler_BumpMap,uv),_NormalStrength);
@@ -108,38 +116,48 @@ Shader "EchoScrap/Character Pixel Lit"
                 inputData.vertexLighting=input.vertexLighting;
                 inputData.normalizedScreenSpaceUV=GetNormalizedScreenSpaceUV(input.positionCS);
                 inputData.shadowMask=half4(1,1,1,1);
-                half flash=saturate(max(_EmissionColor.r,max(_EmissionColor.g,_EmissionColor.b)));
+                half4 baseColor=UNITY_ACCESS_INSTANCED_PROP(Props, _BaseColor);
+                half4 emissionColor=UNITY_ACCESS_INSTANCED_PROP(Props, _EmissionColor);
+                half4 statusTint=UNITY_ACCESS_INSTANCED_PROP(Props, _StatusTint);
+                half statusAmount=UNITY_ACCESS_INSTANCED_PROP(Props, _StatusAmount);
+                half4 glowColor=UNITY_ACCESS_INSTANCED_PROP(Props, _GlowColor);
+                half glowStrength=UNITY_ACCESS_INSTANCED_PROP(Props, _GlowStrength);
+                half flash=saturate(max(emissionColor.r,max(emissionColor.g,emissionColor.b)));
                 SurfaceData surface=(SurfaceData)0;
                 half luminance=dot(color.rgb,half3(.299h,.587h,.114h));
-                half3 cold=max(.08h,luminance)*_StatusTint.rgb*1.45h;
-                half3 albedo=lerp(color.rgb*_BaseColor.rgb,cold,saturate(_StatusAmount));
-                surface.albedo=lerp(albedo,_BaseColor.rgb,flash*0.55h);
+                half3 cold=max(.08h,luminance)*statusTint.rgb*1.45h;
+                half3 albedo=lerp(color.rgb*baseColor.rgb,cold,saturate(statusAmount));
+                surface.albedo=lerp(albedo,baseColor.rgb,flash*0.55h);
                 surface.alpha=color.a;
                 surface.normalTS=normalTS;
                 surface.occlusion=1;
-                half3 reactor=lerp(_GlowColor.rgb,_StatusTint.rgb,saturate(_StatusAmount));
-                surface.emission=saturate(_EmissionColor.rgb)*flash*.16h
-                    + SAMPLE_TEXTURE2D(_GlowMap,sampler_GlowMap,uv).r * reactor * _GlowStrength * (1.0h-.6h*_StatusAmount);
+                half3 reactor=lerp(glowColor.rgb,statusTint.rgb,saturate(statusAmount));
+                surface.emission=saturate(emissionColor.rgb)*flash*.16h
+                    + SAMPLE_TEXTURE2D(_GlowMap,sampler_GlowMap,uv).r * reactor * glowStrength * (1.0h-.6h*statusAmount);
                 half3 cardNormal=normalize(input.normalWS)*IS_FRONT_VFACE(face,1,-1);
                 half4 result=SpriteLighting(inputData,surface,cardNormal);
                 result.rgb=MixFog(result.rgb,ComputeFogFactor(TransformWorldToHClip(input.positionWS).z));
                 return result;
             }
-            struct DepthVaryings { float4 positionCS:SV_POSITION; float2 uv:TEXCOORD0; };
+            struct DepthVaryings { float4 positionCS:SV_POSITION; float2 uv:TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             DepthVaryings DepthVert(Attributes input)
             {
-                DepthVaryings o;
+                DepthVaryings o=(DepthVaryings)0;
+                UNITY_SETUP_INSTANCE_ID(input);
+                UNITY_TRANSFER_INSTANCE_ID(input, o);
                 o.positionCS=TransformObjectToHClip(input.positionOS.xyz);
                 o.uv=input.uv;
                 return o;
             }
             half4 DepthFrag(DepthVaryings input):SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 SpriteSample(SpriteAtlasUv(input.uv));
                 return 0;
             }
             half4 NormalsFrag(Varyings input, FRONT_FACE_TYPE face:FRONT_FACE_SEMANTIC):SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 float2 uv=SpriteAtlasUv(input.uv);
                 SpriteSample(uv);
                 half3 normalTS=UnpackNormalScale(SAMPLE_TEXTURE2D(_BumpMap,sampler_BumpMap,uv),_NormalStrength);
@@ -155,11 +173,13 @@ Shader "EchoScrap/Character Pixel Lit"
             }
             half4 FocusMaskFrag(DepthVaryings input):SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 SpriteSample(SpriteAtlasUv(input.uv));
                 return half4(1,1,1,1);
             }
             half4 OccludedCollectorFrag(DepthVaryings input):SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 half4 sprite=SpriteSample(SpriteAtlasUv(input.uv));
                 half detail=dot(sprite.rgb,half3(.299h,.587h,.114h));
                 return half4(half3(.95h,.58h,.22h)*lerp(.55h,1.0h,detail),.8h);
@@ -168,7 +188,9 @@ Shader "EchoScrap/Character Pixel Lit"
             float3 _LightPosition;
             DepthVaryings ShadowVert(Attributes input)
             {
-                DepthVaryings o;
+                DepthVaryings o=(DepthVaryings)0;
+                UNITY_SETUP_INSTANCE_ID(input);
+                UNITY_TRANSFER_INSTANCE_ID(input, o);
                 float3 world=TransformObjectToWorld(input.positionOS.xyz);
                 float3 normal=TransformObjectToWorldNormal(input.normalOS);
             #if defined(_CASTING_PUNCTUAL_LIGHT_SHADOW)
@@ -202,6 +224,7 @@ Shader "EchoScrap/Character Pixel Lit"
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fog
+            #pragma multi_compile_instancing
             ENDHLSL
         }
         Pass
@@ -214,6 +237,7 @@ Shader "EchoScrap/Character Pixel Lit"
             #pragma vertex ShadowVert
             #pragma fragment DepthFrag
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+            #pragma multi_compile_instancing
             ENDHLSL
         }
         Pass
@@ -225,6 +249,7 @@ Shader "EchoScrap/Character Pixel Lit"
             #pragma target 3.5
             #pragma vertex DepthVert
             #pragma fragment DepthFrag
+            #pragma multi_compile_instancing
             ENDHLSL
         }
         Pass
@@ -237,6 +262,7 @@ Shader "EchoScrap/Character Pixel Lit"
             #pragma vertex Vert
             #pragma fragment NormalsFrag
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+            #pragma multi_compile_instancing
             ENDHLSL
         }
         Pass
@@ -248,6 +274,7 @@ Shader "EchoScrap/Character Pixel Lit"
             #pragma target 3.5
             #pragma vertex DepthVert
             #pragma fragment FocusMaskFrag
+            #pragma multi_compile_instancing
             ENDHLSL
         }
         Pass
@@ -261,6 +288,7 @@ Shader "EchoScrap/Character Pixel Lit"
             #pragma target 3.5
             #pragma vertex DepthVert
             #pragma fragment OccludedCollectorFrag
+            #pragma multi_compile_instancing
             ENDHLSL
         }
         Pass
@@ -272,6 +300,7 @@ Shader "EchoScrap/Character Pixel Lit"
             #pragma target 3.5
             #pragma vertex DepthVert
             #pragma fragment FocusMaskFrag
+            #pragma multi_compile_instancing
             ENDHLSL
         }
     }

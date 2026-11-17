@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace EchoScrap.Combat
 {
-    public enum UpgradeRarity { N, R, SR, SSR }
+    public enum UpgradeRarity { N, R, SR, SSR, M }
     public enum UpgradeIcon { Lens, Cadence, Power, Dash, Vitality, Magnet, Precision, Demolition, Automation, Cryo }
 
     public readonly struct UpgradeCardDefinition
@@ -52,7 +52,7 @@ namespace EchoScrap.Combat
     /// <summary>Complete GDD catalogue. Stats stay owned by PlayerRuntimeStats; previews never mutate them.</summary>
     public static class UpgradeCatalog
     {
-        // Shared visual families for all 35 playable cards.
+        // Shared visual families for all playable cards.
         private static readonly IReadOnlyDictionary<string, UpgradeIcon> iconAssignments =
             new System.Collections.ObjectModel.ReadOnlyDictionary<string, UpgradeIcon>(new Dictionary<string, UpgradeIcon>
             {
@@ -74,7 +74,34 @@ namespace EchoScrap.Combat
                 ["SCRAP_01"] = UpgradeIcon.Automation, ["SCRAP_02"] = UpgradeIcon.Automation,
                 ["SCRAP_03"] = UpgradeIcon.Automation, ["SCRAP_04"] = UpgradeIcon.Automation,
                 ["CRYO_01"] = UpgradeIcon.Cryo, ["CRYO_02"] = UpgradeIcon.Cryo,
-                ["CRYO_03"] = UpgradeIcon.Cryo, ["CRYO_04"] = UpgradeIcon.Cryo
+                ["CRYO_03"] = UpgradeIcon.Cryo, ["CRYO_04"] = UpgradeIcon.Cryo,
+                ["FLASH_06"] = UpgradeIcon.Power,
+                ["FLASH_07"] = UpgradeIcon.Lens,
+                ["FLASH_08"] = UpgradeIcon.Cadence,
+                ["FLASH_09"] = UpgradeIcon.Power,
+                ["FLASH_10"] = UpgradeIcon.Power,
+                ["FLASH_11"] = UpgradeIcon.Lens,
+                ["FLASH_12"] = UpgradeIcon.Cadence,
+                ["FLASH_13"] = UpgradeIcon.Lens,
+                ["FLASH_14"] = UpgradeIcon.Lens,
+                ["DASH_05"] = UpgradeIcon.Dash,
+                ["DASH_06"] = UpgradeIcon.Dash,
+                ["DASH_07"] = UpgradeIcon.Automation,
+                ["DASH_08"] = UpgradeIcon.Dash,
+                ["DASH_09"] = UpgradeIcon.Dash,
+                ["DASH_10"] = UpgradeIcon.Magnet,
+                ["GREED_06"] = UpgradeIcon.Magnet,
+                ["GREED_07"] = UpgradeIcon.Magnet,
+                ["BIO_05"] = UpgradeIcon.Vitality,
+                ["SCRAP_05"] = UpgradeIcon.Automation,
+                ["SCRAP_06"] = UpgradeIcon.Automation,
+                ["SCRAP_07"] = UpgradeIcon.Automation,
+                ["SCRAP_08"] = UpgradeIcon.Automation,
+                ["DEMO_05"] = UpgradeIcon.Demolition,
+                ["DEMO_06"] = UpgradeIcon.Demolition,
+                ["DEMO_07"] = UpgradeIcon.Demolition,
+                ["CRYO_05"] = UpgradeIcon.Cryo,
+                ["MYTH_01"] = UpgradeIcon.Precision
             });
         public static IReadOnlyDictionary<string, UpgradeIcon> IconAssignments => iconAssignments;
         public static bool TryGetIcon(string cardId, out UpgradeIcon icon) => iconAssignments.TryGetValue(cardId, out icon);
@@ -115,7 +142,34 @@ namespace EchoScrap.Combat
             new UpgradeCardDefinition("CRYO_01", "Freón residual", UpgradeRarity.N, 5, UpgradeIcon.Cryo, "Tu luz frena a los enemigos"),
             new UpgradeCardDefinition("CRYO_02", "Cero absoluto", UpgradeRarity.R, 3, UpgradeIcon.Cryo, "Tu luz puede congelar"),
             new UpgradeCardDefinition("CRYO_03", "Ventisca", UpgradeRarity.SR, 3, UpgradeIcon.Cryo, "Congelas a quienes te rodean"),
-            new UpgradeCardDefinition("CRYO_04", "Quiebre de hielo", UpgradeRarity.SSR, 1, UpgradeIcon.Cryo, "Los congelados estallan al morir")
+            new UpgradeCardDefinition("CRYO_04", "Quiebre de hielo", UpgradeRarity.SSR, 1, UpgradeIcon.Cryo, "Los congelados estallan al morir"),
+            new UpgradeCardDefinition("FLASH_06", "Choque pesado", UpgradeRarity.R, 3, UpgradeIcon.Power, "Estampas enemigos contra obstáculos"),
+            new UpgradeCardDefinition("FLASH_07", "Doble foco", UpgradeRarity.SR, 3, UpgradeIcon.Lens, "Tu linterna también dispara hacia atrás"),
+            new UpgradeCardDefinition("FLASH_08", "Luz fija", UpgradeRarity.R, 3, UpgradeIcon.Cadence, "Quedarte quieto potencia tu linterna"),
+            new UpgradeCardDefinition("DASH_05", "Paso de ariete", UpgradeRarity.R, 3, UpgradeIcon.Dash, "Tu dash recorre más distancia"),
+            new UpgradeCardDefinition("DASH_06", "Paso atrás", UpgradeRarity.SR, 3, UpgradeIcon.Dash, "Puedes volver al punto donde esquivaste"),
+            new UpgradeCardDefinition("DASH_07", "Cable eléctrico", UpgradeRarity.R, 3, UpgradeIcon.Automation, "Tu esquiva deja una línea eléctrica"),
+            new UpgradeCardDefinition("GREED_06", "Gemas afiladas", UpgradeRarity.R, 3, UpgradeIcon.Magnet, "Las gemas dañan al volar hacia ti"),
+            new UpgradeCardDefinition("BIO_05", "Botiquín de combate", UpgradeRarity.SR, 3, UpgradeIcon.Vitality, "Los botiquines aceleran tus disparos"),
+            new UpgradeCardDefinition("SCRAP_05", "Aura de estática", UpgradeRarity.N, 3, UpgradeIcon.Automation, "Emite un campo eléctrico continuo"),
+            new UpgradeCardDefinition("DEMO_05", "Charcos de plasma", UpgradeRarity.R, 3, UpgradeIcon.Demolition, "Lanza charcos químicos persistentes"),
+            new UpgradeCardDefinition("SCRAP_06", "Disco rebotante", UpgradeRarity.R, 3, UpgradeIcon.Automation, "Discos que rebotan entre enemigos"),
+            new UpgradeCardDefinition("GREED_07", "Imán bumerán", UpgradeRarity.R, 3, UpgradeIcon.Magnet, "Lanzas un bumerán que siempre vuelve"),
+            new UpgradeCardDefinition("FLASH_09", "Descarga orbital", UpgradeRarity.SR, 3, UpgradeIcon.Power, "Cae un rayo vertical sobre amenazas"),
+            new UpgradeCardDefinition("DEMO_06", "Chatarra parabólica", UpgradeRarity.SR, 3, UpgradeIcon.Demolition, "Proyectiles en arco que aplastan"),
+            new UpgradeCardDefinition("DASH_08", "Estela incendiaria", UpgradeRarity.R, 3, UpgradeIcon.Dash, "Tu dash deja una estela de fuego"),
+            new UpgradeCardDefinition("FLASH_10", "Barrido de chatarra", UpgradeRarity.N, 3, UpgradeIcon.Power, "Látigo frontal que barre y empuja"),
+            new UpgradeCardDefinition("FLASH_11", "Amplificador de área", UpgradeRarity.SR, 3, UpgradeIcon.Lens, "Expande ondas, auras y explosiones"),
+            new UpgradeCardDefinition("SCRAP_07", "Duplicador de matriz", UpgradeRarity.SSR, 1, UpgradeIcon.Automation, "+1 proyectil y rebote extra"),
+            new UpgradeCardDefinition("DASH_09", "Reflejos de chatarra", UpgradeRarity.N, 3, UpgradeIcon.Dash, "Probabilidad de esquivar golpes"),
+            new UpgradeCardDefinition("SCRAP_08", "Escudo deflector", UpgradeRarity.R, 3, UpgradeIcon.Automation, "Bloquea ataques y lanza una onda"),
+            new UpgradeCardDefinition("FLASH_12", "Sobrecarga de pulso", UpgradeRarity.R, 3, UpgradeIcon.Cadence, "Cada baja acorta el descanso"),
+            new UpgradeCardDefinition("DASH_10", "Batería de rescate", UpgradeRarity.N, 3, UpgradeIcon.Magnet, "Las gemas aceleran tu dash"),
+            new UpgradeCardDefinition("CRYO_05", "Imán criogénico", UpgradeRarity.R, 3, UpgradeIcon.Cryo, "Congelar atrae gemas y enfría cerca"),
+            new UpgradeCardDefinition("DEMO_07", "Chatarra reactiva", UpgradeRarity.R, 3, UpgradeIcon.Demolition, "Explotas al recibir daño"),
+            new UpgradeCardDefinition("FLASH_13", "Condensador solar", UpgradeRarity.SR, 1, UpgradeIcon.Lens, "Tu dash sobrecarga la próxima ráfaga"),
+            new UpgradeCardDefinition("FLASH_14", "Faro de vacío", UpgradeRarity.SSR, 1, UpgradeIcon.Lens, "Tu haz atrae y vuelve vulnerables"),
+            new UpgradeCardDefinition("MYTH_01", "All In", UpgradeRarity.M, 1, UpgradeIcon.Precision, "Aleatoriza todas tus cartas y las sube +1")
         };
         private static readonly IReadOnlyList<UpgradeCardDefinition> readOnlyCards = Array.AsReadOnly(cards);
         public static IReadOnlyList<UpgradeCardDefinition> Cards => readOnlyCards;
@@ -129,18 +183,19 @@ namespace EchoScrap.Combat
         }
         public static float RarityWeight(UpgradeRarity rarity) => rarity switch
         {
-            UpgradeRarity.N => 60f, UpgradeRarity.R => 25f, UpgradeRarity.SR => 12f, UpgradeRarity.SSR => 3f, _ => 0f
+            UpgradeRarity.N => 60f, UpgradeRarity.R => 25f, UpgradeRarity.SR => 12f, UpgradeRarity.SSR => 3f, UpgradeRarity.M => 1f, _ => 0f
         };
         public static Color RarityColor(UpgradeRarity rarity) => rarity switch
         {
             UpgradeRarity.N => new Color(0.73f, 0.80f, 0.85f),
             UpgradeRarity.R => new Color(0.24f, 0.69f, 0.97f),
             UpgradeRarity.SR => new Color(0.77f, 0.45f, 1f),
-            UpgradeRarity.SSR => new Color(1f, 0.77f, 0.30f), _ => Color.white
+            UpgradeRarity.SSR => new Color(1f, 0.77f, 0.30f),
+            UpgradeRarity.M => new Color(1f, 0.36f, 0.54f), _ => Color.white
         };
 
         public static string RarityName(UpgradeRarity rarity) => rarity switch
-        { UpgradeRarity.N => "COMÚN", UpgradeRarity.R => "RARA", UpgradeRarity.SR => "ÉPICA", _ => "LEGENDARIA" };
+        { UpgradeRarity.N => "COMÚN", UpgradeRarity.R => "RARA", UpgradeRarity.SR => "ÉPICA", UpgradeRarity.SSR => "LEGENDARIA", _ => "MÍTICA" };
         public static string TypeName(UpgradeIcon icon) => icon switch
         {
             UpgradeIcon.Lens => "ÓPTICA", UpgradeIcon.Cadence => "FRECUENCIA", UpgradeIcon.Power => "POTENCIA",
@@ -152,9 +207,14 @@ namespace EchoScrap.Combat
         public static string DamageLabel(string id) => id switch
         {
             "FLASH_01" or "FLASH_02" or "FLASH_03" or "FLASH_04" or "FLASH_05" or
-            "DASH_03" or "BIO_04" or "DEMO_04" or "CRYO_01" or "CRYO_02" or "CRYO_03" or "CRYO_04" => "SOBRENATURAL",
-            "DASH_02" or "DASH_04" or "DEMO_02" or "DEMO_03" or "SCRAP_02" or "SCRAP_03" or "SCRAP_04" => "FÍSICO",
-            "CRIT_01" or "CRIT_02" or "CRIT_03" or "CRIT_04" or "CRIT_05" or "DEMO_01" => "SEGÚN ATAQUE",
+            "FLASH_07" or "FLASH_08" or "FLASH_09" or "FLASH_12" or "FLASH_13" or "FLASH_14" or
+            "DASH_06" or "DASH_07" or "DASH_08" or "DASH_03" or "BIO_04" or "DEMO_04" or "DEMO_05" or
+            "CRYO_01" or "CRYO_02" or "CRYO_03" or "CRYO_04" or "SCRAP_05" => "SOBRENATURAL",
+            "FLASH_06" or "FLASH_10" or "GREED_06" or "GREED_07" or "DASH_02" or "DASH_04" or
+            "DEMO_02" or "DEMO_03" or "DEMO_06" or "DEMO_07" or "SCRAP_02" or "SCRAP_03" or
+            "SCRAP_04" or "SCRAP_06" or "SCRAP_08" => "FÍSICO",
+            "CRIT_01" or "CRIT_02" or "CRIT_03" or "CRIT_04" or "CRIT_05" or "DEMO_01" or
+            "FLASH_11" or "SCRAP_07" => "SEGÚN ATAQUE",
             _ => "SIN DAÑO DIRECTO"
         };
 
@@ -168,7 +228,35 @@ namespace EchoScrap.Combat
             "CRIT_03" => "REMATA POR DEBAJO DE", "CRIT_04" => "DISPAROS CRÍTICOS SEGUIDOS", "DEMO_01" => "BONO DE DAÑO EXPLOSIVO",
             "DEMO_02" => "PROBABILIDAD AL MORIR", "DEMO_03" => "INTERVALO ENTRE MINAS", "DEMO_04" => "DAÑO REPETIDO",
             "SCRAP_01" => "BONO DE ARMADURA", "SCRAP_03" => "SIERRAS ORBITALES", "SCRAP_04" => "DAÑO POR RÁFAGA",
-            "CRYO_01" => "RALENTIZACIÓN", "CRYO_02" => "DURACIÓN DEL HIELO", "CRYO_03" => "INTERVALO DE VENTISCA", "CRYO_04" => "ESQUIRLAS", _ => "EFECTO"
+            "CRYO_01" => "RALENTIZACIÓN", "CRYO_02" => "DURACIÓN DEL HIELO", "CRYO_03" => "INTERVALO DE VENTISCA", "CRYO_04" => "ESQUIRLAS",
+            "FLASH_06" => "DAÑO AL CHOCAR",
+            "FLASH_07" => "DAÑO TRASERO",
+            "FLASH_08" => "DAÑO AL PARAR",
+            "DASH_05" => "DISTANCIA DE DASH",
+            "DASH_06" => "DAÑO AL VOLVER",
+            "DASH_07" => "DAÑO DEL CABLE",
+            "GREED_06" => "DAÑO POR GEMA",
+            "BIO_05" => "DURACIÓN DEL BONO",
+            "SCRAP_05" => "RADIO DEL AURA",
+            "DEMO_05" => "DAÑO POR PULSO",
+            "SCRAP_06" => "DAÑO DEL DISCO",
+            "GREED_07" => "DAÑO DE IDA Y VUELTA",
+            "FLASH_09" => "DAÑO DEL RAYO",
+            "DEMO_06" => "DAÑO DEL PROYECTIL",
+            "DASH_08" => "DAÑO DE ESTELA",
+            "FLASH_10" => "DAÑO DE BARRIDO",
+            "FLASH_11" => "ÁREA DE EFECTOS",
+            "SCRAP_07" => "PROYECTILES EXTRA",
+            "DASH_09" => "EVASIÓN",
+            "SCRAP_08" => "PROBABILIDAD DE BLOQUEO",
+            "FLASH_12" => "REDUCCIÓN POR BAJA",
+            "DASH_10" => "RECARGA RECUPERADA",
+            "CRYO_05" => "RADIO DE ATRACCIÓN",
+            "DEMO_07" => "DAÑO DE CONTRAATAQUE",
+            "FLASH_13" => "SOBRECARGA TRAS DASH",
+            "FLASH_14" => "VULNERABILIDAD",
+            "MYTH_01" => "TODAS TUS CARTAS",
+            _ => "EFECTO"
         };
         public static string PrimaryValue(string id, PlayerRuntimeStats stats, int tier)
         {
@@ -224,8 +312,9 @@ namespace EchoScrap.Combat
                 case "BIO_01": return $"Salud máxima {Number(stats.MaxHealth + delta * 20f)} HP" + (delta > 0 ? "\nReparación inmediata +15 HP" : "");
                 case "GREED_01": return $"Recogida {Number(stats.Settings.BaseMagnetRadius + tier * 2f)} m";
                 case "GREED_03":
-                    float normal = stats.Settings.MedkitChanceAtTier(tier, false) * 100f;
-                    float elite = stats.Settings.MedkitChanceAtTier(tier, true) * 100f;
+                    float bonus = stats.GetUpgradeTier(UpgradeId.BIO_05) > 0 ? stats.Upgrades.medkitDropBonus : 0f;
+                    float normal = Mathf.Clamp01(stats.Settings.MedkitChanceAtTier(tier, false) + bonus) * 100f;
+                    float elite = Mathf.Clamp01(stats.Settings.MedkitChanceAtTier(tier, true) + bonus) * 100f;
                     float heal = stats.Settings.MedkitHealingAtTier(tier);
                     return $"Botiquín común {Number(normal)}%\nBotiquín élite {Number(elite)}%\nReparación {Number(heal)} HP";
                 default: return UpgradeDescriptions.Value(id, stats, tier) + "\n" + UpgradeDescriptions.Detail(id, stats, tier);

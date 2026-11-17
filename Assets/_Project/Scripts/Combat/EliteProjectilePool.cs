@@ -189,5 +189,62 @@ namespace EchoScrap.Combat
         {
             if (session != null) { session.SessionReset -= ClearAll; session.Effects.OnPreferencesChanged -= RefreshLights; }
         }
+
+        internal EliteProjectilePoolSnapshot CaptureSnapshot()
+        {
+            var snapshot = new EliteProjectilePoolSnapshot
+            {
+                totalFired = TotalFired,
+                playerHitAttempts = PlayerHitAttempts
+            };
+            for (int i = 0; i < Capacity; i++)
+            {
+                Bolt bolt = bolts[i];
+                if (bolt == null || !bolt.Active) continue;
+                snapshot.bolts.Add(new EliteBoltSnapshot
+                {
+                    position = bolt.Position,
+                    direction = bolt.Direction,
+                    source = bolt.Source,
+                    damage = bolt.Damage,
+                    speed = bolt.Speed,
+                    remaining = bolt.Remaining,
+                    age = bolt.Age
+                });
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(EliteProjectilePoolSnapshot snapshot)
+        {
+            ClearAll();
+            if (snapshot == null) return;
+            TotalFired = Mathf.Max(0, snapshot.totalFired);
+            PlayerHitAttempts = Mathf.Max(0, snapshot.playerHitAttempts);
+            if (snapshot.bolts == null) return;
+            int index = 0;
+            for (int i = 0; i < snapshot.bolts.Count && index < Capacity; i++)
+            {
+                EliteBoltSnapshot item = snapshot.bolts[i];
+                Bolt bolt = bolts[index++];
+                if (bolt == null) continue;
+                bolt.Active = true;
+                bolt.Position = item.position;
+                bolt.Direction = item.direction.sqrMagnitude > 0.0001f ? item.direction.normalized : Vector3.forward;
+                bolt.Source = item.source;
+                bolt.Damage = Mathf.Max(0f, item.damage);
+                bolt.Speed = Mathf.Max(0.1f, item.speed);
+                bolt.Remaining = Mathf.Max(0f, item.remaining);
+                bolt.Age = Mathf.Max(0f, item.age);
+                if (bolt.View != null)
+                {
+                    bolt.View.position = bolt.Position;
+                    bolt.View.gameObject.SetActive(true);
+                }
+                ActiveCount++;
+                Draw(bolt);
+            }
+            RefreshLights();
+        }
     }
 }

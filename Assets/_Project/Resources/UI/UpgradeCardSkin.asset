@@ -17,6 +17,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 03b7f408c44e20046b1be0eae88f92e2, type: 3}
   - {fileID: 21300000, guid: 68feeed2cfae9e74992407b7627176df, type: 3}
   - {fileID: 21300000, guid: f48a43f47648adf4e88e7825661601c6, type: 3}
+  - {fileID: 21300000, guid: a385878c6a4f7014d9285fcf502349fb, type: 3}
   icons:
   - {fileID: 21300000, guid: e2ec024292460534d9a11f39cc233d39, type: 3}
   - {fileID: 21300000, guid: 3f10ac0afc07bb24b9189dcd9d0f73cd, type: 3}
@@ -30,6 +31,8 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 1b2ffc957d0be854b9e1c3a184eac511, type: 3}
   upgradeArrow: {fileID: 21300000, guid: 301984d5d33a9864893c8cee1b61189a, type: 3}
   chooseButton: {fileID: 21300000, guid: 179c6bcd61e24f1428ee8e7645a0ceb5, type: 3}
+  newBadge: {fileID: 21300000, guid: 1f6cc5b8140f4e519d326ea6da74b1ec, type: 3}
+  upgradeBadge: {fileID: 21300000, guid: 5f81791764ea4a73acbc28f57d7bb02e, type: 3}
   regular: {fileID: 12800000, guid: 08df4fc740abaa54da290e3a9b638a10, type: 3}
   semibold: {fileID: 12800000, guid: 918b0589665d03c498011b0443876168, type: 3}
   surfaceSheen: {fileID: 2100000, guid: f3e01a057ff092b44bf5331eb1f02649, type: 2}
@@ -38,5 +41,4 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 0f8ccd760cb92b4499a445efaedc93a9, type: 2}
   - {fileID: 2100000, guid: 7092be5ef393c644fb4a691c9e441ffa, type: 2}
   - {fileID: 2100000, guid: 3cc03547b9a7bb34794e2f4263fb032c, type: 2}
-  newBadge: {fileID: 21300000, guid: 1f6cc5b8140f4e519d326ea6da74b1ec, type: 3}
-  upgradeBadge: {fileID: 21300000, guid: 5f81791764ea4a73acbc28f57d7bb02e, type: 3}
+  - {fileID: 2100000, guid: 28eefc7900a88e84b96b28aa9ee6b7be, type: 2}

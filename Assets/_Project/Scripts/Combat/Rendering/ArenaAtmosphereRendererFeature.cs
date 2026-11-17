@@ -215,6 +215,7 @@ namespace EchoScrap.Combat
                 if(resources.isActiveTargetBackBuffer) return;
                 var rendering=frameData.Get<UniversalRenderingData>();
                 var drawing=RenderingUtils.CreateDrawingSettings(tags,rendering,camera,frameData.Get<UniversalLightData>(),SortingCriteria.CommonOpaque);
+                drawing.enableInstancing = true;
                 var collector=graph.CreateRendererList(new RendererListParams(rendering.cullResults,drawing,
                     new FilteringSettings(RenderQueueRange.all,~0,ArenaLightingRig.CollectorVisibilityRenderingLayer)));
                 using(var builder=graph.AddRasterRenderPass<PassData>("Arena occluded collector visibility",out var data))
@@ -268,9 +269,11 @@ namespace EchoScrap.Combat
                 maskDescriptor.clearColor = Color.clear;
                 TextureHandle mask = graph.CreateTexture(maskDescriptor);
                 var drawActors = RenderingUtils.CreateDrawingSettings(actorTags, rendering, camera, lights, SortingCriteria.CommonOpaque);
+                drawActors.enableInstancing = true;
                 var actorList = graph.CreateRendererList(new RendererListParams(rendering.cullResults, drawActors,
                     new FilteringSettings(RenderQueueRange.all)));
                 var drawMeshes = RenderingUtils.CreateDrawingSettings(meshTags, rendering, camera, lights, SortingCriteria.CommonOpaque);
+                drawMeshes.enableInstancing = true;
                 drawMeshes.overrideMaterial = meshMaskMaterial;
                 drawMeshes.overrideMaterialPassIndex = 0;
                 // AlphaTest sprites use their own alpha-correct pass, never the solid mesh override.
@@ -283,6 +286,7 @@ namespace EchoScrap.Combat
                 var signalList = graph.CreateRendererList(new RendererListParams(rendering.cullResults, drawMeshes,
                     new FilteringSettings(RenderQueueRange.transparent, ~0, ~ArenaLightingRig.DecorativeRenderingLayer)));
                 var collectorDrawing=RenderingUtils.CreateDrawingSettings(new ShaderTagId("ArenaCollectorFocusMask"),rendering,camera,lights,SortingCriteria.CommonOpaque);
+                collectorDrawing.enableInstancing = true;
                 var collectorList=graph.CreateRendererList(new RendererListParams(rendering.cullResults,collectorDrawing,
                     new FilteringSettings(RenderQueueRange.all,~0,ArenaLightingRig.CollectorVisibilityRenderingLayer)));
                 using (var builder = graph.AddRasterRenderPass<MaskData>("Arena actor and threat focus protection", out var data))

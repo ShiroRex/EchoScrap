@@ -63,7 +63,15 @@ namespace EchoScrap.Combat
             public bool GlobalFlight;
             public Vector3 FlightStart;
             public float FlightAge, FlightDuration;
+            public Dictionary<int, int> SharpGemHits;
             public LineRenderer FlightTrail;
+            public int ActiveIndex = -1;
+            public long SpatialCellKey;
+            public bool InSpatialGrid;
+            public bool HasOrbRotation;
+            public Quaternion AppliedOrbRotation;
+            public float AppliedBobY;
+            public float AppliedPopScale = -1f;
         }
 
         private sealed class AbsorptionSlot
@@ -75,7 +83,13 @@ namespace EchoScrap.Combat
             public Color Color;
         }
 
+        private readonly List<EnemyActor> gemTargets = new List<EnemyActor>(32);
         private readonly List<PickupSlot> slots = new List<PickupSlot>(256);
+        private readonly List<PickupSlot> activeSlots = new List<PickupSlot>(256);
+        private readonly Stack<PickupSlot> freeExperienceSlots = new Stack<PickupSlot>(128);
+        private readonly Stack<PickupSlot> freeMedkitSlots = new Stack<PickupSlot>(32);
+        private readonly Dictionary<long, List<PickupSlot>> expCells = new Dictionary<long, List<PickupSlot>>(256);
+        private readonly Stack<List<PickupSlot>> spareCellLists = new Stack<List<PickupSlot>>(128);
         private readonly AbsorptionSlot[] absorption = new AbsorptionSlot[AbsorptionEffectSlots];
         private MaterialPropertyBlock properties;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -102,7 +116,7 @@ namespace EchoScrap.Combat
 
         public bool AutoTick { get; set; } = true;
         public int ActivePickupCount { get; private set; }
-        public int GlobalFlightCount { get { int count = 0; foreach (var slot in slots) if (slot.Active && slot.GlobalFlight) count++; return count; } }
+        public int GlobalFlightCount { get { int count = 0; for (int i = 0; i < activeSlots.Count; i++) if (activeSlots[i].GlobalFlight) count++; return count; } }
         public int ActiveExperienceCount { get; private set; }
         public int ActiveMedkitCount { get; private set; }
         public int TotalCreatedCount => slots.Count;
@@ -207,9 +221,9 @@ namespace EchoScrap.Combat
                 Debug.LogError("Missing Apollo medkit materials. Run EchoScrap/Art/Connect Medkit Sprite.", this);
             absorptionMaterial = CreateMaterial("Pickup_Absorption", new Color(0.35f, 0.95f, 1f), true);
             for (int i = 0; i < InitialExperienceSlots; i++)
-                CreateSlot(CombatPickupKind.Experience);
+                freeExperienceSlots.Push(CreateSlot(CombatPickupKind.Experience));
             for (int i = 0; i < InitialMedkitSlots; i++)
-                CreateSlot(CombatPickupKind.Medkit);
+                freeMedkitSlots.Push(CreateSlot(CombatPickupKind.Medkit));
             for (int i = 0; i < absorption.Length; i++)
             {
                 Transform root = CreateMeshObject("PickupAbsorption", transform, ringMesh, absorptionMaterial, Vector3.one);
@@ -263,6 +277,93 @@ namespace EchoScrap.Combat
             return slot;
         }
 
+        private static long CellKey(int cx, int cz) => ((long)cx << 32) ^ (uint)cz;
+        private static long CellKey(Vector3 pos) => CellKey(Mathf.FloorToInt(pos.x / ExperienceMergeRadius), Mathf.FloorToInt(pos.z / ExperienceMergeRadius));
+
+        private void RegisterExpCell(PickupSlot slot)
+        {
+            if (slot.InSpatialGrid || slot.Kind != CombatPickupKind.Experience) return;
+            long key = CellKey(slot.Position);
+            if (!expCells.TryGetValue(key, out List<PickupSlot> bucket))
+            {
+                bucket = spareCellLists.Count > 0 ? spareCellLists.Pop() : new List<PickupSlot>(4);
+                expCells[key] = bucket;
+            }
+            bucket.Add(slot);
+            slot.SpatialCellKey = key;
+            slot.InSpatialGrid = true;
+        }
+
+        private void UnregisterExpCell(PickupSlot slot)
+        {
+            if (!slot.InSpatialGrid) return;
+            slot.InSpatialGrid = false;
+            if (!expCells.TryGetValue(slot.SpatialCellKey, out List<PickupSlot> bucket)) return;
+            int idx = bucket.IndexOf(slot);
+            if (idx >= 0)
+            {
+                int last = bucket.Count - 1;
+                if (idx != last) bucket[idx] = bucket[last];
+                bucket.RemoveAt(last);
+            }
+            if (bucket.Count == 0)
+            {
+                expCells.Remove(slot.SpatialCellKey);
+                spareCellLists.Push(bucket);
+            }
+        }
+
+        private void UpdateExpCell(PickupSlot slot)
+        {
+            if (!slot.InSpatialGrid) return;
+            long key = CellKey(slot.Position);
+            if (key == slot.SpatialCellKey) return;
+            UnregisterExpCell(slot);
+            RegisterExpCell(slot);
+        }
+
+        private PickupSlot AcquireFreeSlot(CombatPickupKind kind)
+        {
+            Stack<PickupSlot> stack = kind == CombatPickupKind.Experience ? freeExperienceSlots : freeMedkitSlots;
+            while (stack.Count > 0)
+            {
+                PickupSlot candidate = stack.Pop();
+                if (!candidate.Active && candidate.Kind == kind) return candidate;
+            }
+            return CreateSlot(kind);
+        }
+
+        private void ActivateSlot(PickupSlot slot)
+        {
+            if (slot.ActiveIndex < 0)
+            {
+                slot.ActiveIndex = activeSlots.Count;
+                activeSlots.Add(slot);
+            }
+            if (slot.Kind == CombatPickupKind.Experience)
+                RegisterExpCell(slot);
+        }
+
+        private void DeactivateSlot(PickupSlot slot)
+        {
+            UnregisterExpCell(slot);
+            int idx = slot.ActiveIndex;
+            if (idx >= 0 && idx < activeSlots.Count && activeSlots[idx] == slot)
+            {
+                int last = activeSlots.Count - 1;
+                if (idx != last)
+                {
+                    PickupSlot moved = activeSlots[last];
+                    activeSlots[idx] = moved;
+                    moved.ActiveIndex = idx;
+                }
+                activeSlots.RemoveAt(last);
+            }
+            slot.ActiveIndex = -1;
+            if (slot.Kind == CombatPickupKind.Experience) freeExperienceSlots.Push(slot);
+            else freeMedkitSlots.Push(slot);
+        }
+
         public int SpawnExperience(Vector3 position, int experience) => SpawnPickup(CombatPickupKind.Experience, position, experience);
         public int SpawnMedkit(Vector3 position) => SpawnPickup(CombatPickupKind.Medkit, position);
 
@@ -276,36 +377,38 @@ namespace EchoScrap.Combat
             if (kind == CombatPickupKind.Experience && xpValue <= 0)
                 return 0;
             position.y = ArenaSurface.Height(position) + PickupHeight;
-            if (kind == CombatPickupKind.Experience)
+            if (kind == CombatPickupKind.Experience && expCells.Count > 0)
             {
-                for (int i = 0; i < slots.Count; i++)
+                bool sharpGems = stats != null && stats.GetUpgradeTier(UpgradeId.GREED_06) > 0;
+                int cx = Mathf.FloorToInt(position.x / ExperienceMergeRadius);
+                int cz = Mathf.FloorToInt(position.z / ExperienceMergeRadius);
+                float maxDistSq = ExperienceMergeRadius * ExperienceMergeRadius;
+                for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
                 {
-                    PickupSlot existing = slots[i];
-                    if (!existing.Active || existing.Kind != kind || existing.Experience > int.MaxValue - xpValue)
-                        continue;
-                    Vector3 delta = existing.Position - position;
-                    delta.y = 0f;
-                    if (delta.sqrMagnitude > ExperienceMergeRadius * ExperienceMergeRadius)
-                        continue;
-                    existing.Experience += xpValue; existing.GemCount++;
-                    existing.Age = 0f;
-                    TotalSpawnedExperience += xpValue;
-                    return existing.Id;
+                    if (!expCells.TryGetValue(CellKey(cx + dx, cz + dz), out List<PickupSlot> bucket)) continue;
+                    for (int b = 0; b < bucket.Count; b++)
+                    {
+                        PickupSlot existing = bucket[b];
+                        if (!existing.Active || existing.Experience > int.MaxValue - xpValue ||
+                            (sharpGems && existing.Attracted && !existing.GlobalFlight))
+                            continue;
+                        Vector3 delta = existing.Position - position;
+                        delta.y = 0f;
+                        if (delta.sqrMagnitude > maxDistSq)
+                            continue;
+                        existing.Experience += xpValue; existing.GemCount++;
+                        existing.Age = 0f; existing.AppliedPopScale = -1f;
+                        TotalSpawnedExperience += xpValue;
+                        return existing.Id;
+                    }
                 }
             }
 
-            PickupSlot slot = null;
-            for (int i = 0; i < slots.Count; i++)
-            {
-                if (!slots[i].Active && slots[i].Kind == kind)
-                {
-                    slot = slots[i];
-                    break;
-                }
-            }
             // Los recogibles no se descartan por un límite cosmético. El pool puede crecer y luego reutilizarse.
-            slot ??= CreateSlot(kind);
+            PickupSlot slot = AcquireFreeSlot(kind);
             slot.Id = nextId++;
+            slot.SharpGemHits?.Clear();
             slot.GlobalFlight = false;
             if (slot.FlightTrail != null) slot.FlightTrail.enabled = false;
             slot.GemCount = kind == CombatPickupKind.Experience ? 1 : 0;
@@ -317,10 +420,23 @@ namespace EchoScrap.Combat
             slot.Active = true;
             slot.Root.transform.position = position;
             slot.Visual.localPosition = Vector3.zero;
-            slot.Visual.localRotation = Quaternion.identity;
-            if(kind==CombatPickupKind.Experience)slot.Visual.rotation=OrbRotation;
+            slot.AppliedBobY = 0f;
+            if (kind == CombatPickupKind.Experience)
+            {
+                Quaternion orbRot = OrbRotation;
+                slot.Visual.rotation = orbRot;
+                slot.AppliedOrbRotation = orbRot;
+                slot.HasOrbRotation = true;
+            }
+            else
+            {
+                slot.Visual.localRotation = Quaternion.identity;
+                slot.HasOrbRotation = false;
+            }
             slot.Visual.localScale = Vector3.one * 0.7f;
+            slot.AppliedPopScale = 0.7f;
             slot.Root.SetActive(true);
+            ActivateSlot(slot);
             ActivePickupCount++;
             if (kind == CombatPickupKind.Experience)
             {
@@ -360,25 +476,42 @@ namespace EchoScrap.Combat
                 return;
             EnsureInitialized();
             float magnetRadius = stats != null ? stats.MagnetRadius : 2.5f;
+            float experienceRadius = stats != null ? stats.ExperienceMagnetRadius : magnetRadius;
+            int sharpGemTier = stats?.GetUpgradeTier(UpgradeId.GREED_06) ?? 0;
+            int firstNewPickup = nextId;
             float speed = stats != null ? stats.MagnetAttractSpeed : 12f;
             float collectRadius = playerHealth.HitRadius + 0.12f;
             Vector3 target = playerHealth.transform.position;
             target.y = ArenaSurface.Height(target) + PickupHeight;
             bool decorative = session == null || (!session.Effects.ReducedEffectsMode && session.Effects.DecorativeIntensity > 0f);
+            bool canCollectMedkit = ActiveMedkitCount > 0 && CanCollectMedkit();
             Quaternion orbRotation = OrbRotation;
-            for (int i = 0; i < slots.Count; i++)
+            const float visibleBobRadiusSqr = 18f * 18f;
+            for (int i = 0; i < activeSlots.Count; )
             {
                 if (!CanAdvance)
                     break;
-                PickupSlot slot = slots[i];
-                if (!slot.Active)
+                PickupSlot slot = activeSlots[i];
+                if (!slot.Active || slot.Id >= firstNewPickup)
+                {
+                    i++;
                     continue;
+                }
                 slot.Age += deltaTime;
                 if (!slot.GlobalFlight && slot.Kind == CombatPickupKind.Medkit && slot.Age >= (stats != null ? stats.Settings.MedkitLifetime : 22f))
                 {
                     slot.Active = slot.Attracted = false; slot.Root.SetActive(false);
                     ActivePickupCount--; ActiveMedkitCount--;
+                    DeactivateSlot(slot);
                     continue;
+                }
+                bool collectible = slot.Kind == CombatPickupKind.Experience || canCollectMedkit;
+                if (!collectible && slot.Attracted)
+                {
+                    slot.GlobalFlight = slot.Attracted = false;
+                    slot.Position = ArenaSurface.OnGround(slot.Position, PickupHeight);
+                    slot.Root.transform.position = slot.Position;
+                    if (slot.FlightTrail != null) slot.FlightTrail.enabled = false;
                 }
                 if (slot.GlobalFlight)
                 {
@@ -386,9 +519,12 @@ namespace EchoScrap.Combat
                     float progress = Mathf.Clamp01(slot.FlightAge / slot.FlightDuration);
                     slot.Position = CollectorFlightPosition(slot, target, progress, decorative);
                     slot.Root.transform.position = slot.Position;
-                    slot.Visual.localScale = Vector3.one * 1.4f;
-                    if(slot.Kind==CombatPickupKind.Experience)slot.Visual.rotation=orbRotation;
-                    else slot.Visual.localRotation=Quaternion.identity;
+                    if (slot.AppliedPopScale != 1.4f) { slot.Visual.localScale = Vector3.one * 1.4f; slot.AppliedPopScale = 1.4f; }
+                    if (slot.Kind == CombatPickupKind.Experience)
+                    {
+                        if (!slot.HasOrbRotation || slot.AppliedOrbRotation != orbRotation) { slot.Visual.rotation = orbRotation; slot.AppliedOrbRotation = orbRotation; slot.HasOrbRotation = true; }
+                    }
+                    else if (slot.HasOrbRotation) { slot.Visual.localRotation = Quaternion.identity; slot.HasOrbRotation = false; }
                     if (slot.FlightTrail != null)
                     {
                         slot.FlightTrail.enabled = decorative && progress > .02f;
@@ -396,33 +532,108 @@ namespace EchoScrap.Combat
                             slot.FlightTrail.SetPosition(point, CollectorFlightPosition(slot, target, Mathf.Max(0f, progress - point * .025f), true));
                     }
                     if (progress >= 1f) Collect(slot);
+                    if (i < activeSlots.Count && activeSlots[i] == slot) i++;
                     continue;
                 }
+                bool experience = slot.Kind == CombatPickupKind.Experience;
+                float pickupRadius = experience ? experienceRadius : magnetRadius;
                 float distanceSquared = (slot.Position - target).sqrMagnitude;
-                if (distanceSquared <= magnetRadius * magnetRadius)
+                if (collectible && distanceSquared <= pickupRadius * pickupRadius)
                     slot.Attracted = true;
                 if (slot.Attracted)
                 {
-                    slot.Position = Vector3.MoveTowards(slot.Position, target, Mathf.Max(0f, speed) * deltaTime);
+                    Vector3 from = slot.Position;
+                    int id = slot.Id;
+                    slot.Position = Vector3.MoveTowards(from, target, Mathf.Max(0f, speed) * deltaTime);
                     slot.Position = ArenaSurface.OnGround(slot.Position, PickupHeight);
                     slot.Root.transform.position = slot.Position;
+                    if (experience) UpdateExpCell(slot);
+                    if (experience && sharpGemTier > 0)
+                        DamageWithGem(slot, from, sharpGemTier);
+                    if (!slot.Active || slot.Id != id || !CanAdvance)
+                    {
+                        if (i < activeSlots.Count && activeSlots[i] == slot) i++;
+                        continue;
+                    }
+                    distanceSquared = (slot.Position - target).sqrMagnitude;
                 }
-                if ((slot.Position - target).sqrMagnitude <= collectRadius * collectRadius &&
+                if (collectible && distanceSquared <= collectRadius * collectRadius &&
                     (slot.Kind != CombatPickupKind.Experience || progression != null))
                 {
                     Collect(slot);
+                    if (i < activeSlots.Count && activeSlots[i] == slot) i++;
                     continue;
                 }
-                float bob = decorative ? Mathf.Sin(slot.Age * 4f + slot.BobPhase) * 0.045f : 0f;
-                slot.Visual.localPosition = Vector3.up * bob;
-                if(slot.Kind==CombatPickupKind.Experience)slot.Visual.rotation=orbRotation;
-                else slot.Visual.localRotation=Quaternion.identity;
+                if (distanceSquared <= visibleBobRadiusSqr)
+                {
+                    float bob = decorative ? Mathf.Round(Mathf.Sin(slot.Age * 4f + slot.BobPhase) * 8f) * (0.045f / 8f) : 0f;
+                    if (bob != slot.AppliedBobY)
+                    {
+                        slot.AppliedBobY = bob;
+                        slot.Visual.localPosition = Vector3.up * bob;
+                    }
+                    if (experience)
+                    {
+                        if (!slot.HasOrbRotation || slot.AppliedOrbRotation != orbRotation)
+                        {
+                            slot.Visual.rotation = orbRotation;
+                            slot.AppliedOrbRotation = orbRotation;
+                            slot.HasOrbRotation = true;
+                        }
+                    }
+                    else if (slot.HasOrbRotation)
+                    {
+                        slot.Visual.localRotation = Quaternion.identity;
+                        slot.HasOrbRotation = false;
+                    }
+                }
+                else if (slot.AppliedBobY != 0f)
+                {
+                    slot.AppliedBobY = 0f;
+                    slot.Visual.localPosition = Vector3.zero;
+                }
                 float pop = !decorative ? 1f : (slot.Age < 0.06f
                     ? Mathf.Lerp(0.7f, 1.12f, slot.Age / 0.06f)
-                    : Mathf.Lerp(1.12f, 1f, (slot.Age - 0.06f) / 0.10f));
-                slot.Visual.localScale = Vector3.one * pop;
+                    : slot.Age < 0.16f ? Mathf.Lerp(1.12f, 1f, (slot.Age - 0.06f) / 0.10f) : 1f);
+                if (pop != slot.AppliedPopScale)
+                {
+                    slot.AppliedPopScale = pop;
+                    slot.Visual.localScale = Vector3.one * pop;
+                }
+                i++;
             }
             StepAbsorption(deltaTime, decorative);
+        }
+
+        private bool CanCollectMedkit() => playerHealth.CurrentHealth < playerHealth.MaxHealth - .0001f ||
+            (stats != null && (stats.GetUpgradeTier(UpgradeId.BIO_05) > 0 || stats.GetUpgradeTier(UpgradeId.BIO_04) > 0));
+
+        private void DamageWithGem(PickupSlot slot, Vector3 from, int tier)
+        {
+            Vector3 travel = slot.Position - from;
+            travel.y = 0f;
+            if (travel.sqrMagnitude <= .000001f) return;
+            UpgradeTuning tuning = stats.Upgrades;
+            EnemyActor.GatherSegmentCandidatesUnsorted(from, slot.Position, tuning.gemHitRadius, gemTargets);
+            int pickupId = slot.Id;
+            float damage = UpgradeTuning.At(tuning.gemDamage, tier) * Mathf.Min(3, slot.GemCount);
+            foreach (EnemyActor enemy in gemTargets)
+            {
+                if (!CanAdvance || !slot.Active || slot.Id != pickupId) break;
+                if (enemy == null || !enemy.IsAlive || enemy.CurrentHealth <= 0f || enemy.Session != session ||
+                    enemy is GolgoraActor { IsAirborne: true } ||
+                    !EnemyActor.TouchesSegment(from, slot.Position, enemy.WorldCenter, tuning.gemHitRadius + enemy.HitRadius, out float fraction))
+                    continue;
+                Vector3 point = Vector3.Lerp(from, slot.Position, fraction);
+                if (Physics.Linecast(point, enemy.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
+                    continue;
+
+                slot.SharpGemHits ??= new Dictionary<int, int>(8);
+                if (slot.SharpGemHits.TryGetValue(enemy.TargetId, out int version) && version == enemy.SpawnVersion) continue;
+                slot.SharpGemHits[enemy.TargetId] = enemy.SpawnVersion;
+                var hit = new DamageRequest(playerHealth.TargetId, DamageSourceType.SharpGem, from, travel.normalized, damage);
+                enemy.ReceiveDamage(in hit);
+            }
         }
 
         /// <summary>Move the actual map pickups to the player; rewards resolve only on arrival.</summary>
@@ -447,12 +658,33 @@ namespace EchoScrap.Combat
         {
             if (session == null || playerHealth == null || !playerHealth.IsAlive || session.State == SessionState.Victory || session.State == SessionState.Defeat) return 0;
             int started = 0;
-            foreach (var slot in slots)
+            bool canMedkit = CanCollectMedkit();
+            for (int i = 0; i < activeSlots.Count; i++)
             {
-                if (!slot.Active || slot.GlobalFlight) continue;
+                PickupSlot slot = activeSlots[i];
+                if (slot.GlobalFlight || (slot.Kind == CombatPickupKind.Medkit && !canMedkit)) continue;
                 slot.GlobalFlight = slot.Attracted = true;
                 slot.FlightStart = slot.Position; slot.FlightAge = 0f;
                 slot.FlightDuration = Mathf.Clamp(.45f + Vector3.Distance(slot.Position, playerHealth.transform.position) * .012f, .5f, 1.8f);
+                started++;
+            }
+            return started;
+        }
+
+        public int AttractWithin(Vector3 center, float radius)
+        {
+            if (session == null || playerHealth == null || !playerHealth.IsAlive || session.State == SessionState.Victory || session.State == SessionState.Defeat || radius <= 0f) return 0;
+            int started = 0;
+            float radiusSqr = radius * radius;
+            for (int i = 0; i < activeSlots.Count; i++)
+            {
+                PickupSlot slot = activeSlots[i];
+                if (slot.GlobalFlight || slot.Kind != CombatPickupKind.Experience) continue;
+                Vector3 d = slot.Position - center; d.y = 0f;
+                if (d.sqrMagnitude > radiusSqr) continue;
+                slot.GlobalFlight = slot.Attracted = true;
+                slot.FlightStart = slot.Position; slot.FlightAge = 0f;
+                slot.FlightDuration = Mathf.Clamp(.4f + Vector3.Distance(slot.Position, playerHealth.transform.position) * .012f, .45f, 1.4f);
                 started++;
             }
             return started;
@@ -462,7 +694,12 @@ namespace EchoScrap.Combat
         public void CollectAll()
         {
             if (session == null || !playerHealth.IsAlive || session.State == SessionState.Victory || session.State == SessionState.Defeat) return;
-            for (int i=0;i<slots.Count;i++) if (slots[i].Active) Collect(slots[i]);
+            bool canMedkit = CanCollectMedkit();
+            for (int i = activeSlots.Count - 1; i >= 0; i--)
+            {
+                PickupSlot slot = activeSlots[i];
+                if (slot.Kind == CombatPickupKind.Experience || canMedkit) Collect(slot);
+            }
         }
         private void Collect(PickupSlot slot)
         {
@@ -472,6 +709,7 @@ namespace EchoScrap.Combat
             if (slot.FlightTrail != null) slot.FlightTrail.enabled = false;
             slot.Attracted = false;
             slot.Root.SetActive(false);
+            DeactivateSlot(slot);
             ActivePickupCount--;
             if (slot.Kind == CombatPickupKind.Experience)
             {
@@ -488,7 +726,7 @@ namespace EchoScrap.Combat
                 ActiveMedkitCount--;
                 TotalCollectedMedkits++;
                 HealResult heal = playerHealth.Heal(stats != null ? stats.MedkitHealAmount : 15f);
-                if (heal.ActualHealed > 0f)
+                if (heal.ActualHealed > 0f || (stats?.GetUpgradeTier(UpgradeId.BIO_05) ?? 0) > 0)
                 {
                     PlayMedkitHealSound();
                     TriggerAbsorption(new Color(0.30f, 1f, 0.48f));
@@ -591,16 +829,32 @@ namespace EchoScrap.Combat
 
         public void ResetForSession()
         {
+            activeSlots.Clear();
+            freeExperienceSlots.Clear();
+            freeMedkitSlots.Clear();
+            foreach (var bucket in expCells.Values)
+            {
+                bucket.Clear();
+                spareCellLists.Push(bucket);
+            }
+            expCells.Clear();
             for (int i = 0; i < slots.Count; i++)
             {
                 PickupSlot slot = slots[i];
                 slot.Active = false;
+                slot.ActiveIndex = -1;
+                slot.InSpatialGrid = false;
                 slot.GlobalFlight = false;
                 if (slot.FlightTrail != null) slot.FlightTrail.enabled = false;
                 slot.Attracted = false;
+                slot.HasOrbRotation = false;
+                slot.AppliedBobY = 0f;
+                slot.AppliedPopScale = -1f;
                 slot.Experience = 0;
                 slot.Age = 0f;
                 slot.Root.SetActive(false);
+                if (slot.Kind == CombatPickupKind.Experience) freeExperienceSlots.Push(slot);
+                else freeMedkitSlots.Push(slot);
             }
             for (int i = 0; i < absorption.Length; i++)
             {
@@ -619,7 +873,7 @@ namespace EchoScrap.Combat
         private static Material CreateMaterial(string materialName, Color color, bool transparent = false)
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
-            var material = new Material(shader) { name = materialName };
+            var material = new Material(shader) { name = materialName, enableInstancing = true };
             if (material.HasProperty(BaseColorId))
                 material.SetColor(BaseColorId, color);
             if (material.HasProperty(ColorId))
@@ -702,6 +956,116 @@ namespace EchoScrap.Combat
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        internal CombatPickupPoolSnapshot CaptureSnapshot(IReadOnlyList<EnemyActor> enemyLookup)
+        {
+            var snapshot = new CombatPickupPoolSnapshot
+            {
+                nextId = nextId,
+                nextMedkitDropTime = nextMedkitDropTime,
+                totalSpawnedExperience = TotalSpawnedExperience,
+                totalCollectedExperience = TotalCollectedExperience,
+                totalCollectedMedkits = TotalCollectedMedkits,
+                experienceRemainder = experienceRemainder
+            };
+            for (int i = 0; i < slots.Count; i++)
+            {
+                PickupSlot slot = slots[i];
+                if (slot == null || !slot.Active) continue;
+                var item = new CombatPickupSnapshot
+                {
+                    kind = (int)slot.Kind,
+                    position = slot.Position,
+                    id = slot.Id,
+                    experience = slot.Experience,
+                    gemCount = slot.GemCount,
+                    attracted = slot.Attracted,
+                    age = slot.Age,
+                    bobPhase = slot.BobPhase,
+                    globalFlight = slot.GlobalFlight,
+                    flightStart = slot.FlightStart,
+                    flightAge = slot.FlightAge,
+                    flightDuration = slot.FlightDuration
+                };
+                if (slot.SharpGemHits is { Count: > 0 })
+                {
+                    for (int enemyIndex = 0; enemyIndex < enemyLookup.Count; enemyIndex++)
+                    {
+                        var enemy = enemyLookup[enemyIndex];
+                        if (enemy != null && slot.SharpGemHits.TryGetValue(enemy.TargetId, out int version) && enemy.SpawnVersion == version)
+                            (item.sharpGemHitEnemyIndices ??= new List<int>()).Add(enemyIndex);
+                    }
+                }
+                snapshot.pickups.Add(item);
+            }
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(CombatPickupPoolSnapshot snapshot, IReadOnlyList<EnemyActor> enemyLookup)
+        {
+            EnsureInitialized();
+            ResetForSession();
+            if (snapshot == null) return;
+            nextId = Mathf.Max(1, snapshot.nextId);
+            nextMedkitDropTime = snapshot.nextMedkitDropTime;
+            TotalSpawnedExperience = Math.Max(0L, snapshot.totalSpawnedExperience);
+            TotalCollectedExperience = Math.Max(0L, snapshot.totalCollectedExperience);
+            TotalCollectedMedkits = Mathf.Max(0, snapshot.totalCollectedMedkits);
+            experienceRemainder = snapshot.experienceRemainder;
+            if (snapshot.pickups == null) return;
+            for (int i = 0; i < snapshot.pickups.Count; i++)
+            {
+                CombatPickupSnapshot item = snapshot.pickups[i];
+                CombatPickupKind kind = (CombatPickupKind)item.kind;
+                PickupSlot slot = AcquireFreeSlot(kind);
+                slot.Id = item.id;
+                slot.Kind = kind;
+                slot.Position = item.position;
+                slot.Experience = Mathf.Max(0, item.experience);
+                slot.GemCount = Mathf.Max(0, item.gemCount);
+                slot.Attracted = item.attracted;
+                slot.Age = Mathf.Max(0f, item.age);
+                slot.BobPhase = item.bobPhase;
+                slot.GlobalFlight = item.globalFlight;
+                slot.FlightStart = item.flightStart;
+                slot.FlightAge = Mathf.Max(0f, item.flightAge);
+                slot.FlightDuration = Mathf.Max(0f, item.flightDuration);
+                slot.SharpGemHits?.Clear();
+                if (item.sharpGemHitEnemyIndices != null)
+                {
+                    foreach (int enemyIndex in item.sharpGemHitEnemyIndices)
+                    {
+                        if (enemyIndex < 0 || enemyIndex >= enemyLookup.Count || enemyLookup[enemyIndex] == null) continue;
+                        var enemy = enemyLookup[enemyIndex];
+                        (slot.SharpGemHits ??= new Dictionary<int, int>())[enemy.TargetId] = enemy.SpawnVersion;
+                    }
+                }
+                slot.Active = true;
+                slot.Root.transform.position = slot.Position;
+                slot.Visual.localPosition = Vector3.zero;
+                slot.AppliedBobY = 0f;
+                if (kind == CombatPickupKind.Experience)
+                {
+                    Quaternion orbRot = OrbRotation;
+                    slot.Visual.rotation = orbRot;
+                    slot.AppliedOrbRotation = orbRot;
+                    slot.HasOrbRotation = true;
+                }
+                else
+                {
+                    slot.Visual.localRotation = Quaternion.identity;
+                    slot.HasOrbRotation = false;
+                }
+                slot.Visual.localScale = Vector3.one * 0.7f;
+                slot.AppliedPopScale = 0.7f;
+                if (slot.FlightTrail != null) slot.FlightTrail.enabled = slot.GlobalFlight;
+                slot.Root.SetActive(true);
+                ActivateSlot(slot);
+                ActivePickupCount++;
+                if (kind == CombatPickupKind.Experience) ActiveExperienceCount++;
+                else ActiveMedkitCount++;
+            }
         }
     }
 }

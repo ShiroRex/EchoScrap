@@ -72,9 +72,18 @@ namespace EchoScrap.Combat
             public float Gravity;
             public float RotationDegrees;
             public float RotationOrigin;
+            public Vector3 CachedViewportPos;
+            public Vector3 CachedWorldForViewport;
+            public int CachedViewportFrame = -1;
+            public float LastLabelAlpha = -1f;
+            public float LastResistAlpha = -1f;
+            public float LastUniformScale = -1f;
+            public int LastLabelCull = -1;
+            public int LastResistCull = -1;
         }
 
         private readonly Entry[] entries = new Entry[MaxActiveNumbers];
+        private readonly List<Entry> activeEntries = new List<Entry>(MaxActiveNumbers);
         private readonly char[] numberBuffer = new char[48];
         private readonly Dictionary<double, string> normalTexts = new Dictionary<double, string>(TextCacheCapacity);
         private readonly Dictionary<double, string> criticalTexts = new Dictionary<double, string>(TextCacheCapacity);
@@ -84,7 +93,13 @@ namespace EchoScrap.Combat
         private bool initialized;
         private bool ownsSettings;
         private float presentationTime;
+        private float lastExpiredAt = -1f;
         private uint motionSequence;
+        private Vector3 cachedCameraPos;
+        private Quaternion cachedCameraRot;
+        private float cachedCameraFov = -1f;
+        private int cachedCameraFrame = -1;
+        private int cameraCacheEpoch;
 
         public int ActiveNumberCount { get; private set; }
         public int PoolCapacity => initialized ? entries.Length : 0;
@@ -206,8 +221,11 @@ namespace EchoScrap.Combat
         private void HandleDamage(DamageResult damage) => TryShowDamage(in damage);
         private void HandleDeath(ActorDeathEvent death)
         {
-            foreach (Entry entry in entries)
-                if (entry.Active && entry.TargetId == death.ActorId) entry.CanAggregate = false;
+            for (int i = 0; i < activeEntries.Count; i++)
+            {
+                Entry entry = activeEntries[i];
+                if (entry.TargetId == death.ActorId) entry.CanAggregate = false;
+            }
         }
         private void HandleSessionState(SessionStateEvent state)
         {
@@ -222,26 +240,30 @@ namespace EchoScrap.Combat
                 !Finite(damage.WorldPosition.z) || worldCamera == null) return false;
             EnsureInitialized();
             Vector3 anchor = damage.WorldPosition + Vector3.up * settings.WorldHeightOffset;
-            if (!InsideCamera(anchor)) { DroppedNumberCount++; return false; }
+            Vector3 anchorViewport = ProjectViewport(anchor);
+            if (!IsViewportVisible(anchorViewport)) { DroppedNumberCount++; return false; }
             ExpireEntries();
             bool aggregate = !damage.IsCritical && !damage.WasExecuted && damage.BurstId > 0 &&
-                (damage.SourceType == DamageSourceType.FlashlightPulse || damage.SourceType == DamageSourceType.SolarPulse);
+                DamageTypes.IsFlashlight(damage.SourceType);
             if (aggregate)
             {
-                foreach (Entry existing in entries)
+                for (int i = 0; i < activeEntries.Count; i++)
                 {
-                    if (!existing.Active || !existing.CanAggregate || existing.Critical || existing.TargetId != damage.TargetId ||
+                    Entry existing = activeEntries[i];
+                    if (!existing.CanAggregate || existing.Critical || existing.TargetId != damage.TargetId ||
                         existing.SourceId != damage.SourceId || existing.BurstId != damage.BurstId || existing.SourceType != damage.SourceType || existing.DamageType != damage.DamageType || existing.Resisted != damage.WasResisted) continue;
                     Vector2 currentFlight = FlightOffset(existing);
                     float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
-                    Camera uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
                     if (intensity > .0001f &&
-                        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, worldCamera.WorldToScreenPoint(existing.WorldPosition), uiCamera, out Vector2 oldAnchor) &&
-                        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, worldCamera.WorldToScreenPoint(anchor), uiCamera, out Vector2 newAnchor))
+                        TryViewportToCanvasLocal(GetEntryViewport(existing), out Vector2 oldAnchor) &&
+                        TryViewportToCanvasLocal(anchorViewport, out Vector2 newAnchor))
                         currentFlight += (oldAnchor-newAnchor)/intensity;
                     existing.Damage = (float)Math.Min(float.MaxValue, (double)existing.Damage + damage.HealthLost);
                     existing.UpdatedAt = presentationTime;
                     existing.WorldPosition = anchor;
+                    existing.CachedWorldForViewport = anchor;
+                    existing.CachedViewportPos = anchorViewport;
+                    existing.CachedViewportFrame = cameraCacheEpoch;
                     existing.CanAggregate = !damage.CausedDeath && damage.RemainingHealth > 0f;
                     existing.Label.text = FormattedNumber(existing.Damage, false);
                     StartFlight(existing, currentFlight, settings.AggregateBounceMultiplier);
@@ -254,11 +276,12 @@ namespace EchoScrap.Combat
             Entry entry = GetAvailableEntry(damage.IsCritical || damage.WasExecuted, anchor);
             if (entry == null) { DroppedNumberCount++; return false; }
             if (entry.Active) RecycledNumberCount++;
-            else ActiveNumberCount++;
+            else { ActiveNumberCount++; activeEntries.Add(entry); }
             entry.Active = true; entry.Critical = damage.IsCritical; entry.Executed = damage.WasExecuted; entry.DamageType = damage.DamageType;
             entry.Resisted = damage.WasResisted;
             entry.TargetId = damage.TargetId; entry.SourceId = damage.SourceId; entry.BurstId = damage.BurstId;
             entry.SourceType = damage.SourceType; entry.Damage = damage.HealthLost; entry.WorldPosition = anchor;
+            entry.CachedWorldForViewport = anchor; entry.CachedViewportPos = anchorViewport; entry.CachedViewportFrame = cameraCacheEpoch;
             entry.CanAggregate = aggregate && !damage.CausedDeath && damage.RemainingHealth > 0f;
             entry.StartedAt = entry.UpdatedAt = presentationTime;
             int lane = (damage.TargetId ^ damage.BurstId ^ damage.PulseIndex) & 3;
@@ -267,7 +290,7 @@ namespace EchoScrap.Combat
             entry.Label.color = entry.Executed ? settings.ExecutionColor : settings.DamageColor(entry.DamageType, entry.Critical);
             entry.Label.text = entry.Executed ? "EJECUTADO" : FormattedNumber(entry.Damage, entry.Critical);
             InitializeFlight(entry, in damage);
-            entry.VerticalOffset = ChooseVerticalLane(entry);
+            entry.VerticalOffset = ChooseVerticalLane(entry, anchorViewport);
             TotalShownCount++;
             Present(entry);
             return true;
@@ -344,28 +367,95 @@ namespace EchoScrap.Combat
         public void RefreshProjection()
         {
             if (!initialized || worldCamera == null) return;
-            foreach (Entry entry in entries) if (entry.Active) Present(entry);
+            EnsureCameraCache();
+            for (int i = 0; i < activeEntries.Count; i++) Present(activeEntries[i]);
         }
         private void ExpireEntries()
         {
-            foreach (Entry entry in entries)
-                if (entry.Active && presentationTime - entry.UpdatedAt >= (entry.Executed ? settings.ExecutionLifetime : settings.Lifetime))
-                { Hide(entry); ActiveNumberCount--; }
+            if (activeEntries.Count == 0 || lastExpiredAt == presentationTime) return;
+            lastExpiredAt = presentationTime;
+            for (int i = activeEntries.Count - 1; i >= 0; i--)
+            {
+                Entry entry = activeEntries[i];
+                if (presentationTime - entry.UpdatedAt >= (entry.Executed ? settings.ExecutionLifetime : settings.Lifetime))
+                {
+                    Hide(entry);
+                    activeEntries.RemoveAt(i);
+                    ActiveNumberCount--;
+                }
+            }
+        }
+        private void EnsureCameraCache()
+        {
+            int frame = Time.frameCount;
+            Transform camTransform = worldCamera.transform;
+            Vector3 pos = camTransform.position;
+            Quaternion rot = camTransform.rotation;
+            float fov = worldCamera.fieldOfView;
+            if (cachedCameraFrame != frame || pos != cachedCameraPos || rot != cachedCameraRot || fov != cachedCameraFov)
+            {
+                cachedCameraFrame = frame;
+                cachedCameraPos = pos;
+                cachedCameraRot = rot;
+                cachedCameraFov = fov;
+                cameraCacheEpoch++;
+            }
+        }
+        private Vector3 ProjectViewport(Vector3 worldPos)
+        {
+            EnsureCameraCache();
+            return worldCamera.WorldToViewportPoint(worldPos);
+        }
+        private Vector3 GetEntryViewport(Entry entry)
+        {
+            EnsureCameraCache();
+            if (entry.CachedViewportFrame == cameraCacheEpoch && entry.CachedWorldForViewport == entry.WorldPosition)
+                return entry.CachedViewportPos;
+            entry.CachedViewportPos = worldCamera.WorldToViewportPoint(entry.WorldPosition);
+            entry.CachedWorldForViewport = entry.WorldPosition;
+            entry.CachedViewportFrame = cameraCacheEpoch;
+            return entry.CachedViewportPos;
+        }
+        private bool IsViewportVisible(Vector3 viewport) =>
+            viewport.z > worldCamera.nearClipPlane && viewport.x >= 0f && viewport.x <= 1f && viewport.y >= 0f && viewport.y <= 1f;
+        private Vector2 ViewportToScreenPoint(Vector3 viewport)
+        {
+            Rect pixelRect = worldCamera.pixelRect;
+            return new Vector2(pixelRect.x + viewport.x * pixelRect.width, pixelRect.y + viewport.y * pixelRect.height);
+        }
+        private bool TryViewportToCanvasLocal(Vector3 viewport, out Vector2 position)
+        {
+            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            {
+                Vector2 screen = ViewportToScreenPoint(viewport);
+                float scale = Mathf.Max(0.0001f, canvas.scaleFactor);
+                Rect rect = canvasRect.rect;
+                position = new Vector2(screen.x / scale + rect.xMin, screen.y / scale + rect.yMin);
+                return true;
+            }
+            return RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, ViewportToScreenPoint(viewport), canvas.worldCamera, out position);
         }
         private void Present(Entry entry)
         {
-            Vector3 screen = worldCamera.WorldToScreenPoint(entry.WorldPosition);
-            bool visible = InsideCamera(entry.WorldPosition);
-            entry.Label.canvasRenderer.cull = !visible;
-            entry.ResistanceLabel.canvasRenderer.cull = !visible || !entry.Resisted || entry.Executed;
-            if (!visible) { entry.Label.canvasRenderer.SetAlpha(0f); entry.ResistanceLabel.canvasRenderer.SetAlpha(0f); return; }
+            Vector3 viewport = GetEntryViewport(entry);
+            bool visible = IsViewportVisible(viewport);
+            int cullLabel = visible ? 0 : 1;
+            int cullResist = (!visible || !entry.Resisted || entry.Executed) ? 1 : 0;
+            if (entry.LastLabelCull != cullLabel) { entry.LastLabelCull = cullLabel; entry.Label.canvasRenderer.cull = !visible; }
+            if (entry.LastResistCull != cullResist) { entry.LastResistCull = cullResist; entry.ResistanceLabel.canvasRenderer.cull = cullResist != 0; }
+            if (!visible)
+            {
+                if (entry.LastLabelAlpha != 0f) { entry.LastLabelAlpha = 0f; entry.Label.canvasRenderer.SetAlpha(0f); }
+                if (entry.LastResistAlpha != 0f) { entry.LastResistAlpha = 0f; entry.ResistanceLabel.canvasRenderer.SetAlpha(0f); }
+                return;
+            }
             float age = Mathf.Max(0f, presentationTime - entry.StartedAt);
             float fadeProgress = Mathf.Clamp01((presentationTime - entry.UpdatedAt) / (entry.Executed ? settings.ExecutionLifetime : settings.Lifetime));
             float alpha = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1f, fadeProgress));
-            entry.Label.canvasRenderer.SetAlpha(alpha);
-            entry.ResistanceLabel.canvasRenderer.SetAlpha(entry.Resisted && !entry.Executed ? alpha : 0f);
-            Camera uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
-            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, uiCamera, out Vector2 position))
+            if (entry.LastLabelAlpha != alpha) { entry.LastLabelAlpha = alpha; entry.Label.canvasRenderer.SetAlpha(alpha); }
+            float resistAlpha = entry.Resisted && !entry.Executed ? alpha : 0f;
+            if (entry.LastResistAlpha != resistAlpha) { entry.LastResistAlpha = resistAlpha; entry.ResistanceLabel.canvasRenderer.SetAlpha(resistAlpha); }
+            if (TryViewportToCanvasLocal(viewport, out Vector2 position))
             {
                 float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
                 position += new Vector2(entry.HorizontalOffset, entry.VerticalOffset) + FlightOffset(entry)*intensity;
@@ -375,25 +465,35 @@ namespace EchoScrap.Combat
                 float scale = age < settings.PopInDuration
                     ? Mathf.Lerp(settings.InitialScale, settings.PeakScale, age / settings.PopInDuration)
                     : Mathf.Lerp(settings.PeakScale, 1f, Mathf.Clamp01((age - settings.PopInDuration) / settings.PopReturnDuration));
-                entry.Rect.localScale = Vector3.one * Mathf.Lerp(1f, scale, intensity);
+                float appliedScale = Mathf.Lerp(1f, scale, intensity);
+                if (entry.LastUniformScale != appliedScale)
+                {
+                    entry.LastUniformScale = appliedScale;
+                    entry.Rect.localScale = Vector3.one * appliedScale;
+                }
             }
         }
-        private float ChooseVerticalLane(Entry entry)
+        private float ChooseVerticalLane(Entry entry, Vector3 entryViewport)
         {
             float scale = Mathf.Max(0.001f, canvas.scaleFactor);
-            Vector3 screen = worldCamera.WorldToScreenPoint(entry.WorldPosition);
+            Vector2 screen = ViewportToScreenPoint(entryViewport);
             Vector2 anchor = new Vector2(screen.x / scale + entry.HorizontalOffset, screen.y / scale);
             float width = entry.Label.text.Length * entry.Label.fontSize * 0.62f;
+            float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
+            float maxFlightX = settings.HorizontalTravelPixels.y * settings.CriticalLaunchMultiplier * intensity + 140f;
             for (int lane = 0; lane < 4; lane++)
             {
                 float offset = lane * (settings.CriticalFontSize + 8f + (entry.Resisted ? 28f : 0f));
                 bool overlaps = false;
-                foreach (Entry other in entries)
+                for (int i = 0; i < activeEntries.Count; i++)
                 {
-                    if (!other.Active || other == entry) continue;
-                    Vector3 projected = worldCamera.WorldToScreenPoint(other.WorldPosition);
+                    Entry other = activeEntries[i];
+                    if (other == entry) continue;
+                    Vector2 projected = ViewportToScreenPoint(GetEntryViewport(other));
                     float otherWidth = other.Label.text.Length * other.Label.fontSize * 0.62f;
-                    float intensity = session != null ? session.Effects.DecorativeIntensity : 1f;
+                    float baseOtherX = projected.x / scale + other.HorizontalOffset;
+                    float combinedHalfWidth = (width + otherWidth) * .5f + 6f;
+                    if (Mathf.Abs(anchor.x - baseOtherX) > combinedHalfWidth + maxFlightX) continue;
                     // Reserve a clear lane through the upcoming arc, not only at its starting point.
                     for (int sample=0;sample<3;sample++)
                     {
@@ -401,9 +501,9 @@ namespace EchoScrap.Combat
                         if (atTime-other.UpdatedAt >= (other.Executed?settings.ExecutionLifetime:settings.Lifetime)) continue;
                         Vector2 flight=FlightOffset(other,atTime)*intensity;
                         Vector2 ownFlight=FlightOffset(entry,atTime)*intensity;
-                        float otherX=projected.x/scale+other.HorizontalOffset+flight.x;
+                        float otherX=baseOtherX+flight.x;
                         float otherY=projected.y/scale+other.VerticalOffset+flight.y;
-                        if (Mathf.Abs(anchor.x+ownFlight.x-otherX)<(width+otherWidth)*.5f+6f &&
+                        if (Mathf.Abs(anchor.x+ownFlight.x-otherX)<combinedHalfWidth &&
                             Mathf.Abs(anchor.y+offset+ownFlight.y-otherY)<settings.CriticalFontSize+5f+((entry.Resisted || other.Resisted)?28f:0f))
                         {overlaps=true;break;}
                     }
@@ -412,11 +512,6 @@ namespace EchoScrap.Combat
                 if (!overlaps) return offset;
             }
             return 3f * (settings.CriticalFontSize + 8f + (entry.Resisted ? 28f : 0f));
-        }
-        private bool InsideCamera(Vector3 position)
-        {
-            Vector3 viewport = worldCamera.WorldToViewportPoint(position);
-            return viewport.z > worldCamera.nearClipPlane && viewport.x >= 0f && viewport.x <= 1f && viewport.y >= 0f && viewport.y <= 1f;
         }
 
         private void WarmKnownValues()
@@ -465,7 +560,10 @@ namespace EchoScrap.Combat
         private static void Hide(Entry entry)
         {
             entry.Active = false; entry.CanAggregate = false; entry.Executed = false;
-            entry.Resisted = false;
+            entry.Resisted = false; entry.CachedViewportFrame = -1;
+            entry.LastResistAlpha = 0f; entry.LastResistCull = 1;
+            entry.LastLabelAlpha = 0f; entry.LastLabelCull = 1;
+            entry.LastUniformScale = 1f;
             entry.ResistanceLabel.canvasRenderer.SetAlpha(0f); entry.ResistanceLabel.canvasRenderer.cull = true;
             entry.Label.canvasRenderer.SetAlpha(0f); entry.Label.canvasRenderer.cull = true;
             entry.Rect.localScale = Vector3.one;
@@ -477,11 +575,14 @@ namespace EchoScrap.Combat
         {
             if (!initialized) return;
             foreach (Entry entry in entries) Hide(entry);
+            activeEntries.Clear();
             ActiveNumberCount = 0;
+            lastExpiredAt = -1f;
         }
         private void ResetForSession()
         {
-            Clear(); presentationTime = 0f; motionSequence = 0;
+            Clear(); presentationTime = 0f; lastExpiredAt = -1f; motionSequence = 0;
+            cachedCameraFrame = -1; cameraCacheEpoch++;
             TotalShownCount = AggregatedHitCount = RecycledNumberCount = DroppedNumberCount = 0;
         }
         private Entry GetActiveEntry(int index)

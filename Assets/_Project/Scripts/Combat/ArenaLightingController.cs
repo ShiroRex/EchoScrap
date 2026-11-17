@@ -59,6 +59,7 @@ namespace EchoScrap.Combat
         private Color fogColor;
         private float fogDensity, fogStart, fogEnd;
         private bool inside, initialized, decorationEnabled = true, dustActive = true, atmosphereEnabled = true, focusEnabled = true;
+        private WarehouseLightScope warehouseLightScope;
         private readonly ArenaLightingShaderState shaderState = new ArenaLightingShaderState();
         private static readonly int CabinReveal = Shader.PropertyToID("_EchoCabinReveal");
 
@@ -124,8 +125,25 @@ namespace EchoScrap.Combat
             volume.sharedProfile = profile.PostProcessing;
             if (volume.sharedProfile != null) volume.profile.TryGet(out bloom);
             initialized = true; Active = this;
+            FindWarehouseLightScope();
             game.Session.Effects.OnPreferencesChanged += RefreshDecoration;
             SetWarehouse(false);
+        }
+
+        private WarehouseLightScope FindWarehouseLightScope()
+        {
+            if (warehouseLightScope != null) return warehouseLightScope;
+            var scene = game != null ? game.gameObject.scene : gameObject.scene;
+            var scopes = FindObjectsByType<WarehouseLightScope>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < scopes.Length; i++)
+            {
+                if (scopes[i] != null && scopes[i].gameObject.scene == scene)
+                {
+                    warehouseLightScope = scopes[i];
+                    break;
+                }
+            }
+            return warehouseLightScope;
         }
 
         public void SetLightingEnabled(bool value)
@@ -158,6 +176,7 @@ namespace EchoScrap.Combat
             bool exterior = isActiveAndEnabled && LightingEnabled && !inside;
             if (!inside) ApplyExteriorCamera();
             bool interior = isActiveAndEnabled && inside;
+            FindWarehouseLightScope()?.SetInteriorActive(inside);
             cameraData.SetRenderer(exterior || interior ? Profile.RendererIndex : originalRendererIndex);
             cameraData.renderPostProcessing = exterior || originalPost;
             game.GameplayCamera.clearFlags = exterior || interior ? CameraClearFlags.SolidColor : originalClearFlags;

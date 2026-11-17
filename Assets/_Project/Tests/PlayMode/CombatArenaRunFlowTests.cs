@@ -42,6 +42,8 @@ namespace EchoScrap.Tests
                 yield return SceneManager.UnloadSceneAsync(arena);
             }
             CombatTargetRegistry.Clear();
+            SceneTransitionState.Reset();
+            SaveSlotService.DeleteAllSlotsAndMigrationForTesting();
         }
 
         [Test]
@@ -59,7 +61,7 @@ namespace EchoScrap.Tests
                 station.PersistProgress = false;
                 Assert.That(station.gameObject.scene, Is.EqualTo(game.gameObject.scene));
                 Assert.That(station.gameObject.scene.name, Is.EqualTo("CombatArena"));
-                Assert.That(station.DisplaySlots, Has.Length.EqualTo(10), "Both rounds retain the expanded vault.");
+                Assert.That(station.DisplaySlots, Has.Length.EqualTo(18), "Both rounds retain the expanded vault.");
                 Assert.That(station.Door, Is.Not.Null);
                 Assert.That(station.InteractionPoint, Is.Not.Null);
                 Assert.That(station.ResultPoint, Is.Not.Null);
@@ -216,6 +218,91 @@ namespace EchoScrap.Tests
             game.ResetRun(false);
             Assert.IsFalse(tile.gameObject.activeSelf);
             Assert.IsTrue(cards.Find("Empty").gameObject.activeInHierarchy);
+        }
+
+        [Test]
+        public void PauseFrameRateButtonsApplyAndPersistTheSelectedLimit()
+        {
+            const string key = "EchoScrap.Graphics.FrameRateLimit";
+            int previousPreference = PlayerPrefs.GetInt(key, -1);
+            int previousFrameRate = Application.targetFrameRate;
+            int previousVSync = QualitySettings.vSyncCount;
+            try
+            {
+                game.Session.SetManualPause(true);
+                game.Hud.RefreshNow();
+                var general = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause/General");
+                var group = general.Find("FrameRateLimit");
+                var effects = general.Find("EffectsSlider").GetComponent<UnityEngine.UI.Slider>();
+                foreach (int rate in new[] { 30, 120, 60 })
+                {
+                    var choice = group.Find(rate.ToString()).GetComponent<UnityEngine.UI.Button>();
+                    QualitySettings.vSyncCount = 1;
+                    choice.onClick.Invoke();
+                    Assert.AreEqual(rate, Application.targetFrameRate);
+                    Assert.AreEqual(0, QualitySettings.vSyncCount);
+                    Assert.AreEqual(rate, PlayerPrefs.GetInt(key));
+                    Assert.AreSame(choice, effects.navigation.selectOnDown);
+                    Assert.AreSame(effects, choice.navigation.selectOnUp);
+                }
+
+                Application.targetFrameRate = 30;
+                typeof(MenuSettingsView).GetMethod("LoadFrameRateLimit",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).Invoke(null, null);
+                Assert.AreEqual(60, Application.targetFrameRate);
+            }
+            finally
+            {
+                if (previousPreference == -1) PlayerPrefs.DeleteKey(key);
+                else PlayerPrefs.SetInt(key, previousPreference);
+                PlayerPrefs.Save();
+                Application.targetFrameRate = previousFrameRate;
+                QualitySettings.vSyncCount = previousVSync;
+                game.Session.SetManualPause(false);
+            }
+        }
+
+        [Test]
+        public void PauseDisplayModeButtonsPersistSelectionAndChainGeneralNavigation()
+        {
+            const string key = "EchoScrap.Graphics.FullScreen";
+            int previousPreference = PlayerPrefs.GetInt(key, -1);
+            try
+            {
+                PlayerPrefs.DeleteKey(key);
+                game.Session.SetManualPause(true);
+                game.Hud.RefreshNow();
+                var general = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause/General");
+                var fpsGroup = general.Find("FrameRateLimit");
+                var displayGroup = general.Find("DisplayMode");
+                Assert.NotNull(displayGroup);
+                var windowed = displayGroup.Find("Windowed").GetComponent<UnityEngine.UI.Button>();
+                var fullscreen = displayGroup.Find("FullScreen").GetComponent<UnityEngine.UI.Button>();
+                var resume = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause/Resume").GetComponent<UnityEngine.UI.Button>();
+                var selectedFps = fpsGroup.Find(Application.targetFrameRate.ToString()).GetComponent<UnityEngine.UI.Button>();
+
+                windowed.onClick.Invoke();
+                Assert.AreEqual(0, PlayerPrefs.GetInt(key));
+                Assert.AreSame(windowed, selectedFps.navigation.selectOnDown);
+                Assert.AreSame(selectedFps, windowed.navigation.selectOnUp);
+                Assert.AreSame(resume, windowed.navigation.selectOnDown);
+
+                fullscreen.onClick.Invoke();
+                Assert.AreEqual(1, PlayerPrefs.GetInt(key));
+                Assert.AreSame(fullscreen, selectedFps.navigation.selectOnDown);
+                Assert.AreSame(selectedFps, fullscreen.navigation.selectOnUp);
+                Assert.AreSame(resume, fullscreen.navigation.selectOnDown);
+
+                typeof(MenuSettingsView).GetMethod("LoadDisplayMode",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).Invoke(null, null);
+            }
+            finally
+            {
+                if (previousPreference == -1) PlayerPrefs.DeleteKey(key);
+                else PlayerPrefs.SetInt(key, previousPreference);
+                PlayerPrefs.Save();
+                game.Session.SetManualPause(false);
+            }
         }
 
         [Test]

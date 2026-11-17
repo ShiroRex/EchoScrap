@@ -12,12 +12,20 @@ namespace EchoScrap.Core
         CRIT_01, CRIT_02, CRIT_03, CRIT_04, CRIT_05,
         DEMO_01, DEMO_02, DEMO_03, DEMO_04,
         SCRAP_01, SCRAP_02, SCRAP_03, SCRAP_04,
-        CRYO_01, CRYO_02, CRYO_03, CRYO_04
+        CRYO_01, CRYO_02, CRYO_03, CRYO_04,
+        FLASH_06, FLASH_07, FLASH_08, DASH_05, DASH_06, DASH_07, GREED_06, BIO_05,
+        FLASH_09, FLASH_10, FLASH_11, FLASH_12, FLASH_13, FLASH_14,
+        DASH_08, DASH_09, DASH_10,
+        GREED_07,
+        DEMO_05, DEMO_06, DEMO_07,
+        SCRAP_05, SCRAP_06, SCRAP_07, SCRAP_08,
+        CRYO_05,
+        MYTH_01
     }
 
     public static class UpgradeRules
     {
-        public const int Count = 35;
+        public const int Count = (int)UpgradeId.MYTH_01 + 1;
         private static readonly Dictionary<string, UpgradeId> ids = BuildIds();
         private static Dictionary<string, UpgradeId> BuildIds()
         {
@@ -33,10 +41,12 @@ namespace EchoScrap.Core
         public static int MaxTier(UpgradeId id) => id switch
         {
             UpgradeId.FLASH_05 or UpgradeId.DASH_04 or UpgradeId.BIO_04 or UpgradeId.GREED_05 or
-            UpgradeId.CRIT_05 or UpgradeId.DEMO_04 or UpgradeId.SCRAP_04 or UpgradeId.CRYO_04 => 1,
+            UpgradeId.CRIT_05 or UpgradeId.DEMO_04 or UpgradeId.SCRAP_04 or UpgradeId.CRYO_04 or
+            UpgradeId.FLASH_13 or UpgradeId.FLASH_14 or UpgradeId.SCRAP_07 or UpgradeId.MYTH_01 => 1,
             UpgradeId.FLASH_01 or UpgradeId.FLASH_02 or UpgradeId.DASH_01 or UpgradeId.BIO_01 or
             UpgradeId.GREED_01 or UpgradeId.GREED_02 or UpgradeId.CRIT_01 or UpgradeId.CRIT_02 or
-            UpgradeId.DEMO_01 or UpgradeId.SCRAP_01 or UpgradeId.CRYO_01 => 5,
+            UpgradeId.DEMO_01 or UpgradeId.SCRAP_01 or UpgradeId.CRYO_01 or
+            UpgradeId.FLASH_10 or UpgradeId.FLASH_11 or UpgradeId.DASH_09 or UpgradeId.DEMO_07 => 5,
             _ => 3
         };
     }

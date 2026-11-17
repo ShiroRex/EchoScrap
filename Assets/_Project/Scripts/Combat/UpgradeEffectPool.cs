@@ -18,8 +18,12 @@ namespace EchoScrap.Combat
             public MeshFilter Filter;
             public MeshRenderer Renderer;
             public ScrapTurretView Turret;
-            public bool Used, Transient, Inward;
-            public float Age, Life, Radius, Reaction;
+            public MaterialPropertyBlock Block;
+            public Mesh RingMesh;
+            public Vector3[] RingVertices;
+            public ArenaSurface LastRingSurface;
+            public bool Used, Transient, Inward, HasStaticColor, HasRingProjection;
+            public float Age, Life, Radius, Reaction, LastRingX, LastRingZ, LastRingRadius;
             public Color Color;
             public Vector3 ReactionDirection;
             internal Shape Shape;
@@ -41,6 +45,7 @@ namespace EchoScrap.Combat
             public View Owner;
             public float Life, AppliedIntensity = -1f;
             public uint Seed;
+            public byte AppliedTintMode;
         }
         private sealed class LightSlot
         {
@@ -50,6 +55,8 @@ namespace EchoScrap.Combat
         }
         public const int ParticleRigCapacity = 32;
         public const int LightCapacity = 6;
+        private const int GroundRingGrid = 12;
+        private const int GroundRingVertexCount = (GroundRingGrid + 1) * (GroundRingGrid + 1);
         private static readonly string[] ProfileNames = { "ElectricalImpact", "FrostBurst", "MetalImpact", "Explosion", "PlasmaExplosion", "Shockwave", "Implosion", "Repair", "Collection", "FrostAura", "SawWake", "EnergyShield", "PlasmaTrail", "MetalTrail" };
         private static readonly int[] ProfileReserves = { 4, 4, 6, 4, 3, 3, 3, 3, 2, 8, 4, 2, 4, 4 };
         private readonly View[] views;
@@ -57,6 +64,9 @@ namespace EchoScrap.Combat
         private readonly LightSlot[] lights = new LightSlot[LightCapacity];
         private readonly Transform reserveRoot;
         private readonly Mesh groundQuad, uprightQuad, turretQuad, shieldMesh, iceMesh;
+        private readonly int[] groundRingTriangles;
+        private readonly Vector2[] groundRingUv;
+        private readonly Color[] groundRingColors;
         private readonly Material flatMaterial, shieldMaterial, sawMaterial;
         private readonly bool ownsFlatMaterial;
         private readonly Material[] spriteMaterials = new Material[11];
@@ -66,6 +76,7 @@ namespace EchoScrap.Combat
         private readonly EffectPreferences preferences;
         private uint sequence;
         private static readonly int Tint = Shader.PropertyToID("_Color"), BaseTint = Shader.PropertyToID("_BaseColor"), Phase = Shader.PropertyToID("_Phase"), Glow = Shader.PropertyToID("_Glow");
+        private static readonly int Billboard = Shader.PropertyToID("_Billboard");
         private static readonly int VisualKind = Shader.PropertyToID("_VisualKind"), ImpactStrength = Shader.PropertyToID("_ImpactStrength"), ImpactDirection = Shader.PropertyToID("_ImpactDirection");
         private static readonly string[] TextureNames = { "Saw", "Mine", "Turret", "Spark", "Frost", "Smoke", "Shockwave", "Shield", "Wind", "Explosion", "Frost" };
         public int ActiveCount { get; private set; }
@@ -96,12 +107,14 @@ namespace EchoScrap.Combat
             }
             shieldMaterial = new Material(energyShader != null ? energyShader : spriteShader) { name = "Nanobot energy envelope" };
             shieldMaterial.SetTexture("_MainTex", Resources.Load<Texture2D>("Upgrades/Vfx/Shield"));
+            BuildGroundRingTopology(out groundRingTriangles, out groundRingUv, out groundRingColors);
             views = new View[Mathf.Max(16, capacity)+8];
             for (int i = 0; i < views.Length; i++)
             {
                 var go = new GameObject("UpgradeEffect"); go.transform.SetParent(parent, false);
                 var v = new View { Root = go.transform, Filter = go.AddComponent<MeshFilter>(), Renderer = go.AddComponent<MeshRenderer>() };
                 if(i<8){v.Turret=go.AddComponent<ScrapTurretView>();v.Turret.Initialize(turretQuad);v.Turret.enabled=false;}
+                else InitGroundRingMesh(v);
                 v.Renderer.shadowCastingMode = ShadowCastingMode.Off; v.Renderer.receiveShadows = false; go.SetActive(false); views[i] = v;
             }
             reserveRoot = new GameObject("Authored upgrade VFX reserve").transform; reserveRoot.SetParent(parent, false);
@@ -150,7 +163,8 @@ namespace EchoScrap.Combat
             {
                 View v = views[i]; if (v.Used) continue;
                 if((shape==Shape.Turret)!=(v.Turret!=null))continue;
-                v.Used = true; v.Transient = false; v.Inward = false; v.Age = 0; v.Color = color; v.Shape = shape; v.Kind = BurstKind.Auto; v.Rig = null; v.Reaction = 0; v.ReactionDirection = Vector3.forward;
+                v.Used = true; v.Transient = false; v.Inward = false; v.HasStaticColor = false; v.HasRingProjection = false; v.LastRingSurface = null; v.Age = 0; v.Color = color; v.Shape = shape; v.Kind = BurstKind.Auto; v.Rig = null; v.Reaction = 0; v.ReactionDirection = Vector3.forward;
+                v.Block ??= new MaterialPropertyBlock(); v.Block.Clear();
                 v.Root.SetPositionAndRotation(position, Quaternion.identity); v.Root.localScale = Vector3.one * scale;
                 v.Renderer.SetPropertyBlock(null); ConfigureRenderer(v);
                 if (shape == Shape.Decoy && collector != null && collector.CharacterRenderer != null)
@@ -158,12 +172,68 @@ namespace EchoScrap.Combat
                     v.Filter.sharedMesh = collector.CharacterMesh; v.Renderer.sharedMaterial = collector.AfterimageMaterial;
                     collector.CopyAfterimageTo(v.Root, v.Renderer); v.Root.position += position - collector.transform.position; color.a = .42f;
                 }
-                SetColor(v, color); v.Root.gameObject.SetActive(true); ActiveCount++;
+                // Burst sets the property block once its kind and blend mode are resolved.
+                if (shape != Shape.Wave) SetColor(v, color);
+                v.Root.gameObject.SetActive(true); ActiveCount++;
                 if (Decorative && WantsLoop(v)) v.Rig = AcquireRig(v, LoopProfile(v));
                 if (shape == Shape.Shield) AddLight(v, new Color(.25f, .65f, .85f), 2.1f, .14f, 1.1f);
                 return v;
             }
             return null;
+        }
+        public void ProjectGroundRing(View v, Vector3 center, float radius)
+        {
+            if (v == null || !v.Used || v.Shape != Shape.Ring) return;
+            float safeRadius = Mathf.Max(.05f, radius);
+            ArenaSurface surface = ArenaSurface.Active;
+            float groundY = surface != null ? ArenaSurface.Height(center) + .06f : .06f;
+            center.y = groundY;
+            v.Root.SetPositionAndRotation(center, Quaternion.identity);
+            v.Root.localScale = Vector3.one * safeRadius;
+            v.Radius = safeRadius;
+            if (surface == null || v.RingMesh == null || v.RingVertices == null)
+            {
+                if (v.HasRingProjection)
+                {
+                    v.HasRingProjection = false;
+                    v.LastRingSurface = null;
+                    v.Filter.sharedMesh = groundQuad;
+                }
+                return;
+            }
+            if (v.HasRingProjection
+                && v.LastRingSurface == surface
+                && Mathf.Abs(center.x - v.LastRingX) < .03f
+                && Mathf.Abs(center.z - v.LastRingZ) < .03f
+                && Mathf.Abs(safeRadius - v.LastRingRadius) < .02f)
+                return;
+
+            v.HasRingProjection = true;
+            v.LastRingSurface = surface;
+            v.LastRingX = center.x;
+            v.LastRingZ = center.z;
+            v.LastRingRadius = safeRadius;
+            v.Filter.sharedMesh = v.RingMesh;
+            float invRadius = 1f / safeRadius;
+            int stride = GroundRingGrid + 1;
+            float minLocalY = -.01f, maxLocalY = .01f;
+            for (int row = 0; row <= GroundRingGrid; row++)
+            {
+                float nz = (row / (float)GroundRingGrid) * 2f - 1f;
+                float worldZ = center.z + nz * safeRadius;
+                for (int col = 0; col <= GroundRingGrid; col++)
+                {
+                    float nx = (col / (float)GroundRingGrid) * 2f - 1f;
+                    float worldX = center.x + nx * safeRadius;
+                    float localY = (ArenaSurface.Height(new Vector3(worldX, center.y, worldZ)) + .06f - groundY) * invRadius;
+                    if (localY < minLocalY) minLocalY = localY;
+                    if (localY > maxLocalY) maxLocalY = localY;
+                    v.RingVertices[row * stride + col] = new Vector3(nx, localY, nz);
+                }
+            }
+            v.RingMesh.SetVertices(v.RingVertices);
+            v.RingMesh.bounds = new Bounds(new Vector3(0f, (minLocalY + maxLocalY) * .5f, 0f),
+                new Vector3(2f, Mathf.Max(.05f, maxLocalY - minLocalY + .1f), 2f));
         }
         private void ConfigureRenderer(View v)
         {
@@ -174,6 +244,7 @@ namespace EchoScrap.Combat
             v.Renderer.enabled = true; v.Filter.sharedMesh = groundQuad; int material = 6;
             switch (v.Shape)
             {
+                case Shape.Ring: if (v.HasRingProjection && v.RingMesh != null) v.Filter.sharedMesh = v.RingMesh; break;
                 case Shape.Dart: material = 3; break;
                 case Shape.Saw: if (sawMaterial != null) { v.Renderer.sharedMaterial = sawMaterial; return; } material = 0; break;
                 case Shape.Mine: material = 1; break;
@@ -188,20 +259,30 @@ namespace EchoScrap.Combat
         public void SetShape(View v, Shape shape)
         {
             if (v == null || v.Shape == shape) return;
-            ReleaseRig(v.Rig); v.Rig = null; v.Shape = shape; v.Age = 0; ConfigureRenderer(v); SetColor(v, v.Color);
-            if (Decorative && WantsLoop(v)) v.Rig = AcquireRig(v, LoopProfile(v));
+            ReleaseRig(v.Rig); v.Rig = null; v.Shape = shape; v.HasStaticColor = false; v.Age = 0; ConfigureRenderer(v); SetColor(v, v.Color);
+            if (Decorative && WantsLoop(v) && (v.Shape == Shape.Shield || ActiveParticleRigCount < ParticleRigCapacity - 8)) v.Rig = AcquireRig(v, LoopProfile(v));
         }
         public void SetColor(View v, Color color)
         {
             if (v == null) return;
-            v.Color = color; v.Renderer.GetPropertyBlock(block);
+            v.Color = color;
+            MaterialPropertyBlock targetBlock = v.Block ??= new MaterialPropertyBlock();
             bool art = v.Shape == Shape.Saw || v.Shape == Shape.Mine || v.Shape == Shape.Turret;
             Color render = v.Shape == Shape.Saw && sawMaterial != null ? sawMaterial.GetColor(BaseTint) : art ? Color.white : color;
             if (v.Shape == Shape.Ring) render.a *= .34f;
             if (v.Shape == Shape.Ice) render = new Color(.35f, .72f, .9f, .75f);
-            block.SetColor(Tint, render); block.SetColor(BaseTint, render); block.SetFloat(Phase, v.Age); block.SetFloat("_Billboard", v.Shape == Shape.Turret ? 1f : 0f); block.SetFloat(Glow, 1f);
+            targetBlock.SetColor(Tint, render); targetBlock.SetColor(BaseTint, render); targetBlock.SetFloat(Phase, v.Age); targetBlock.SetFloat(Billboard, v.Shape == Shape.Turret ? 1f : 0f); targetBlock.SetFloat(Glow, 1f);
             float kind = v.Shape == Shape.Ring ? 1 : v.Shape == Shape.Dart ? 2 : v.Shape == Shape.Blade ? 3 : v.Shape == Shape.Ice ? 4 : v.Shape == Shape.Wave ? v.Kind == BurstKind.Collection ? 6 : v.Inward ? 5 : IsImpact(v.Kind) ? 7 : 1 : 0;
-            block.SetFloat(VisualKind, kind); block.SetFloat(ImpactStrength, v.Reaction); block.SetVector(ImpactDirection, v.ReactionDirection); v.Renderer.SetPropertyBlock(block);
+            targetBlock.SetFloat(VisualKind, kind); targetBlock.SetFloat(ImpactStrength, v.Reaction); targetBlock.SetVector(ImpactDirection, v.ReactionDirection);
+            v.HasStaticColor = true;
+            v.Renderer.SetPropertyBlock(targetBlock);
+        }
+        private static void StepAnimatedPhase(View v)
+        {
+            MaterialPropertyBlock targetBlock = v.Block;
+            if (targetBlock == null) return;
+            targetBlock.SetFloat(Phase, v.Age);
+            v.Renderer.SetPropertyBlock(targetBlock);
         }
         public void PulseShield(View v, Vector3 incomingDirection)
         {
@@ -251,7 +332,7 @@ namespace EchoScrap.Combat
                 v.Age += dt; v.Reaction = Mathf.Max(0f, v.Reaction - dt * 4.5f);
                 if(v.Turret!=null)v.Turret.Step(dt);
                 if (!Decorative && v.Rig != null) { ReleaseRig(v.Rig); v.Rig = null; }
-                if (Decorative && !v.Transient && v.Rig == null && WantsLoop(v)) v.Rig = AcquireRig(v, LoopProfile(v));
+                if (Decorative && !v.Transient && v.Rig == null && WantsLoop(v) && (v.Shape == Shape.Shield || ActiveParticleRigCount < ParticleRigCapacity - 8)) v.Rig = AcquireRig(v, LoopProfile(v));
                 if (v.Transient)
                 {
                     float t = v.Age / v.Life; if (t >= 1f) { Release(v); continue; }
@@ -259,7 +340,11 @@ namespace EchoScrap.Combat
                     v.Root.localScale = Vector3.one * (IsImpact(v.Kind) ? v.Radius : Mathf.Max(.05f, reach));
                     Color original = v.Color, fade = original; fade.a *= Mathf.Pow(1f - t, 1.1f) * .6f; SetColor(v, fade); v.Color = original; ConfigureTransientRenderer(v);
                 }
-                else if (v.Shape == Shape.Ice || v.Shape == Shape.Ring || v.Shape == Shape.Shield || v.Shape == Shape.Dart || v.Shape == Shape.Blade) SetColor(v, v.Color);
+                else if (v.Shape == Shape.Ice || v.Shape == Shape.Ring || v.Shape == Shape.Shield || v.Shape == Shape.Dart || v.Shape == Shape.Blade)
+                {
+                    if (v.HasStaticColor) StepAnimatedPhase(v);
+                    else SetColor(v, v.Color);
+                }
                 if (v.Rig != null) StepRig(v.Rig, dt);
             }
             for (int i = 0; i < lights.Length; i++)
@@ -289,7 +374,7 @@ namespace EchoScrap.Combat
             for (int i = 0; i < rigs.Length; i++)
             {
                 ParticleRig rig = rigs[i]; if (rig != free) continue;
-                rig.Owner = owner; rig.AppliedIntensity = -1f; rig.Root.SetPositionAndRotation(owner.Root.position, Quaternion.identity);
+                rig.Owner = owner; rig.Root.SetPositionAndRotation(owner.Root.position, Quaternion.identity);
                 rig.Root.localScale = Vector3.one * (owner.Transient ? owner.Radius : Mathf.Max(.25f, owner.Root.localScale.x)); rig.Root.gameObject.SetActive(true); ActiveParticleRigCount++; sequence++;
                 ApplyIntensity(rig);
                 for (int layer = 0; layer < rig.Layers.Length; layer++)
@@ -303,18 +388,27 @@ namespace EchoScrap.Combat
         }
         private void ApplyIntensity(ParticleRig rig)
         {
-            float intensity = Intensity; if (Mathf.Approximately(rig.AppliedIntensity, intensity)) return;
+            float intensity = Intensity;
+            byte tintMode = rig.Owner != null && rig.Owner.Kind == BurstKind.PlasmaImpact ? (byte)2 : (byte)1;
+            bool intensityChanged = !Mathf.Approximately(rig.AppliedIntensity, intensity);
+            bool tintChanged = intensityChanged || rig.AppliedTintMode != tintMode;
+            if (!tintChanged) return;
             rig.AppliedIntensity = intensity;
+            rig.AppliedTintMode = tintMode;
             for (int i = 0; i < rig.Layers.Length; i++)
             {
-                ParticleLayer layer = rig.Layers[i]; var emission = layer.System.emission; emission.rateOverTimeMultiplier = layer.Rate * intensity;
-                for (int b = 0; b < layer.Bursts.Length; b++)
+                ParticleLayer layer = rig.Layers[i];
+                if (intensityChanged)
                 {
-                    ParticleSystem.Burst burst = layer.Bursts[b]; var count = burst.count;
-                    count.constantMin = Mathf.Ceil(layer.Bursts[b].count.constantMin * intensity); count.constantMax = Mathf.Ceil(layer.Bursts[b].count.constantMax * intensity);
-                    burst.count = count; emission.SetBurst(b, burst);
+                    var emission = layer.System.emission; emission.rateOverTimeMultiplier = layer.Rate * intensity;
+                    for (int b = 0; b < layer.Bursts.Length; b++)
+                    {
+                        ParticleSystem.Burst burst = layer.Bursts[b]; var count = burst.count;
+                        count.constantMin = Mathf.Ceil(layer.Bursts[b].count.constantMin * intensity); count.constantMax = Mathf.Ceil(layer.Bursts[b].count.constantMax * intensity);
+                        burst.count = count; emission.SetBurst(b, burst);
+                    }
                 }
-                block.Clear(); Color tint = rig.Owner.Kind == BurstKind.PlasmaImpact ? new Color(.85f, .42f, 1f, Mathf.Sqrt(intensity)) : new Color(1f, 1f, 1f, Mathf.Sqrt(intensity));
+                block.Clear(); Color tint = tintMode == 2 ? new Color(.85f, .42f, 1f, Mathf.Sqrt(intensity)) : new Color(1f, 1f, 1f, Mathf.Sqrt(intensity));
                 block.SetColor(Tint, tint); layer.Renderer.SetPropertyBlock(block);
             }
         }
@@ -345,11 +439,61 @@ namespace EchoScrap.Combat
         public void Clear() { for (int i = 0; i < views.Length; i++) Release(views[i]); for (int i = 0; i < lights.Length; i++) DisableLight(lights[i]); sequence = 0; }
         public void Dispose()
         {
-            Clear(); for (int i = 0; i < views.Length; i++) if (views[i].Root != null) Object.Destroy(views[i].Root.gameObject);
+            Clear(); for (int i = 0; i < views.Length; i++) { if (views[i].RingMesh != null) Object.Destroy(views[i].RingMesh); if (views[i].Root != null) Object.Destroy(views[i].Root.gameObject); }
             if (reserveRoot != null) Object.Destroy(reserveRoot.gameObject);
             Object.Destroy(groundQuad); Object.Destroy(uprightQuad); Object.Destroy(turretQuad); Object.Destroy(shieldMesh); Object.Destroy(iceMesh);
             for (int i = 0; i < spriteMaterials.Length; i++) { Object.Destroy(spriteMaterials[i]); Object.Destroy(particleMaterials[i]); }
             Object.Destroy(shieldMaterial); if (ownsFlatMaterial) Object.Destroy(flatMaterial);
+        }
+        private static void BuildGroundRingTopology(out int[] triangles, out Vector2[] uv, out Color[] colors)
+        {
+            int stride = GroundRingGrid + 1;
+            uv = new Vector2[GroundRingVertexCount];
+            colors = new Color[GroundRingVertexCount];
+            triangles = new int[GroundRingGrid * GroundRingGrid * 6];
+            for (int row = 0; row <= GroundRingGrid; row++)
+            {
+                float v = row / (float)GroundRingGrid;
+                for (int col = 0; col <= GroundRingGrid; col++)
+                {
+                    int index = row * stride + col;
+                    uv[index] = new Vector2(col / (float)GroundRingGrid, v);
+                    colors[index] = Color.white;
+                }
+            }
+            int t = 0;
+            for (int row = 0; row < GroundRingGrid; row++)
+            {
+                for (int col = 0; col < GroundRingGrid; col++)
+                {
+                    int a = row * stride + col;
+                    int b = a + 1;
+                    int c = a + stride + 1;
+                    int d = a + stride;
+                    triangles[t++] = a; triangles[t++] = c; triangles[t++] = b;
+                    triangles[t++] = a; triangles[t++] = d; triangles[t++] = c;
+                }
+            }
+        }
+        private void InitGroundRingMesh(View v)
+        {
+            v.RingVertices = new Vector3[GroundRingVertexCount];
+            int stride = GroundRingGrid + 1;
+            for (int row = 0; row <= GroundRingGrid; row++)
+            {
+                float nz = (row / (float)GroundRingGrid) * 2f - 1f;
+                for (int col = 0; col <= GroundRingGrid; col++)
+                    v.RingVertices[row * stride + col] = new Vector3((col / (float)GroundRingGrid) * 2f - 1f, 0f, nz);
+            }
+            var mesh = new Mesh { name = "Upgrade projected ground ring" };
+            mesh.MarkDynamic();
+            mesh.SetVertices(v.RingVertices);
+            mesh.SetTriangles(groundRingTriangles, 0, false);
+            mesh.SetUVs(0, groundRingUv);
+            mesh.SetColors(groundRingColors);
+            mesh.RecalculateNormals();
+            mesh.bounds = new Bounds(Vector3.zero, new Vector3(2f, .1f, 2f));
+            v.RingMesh = mesh;
         }
         private static Mesh Quad(bool upright, bool bottomPivot)
         {

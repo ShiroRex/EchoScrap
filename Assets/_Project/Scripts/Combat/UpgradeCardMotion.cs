@@ -51,7 +51,7 @@ namespace EchoScrap.Combat
         {
             frameMaterial.CopyPropertiesFromMaterial(framePrototypes[(int)rarity]);
             sheenTint = UpgradeCatalog.RarityColor(rarity);
-            rarityStrength = rarity switch { UpgradeRarity.SSR => 0.16f, UpgradeRarity.SR => 0.12f, UpgradeRarity.R => 0.09f, _ => 0.065f };
+            rarityStrength = rarity switch { UpgradeRarity.M => 0.20f, UpgradeRarity.SSR => 0.16f, UpgradeRarity.SR => 0.12f, UpgradeRarity.R => 0.09f, _ => 0.065f };
         }
         public void SetRarest(bool value) => rarest = value;
 

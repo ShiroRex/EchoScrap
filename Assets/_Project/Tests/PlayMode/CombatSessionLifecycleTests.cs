@@ -49,7 +49,12 @@ namespace EchoScrap.Tests
                 InputSystem.DisableDevice(device);
             }
             keyboard = InputSystem.AddDevice<Keyboard>();
+#if UNITY_EDITOR
+            yield return UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(
+                "Assets/_Project/Scenes/LocomotionSandbox.unity", new LoadSceneParameters(LoadSceneMode.Single));
+#else
             yield return SceneManager.LoadSceneAsync("LocomotionSandbox", LoadSceneMode.Single);
+#endif
             testScene = SceneManager.GetActiveScene();
             motor = Object.FindAnyObjectByType<PlayerMotor>();
             Assert.IsNotNull(motor);
@@ -199,11 +204,15 @@ namespace EchoScrap.Tests
                 weapon.StepWeapon(0.2f);
                 Assert.AreEqual(1, weapon.TotalPulsesEmitted);
                 Assert.IsTrue(flashlightView.IsContactDiamondVisible);
-                int deathBursts = deathPool.TotalBurstsPlayed;
+                int genericDeathBursts = deathPool.TotalBurstsPlayed;
+                int deaths = 0;
+                void CountEnemyDeath(ActorDeathEvent death) { if (!death.IsPlayer) deaths++; }
+                session.Events.OnActorDied += CountEnemyDeath;
                 var lethal = new DamageRequest(1, DamageSourceType.SolarPulse, player.WorldCenter, Vector3.forward, 1000f);
                 enemy.ReceiveDamage(in lethal);
-                Assert.AreEqual(deathBursts + 1, deathPool.TotalBurstsPlayed, "One subscribed death handler.");
-                Assert.AreEqual(1, deathPool.ActiveBurstCount);
+                session.Events.OnActorDied -= CountEnemyDeath;
+                Assert.AreEqual(1, deaths, "One death event for the pooled enemy.");
+                Assert.AreEqual(genericDeathBursts, deathPool.TotalBurstsPlayed, "Residual uses its authored death animation.");
                 enemies.Spawn(EnemyArchetypeId.Residual, player.WorldCenter + Vector3.right * 5f);
                 hazards.SpawnPuddle(1, new Vector3(40f, 0f, 40f));
                 int hurtFeedback = hurtView.HurtFeedbackTriggerCount;

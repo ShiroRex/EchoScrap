@@ -228,6 +228,28 @@ namespace EchoScrap.Tests
             Assert.Greater(telegraph.transform.position.y, .5f);
         }
 
+        [Test]
+        public void MothCountdownSamplesVaultFloorEvenWhenItsCenterLiesOnFlatTerrain()
+        {
+            new GameObject("Arena ground").AddComponent<ArenaSurface>();
+            var platform = new GameObject("Vault platform");
+            platform.transform.position = new Vector3(3f, 1f, 0f);
+            var collider = platform.AddComponent<BoxCollider>();
+            platform.AddComponent<VaultFloorSurface>().Surfaces = new Collider[] { collider };
+            Physics.SyncTransforms();
+
+            var telegraph = EchoScrap.Combat.Prototype.ExplosionTelegraph.Create(Vector3.zero, 3f);
+            telegraph.SetProgress(1f, true);
+            var ring = telegraph.GetComponentInChildren<LineRenderer>();
+            Assert.That(ring.GetPosition(0).y, Is.EqualTo(1.58f).Within(.001f));
+
+            var fill = telegraph.transform.Find("Fill");
+            var mesh = fill.GetComponent<MeshFilter>().sharedMesh;
+            Assert.That(fill.TransformPoint(mesh.vertices[19]).y, Is.EqualTo(1.56f).Within(.001f));
+            foreach (var vertex in mesh.vertices)
+                Assert.That(mesh.bounds.Contains(vertex), Is.True);
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void CopperWarningAndSweptBoltsRemainVisibleAndHittableAcrossSlopes(bool downhill)

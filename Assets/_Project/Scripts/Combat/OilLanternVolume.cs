@@ -19,6 +19,9 @@ namespace EchoScrap.Combat
         private Light oilGlow;
         private Prototype.HD2DLightFlicker flicker;
         private MeshRenderer beamRenderer;
+        private MeshRenderer rearRenderer;
+        private float rearEmission, rearRange;
+        private Vector3 rearDirection;
         private Mesh beamMesh;
         private Material beamMaterial;
         private Material flameMaterial;
@@ -86,6 +89,14 @@ namespace EchoScrap.Combat
             }
         }
 
+        public void ShowRearPulse(PulseResolvedEvent pulse)
+        {
+            rearRange = pulse.RearRange;
+            rearDirection = -pulse.AimDirection;
+        }
+
+        public void SetRearEmission(float value) => rearEmission = value;
+
         private void LateUpdate() => Refresh();
 
         public void Refresh()
@@ -148,12 +159,40 @@ namespace EchoScrap.Combat
             color.a *= session != null ? session.Effects.DecorativeIntensity : 1f;
             block.SetColor("_BeamColor", color);
             beamRenderer.SetPropertyBlock(block);
+            RefreshRearBeam(visible, reduced, color, range);
+        }
+
+        private void RefreshRearBeam(bool visible, bool reduced, Color color, float range)
+        {
+            bool show = visible && rearEmission > 0f && rearRange > 0f &&
+                (session == null || !session.IsInWarehouse);
+            if (rearRenderer == null && show)
+            {
+                var rear = new GameObject("Doble foco");
+                rear.transform.SetParent(keyLight.transform.parent, false);
+                rear.AddComponent<MeshFilter>().sharedMesh = beamMesh;
+                rearRenderer = rear.AddComponent<MeshRenderer>();
+                rearRenderer.sharedMaterial = beamMaterial;
+                rearRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                rearRenderer.receiveShadows = false;
+            }
+            if (rearRenderer == null) return;
+            rearRenderer.enabled = show;
+            if (!show) return;
+
+            Transform rearTransform = rearRenderer.transform;
+            rearTransform.SetPositionAndRotation(keyLight.transform.position, Quaternion.LookRotation(rearDirection, Vector3.up));
+            rearTransform.localScale = Vector3.one * (rearRange / Mathf.Max(.1f, range));
+            color.a = (reduced ? .035f : .065f) * rearEmission;
+            block.SetColor("_BeamColor", color);
+            rearRenderer.SetPropertyBlock(block);
         }
 
         private void OnDisable()
         {
             if (oilGlow != null) oilGlow.enabled = false;
             if (beamRenderer != null) beamRenderer.enabled = false;
+            if (rearRenderer != null) rearRenderer.enabled = false;
             if (flame != null) flame.gameObject.SetActive(false);
             if (flicker != null) flicker.enabled = false;
         }
@@ -163,6 +202,7 @@ namespace EchoScrap.Combat
             if (oilGlow != null) Destroy(oilGlow.gameObject);
             if (flame != null) Destroy(flame.gameObject);
             if (beamRenderer != null) Destroy(beamRenderer.gameObject);
+            if (rearRenderer != null) Destroy(rearRenderer.gameObject);
             Destroy(beamMesh); Destroy(beamMaterial); Destroy(flameMaterial);
         }
     }

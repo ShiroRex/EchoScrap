@@ -10,6 +10,7 @@ namespace EchoScrap.Combat
     {
         private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
         private static readonly int StatusTintId = Shader.PropertyToID("_StatusTint");
         private static readonly int StatusAmountId = Shader.PropertyToID("_StatusAmount");
         private EnemyActor actor;
@@ -25,6 +26,11 @@ namespace EchoScrap.Combat
         private CharacterSpriteSet.Clip appliedClip;
         private int appliedFrame;
         private uint appliedRevision;
+        private bool hasShadowCache;
+        private float lastShadowX, lastShadowZ, lastShadowScale;
+        private Vector3 lastShadowPos;
+        private Quaternion lastShadowRot;
+        private Vector3 lastRootScale = new Vector3(-1f, -1f, -1f);
         public EnemySpriteMotion Motion { get; private set; }
         public CharacterFacing Facing { get; private set; }
         public int FrameIndex { get; private set; }
@@ -61,7 +67,11 @@ namespace EchoScrap.Combat
             deaths.Prewarm(sprites);
             Motion = EnemySpriteMotion.Idle;
             Facing = ResolveFacing();
+            block.Clear();
             clipTime = attackRemaining = hitRemaining = 0f;
+            appliedRevision = uint.MaxValue;
+            hasShadowCache = false;
+            lastRootScale = new Vector3(-1f, -1f, -1f);
             ApplyFrame();
             AlignToSurface();
         }
@@ -183,7 +193,11 @@ namespace EchoScrap.Combat
             appliedRevision = revision;
             pixels.GetPropertyBlock(block);
             block.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
-            if (!actor.VisualComposer.IsFlashActive) block.SetColor(BaseColorId, Color.white);
+            if (!actor.VisualComposer.IsFlashActive)
+            {
+                block.SetColor(BaseColorId, Color.white);
+                block.SetColor(EmissionColorId, Color.clear);
+            }
             Color tint = actor.VisualComposer.StatusTint;
             block.SetColor(StatusTintId, tint);
             block.SetFloat(StatusAmountId, !actor.VisualComposer.IsFlashActive && tint != Color.white ? .9f : 0f);
@@ -198,9 +212,23 @@ namespace EchoScrap.Combat
             pixels.transform.SetPositionAndRotation(feet, yaw);
             float scale = actor.Archetype.VisualScale.x * sprites.presentationScale;
             ApplyWorldScale(pixels.transform, scale);
-            shadow.transform.SetPositionAndRotation(ArenaSurface.OnGround(transform.position, .035f),
-                Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(transform.position)));
-            ApplyWorldScale(shadow.transform, scale);
+            Vector3 rootPos = transform.position;
+            if (!hasShadowCache || Mathf.Abs(rootPos.x - lastShadowX) > 0.005f || Mathf.Abs(rootPos.z - lastShadowZ) > 0.005f)
+            {
+                hasShadowCache = true;
+                lastShadowX = rootPos.x;
+                lastShadowZ = rootPos.z;
+                lastShadowPos = ArenaSurface.OnGround(rootPos, .035f);
+                lastShadowRot = Quaternion.FromToRotation(Vector3.back, ArenaSurface.Normal(rootPos));
+                shadow.transform.SetPositionAndRotation(lastShadowPos, lastShadowRot);
+            }
+            Vector3 parentScale = transform.lossyScale;
+            if (parentScale != lastRootScale || lastShadowScale != scale)
+            {
+                lastRootScale = parentScale;
+                lastShadowScale = scale;
+                shadow.transform.localScale = new Vector3(scale / parentScale.x, scale / parentScale.y, scale / parentScale.z);
+            }
         }
 
         private static void ApplyWorldScale(Transform visual, float scale)

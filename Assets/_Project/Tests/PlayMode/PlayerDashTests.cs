@@ -182,6 +182,66 @@ namespace EchoScrap.Tests
         }
 
         [UnityTest]
+        public IEnumerator ReturnAnchorConsumesSecondPressStartsCooldownAndProtectsPlayer()
+        {
+            runtimeStats.SetUpgradeTier("DASH_06", 1);
+            Vector3 origin = body.position;
+            DashStateEvent returned = default;
+            motor.OnDashStateChanged += evt => { if (evt.Returned) returned = evt; };
+
+            PressKey(keyboard.spaceKey);
+            yield return StepUntilDashCompletes();
+            ReleaseKey(keyboard.spaceKey);
+            Assert.That(motor.HasReturnAnchor, Is.True);
+            Assert.That(motor.DashCooldownRemaining, Is.GreaterThan(0f));
+
+            PressKey(keyboard.spaceKey);
+            yield return new WaitForFixedUpdate();
+            ReleaseKey(keyboard.spaceKey);
+            Assert.That(Vector3.Distance(origin, body.position), Is.LessThan(.05f));
+            Assert.That(returned.Returned, Is.True);
+            Assert.That(Vector3.Distance(returned.ReturnOrigin, origin), Is.GreaterThan(3f));
+            Assert.That(health.IsDashInvulnerable, Is.True);
+            Assert.That(motor.HasReturnAnchor, Is.False);
+            Assert.That(motor.DashCooldownRemaining, Is.EqualTo(runtimeStats.DashCooldown).Within(.05f));
+            yield return StepFixedSeconds(.28f);
+            Assert.That(health.IsDashInvulnerable, Is.False);
+            Assert.That(motor.IsDashAvailable, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator StationaryPostureShortensRestAndLosesBonusesWhenMovingOrDashing()
+        {
+            runtimeStats.SetUpgradeTier("FLASH_08", 3);
+            var weapon = motor.gameObject.AddComponent<FlashlightWeapon>();
+            weapon.enabled = false;
+            weapon.BindSession(session);
+            weapon.ResetWeaponCycle();
+
+            weapon.StepWeapon(.34f);
+            Assert.That(weapon.ActiveBurstRange, Is.EqualTo(runtimeStats.FlashlightRange));
+            weapon.StepWeapon(.02f);
+            Assert.That(weapon.ActiveBurstRange, Is.EqualTo(runtimeStats.FlashlightRange + 2f));
+            Assert.That(weapon.ActiveDamagePerPulse, Is.EqualTo(3.75f * 1.35f).Within(.001f));
+            Assert.That(weapon.ActiveRestDuration, Is.EqualTo(.2f).Within(.001f));
+
+            PressKey(keyboard.wKey);
+            weapon.StepWeapon(.01f);
+            Assert.That(weapon.ActiveBurstRange, Is.EqualTo(runtimeStats.FlashlightRange));
+            Assert.That(weapon.ActiveRestDuration, Is.EqualTo(.4f).Within(.001f));
+            ReleaseKey(keyboard.wKey);
+            weapon.StepWeapon(.36f);
+            Assert.That(weapon.ActiveBurstRange, Is.EqualTo(runtimeStats.FlashlightRange + 2f));
+
+            PressKey(keyboard.spaceKey);
+            yield return new WaitForFixedUpdate();
+            weapon.StepWeapon(.01f);
+            Assert.That(weapon.ActiveBurstRange, Is.EqualTo(runtimeStats.FlashlightRange));
+            Assert.That(weapon.ActiveDamagePerPulse, Is.EqualTo(3.75f).Within(.001f));
+            ReleaseKey(keyboard.spaceKey);
+        }
+
+        [UnityTest]
         public IEnumerator Directions_StationaryUsesLastFacing_DiagonalAndGamepadSouthWork()
         {
             Teleport(new Vector3(-30f, 1f, -30f));
@@ -517,6 +577,30 @@ namespace EchoScrap.Tests
                 guard++;
                 yield return new WaitForFixedUpdate();
             }
+        }
+
+        [UnityTest]
+        public IEnumerator PasoDeArieteExtendsTraveledDistanceAndBatteryReducesCooldown()
+        {
+            runtimeStats.SetUpgradeTier("DASH_05", 3);
+            Vector3 startPos = body.position;
+            PressKey(keyboard.dKey);
+            yield return new WaitForFixedUpdate();
+            PressKey(keyboard.spaceKey);
+            yield return StepUntilDashCompletes();
+            ReleaseKey(keyboard.dKey);
+            ReleaseKey(keyboard.spaceKey);
+
+            Vector3 endPos = body.position;
+            float distance = Vector3.Distance(
+                new Vector3(startPos.x, 0f, startPos.z),
+                new Vector3(endPos.x, 0f, endPos.z));
+            Assert.AreEqual(5.61f, distance, 0.35f, "DASH_05 nivel 3 (+70% distancia) debe recorrer ~5.61 m.");
+
+            float before = motor.DashCooldownRemaining;
+            Assert.Greater(before, 0.5f);
+            motor.ReduceCooldownFraction(0.5f);
+            Assert.AreEqual(before * 0.5f, motor.DashCooldownRemaining, 0.01f);
         }
     }
 }

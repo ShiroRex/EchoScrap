@@ -76,17 +76,17 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator FullInventoryRejectsPickupWithoutLosingItAndAllowsAfterRelease()
         {
-            station.ResetCollection();station.Progress.owned[0]=10;station.Progress.equipped=new[]{0,0,0};system.RefreshEquipment();
+            station.ResetCollection();station.Progress.owned[0]=FusionProgress.Capacity;station.Progress.equipped=new[]{0,0,0};system.RefreshEquipment();
             var feedback=station.GetComponentInChildren<CollectiblePickupFeedback>();
             Assert.IsTrue(system.TrySpawn(2));var position=system.PickupPosition(0)+Vector3.up;
             game.Player.transform.position=position;game.Player.GetComponent<Rigidbody>().position=position;Physics.SyncTransforms();
-            Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(10,station.Progress.OwnedCount);Assert.AreEqual(1,system.ActivePickups);
+            Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(FusionProgress.Capacity,station.Progress.OwnedCount);Assert.AreEqual(1,system.ActivePickups);
             Assert.AreEqual(1,feedback.RejectionsPlayed);Assert.AreEqual(0,feedback.SoundsPlayed);Assert.IsTrue(feedback.IsRejectionVisible);
             Assert.IsFalse(system.TryCollectNearest());Assert.AreEqual(1,feedback.RejectionsPlayed,"Repeated E does not spam rejection audio.");
             var audio=feedback.GetComponents<AudioSource>().Single(source=>source.clip!=null&&source.clip.name=="InventoryRejected");Assert.Greater(audio.clip.length,0);Assert.IsTrue(audio.isPlaying);
             yield return Capture("InventarioLleno");game.Session.SetManualPause(true);yield return null;Assert.IsFalse(feedback.IsRejectionVisible);Assert.IsFalse(audio.isPlaying);
             game.Session.SetManualPause(false);yield return null;Assert.IsTrue(feedback.IsRejectionVisible);
-            Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsTrue(system.TryCollectNearest());Assert.AreEqual(10,station.Progress.OwnedCount);Assert.AreEqual(1,station.Progress.owned[2]);Assert.AreEqual(0,system.ActivePickups);Assert.IsFalse(feedback.IsRejectionVisible);
+            Assert.IsTrue(station.ReleaseCollectible(0));Assert.IsTrue(system.TryCollectNearest());Assert.AreEqual(FusionProgress.Capacity,station.Progress.OwnedCount);Assert.AreEqual(1,station.Progress.owned[2]);Assert.AreEqual(0,system.ActivePickups);Assert.IsFalse(feedback.IsRejectionVisible);
             game.ResetRun(false);yield return null;Assert.IsFalse(feedback.IsRejectionVisible);
         }
         [UnityTest] public IEnumerator NewCharactersSpawnWithFrontSpritesAndCanBeCollected()
@@ -299,15 +299,16 @@ namespace EchoScrap.Tests
 
         [UnityTest] public IEnumerator TenCapsulesAndOwnedOnlyEquipmentAtIndividualStation()
         {
-            Assert.AreEqual(10,station.DisplaySlots.Length);station.ResetCollection();station.CollectFromArena(0);station.CollectFromArena(6);
+            Assert.AreEqual(18,station.DisplaySlots.Length);station.ResetCollection();station.CollectFromArena(0);station.CollectFromArena(6);
             Approach(1);Assert.IsTrue(system.TryOpen());Assert.AreEqual(1,system.SelectedSlot);
             var panel=station.transform.Find("CompanionCanvas/EquipoBoveda/Panel");
             var grid=panel.GetComponentInChildren<CollectibleUnitGrid>();Assert.AreEqual(2,grid.VisibleUnits);Assert.AreEqual(0,grid.UnitId(0));Assert.AreEqual(6,grid.UnitId(1));
             Assert.AreEqual(0,panel.GetComponentsInChildren<Button>().Count(b=>b.name.StartsWith("Puesto_")));
             Assert.IsFalse(system.Equip(0,0));Assert.IsTrue(system.Equip(1,6));system.Close();
             Assert.AreEqual(-1,station.Progress.equipped[0]);Assert.AreEqual(6,station.Progress.equipped[1]);
-            for(int id=0;id<FusionCatalog.Count;id++)station.Progress.owned[id]=1;station.RefreshDisplays();
-            Assert.AreEqual(7,station.DisplaySlots.Skip(3).Count(t=>t.GetComponentInChildren<CollectibleDisplay>().CollectibleId>=0));yield return null;
+            for(int id=0;id<FusionCatalog.Count;id++)station.Progress.owned[id]=1;station.Progress.owned[0]=4;station.RefreshDisplays();
+            Assert.AreEqual(15,station.DisplaySlots.Skip(3).Count(t=>t.GetComponentInChildren<CollectibleDisplay>().CollectibleId>=0));
+            Assert.AreEqual(18,station.DisplaySlots.Count(t=>t.GetComponentInChildren<CollectibleDisplay>().CollectibleId>=0));yield return null;
         }
         [UnityTest] public IEnumerator SpawnsVaryAcrossArenaAndAvoidSolidObstacles()
         {

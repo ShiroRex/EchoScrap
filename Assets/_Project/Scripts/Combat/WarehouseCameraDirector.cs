@@ -11,6 +11,7 @@ namespace EchoScrap.Combat
         private CinemachineFollow follow;
         private CinemachineConfiner3D confiner;
         private WarehouseCameraFraming framing;
+        private WarehouseLightScope lightScope;
         private Vector3 combatOffset;
         private Quaternion combatRotation;
         private float combatFov;
@@ -20,10 +21,13 @@ namespace EchoScrap.Combat
         private bool initialized, inside;
         // El acceso norte ya se ve desde la orientación normal de combate.
         public float CaveBlend => 0f;
+        public bool IsInitialized => initialized;
         public void Initialize(CombatGameBootstrap owner, WarehouseTravel connection)
         {
             if(initialized) return;
-            game=owner; travel=connection; follow=game.CameraRig.GetComponent<CinemachineFollow>();
+            game=owner; travel=connection;
+            lightScope=travel!=null ? travel.ResolveLightScope() : GetComponentInChildren<WarehouseLightScope>(true);
+            follow=game.CameraRig.GetComponent<CinemachineFollow>();
             game.Motor.MovementReference=game.GameplayCamera.transform;
             combatOffset=follow.FollowOffset; combatRotation=game.CameraRig.transform.rotation;
             combatFov=game.CameraRig.Lens.FieldOfView;
@@ -34,12 +38,14 @@ namespace EchoScrap.Combat
             if(framing==null)framing=game.CameraRig.gameObject.AddComponent<WarehouseCameraFraming>();
             framing.Initialize(game,travel);framing.enabled=false;
             confiner.enabled=false; initialized=true;
+            (lightScope ?? travel?.ResolveLightScope())?.SetInteriorActive(game!=null && game.Session!=null && game.Session.IsInWarehouse);
         }
         public void SetWarehouse(bool value)
         {
             if(!initialized) return;
             inside=value;
             game.Lighting?.SetWarehouse(value);
+            (lightScope ?? travel?.ResolveLightScope())?.SetInteriorActive(value);
             if(inside && game.Lighting==null) {RenderSettings.ambientMode=UnityEngine.Rendering.AmbientMode.Flat;RenderSettings.ambientLight=new Color(.48f,.53f,.6f);RenderSettings.ambientIntensity=1;}
             else if(game.Lighting==null) RestoreAmbient();
             confiner.BoundingVolume=travel.InteriorCameraBounds;
@@ -65,7 +71,9 @@ namespace EchoScrap.Combat
         private void OnDestroy() {if(inside && (game==null || game.Lighting==null))RestoreAmbient();}
         public void ResetView()
         {
-            if(game!=null && game.Lighting!=null)game.Lighting.SetWarehouse(false);else RestoreAmbient();inside=false;
+            if(game!=null && game.Lighting!=null)game.Lighting.SetWarehouse(false);else RestoreAmbient();
+            (lightScope ?? travel?.ResolveLightScope())?.SetInteriorActive(false);
+            inside=false;
             if(!initialized) return;
             confiner.enabled=false;framing.enabled=false; Apply(1f);
         }

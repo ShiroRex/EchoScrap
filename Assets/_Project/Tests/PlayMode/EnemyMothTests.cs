@@ -93,6 +93,23 @@ namespace EchoScrap.Tests
             Assert.That(block.GetVector("_FrameRect"), Is.EqualTo(MothSpriteSet.Load().GetClip(true, view.Facing).frames[view.FrameIndex].uvRect));
             Assert.That(block.GetFloat("_GlowStrength"), Is.GreaterThan(1.2f));
             Assert.That(block.GetColor("_BaseColor"), Is.EqualTo(Color.white));
+            Assert.That(block.GetColor("_EmissionColor"), Is.EqualTo(Color.clear));
+
+            EnemyActor midFlash = Spawn(new Vector3(5f, 1f, 0f));
+            midFlash.ReceiveDamage(in hit);
+            Assert.That(midFlash.VisualComposer.IsFlashActive, Is.True);
+            midFlash.GetComponent<MothSpriteView>().Advance(0f);
+            enemies.ReturnToPool(midFlash);
+            EnemyActor respawned = Spawn(new Vector3(6f, 1f, 0f));
+            var reusedView = respawned.GetComponent<MothSpriteView>();
+            reusedView.Advance(0f);
+            reusedView.CharacterRenderer.GetPropertyBlock(block);
+            Assert.That(respawned.VisualComposer.IsFlashActive, Is.False);
+            Assert.That(block.GetColor("_EmissionColor"), Is.EqualTo(Color.clear));
+
+            var auraTick = new DamageRequest(555, DamageSourceType.StaticAura, Vector3.zero, Vector3.forward, 1f);
+            respawned.ReceiveDamage(in auraTick);
+            Assert.That(respawned.VisualComposer.IsFlashActive, Is.False);
         }
 
         [TestCase(false, 0.45f)]

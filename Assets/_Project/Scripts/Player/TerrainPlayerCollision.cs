@@ -7,6 +7,8 @@ namespace EchoScrap.Player
     internal sealed class TerrainPlayerCollision
     {
         private const float Skin = 0.015f;
+        private const float RootHeight = 1f;
+        private const float MaxVaultStep = 0.75f;
         private const int Mask = 1 << PhysicsLayers.DefaultLayer;
         private readonly Rigidbody body;
         private readonly CapsuleCollider capsule;
@@ -43,9 +45,17 @@ namespace EchoScrap.Player
             Vector3 start = Grounded(body.position);
             // Heavy bodies can push the player between physics ticks. Recover the previous
             // nearby clear pose before the height correction can force it inside a low branch.
-            if (Blocked(start, out _))
+            if (Blocked(start, out Vector3 separation, out float depth))
             {
-                if (hasSafe && (lastSafe - start).sqrMagnitude < 9f && !Blocked(lastSafe, out _)) start = lastSafe;
+                // Small overlaps at the foot of a rock can be resolved locally, without
+                // rewinding the player's sideways progress to the previous physics step.
+                Vector3 planarSeparation = new Vector3(separation.x, 0f, separation.z);
+                float planarLengthSquared = planarSeparation.sqrMagnitude;
+                Vector3 outside = planarLengthSquared > 0.01f
+                    ? Grounded(start + planarSeparation * ((depth + Skin) / planarLengthSquared))
+                    : start;
+                if (outside != start && (outside - start).sqrMagnitude < 9f && !Blocked(outside, out _)) start = outside;
+                else if (hasSafe && (lastSafe - start).sqrMagnitude < 9f && !Blocked(lastSafe, out _)) start = lastSafe;
                 else
                 {
                     bool found = false;
@@ -59,7 +69,7 @@ namespace EchoScrap.Player
                     if (!found) { body.linearVelocity = Vector3.zero; return false; }
                 }
             }
-            body.position = start;
+            if (body.position != start) body.position = start;
             lastSafe = start; hasSafe = true;
             Vector3 velocity = body.linearVelocity; velocity.y = 0f;
             Vector3 remaining = velocity * dt, position = start;
@@ -96,8 +106,41 @@ namespace EchoScrap.Player
             body.linearVelocity = Vector3.zero;
         }
 
+        public bool TryPlaceDashReturn(Vector3 anchor)
+        {
+            Vector3 scale = capsule.transform.lossyScale;
+            radius = capsule.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+            segment = Mathf.Max(0f, capsule.height * Mathf.Abs(scale.y) * .5f - radius);
+            centerOffset = body.rotation * Vector3.Scale(capsule.center, scale);
+            ground = ArenaSurface.Active != null ? ArenaSurface.Active.GroundCollider : null;
+            stairSupport = null;
+            Ends(anchor, out Vector3 bottom, out Vector3 top);
+            int count = Physics.OverlapCapsuleNonAlloc(bottom, top, radius, overlaps,
+                Mask | (1 << PhysicsLayers.EnemyLayer), QueryTriggerInteraction.Ignore);
+            if (count == overlaps.Length) return false;
+            for (int i = 0; i < count; i++)
+            {
+                Collider other = overlaps[i];
+                if (!Solid(other) || other == capsule ||
+                    Physics.GetIgnoreCollision(capsule, other) && other.gameObject.layer == PhysicsLayers.EnemyLayer)
+                    continue;
+                if (Physics.ComputePenetration(capsule, anchor, body.rotation, other, other.transform.position,
+                    other.transform.rotation, out _, out float depth) && depth > .002f)
+                    return false;
+            }
+            body.position = anchor;
+            lastSafe = anchor;
+            hasSafe = true;
+            return true;
+        }
+
         private Vector3 Grounded(Vector3 point)
-        { point.y = ArenaSurface.SupportHeight(point, radius) + 1f; return point; }
+        {
+            // A balcony or upper tread can share the same XZ as the floor below.
+            float reachableHeight = point.y - RootHeight + MaxVaultStep;
+            point.y = ArenaSurface.SupportHeight(point, radius, reachableHeight) + RootHeight;
+            return point;
+        }
 
         private void Ends(Vector3 root, out Vector3 bottom, out Vector3 top)
         {
@@ -107,13 +150,15 @@ namespace EchoScrap.Player
 
         private bool Solid(Collider other) => other != null && other != ground && other != stairSupport;
 
-        private bool Blocked(Vector3 root, out Vector3 normal)
+        private bool Blocked(Vector3 root, out Vector3 normal) => Blocked(root, out normal, out _);
+
+        private bool Blocked(Vector3 root, out Vector3 normal, out float deepest)
         {
             normal = Vector3.zero;
+            deepest = 0f;
             Ends(root, out Vector3 bottom, out Vector3 top);
             int count = Physics.OverlapCapsuleNonAlloc(bottom, top, radius + Skin, overlaps, Mask, QueryTriggerInteraction.Ignore);
             if (count == overlaps.Length) return true;
-            float deepest = 0f;
             for (int i = 0; i < count; i++)
             {
                 Collider other = overlaps[i];
@@ -139,6 +184,7 @@ namespace EchoScrap.Player
             for (int i = 0; i < count; i++)
             {
                 if (!Solid(hits[i].collider) || hits[i].distance >= closest) continue;
+                Vector3 contactNormal = hits[i].normal;
                 // PhysX reports zero-distance casts for touching shapes even when moving
                 // away. Only keep these contacts if a short forward probe enters the shape.
                 if (hits[i].distance <= 0.0001f)
@@ -146,10 +192,14 @@ namespace EchoScrap.Player
                     Vector3 probe = Grounded(from + delta * Mathf.Min(1f, 0.02f / distance));
                     Collider other = hits[i].collider;
                     if (!Physics.ComputePenetration(capsule, probe, body.rotation, other,
-                        other.transform.position, other.transform.rotation, out _, out float depth) || depth <= 0.002f)
+                        other.transform.position, other.transform.rotation, out contactNormal, out float depth)
+                        || depth <= 0.002f || Vector3.Dot(delta, contactNormal) >= 0f)
                         continue;
                 }
-                closest = hits[i].distance; normal = hits[i].normal; point = hits[i].point; hit = true;
+                closest = hits[i].distance;
+                normal = contactNormal;
+                point = closest > 0.0001f ? hits[i].point : bottom - contactNormal * radius;
+                hit = true;
             }
             if (hit) fraction = Mathf.Max(0f, closest - Skin) / distance;
             // Capsule casts ignore initial overlaps. A destination overlap also catches any

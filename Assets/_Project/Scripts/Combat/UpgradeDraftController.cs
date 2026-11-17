@@ -15,8 +15,14 @@ namespace EchoScrap.Combat
         [SerializeField] private PlayerHealth health;
         [SerializeField] private CombatProgression progression;
         private readonly List<UpgradeOffer> offers = new List<UpgradeOffer>(3);
-        private readonly List<UpgradeCardDefinition> candidates = new List<UpgradeCardDefinition>(35);
-        private readonly int[] rarityCounts = new int[4];
+        private readonly List<UpgradeCardDefinition> candidates = new List<UpgradeCardDefinition>(UpgradeRules.Count);
+        private readonly int[] rarityCounts = new int[5];
+        private readonly List<(string id, int tier)> allInOld = new List<(string, int)>(UpgradeRules.Count);
+        private readonly List<UpgradeCardDefinition> allInPool = new List<UpgradeCardDefinition>(UpgradeRules.Count);
+        private readonly List<UpgradeCardDefinition> allInCandidates = new List<UpgradeCardDefinition>(UpgradeRules.Count);
+        private readonly List<(string id, int tier)> allInRolled = new List<(string, int)>(UpgradeRules.Count);
+        private readonly HashSet<string> allInOldIds = new HashSet<string>();
+        private readonly HashSet<string> allInRolledIds = new HashSet<string>();
         private CombatSession subscribedSession;
         private CombatProgression subscribedProgression;
         private IReadOnlyList<UpgradeOffer> readOnlyOffers;
@@ -31,12 +37,21 @@ namespace EchoScrap.Combat
         public bool TryReroll()
         {
             if (!IsOpen || resolving || offers.Count == 0 || RerollsRemaining == 0 || session.Clock.HasPauseReason(PauseReason.FocusLost)) return false;
-            rerollsUsed++; GenerateOffers(); OnOffersChanged?.Invoke(); return true;
+            rerollsUsed++; GenerateOffers(); OnOffersChanged?.Invoke();
+            ExpeditionSnapshotService.CaptureFromSession(session);
+            return true;
         }
         private float Weight(UpgradeRarity rarity)
         {
             int luck=stats.GetUpgradeTier(UpgradeId.GREED_04);
-            return UpgradeCatalog.RarityWeight(rarity)+(rarity==UpgradeRarity.N ? -luck*(stats.Upgrades.rareWeightPerTier+stats.Upgrades.epicWeightPerTier) : rarity==UpgradeRarity.R ? luck*stats.Upgrades.rareWeightPerTier : rarity==UpgradeRarity.SR ? luck*stats.Upgrades.epicWeightPerTier : 0);
+            float baseWeight = UpgradeCatalog.RarityWeight(rarity);
+            return rarity switch
+            {
+                UpgradeRarity.N => Mathf.Max(1f, baseWeight - luck * (stats.Upgrades.rareWeightPerTier + stats.Upgrades.epicWeightPerTier)),
+                UpgradeRarity.R => baseWeight + luck * stats.Upgrades.rareWeightPerTier,
+                UpgradeRarity.SR => baseWeight + luck * stats.Upgrades.epicWeightPerTier,
+                _ => baseWeight
+            };
         }
         public bool IsEligible(UpgradeCardDefinition card)
         {
@@ -45,6 +60,7 @@ namespace EchoScrap.Combat
             if(card.Id=="CRYO_02"&&stats.GetUpgradeTier(UpgradeId.CRYO_01)==0) return false;
             if(card.Id=="CRYO_04"&&stats.GetUpgradeTier(UpgradeId.CRYO_02)==0&&stats.GetUpgradeTier(UpgradeId.CRYO_03)==0) return false;
             if(card.Id=="CRIT_04"&&stats.CritChance<=0) return false;
+            if(card.Id=="MYTH_01"&&!stats.HasAnyOtherUpgrade("MYTH_01")) return false;
             return true;
         }
         public int PendingChoices => progression != null ? progression.PendingChoices : 0;
@@ -137,6 +153,7 @@ namespace EchoScrap.Combat
             SelectionTimeRemaining = SelectionSeconds;
             GenerateOffers();
             OnOffersChanged?.Invoke();
+            ExpeditionSnapshotService.CaptureFromSession(session);
         }
         public void AdvanceSelectionTime(float unscaledDeltaTime)
         {
@@ -158,11 +175,11 @@ namespace EchoScrap.Combat
                 Array.Clear(rarityCounts, 0, rarityCounts.Length);
                 foreach (var card in candidates) rarityCounts[(int)card.Rarity]++;
                 float totalWeight = 0f;
-                for (int rarity = 0; rarity < 4; rarity++)
+                for (int rarity = 0; rarity < 5; rarity++)
                     if (rarityCounts[rarity] > 0) totalWeight += Weight((UpgradeRarity)rarity);
                 float draw = session.Rng.Combat.NextFloat() * totalWeight;
                 int selectedRarity = 0;
-                for (int rarity = 0; rarity < 4; rarity++)
+                for (int rarity = 0; rarity < 5; rarity++)
                 {
                     if (rarityCounts[rarity] == 0) continue;
                     selectedRarity = rarity;
@@ -192,7 +209,8 @@ namespace EchoScrap.Combat
             {
                 SuppressConfirmationDash();
                 stats.SetUpgradeTier(offer.Card.Id, offer.NextTier);
-                if (offer.Card.Id == "BIO_01") health.Heal(15f);
+                if (offer.Card.Id == "MYTH_01") ApplyAllIn();
+                else if (offer.Card.Id == "BIO_01") health.Heal(15f);
                 progression.ConsumePendingChoice();
                 session.Upgrades?.UpgradeAcquired(offer.Card.Id);
                 OnCardChosen?.Invoke(offer.Card);
@@ -205,7 +223,72 @@ namespace EchoScrap.Combat
                 else CloseDraft();
             }
             finally { resolving = false; }
+            ExpeditionSnapshotService.CaptureFromSession(session);
             return true;
+        }
+        private void ApplyAllIn()
+        {
+            if (stats == null || session == null) return;
+            allInOld.Clear();
+            allInOldIds.Clear();
+            allInPool.Clear();
+            allInRolled.Clear();
+            allInRolledIds.Clear();
+            foreach (var card in UpgradeCatalog.Cards)
+            {
+                if (card.Id == "MYTH_01") continue;
+                int tier = stats.GetUpgradeTier(card.Id);
+                if (tier > 0)
+                {
+                    allInOld.Add((card.Id, tier));
+                    allInOldIds.Add(card.Id);
+                }
+                allInPool.Add(card);
+            }
+            foreach (var old in allInOld)
+            {
+                int desired = old.tier + 1;
+                allInCandidates.Clear();
+                for (int i = 0; i < allInPool.Count; i++)
+                {
+                    var candidate = allInPool[i];
+                    if (!allInOldIds.Contains(candidate.Id) && candidate.MaxTier >= desired) allInCandidates.Add(candidate);
+                }
+                if (allInCandidates.Count == 0)
+                {
+                    for (int i = 0; i < allInPool.Count; i++)
+                        if (!allInOldIds.Contains(allInPool[i].Id)) allInCandidates.Add(allInPool[i]);
+                }
+                if (allInCandidates.Count == 0)
+                {
+                    for (int i = 0; i < allInPool.Count; i++)
+                        if (allInPool[i].Id != old.id) allInCandidates.Add(allInPool[i]);
+                }
+                if (allInCandidates.Count == 0)
+                {
+                    for (int i = 0; i < allInPool.Count; i++) allInCandidates.Add(allInPool[i]);
+                }
+                if (allInCandidates.Count > 0)
+                {
+                    int pick = session.Rng.Combat.Range(0, allInCandidates.Count);
+                    var chosen = allInCandidates[pick];
+                    allInPool.Remove(chosen);
+                    allInRolled.Add((chosen.Id, Mathf.Clamp(desired, 1, chosen.MaxTier)));
+                    allInRolledIds.Add(chosen.Id);
+                }
+                else if (UpgradeCatalog.TryGet(old.id, out var self))
+                {
+                    allInRolled.Add((self.Id, Mathf.Clamp(desired, 1, self.MaxTier)));
+                    allInRolledIds.Add(self.Id);
+                }
+            }
+            foreach (var rolled in allInRolled)
+                stats.SetUpgradeTier(rolled.id, rolled.tier);
+            foreach (var old in allInOld)
+                if (!allInRolledIds.Contains(old.id))
+                    stats.SetUpgradeTier(old.id, 0);
+            foreach (var rolled in allInRolled)
+                session.Upgrades?.UpgradeAcquired(rolled.id);
         }
         public bool ContinueWithoutUpgrade()
         {
@@ -219,6 +302,7 @@ namespace EchoScrap.Combat
                 CloseDraft();
             }
             finally { resolving = false; }
+            ExpeditionSnapshotService.CaptureFromSession(session);
             return true;
         }
         private void SuppressConfirmationDash()
@@ -238,6 +322,41 @@ namespace EchoScrap.Combat
         {
             IsOpen = false; offers.Clear(); candidates.Clear(); resolving = false; rerollsUsed = 0;
             SelectionTimeRemaining = 0f;
+            OnOffersChanged?.Invoke();
+        }
+
+        internal UpgradeDraftSnapshot CaptureSnapshot()
+        {
+            var snapshot = new UpgradeDraftSnapshot
+            {
+                isOpen = IsOpen,
+                rerollsUsed = rerollsUsed,
+                selectionTimeRemaining = SelectionTimeRemaining
+            };
+            for (int i = 0; i < offers.Count; i++)
+                snapshot.offerIds.Add(offers[i].Card.Id);
+            return snapshot;
+        }
+
+        internal void RestoreFromSnapshot(UpgradeDraftSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            resolving = false;
+            offers.Clear();
+            candidates.Clear();
+            IsOpen = snapshot.isOpen;
+            rerollsUsed = Mathf.Max(0, snapshot.rerollsUsed);
+            SelectionTimeRemaining = Mathf.Max(0f, snapshot.selectionTimeRemaining);
+            if (snapshot.offerIds != null && stats != null)
+            {
+                for (int i = 0; i < snapshot.offerIds.Count; i++)
+                {
+                    if (UpgradeCatalog.TryGet(snapshot.offerIds[i], out UpgradeCardDefinition card))
+                        offers.Add(new UpgradeOffer(card, stats));
+                }
+            }
+            if (IsOpen && offers.Count == 0 && progression != null && progression.PendingChoices == 0)
+                IsOpen = false;
             OnOffersChanged?.Invoke();
         }
     }

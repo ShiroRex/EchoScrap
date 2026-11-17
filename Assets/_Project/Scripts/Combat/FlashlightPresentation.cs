@@ -434,6 +434,7 @@ namespace EchoScrap.Combat
             // Si varios pulsos vencen en un mismo frame, se fusiona su acento visual en vez de encolar flashes
             emissionStartTime = viewTime;
             emissionEndTime = viewTime + emissionLength;
+            oilLantern?.ShowRearPulse(pulse);
 
             if (pulse.HitCount > 0)
             {
@@ -463,7 +464,7 @@ namespace EchoScrap.Combat
         {
             if (result.IsPlayerTarget || !result.AppliedRealDamage)
                 return;
-            if (result.SourceType != DamageSourceType.FlashlightPulse && result.SourceType != DamageSourceType.SolarPulse)
+            if (!DamageTypes.IsFlashlight(result.SourceType))
                 return;
             if (session != null && (session.Effects.ReducedEffectsMode || session.Effects.DecorativeIntensity <= 0.01f))
                 return;
@@ -589,6 +590,7 @@ namespace EchoScrap.Combat
             CurrentMarkerBrightnessMultiplier = displayedSolarMode ? 1f
                 : (displayedInRest ? markerRestDimMultiplier : 1f);
             prototypeView.RenderNow(session != null && session.Effects.ReducedEffectsMode);
+            oilLantern?.SetRearEmission(CurrentEmissionEnvelope);
             oilLantern?.Refresh();
         }
         public void RebuildConeGeometry(float range, float angle)
