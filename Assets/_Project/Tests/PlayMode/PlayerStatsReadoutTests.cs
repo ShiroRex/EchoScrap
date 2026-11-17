@@ -183,9 +183,9 @@ namespace EchoScrap.Tests
             game.Hud.SetStatsDisplayMode(StatsDisplayMode.Full);
             game.Hud.RefreshNow();
             Assert.That(game.Hud.CanvasRoot.transform.Find("Integrity/Armor"), Is.Null);
-            Assert.That(game.Hud.StatsReadout.GetValue("armor"), Is.EqualTo("12%"));
+            Assert.That(game.Hud.StatsReadout.GetValue("armor"), Is.EqualTo("30%"));
             var hit = game.Player.TakeContactOrHazardDamage(10f, Vector3.back);
-            Assert.That(hit.HealthLost, Is.EqualTo(8.8f).Within(.001f), "Removing the duplicate indicator must not alter armor mitigation.");
+            Assert.That(hit.HealthLost, Is.EqualTo(7f).Within(.001f), "Removing the duplicate indicator must not alter armor mitigation.");
             game.Hud.SetStatsDisplayMode(StatsDisplayMode.Reduced);
             Assert.That(game.Hud.StatsReadout.IsRowVisible("armor"), Is.False);
             game.Hud.SetStatsDisplayMode(StatsDisplayMode.None);
@@ -224,8 +224,8 @@ namespace EchoScrap.Tests
             Assert.That(readout.GetValue("angle"), Is.EqualTo("60°"));
             Assert.That(readout.GetValue("critChance"), Is.EqualTo("29%"));
             Assert.That(readout.GetValue("critMultiplier"), Is.EqualTo("×2,15"));
-            Assert.That(readout.GetValue("moveSpeed"), Is.EqualTo("8 m/s"));
-            Assert.That(readout.GetValue("armor"), Is.EqualTo("18%"));
+            Assert.That(readout.GetValue("moveSpeed"), Is.EqualTo("8,64 m/s"));
+            Assert.That(readout.GetValue("armor"), Is.EqualTo("30%"));
             Assert.That(readout.GetValue("evasion"), Is.EqualTo("12%"));
             Assert.That(readout.GetValue("blockChance"), Is.EqualTo("20%"));
             Assert.That(readout.GetValue("dashCooldown"), Is.EqualTo("0,7 s"));

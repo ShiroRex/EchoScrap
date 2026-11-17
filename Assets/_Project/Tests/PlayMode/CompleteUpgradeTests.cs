@@ -504,20 +504,22 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void RamSweepsDashAndCarriesMovableMothWhileLeavingHeavyBodiesInPlace()
+        public void PasoDeArieteExtendsDashDistanceWithoutRamDamage()
         {
+            float baseDistance = stats.DashDistance;
+            Set("DASH_05", 1);
+            Assert.That(stats.DashDistance, Is.EqualTo(baseDistance * 1.25f).Within(.001f));
+            Set("DASH_05", 2);
+            Assert.That(stats.DashDistance, Is.EqualTo(baseDistance * 1.45f).Within(.001f));
             Set("DASH_05", 3);
+            Assert.That(stats.DashDistance, Is.EqualTo(baseDistance * 1.70f).Within(.001f));
+
             var moth = Enemy(0f, 1.5f, 40f, EnemyArchetypeId.ExplosiveMoth);
-            var heavy = Enemy(1f, 1.5f, kind: EnemyArchetypeId.Colossus);
-            var outside = Enemy(4f, 1.5f);
             Dash(true, false, Vector3.up);
             Dash(false, true, new Vector3(0f, 1f, 3.3f));
-            Assert.That(moth.WorldCenter.z, Is.EqualTo(3.3f).Within(.05f));
-            Assert.That(moth.IsFuseActive, Is.True);
-            Assert.That(moth.KnockbackVelocity.z, Is.EqualTo(14f).Within(.01f));
-            Assert.That(heavy.CurrentHealth, Is.EqualTo(1000f));
-            Assert.That(heavy.WorldCenter.z, Is.EqualTo(1.5f));
-            Assert.That(outside.CurrentHealth, Is.EqualTo(1000f));
+            Assert.That(moth.CurrentHealth, Is.EqualTo(40f));
+            Assert.That(moth.IsFuseActive, Is.False);
+            Assert.That(moth.WorldCenter.z, Is.EqualTo(1.5f).Within(.01f));
         }
 
         [Test]
@@ -647,6 +649,137 @@ namespace EchoScrap.Tests
             Assert.That(upgrades.ProjectilesFired,Is.GreaterThan(0));
             UnityEngine.Debug.Log($"Upgrade stress: {timer.Elapsed.TotalMilliseconds/180:0.###} ms/step, {upgrades.ActiveVisualCount} views, {upgrades.ActiveProjectileCount} projectiles");
             Assert.That(timer.Elapsed.TotalMilliseconds/180,Is.LessThan(16.7));
+        }
+
+        [Test]
+        public void StaticAuraPlasmaPuddlesAndFlameTrailDamageEnemiesInZones()
+        {
+            Set("SCRAP_05", 2);
+            var near = Enemy(0f, 2f);
+            float startZ = near.WorldCenter.z;
+            upgrades.Step(.36f);
+            Assert.That(near.CurrentHealth, Is.EqualTo(990f).Within(.01f));
+            Assert.That(near.KnockbackVelocity.z, Is.GreaterThan(0f));
+
+            session.ResetSession(4921);
+            Set("DEMO_05", 3);
+            var target = Enemy(0f, 4f);
+            upgrades.Step(2.51f);
+            Assert.That(target.CurrentHealth, Is.LessThan(1000f));
+            float afterFirstTick = target.CurrentHealth;
+            upgrades.Step(.41f);
+            Assert.That(target.CurrentHealth, Is.LessThan(afterFirstTick));
+
+            session.ResetSession(4921);
+            Set("DASH_08", 2);
+            var runner = Enemy(0f, 1.5f);
+            Dash(true, false, Vector3.up);
+            Dash(false, true, new Vector3(0f, 1f, 3.3f));
+            upgrades.Step(.05f);
+            Assert.That(runner.CurrentHealth, Is.LessThan(1000f));
+            Assert.That(runner.WorldCenter.z, Is.EqualTo(1.5f).Within(.05f));
+        }
+
+        [Test]
+        public void BouncingDiscBoomerangOrbitalParabolicAndWhipDealDamageAndScaleWithDuplicator()
+        {
+            Set("SCRAP_06", 1);
+            Set("SCRAP_07", 1);
+            var first = Enemy(0f, 3f);
+            var second = Enemy(2f, 3f);
+            upgrades.Step(3.51f);
+            for (int i = 0; i < 40; i++) upgrades.Step(.025f);
+            Assert.That(upgrades.ProjectilesFired, Is.EqualTo(2), "SCRAP_07 adds +1 bouncing disc.");
+            Assert.That(first.CurrentHealth + second.CurrentHealth, Is.LessThan(2000f));
+
+            session.ResetSession(4921);
+            Set("GREED_07", 1);
+            var bTarget = Enemy(0f, 3f);
+            for (int i = 0; i < 80; i++) upgrades.Step(.05f);
+            Assert.That(bTarget.CurrentHealth, Is.LessThanOrEqualTo(956f), "Boomerang hits both outbound and return.");
+
+            session.ResetSession(4921);
+            Set("FLASH_09", 1);
+            Set("DEMO_06", 1);
+            Set("FLASH_10", 3);
+            var victim = Enemy(0f, 2.5f);
+            upgrades.Step(3.55f);
+            Assert.That(victim.CurrentHealth, Is.LessThan(1000f));
+        }
+
+        [Test]
+        public void AreaAmplifierMatrixDuplicatorAndCryoMagnetEnhanceExistingSystems()
+        {
+            Set("FLASH_11", 3);
+            Assert.That(stats.AreaMultiplier, Is.EqualTo(1.36f).Within(.001f));
+            Set("DEMO_01", 5);
+            Assert.That(stats.ExplosionRadiusMultiplier, Is.EqualTo(1.75f * 1.36f).Within(.001f));
+
+            Set("FLASH_03", 1);
+            Set("SCRAP_07", 1);
+            var origin = Enemy(0f, 3f);
+            var n1 = Enemy(1f, 3f);
+            var n2 = Enemy(-1f, 3f);
+            var n3 = Enemy(0f, 4f);
+            Hit(origin, 10, 4);
+            for (int i = 0; i < 20; i++) upgrades.Step(.02f);
+            Assert.That(upgrades.ChainHitsResolved, Is.EqualTo(3), "Duplicator adds +1 voltaic hop.");
+            Assert.That(n1.CurrentHealth + n2.CurrentHealth + n3.CurrentHealth, Is.LessThan(2990f));
+
+            session.ResetSession(4921);
+            Set("CRYO_01", 1);
+            Set("CRYO_02", 1);
+            Set("CRYO_05", 2);
+            var chilly = Enemy(0f, 3f);
+            var nearby = Enemy(1.5f, 3f);
+            pickups.SpawnExperience(new Vector3(0f, 1f, 8f), 1);
+            for (int i = 0; i < 4; i++) Hit(chilly, 1f);
+            Assert.That(chilly.IsFrozen, Is.True);
+            Assert.That(nearby.SlowFraction, Is.EqualTo(.25f).Within(.001f));
+            Assert.That(pickups.GlobalFlightCount, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void DefenseOverloadSolarCapacitorAndVacuumBeaconWorkTogether()
+        {
+            Set("DASH_09", 3);
+            Assert.That(stats.Evasion, Is.EqualTo(.18f).Within(.001f));
+            Set("SCRAP_08", 3);
+            Assert.That(stats.BlockChance, Is.EqualTo(.26f).Within(.001f));
+            Set("DEMO_07", 2);
+            var attacker = Enemy(0f, 1.5f);
+            stats.SetUpgradeTier("DASH_09", 0);
+            stats.SetUpgradeTier("SCRAP_08", 0);
+            player.TakeContactOrHazardDamage(10f, Vector3.back);
+            upgrades.Step(.02f);
+            Assert.That(attacker.CurrentHealth, Is.EqualTo(960f).Within(.01f));
+            Assert.That(upgrades.ExplosionsResolved, Is.EqualTo(1));
+
+            session.ResetSession(4921);
+            Set("FLASH_12", 2);
+            var fodder = Enemy(0f, 4f, 3f);
+            weapon.StepWeapon(.21f);
+            Assert.That(fodder.IsAlive, Is.False);
+            weapon.StepWeapon(.65f);
+            Assert.That(weapon.IsInRestPhase, Is.True);
+            Assert.That(weapon.ActiveRestDuration, Is.EqualTo(.4f * .8f).Within(.001f));
+            weapon.StepWeapon(.30f);
+            Assert.That(weapon.IsInRestPhase, Is.False);
+
+            session.ResetSession(4921);
+            Set("FLASH_13", 1);
+            Set("FLASH_14", 1);
+            Dash(true, false, Vector3.up);
+            Dash(false, true, new Vector3(0f, 1f, 3f));
+            weapon.ResetWeaponCycle();
+            var farTarget = Enemy(0f, 9f, 500f);
+            weapon.UpdateAim(.1f);
+            weapon.StepWeapon(.21f);
+            Assert.That(farTarget.CurrentHealth, Is.LessThan(500f), "Solar capacitor +50% range reaches 9 m.");
+            Assert.That(farTarget.VulnerabilityBonus, Is.EqualTo(.25f).Within(.001f), "Vacuum beacon applies +25% vulnerability.");
+            float hpBeforeSecondHit = farTarget.CurrentHealth;
+            Hit(farTarget, 10f);
+            Assert.That(hpBeforeSecondHit - farTarget.CurrentHealth, Is.EqualTo(12.5f).Within(.01f));
         }
     }
 }

@@ -118,9 +118,7 @@ MonoBehaviour:
   stationaryDelay: .35
   stationaryRange: 2
   stationaryRestFactor: .5
-  ramDamage: {x: 20, y: 35, z: 50}
-  ramRadius: 1.6
-  ramLaunchSpeed: 14
+  dashDistanceBonus: {x: .25, y: .45, z: .7}
   returnDamage: {x: 35, y: 55, z: 80}
   returnLifetime: 2.5
   returnInvulnerability: .25
@@ -138,6 +136,76 @@ MonoBehaviour:
   medkitAttackBonus: .25
   medkitRestFactor: .5
   medkitDropBonus: .03
+  auraRadius: {x: 2.5, y: 3.2, z: 4}
+  auraDamage: {x: 6, y: 10, z: 15}
+  auraInterval: .35
+  auraPush: 2.5
+  puddleInterval: {x: 4, y: 3.2, z: 2.5}
+  puddleDamage: {x: 10, y: 16, z: 24}
+  puddleRadius: 2.2
+  puddleDuration: 3.5
+  puddleTick: .4
+  puddleThrowRange: 10
+  discInterval: 3.5
+  discCount: {x: 1, y: 2, z: 3}
+  discDamage: {x: 20, y: 34, z: 52}
+  discSpeed: 16
+  discLifetime: 3.5
+  discRadius: .45
+  discBounceRange: 14
+  discHitCooldown: .45
+  boomerangInterval: 2.8
+  boomerangCount: {x: 1, y: 1, z: 2}
+  boomerangDamage: {x: 22, y: 36, z: 52}
+  boomerangSpeed: 18
+  boomerangOutTime: .48
+  boomerangHitRadius: .55
+  orbitalInterval: {x: 3.5, y: 2.8, z: 2}
+  orbitalCount: {x: 2, y: 3, z: 4}
+  orbitalDamage: {x: 32, y: 52, z: 78}
+  orbitalRadius: 1.8
+  orbitalRange: 11
+  parabolicInterval: 3
+  parabolicCount: {x: 2, y: 3, z: 4}
+  parabolicDamage: {x: 28, y: 45, z: 68}
+  parabolicSpeed: 14
+  parabolicLifetime: 1.35
+  parabolicRadius: .5
+  trailStepDistance: .85
+  trailDuration: 2.2
+  trailRadius: .9
+  trailTick: .45
+  trailDamage: {x: 8, y: 13, z: 20}
+  whipInterval: 1.6
+  whipBaseDamage: 14
+  whipDamagePerTier: 6
+  whipRange: 4.5
+  whipAngle: 120
+  whipPush: 6
+  areaPerTier: .12
+  evasionPerTier: .06
+  deflectBlockChance: {x: .10, y: .18, z: .26}
+  deflectDamage: {x: 18, y: 30, z: 45}
+  deflectRadius: 2.5
+  deflectPush: 6
+  pulseOverloadRestPerKill: {x: .12, y: .20, z: .28}
+  pulseOverloadMaxReduction: .75
+  batteryCooldownReduction: {x: .40, y: .70, z: 1}
+  batteryGemCount: 20
+  cryoMagnetRadius: {x: 6, y: 9, z: 12}
+  cryoMagnetSlow: .25
+  cryoMagnetSlowDuration: 1.5
+  cryoMagnetSlowRadius: 2.5
+  reactiveBaseDamage: 20
+  reactiveDamagePerTier: 10
+  reactiveRadius: 3
+  reactiveCooldown: 2
+  solarCapacitorDamageMultiplier: 2
+  solarCapacitorRangeMultiplier: 1.5
+  solarCapacitorDuration: 1.5
+  vacuumPullDistance: 3.5
+  vacuumDamageBonus: .25
+  vacuumDuration: 2.5
   projectileCapacity: 2048
   projectileViews: 256
   deviceCapacity: 512

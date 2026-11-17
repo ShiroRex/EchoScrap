@@ -67,6 +67,18 @@ namespace EchoScrap.Player
         public float EffectiveDashDuration => ResolveRuntimeStats() != null ? runtimeStats.DashDuration : (settings != null ? settings.DashDuration : 0.15f);
         public float EffectiveDashCooldown => ResolveRuntimeStats() != null ? runtimeStats.DashCooldown : (settings != null ? settings.DashCooldown : 1.0f);
 
+        public void ReduceCooldownFraction(float fraction)
+        {
+            if (isDashing || cooldownRemaining <= 0f || !(fraction > 0f)) return;
+            cooldownRemaining = Mathf.Max(0f, cooldownRemaining - Mathf.Max(0.05f, activeCooldownDuration) * Mathf.Clamp01(fraction));
+            if (cooldownRemaining <= 0.00001f)
+            {
+                cooldownRemaining = 0f;
+                if (!HasReturnAnchor && input != null) input.ClearPendingDash();
+                PublishDashEvent(started: false, ended: false, blocked: false);
+            }
+        }
+
         public event Action<DashStateEvent> OnDashStateChanged;
         public event Action<Vector3, Vector3> OnDashBlockedByWall;
 

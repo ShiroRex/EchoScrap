@@ -18,10 +18,10 @@ namespace EchoScrap.Editor
             Directory.CreateDirectory(Path.GetDirectoryName(Resource)); AssetDatabase.Refresh();
             UpgradeCardSkin skin = AssetDatabase.LoadAssetAtPath<UpgradeCardSkin>(Resource);
             if (skin == null) { skin = ScriptableObject.CreateInstance<UpgradeCardSkin>(); AssetDatabase.CreateAsset(skin, Resource); }
-            skin.frames = new Sprite[4]; skin.icons = new Sprite[System.Enum.GetValues(typeof(UpgradeIcon)).Length]; skin.litFrames = new Material[4];
+            skin.frames = new Sprite[5]; skin.icons = new Sprite[System.Enum.GetValues(typeof(UpgradeIcon)).Length]; skin.litFrames = new Material[5];
             Shader frameShader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/_Project/Shaders/UpgradeCardFrameLit.shader");
             if (frameShader == null) throw new BuildFailedException("Missing frame lighting shader.");
-            string[] rarities = { "Common", "Rare", "Epic", "Legendary" };
+            string[] rarities = { "Common", "Rare", "Epic", "Legendary", "Mythic" };
             for (int i = 0; i < rarities.Length; i++)
             {
                 skin.frames[i] = Import("Frame_" + rarities[i], 12);
@@ -62,7 +62,7 @@ namespace EchoScrap.Editor
             skin.surfaceSheen.shader = sheenShader;
             EditorUtility.SetDirty(skin.surfaceSheen);
             EditorUtility.SetDirty(skin); AssetDatabase.SaveAssets();
-            Debug.Log("[EchoScrap] Upgrade cards: four lit 9-sliced frames, ten grayscale icons and shared UI typography ready.");
+            Debug.Log("[EchoScrap] Upgrade cards: five lit 9-sliced frames, ten grayscale icons and shared UI typography ready.");
         }
         private static Sprite Import(string name, int border = 0) => Import(name, Vector4.one * border);
 

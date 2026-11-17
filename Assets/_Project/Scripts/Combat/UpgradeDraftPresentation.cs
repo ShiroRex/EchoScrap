@@ -166,7 +166,7 @@ namespace EchoScrap.Combat
                 float scale = reduced ? 1f : Mathf.Lerp(0.96f, 1f, ease) + Mathf.Sin(t * Mathf.PI) * 0.015f;
                 if (i == selectedIndex && !reduced) scale *= SelectedCardScale;
                 if (confirmationIndex != i) card.Root.localScale = Vector3.one * scale;
-                float shake = !reduced && rarity == UpgradeRarity.SSR && t < 1f ? Mathf.Sin(t * 36f) * (1f - t) * 1.1f : 0f;
+                float shake = !reduced && rarity >= UpgradeRarity.SSR && t < 1f ? Mathf.Sin(t * 36f) * (1f - t) * 1.1f : 0f;
                 card.Root.localRotation = Quaternion.Euler(0f, 0f, shake);
                 card.Motion.Step(delta, reduced, session != null ? session.Effects.DecorativeIntensity : 1f);
             }

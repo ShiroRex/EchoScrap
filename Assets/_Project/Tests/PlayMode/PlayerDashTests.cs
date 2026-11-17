@@ -578,5 +578,29 @@ namespace EchoScrap.Tests
                 yield return new WaitForFixedUpdate();
             }
         }
+
+        [UnityTest]
+        public IEnumerator PasoDeArieteExtendsTraveledDistanceAndBatteryReducesCooldown()
+        {
+            runtimeStats.SetUpgradeTier("DASH_05", 3);
+            Vector3 startPos = body.position;
+            PressKey(keyboard.dKey);
+            yield return new WaitForFixedUpdate();
+            PressKey(keyboard.spaceKey);
+            yield return StepUntilDashCompletes();
+            ReleaseKey(keyboard.dKey);
+            ReleaseKey(keyboard.spaceKey);
+
+            Vector3 endPos = body.position;
+            float distance = Vector3.Distance(
+                new Vector3(startPos.x, 0f, startPos.z),
+                new Vector3(endPos.x, 0f, endPos.z));
+            Assert.AreEqual(5.61f, distance, 0.35f, "DASH_05 nivel 3 (+70% distancia) debe recorrer ~5.61 m.");
+
+            float before = motor.DashCooldownRemaining;
+            Assert.Greater(before, 0.5f);
+            motor.ReduceCooldownFraction(0.5f);
+            Assert.AreEqual(before * 0.5f, motor.DashCooldownRemaining, 0.01f);
+        }
     }
 }

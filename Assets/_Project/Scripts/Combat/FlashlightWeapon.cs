@@ -52,8 +52,11 @@ namespace EchoScrap.Combat
         private float capturedCritChance;
         private float capturedCritMultiplier = 1.75f;
         private bool capturedSolarMode;
+        private bool capturedSolarCapacitor;
+        private bool capturedVacuumBeacon;
         private int capturedWallSlamTier;
         private float capturedRearDamage;
+        private int burstKills;
 
         private Vector3 currentAimDirection = Vector3.forward;
         private IDamageTarget currentTarget;
@@ -197,6 +200,9 @@ namespace EchoScrap.Combat
             isBurstInitialized = false;
             isInRestPhase = false;
             emittedPulsesInCurrentBurst = 0;
+            burstKills = 0;
+            capturedSolarCapacitor = false;
+            capturedVacuumBeacon = false;
             StartNewBurst(0f);
         }
 
@@ -305,13 +311,17 @@ namespace EchoScrap.Combat
             isBurstInitialized = true;
             isInRestPhase = false;
             emittedPulsesInCurrentBurst = 0;
+            burstKills = 0;
             currentBurstId++;
 
             // Capturar parámetros de la ráfaga al comenzar; mejoras durante la ráfaga aplican a la siguiente
             capturedSolarMode = runtimeStats != null && runtimeStats.IsSolarActive;
-            capturedRange = EffectiveRange;
+            capturedSolarCapacitor = Stats.GetUpgradeTier(UpgradeId.FLASH_13) > 0 && Stats.ConsumeSolarCapacitorBurst();
+            capturedVacuumBeacon = Stats.GetUpgradeTier(UpgradeId.FLASH_14) > 0;
+            capturedRange = EffectiveRange * (capturedSolarCapacitor ? Stats.Upgrades.solarCapacitorRangeMultiplier : 1f);
             capturedAngle = EffectiveAngle;
-            capturedDamagePerPulse = runtimeStats != null ? runtimeStats.FlashlightDamagePerPulse : 3.75f;
+            capturedDamagePerPulse = (runtimeStats != null ? runtimeStats.FlashlightDamagePerPulse : 3.75f) *
+                (capturedSolarCapacitor ? Stats.Upgrades.solarCapacitorDamageMultiplier : 1f);
             capturedAttackSpeed = Stats.BaseAttackSpeedMultiplier;
             capturedPulseInterval = Stats.Settings.PulseInterval / capturedAttackSpeed;
             capturedRestDuration = capturedSolarMode ? 0f : Stats.Settings.BurstRestDuration / capturedAttackSpeed;
@@ -350,6 +360,12 @@ namespace EchoScrap.Combat
             interval = capturedPulseInterval * speedRatio;
             float restFactor = medkit ? tuning.medkitRestFactor : 1f;
             if (stationaryDamageBonus > 0f) restFactor = Mathf.Min(restFactor, tuning.stationaryRestFactor);
+            int overloadTier = Stats.GetUpgradeTier(UpgradeId.FLASH_12);
+            if (overloadTier > 0 && burstKills > 0)
+            {
+                float reduction = Mathf.Min(tuning.pulseOverloadMaxReduction, burstKills * UpgradeTuning.At(tuning.pulseOverloadRestPerKill, overloadTier));
+                restFactor *= 1f - reduction;
+            }
             rest = capturedRestDuration * speedRatio * restFactor;
         }
 
@@ -465,6 +481,11 @@ namespace EchoScrap.Combat
                 hitCount += rearHits;
                 killCount += rearKills;
             }
+            if (killCount > 0)
+            {
+                burstKills += killCount;
+                RefreshCadence();
+            }
 
             var pulseEvent = new PulseResolvedEvent(currentBurstId, pulseNumber, capturedSolarMode,
                 hitCount, killCount, critCount, origin, forward, range, angle, rearRange);
@@ -505,6 +526,13 @@ namespace EchoScrap.Combat
                     hits++;
                     if (result.IsCritical) crits++;
                     if (result.CausedDeath) kills++;
+                    if (capturedVacuumBeacon && target is EnemyActor vacuumEnemy && vacuumEnemy.IsAlive)
+                        vacuumEnemy.ApplyVulnerability(Stats.Upgrades.vacuumDamageBonus, Stats.Upgrades.vacuumDuration);
+                }
+                if (capturedVacuumBeacon && knockbackImpulse <= 0f && target.IsAlive &&
+                    (result.AppliedRealDamage || target is EnemyActor { IsFuseActive: true }))
+                {
+                    target.ApplyKnockback(-hitDir * Stats.Upgrades.vacuumPullDistance);
                 }
                 // An armed moth is still a movable body at zero HP.
                 if (knockbackImpulse <= 0f || !target.IsAlive ||
@@ -627,12 +655,15 @@ namespace EchoScrap.Combat
                 capturedCritChance = capturedCritChance,
                 capturedCritMultiplier = capturedCritMultiplier,
                 capturedSolarMode = capturedSolarMode,
+                capturedSolarCapacitor = capturedSolarCapacitor,
+                capturedVacuumBeacon = capturedVacuumBeacon,
                 capturedWallSlamTier = capturedWallSlamTier,
                 capturedRearDamage = capturedRearDamage,
                 currentAimDirection = currentAimDirection,
                 guaranteedPending = guaranteedPending,
                 guaranteedActive = guaranteedActive,
-                totalPulsesEmitted = TotalPulsesEmitted
+                totalPulsesEmitted = TotalPulsesEmitted,
+                burstKills = burstKills
             };
         }
 
@@ -661,12 +692,15 @@ namespace EchoScrap.Combat
             capturedCritChance = snapshot.capturedCritChance;
             capturedCritMultiplier = snapshot.capturedCritMultiplier;
             capturedSolarMode = snapshot.capturedSolarMode;
+            capturedSolarCapacitor = snapshot.capturedSolarCapacitor;
+            capturedVacuumBeacon = snapshot.capturedVacuumBeacon;
             capturedWallSlamTier = snapshot.capturedWallSlamTier;
             capturedRearDamage = snapshot.capturedRearDamage;
             currentAimDirection = FlatDirection(snapshot.currentAimDirection, Vector3.forward);
             guaranteedPending = Mathf.Max(0, snapshot.guaranteedPending);
             guaranteedActive = Mathf.Max(0, snapshot.guaranteedActive);
             TotalPulsesEmitted = Mathf.Max(0, snapshot.totalPulsesEmitted);
+            burstKills = Mathf.Max(0, snapshot.burstKills);
             if (aimPivot != null && currentAimDirection.sqrMagnitude > 0.0001f)
                 aimPivot.rotation = Quaternion.LookRotation(currentAimDirection, Vector3.up);
             lastNotifiedRange = -1f;

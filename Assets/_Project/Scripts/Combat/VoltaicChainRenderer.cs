@@ -97,13 +97,25 @@ namespace EchoScrap.Combat
 
         public void Show(EnemyActor source, int sourceVersion, Vector3 from, EnemyActor target, int targetVersion, Vector3 to)
         {
+            Bolt bolt = AcquireBolt();
+            Activate(bolt, source, sourceVersion, from, target, targetVersion, to, lifetime);
+        }
+
+        public void ShowStrike(Vector3 from, Vector3 to, float duration = 0f)
+        {
+            Bolt bolt = AcquireBolt();
+            Activate(bolt, null, 0, from, null, 0, to, duration > 0f ? duration : lifetime);
+        }
+
+        private Bolt AcquireBolt()
+        {
             Bolt bolt = null;
             for (int i = 0; i < chainCapacity; i++)
             {
                 if (!bolts[i].Active) { bolt = bolts[i]; break; }
                 if (bolt == null || bolts[i].Age > bolt.Age) bolt = bolts[i];
             }
-            Activate(bolt, source, sourceVersion, from, target, targetVersion, to, lifetime);
+            return bolt;
         }
 
         public void ShowCable(int slot, Vector3 from, Vector3 to, float duration) =>

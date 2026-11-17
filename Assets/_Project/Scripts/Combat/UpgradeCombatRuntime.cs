@@ -14,16 +14,31 @@ namespace EchoScrap.Combat
         private static readonly ProfilerMarker blastsMarker = new ProfilerMarker("EchoScrap.ChainedBlasts");
         private bool allTargetsIndexed;
 
+        private enum ProjectileMode { Normal = 0, BouncingDisc = 1, Boomerang = 2, Parabolic = 3 }
+        private enum GroundZoneKind { PlasmaPuddle = 0, FlameTrail = 1 }
+        private const int GroundZoneCapacity = 64;
         private sealed class Projectile
         {
-            public bool Active, Piercing;
-            public Vector3 Position, Direction;
-            public float Damage, Speed, Life, Freeze, Radius;
+            public bool Active, Piercing, BoolFlag;
+            public ProjectileMode Mode;
+            public Vector3 Position, Direction, StartPosition, EndPosition;
+            public float Damage, Speed, Life, Freeze, Radius, FloatData, Elapsed, Duration;
             public DamageSourceType Source;
             public DamageType DamageType;
             public EnemyActor Target;
             public int TargetVersion;
-            public readonly Dictionary<int,int> Hits = new Dictionary<int,int>(32);
+            public readonly Dictionary<int, int> Hits = new Dictionary<int, int>(256);
+            public readonly Dictionary<int, float> HitCooldowns = new Dictionary<int, float>(256);
+            public UpgradeEffectPool.View View;
+        }
+        private sealed class GroundZone
+        {
+            public bool Active;
+            public GroundZoneKind Kind;
+            public Vector3 Position;
+            public float Radius, DamagePerTick, TickInterval, TickTimer, Life, Slow, Vulnerability;
+            public DamageSourceType Source;
+            public DamageType DamageType;
             public UpgradeEffectPool.View View;
         }
         private enum DeviceKind { Mine, Decoy, Turret }
@@ -65,8 +80,8 @@ namespace EchoScrap.Combat
         private sealed class VoltaicChain
         {
             public bool Active;
-            public readonly EnemyActor[] Targets = new EnemyActor[4];
-            public readonly int[] Versions = new int[4];
+            public readonly EnemyActor[] Targets = new EnemyActor[6];
+            public readonly int[] Versions = new int[6];
             public int Count, Next, PreviousVersion, Order;
             public EnemyActor PreviousActor;
             public Vector3 Origin, Previous;
@@ -89,32 +104,36 @@ namespace EchoScrap.Combat
         private Blast[] blasts;
         private int blastCount;
         private StatusView[] statuses;
+        private readonly GroundZone[] groundZones = new GroundZone[GroundZoneCapacity];
         private readonly int[] attackTiers = new int[UpgradeRules.Count];
         private readonly List<EnemyActor> targets = new List<EnemyActor>(512);
         private readonly Dictionary<int, EnemyActor> targetById = new Dictionary<int, EnemyActor>(256);
         private readonly Dictionary<int, StatusView> statusByActorId = new Dictionary<int, StatusView>(64);
         private readonly HashSet<int> selectedTargets = new HashSet<int>();
-        private readonly UpgradeEffectPool.View[] sawViews = new UpgradeEffectPool.View[4];
+        private readonly UpgradeEffectPool.View[] sawViews = new UpgradeEffectPool.View[5];
         private UpgradeEffectPool.View shield;
         private UpgradeEffectPool.View returnMarker;
+        private UpgradeEffectPool.View auraView;
         private PlayerMotor motor;
-        private Vector3 dashStart;
+        private Vector3 dashStart, lastTrailPos;
         private float wallSlamReadyAt;
-        private bool trackingDash;
+        private bool trackingDash, trailInitialized;
         private readonly ElectricCable[] cables = new ElectricCable[MaxElectricCables];
         private readonly List<EnemyActor> segmentTargets = new List<EnemyActor>(64);
         private readonly List<EnemyActor> spatialCandidates = new List<EnemyActor>(64);
         private readonly List<EnemyActor> nearestCandidates = new List<EnemyActor>(64);
+        private readonly List<EnemyActor> cryoCandidates = new List<EnemyActor>(64);
         private int activeStatusCount;
-        private readonly RaycastHit[] ramSweepHits = new RaycastHit[32];
         private float time, blizzardTimer, turretTimer, regenTimer, emergencyReady, overheal;
-        private int gems, activeDecoys;
+        private float reactiveReadyAt, puddleTimer, discTimer, boomerangTimer, orbitalTimer, parabolicTimer, whipTimer, auraTimer;
+        private int gems, batteryGems, activeDecoys;
         private ulong nextPlacementOrder;
         private bool bound, collecting;
         private static readonly Color Amber = new Color(1f,.66f,.22f);
         private static readonly Color Plasma = new Color(.35f,.94f,1f);
         private static readonly Color Ice = new Color(.55f,.84f,1f);
         private static readonly Color Repair = new Color(.35f,1f,.55f);
+        private static readonly Color FlameColor = new Color(1f,.42f,.12f);
         public bool AutoTick { get; set; } = true;
         public int ActiveProjectileCount { get; private set; }
         public int ActiveDeviceCount { get; private set; }
@@ -131,6 +150,7 @@ namespace EchoScrap.Combat
         public int ExplosionsResolved { get; private set; }
         public int ProjectilesFired { get; private set; }
         public int AssemblerGemRemainder => gems;
+        public int BatteryGemRemainder => batteryGems;
         public float OverhealCharge => overheal;
         public float EmergencyCooldownRemaining => Mathf.Max(0, emergencyReady-time);
         private int Tier(UpgradeId id) => stats.GetUpgradeTier(id);
@@ -150,10 +170,11 @@ namespace EchoScrap.Combat
             for(int i=0;i<projectiles.Length;i++) projectiles[i]=new Projectile();
             devices=new Device[Mathf.Max(32,tuning.deviceCapacity)];
             for(int i=0;i<devices.Length;i++) devices[i]=new Device();
+            for(int i=0;i<groundZones.Length;i++) groundZones[i]??=new GroundZone();
             blasts=new Blast[Mathf.Max(64,tuning.blastCapacity)];
             statuses=new StatusView[Mathf.Max(32,tuning.statusViews)];
             for(int i=0;i<statuses.Length;i++) statuses[i]=new StatusView();
-            effects=new UpgradeEffectPool(transform,tuning.projectileViews+tuning.deviceCapacity+tuning.transientViews+tuning.statusViews+8,collectorSprite,session.Effects);
+            effects=new UpgradeEffectPool(transform,tuning.projectileViews+tuning.deviceCapacity+tuning.transientViews+tuning.statusViews+GroundZoneCapacity+12,collectorSprite,session.Effects);
             lightning=new VoltaicChainRenderer(transform,session.Effects,tuning,MaxElectricCables);
             voltaicChains=new VoltaicChain[Mathf.Max(256,tuning.projectileCapacity)];
             for(int i=0;i<voltaicChains.Length;i++)voltaicChains[i]=new VoltaicChain();
@@ -199,14 +220,17 @@ namespace EchoScrap.Combat
             ClearContextualUpgrades();
             effects.Clear();
             ClearVoltaicChains();lightning.Clear();
-            foreach(var p in projectiles) {p.Active=false;p.View=null;p.Hits.Clear();p.Target=null;}
+            foreach(var p in projectiles) {p.Active=false;p.Mode=ProjectileMode.Normal;p.View=null;p.Hits.Clear();p.HitCooldowns.Clear();p.Target=null;}
             foreach(var d in devices) {d.Active=false;d.View=null;}
+            foreach(var z in groundZones) if (z != null) {z.Active=false;z.View=null;}
             foreach(var s in statuses) {s.Actor=null;s.View=null;s.AppliedKind=0;s.AppliedScale=-1f;s.HasPos=false;}
             activeStatusCount = 0;
-            for(int i=0;i<4;i++) sawViews[i]=null;
-            shield=null; blastCount=0; time=blizzardTimer=turretTimer=regenTimer=emergencyReady=overheal=0f;
+            for(int i=0;i<sawViews.Length;i++) sawViews[i]=null;
+            shield=null; auraView=null; blastCount=0; time=blizzardTimer=turretTimer=regenTimer=emergencyReady=overheal=0f;
+            reactiveReadyAt=puddleTimer=discTimer=boomerangTimer=orbitalTimer=parabolicTimer=whipTimer=auraTimer=0f;
+            trailInitialized=false; lastTrailPos=Vector3.zero;
             nextPlacementOrder = 0;
-            gems=activeDecoys=0; collecting=false; targets.Clear(); targetById.Clear(); statusByActorId.Clear(); selectedTargets.Clear();
+            gems=batteryGems=activeDecoys=0; collecting=false; targets.Clear(); targetById.Clear(); statusByActorId.Clear(); selectedTargets.Clear();
             ActiveProjectileCount=ActiveDeviceCount=ExplosionsResolved=ProjectilesFired=0;
             ChainsTriggered=ChainHitsResolved=ChainTargetsInvalidated=ChainOverflowResolutions=0;
             stats.CopyUpgradeTiers(attackTiers);
@@ -262,14 +286,29 @@ namespace EchoScrap.Combat
         private void DamageResolved(DamageResult hit)
         {
             if(!bound)return;
-            if(hit.IsPlayerTarget&&hit.WasImmune&&shield!=null)effects.PulseShield(shield,hit.HitDirection);
-            if(!hit.AppliedRealDamage) return;
             if(hit.IsPlayerTarget)
             {
-                if(hit.RemainingHealth>0 && Tier(UpgradeId.BIO_03)>0 && hit.RemainingHealth/hit.MaxHealth<tuning.emergencyThreshold && time>=emergencyReady)
-                {player.GrantUpgradeProtection(tuning.emergencyInvulnerability);emergencyReady=time+tuning.emergencyCooldown;effects.Burst(hit.WorldPosition,2,Repair);}
+                if(hit.WasImmune && shield!=null) effects.PulseShield(shield,hit.HitDirection);
+                int deflectTier = Tier(UpgradeId.SCRAP_08);
+                if(hit.WasBlocked && deflectTier>0 && CanResolveContextualUpgrade)
+                    QueueBlast(player.WorldCenter, At(tuning.deflectDamage, deflectTier), tuning.deflectRadius,
+                        push: tuning.deflectPush, source: DamageSourceType.ShieldDeflect, damageType: DamageType.Physical, shockwave: true);
+                if(!hit.AppliedRealDamage) return;
+                if(hit.RemainingHealth>0)
+                {
+                    if(Tier(UpgradeId.BIO_03)>0 && hit.RemainingHealth/hit.MaxHealth<tuning.emergencyThreshold && time>=emergencyReady)
+                    {player.GrantUpgradeProtection(tuning.emergencyInvulnerability);emergencyReady=time+tuning.emergencyCooldown;effects.Burst(hit.WorldPosition,2,Repair);}
+                    int reactiveTier = Tier(UpgradeId.DEMO_07);
+                    if(reactiveTier>0 && time>=reactiveReadyAt && CanResolveContextualUpgrade)
+                    {
+                        reactiveReadyAt = time + tuning.reactiveCooldown;
+                        QueueBlast(player.WorldCenter, tuning.reactiveBaseDamage + reactiveTier * tuning.reactiveDamagePerTier,
+                            tuning.reactiveRadius, source: DamageSourceType.UpgradeExplosion, damageType: DamageType.Physical);
+                    }
+                }
                 return;
             }
+            if(!hit.AppliedRealDamage) return;
             bool primary=hit.SourceType==DamageSourceType.FlashlightPulse||hit.SourceType==DamageSourceType.SolarPulse;
             if(!primary && (int)hit.SourceType<10) return;
             var target=Find(hit.TargetId);
@@ -284,7 +323,11 @@ namespace EchoScrap.Combat
                 if(slow>0) target.ApplySlow(tuning.slowFirstTier+(slow-1)*tuning.slowPerTier,tuning.slowDuration);
                 bool wasFrozen=target.IsFrozen;
                 if(freeze>0) target.RegisterColdHit(Mathf.RoundToInt(At(tuning.freezeHits,freeze)),At(tuning.freezeDuration,freeze));
-                if(!wasFrozen && target.IsFrozen) effects.Burst(target.WorldCenter,1.2f,Ice,kind:UpgradeEffectPool.BurstKind.Frost);
+                if(!wasFrozen && target.IsFrozen)
+                {
+                    effects.Burst(target.WorldCenter,1.2f,Ice,kind:UpgradeEffectPool.BurstKind.Frost);
+                    TriggerCryoMagnet(target.WorldCenter);
+                }
             }
             if(hit.PulseIndex!=4) return;
             int siphon=Attack(UpgradeId.BIO_02);
@@ -330,7 +373,7 @@ namespace EchoScrap.Combat
             chain.PreviousVersion=origin!=null?origin.SpawnVersion:0;
             chain.Damage=hit.ResolvedDamage*At(tuning.prismDamage,tier);chain.Radius=tuning.prismRadius;
             chain.HopDelay=Mathf.Max(.01f,tuning.voltaicHopDelay);chain.Wait=chain.HopDelay;chain.Count=chain.Next=0;
-            int desired=Mathf.Clamp(Mathf.RoundToInt(At(tuning.prismCounts,tier)),0,chain.Targets.Length);
+            int desired=Mathf.Clamp(Mathf.RoundToInt(At(tuning.prismCounts,tier))+stats.ExtraProjectileCount,0,chain.Targets.Length);
             Vector3 previous=chain.Origin;
             var active=CombatTargetRegistry.ActiveTargets;
             for(int hop=0;hop<desired;hop++)
@@ -415,7 +458,10 @@ namespace EchoScrap.Combat
             stats.ClearCombatMedkit();
             effects.Release(returnMarker);
             returnMarker = null;
+            effects.Release(auraView);
+            auraView = null;
             trackingDash = false;
+            trailInitialized = false;
             wallSlamReadyAt = 0f;
             System.Array.Clear(cables, 0, cables.Length);
         }
@@ -433,6 +479,7 @@ namespace EchoScrap.Combat
             if (dash.Cancelled)
             {
                 trackingDash = false;
+                trailInitialized = false;
                 effects.Release(returnMarker);
                 returnMarker = null;
                 return;
@@ -446,7 +493,7 @@ namespace EchoScrap.Combat
                 {
                     lightning.Show(null, 0, dash.ReturnOrigin, null, 0, dash.Position);
                     DamageDashSegment(dash.ReturnOrigin, dash.Position, tuning.returnWidth, At(tuning.returnDamage, tier),
-                        DamageSourceType.DashReturn, dash.Direction);
+                        DamageSourceType.DashReturn);
                 }
                 return;
             }
@@ -454,6 +501,15 @@ namespace EchoScrap.Combat
             {
                 trackingDash = CanResolveContextualUpgrade;
                 dashStart = dash.Position;
+                if (trackingDash && Tier(UpgradeId.FLASH_13) > 0)
+                    stats.ActivateSolarCapacitor(tuning.solarCapacitorDuration);
+                int trailTier = Tier(UpgradeId.DASH_08);
+                if (trackingDash && trailTier > 0)
+                {
+                    trailInitialized = true;
+                    lastTrailPos = dash.Position;
+                    PlaceFlameTrail(dash.Position, trailTier);
+                }
                 if (trackingDash && motor != null && motor.HasReturnAnchor)
                     returnMarker = effects.Acquire(UpgradeEffectPool.Shape.Decoy, dashStart, Plasma, .9f);
                 int decoy=Tier(UpgradeId.DASH_03);
@@ -468,32 +524,39 @@ namespace EchoScrap.Combat
                 if (trackingDash && CanResolveContextualUpgrade)
                 {
                     float length = Vector3.ProjectOnPlane(dash.Position - dashStart, Vector3.up).magnitude;
-                    int ram = Tier(UpgradeId.DASH_05);
-                    if (ram > 0 && length > .05f)
-                        DamageDashSegment(dashStart, dash.Position, tuning.ramRadius, At(tuning.ramDamage, ram),
-                            DamageSourceType.DashRam, dash.Direction);
                     int cable = Tier(UpgradeId.DASH_07);
                     if (cable > 0 && length > tuning.cableWidth &&
                         !Physics.Linecast(dashStart, dash.Position, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
                         PlaceElectricCable(dashStart, dash.Position, cable);
+                    int trailTier = Tier(UpgradeId.DASH_08);
+                    if (trailTier > 0 && trailInitialized)
+                    {
+                        Vector3 delta = dash.Position - lastTrailPos; delta.y = 0f;
+                        float dist = delta.magnitude;
+                        float step = Mathf.Max(.2f, tuning.trailStepDistance);
+                        int steps = Mathf.Min(10, Mathf.FloorToInt(dist / step));
+                        Vector3 dir = dist > .001f ? delta / dist : Vector3.zero;
+                        for (int s = 1; s <= steps; s++)
+                            PlaceFlameTrail(lastTrailPos + dir * (s * step), trailTier);
+                        if (dist >= .35f && steps == 0)
+                            PlaceFlameTrail(dash.Position, trailTier);
+                    }
                 }
                 trackingDash = false;
+                trailInitialized = false;
                 int shock=Tier(UpgradeId.DASH_02);
                 if(shock>0) QueueBlast(dash.Position,At(tuning.shockDamage,shock),At(tuning.shockRadius,shock),stun:At(tuning.shockStun,shock),push:tuning.shockPushDistance,shockwave:true);
                 if(Tier(UpgradeId.DASH_04)>0) Fire(dash.Position,dash.Direction,tuning.bladeDamage,tuning.bladeSpeed,tuning.bladeLifetime,DamageSourceType.UpgradeBlade,null,true,0,tuning.bladeHitRadius);
             }
         }
-        private void DamageDashSegment(Vector3 from, Vector3 to, float width, float damage, DamageSourceType source,
-            Vector3 dashDirection)
+        private void DamageDashSegment(Vector3 from, Vector3 to, float width, float damage, DamageSourceType source)
         {
-            bool ram = source == DamageSourceType.DashRam;
-            float length = Vector3.ProjectOnPlane(to - from, Vector3.up).magnitude;
             EnemyActor.GatherSegmentCandidates(from, to, width, segmentTargets);
             foreach (EnemyActor enemy in segmentTargets)
             {
                 if (!CanResolveContextualUpgrade) break;
                 if (enemy == null || !enemy.IsAlive || enemy.Session != session ||
-                    enemy is GolgoraActor { IsAirborne: true } || (ram && !enemy.CanBeRamPushed) ||
+                    enemy is GolgoraActor { IsAirborne: true } ||
                     !EnemyActor.TouchesSegment(from, to, enemy.WorldCenter, width + enemy.HitRadius, out float fraction))
                     continue;
 
@@ -501,14 +564,8 @@ namespace EchoScrap.Combat
                 if (Physics.Linecast(point, enemy.WorldCenter, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
                     continue;
 
-                Vector3 impact = enemy.WorldCenter;
-                if (ram)
-                {
-                    impact = enemy.CarryAlongDash(dashDirection, length * (1f - fraction), ramSweepHits);
-                    enemy.LaunchFromDash(dashDirection, tuning.ramLaunchSpeed);
-                }
                 if (Deal(enemy, damage, point, source, canCrit: false).AppliedRealDamage)
-                    effects.Impact(impact, ram ? Amber : Plasma);
+                    effects.Impact(enemy.WorldCenter, Plasma);
             }
         }
 
@@ -577,12 +634,37 @@ namespace EchoScrap.Combat
                 }
                 return;
             }
-            if(pickup.Kind!=CombatPickupKind.Experience || Tier(UpgradeId.SCRAP_02)==0) return;
-            gems+=pickup.GemCount;
-            while(gems>=tuning.assemblerGemCount)
+            if (pickup.Kind != CombatPickupKind.Experience) return;
+            int batteryTier = Tier(UpgradeId.DASH_10);
+            if (batteryTier > 0 && CanResolveContextualUpgrade)
             {
-                gems-=tuning.assemblerGemCount; var target=Nearest(player.WorldCenter,1000);
-                if(target!=null) Fire(player.WorldCenter,target.WorldCenter-player.WorldCenter,At(tuning.assemblerDamage,Tier(UpgradeId.SCRAP_02)),tuning.plasmaSpeed,10,DamageSourceType.UpgradeProjectile,target,damageType:DamageType.Physical);
+                batteryGems += pickup.GemCount;
+                while (batteryGems >= tuning.batteryGemCount)
+                {
+                    batteryGems -= tuning.batteryGemCount;
+                    motor?.ReduceCooldownFraction(At(tuning.batteryCooldownReduction, batteryTier));
+                    effects.Burst(player.WorldCenter, 1.1f, Plasma, kind: UpgradeEffectPool.BurstKind.Electric);
+                }
+            }
+            int assemblerTier = Tier(UpgradeId.SCRAP_02);
+            if (assemblerTier == 0) return;
+            gems += pickup.GemCount;
+            while (gems >= tuning.assemblerGemCount)
+            {
+                gems -= tuning.assemblerGemCount;
+                var target = Nearest(player.WorldCenter, 1000);
+                if (target != null)
+                {
+                    int bolts = 1 + stats.ExtraProjectileCount;
+                    Vector3 baseDir = Flat(target.WorldCenter - player.WorldCenter);
+                    float dmg = At(tuning.assemblerDamage, assemblerTier);
+                    for (int b = 0; b < bolts; b++)
+                    {
+                        float yaw = bolts == 1 ? 0f : (b - (bolts - 1) * 0.5f) * 14f;
+                        Vector3 dir = yaw == 0f ? baseDir : Quaternion.Euler(0f, yaw, 0f) * baseDir;
+                        Fire(player.WorldCenter, dir, dmg, tuning.plasmaSpeed, 10, DamageSourceType.UpgradeProjectile, b == 0 ? target : null, damageType: DamageType.Physical);
+                    }
+                }
             }
         }
         public void UpgradeAcquired(string id)
@@ -607,24 +689,43 @@ namespace EchoScrap.Combat
             }
             return goal;
         }
-        private void Fire(Vector3 position,Vector3 direction,float damage,float speed,float life,DamageSourceType source,
-            EnemyActor target=null,bool piercing=false,float freeze=0,float radius=.25f,EnemyActor ignore=null,DamageType damageType=DamageType.Inherit)
+        private Projectile AcquireProjectile(Vector3 position, Vector3 direction, float damage, float speed, float life, DamageSourceType source,
+            EnemyActor target = null, bool piercing = false, float freeze = 0, float radius = .25f, EnemyActor ignore = null,
+            DamageType damageType = DamageType.Inherit, ProjectileMode mode = ProjectileMode.Normal,
+            UpgradeEffectPool.Shape? shapeOverride = null, Color? colorOverride = null, float viewScale = 0f)
         {
-            for(int i=0;i<projectiles.Length;i++)
+            for (int i = 0; i < projectiles.Length; i++)
             {
-                var p=projectiles[i];if(p.Active) continue;
-                p.Active=true;p.Position=position;p.Direction=Flat(direction);p.Damage=damage;p.Speed=speed;p.Life=life;p.Source=source;p.DamageType=DamageTypes.Resolve(source,damageType);
-                p.Target=target;p.TargetVersion=target!=null?target.SpawnVersion:0;p.Piercing=piercing;p.Freeze=freeze;p.Radius=radius;p.Hits.Clear();
-                if(ignore!=null)p.Hits[ignore.TargetId]=ignore.SpawnVersion;
-                p.View=effects.Acquire(source==DamageSourceType.UpgradeBlade?UpgradeEffectPool.Shape.Blade:UpgradeEffectPool.Shape.Dart,position,freeze>0?Ice:p.DamageType==DamageType.Physical?Amber:Plasma,source==DamageSourceType.UpgradeBlade?1.5f:.65f);
-                ActiveProjectileCount++;ProjectilesFired++;return;
+                var p = projectiles[i]; if (p.Active) continue;
+                p.Active = true; p.Mode = mode; p.BoolFlag = false;
+                p.Position = position; p.StartPosition = position; p.EndPosition = position;
+                p.Direction = Flat(direction); p.Damage = damage; p.Speed = speed; p.Life = life;
+                p.FloatData = p.Elapsed = p.Duration = 0f;
+                p.Source = source; p.DamageType = DamageTypes.Resolve(source, damageType);
+                p.Target = target; p.TargetVersion = target != null ? target.SpawnVersion : 0;
+                p.Piercing = piercing; p.Freeze = freeze; p.Radius = radius;
+                p.Hits.Clear(); p.HitCooldowns.Clear();
+                if (ignore != null) p.Hits[ignore.TargetId] = ignore.SpawnVersion;
+                var shape = shapeOverride ?? (source == DamageSourceType.UpgradeBlade ? UpgradeEffectPool.Shape.Blade : UpgradeEffectPool.Shape.Dart);
+                Color color = colorOverride ?? (freeze > 0 ? Ice : p.DamageType == DamageType.Physical ? Amber : Plasma);
+                float scale = viewScale > 0f ? viewScale : (source == DamageSourceType.UpgradeBlade ? 1.5f : .65f);
+                p.View = effects.Acquire(shape, position, color, scale);
+                if (p.View != null && p.Direction.sqrMagnitude > .0001f)
+                    p.View.Root.rotation = Quaternion.LookRotation(p.Direction);
+                ActiveProjectileCount++; ProjectilesFired++;
+                return p;
             }
+            return null;
         }
+        private void Fire(Vector3 position,Vector3 direction,float damage,float speed,float life,DamageSourceType source,
+            EnemyActor target=null,bool piercing=false,float freeze=0,float radius=.25f,EnemyActor ignore=null,DamageType damageType=DamageType.Inherit) =>
+            AcquireProjectile(position, direction, damage, speed, life, source, target, piercing, freeze, radius, ignore, damageType);
         private void QueueBlast(Vector3 p,float damage,float radius,float delay=0,float stun=0,float push=0,float freeze=0, bool echo=false,bool implosion=false,DamageSourceType source=DamageSourceType.UpgradeExplosion,DamageType damageType=DamageType.Inherit,bool shockwave=false)
         {
             if(blastCount>=blasts.Length) return;
             bool explosion=source==DamageSourceType.UpgradeExplosion;
             if(explosion&&!echo) {damage*=stats.ExplosionDamageMultiplier;radius*=stats.ExplosionRadiusMultiplier;}
+            else if(!echo) radius*=stats.AreaMultiplier;
             blasts[blastCount++]=new Blast {Position=p,Damage=damage,Radius=radius,Delay=delay,Stun=stun,Push=push,Freeze=freeze,Echo=echo,Implosion=implosion,Shockwave=shockwave,Source=source,DamageType=DamageTypes.Resolve(source,damageType)};
         }
         private void DeviceAt(DeviceKind kind,Vector3 position,float life,float damage)
@@ -670,10 +771,19 @@ namespace EchoScrap.Combat
             EnemyActor.InvalidateNeighbors();
             time+=dt; effects.Step(dt);lightning.Step(dt);
             stats.StepCombatMedkit(dt);
+            stats.StepSolarCapacitor(dt);
             if (returnMarker != null && (motor == null || !motor.HasReturnAnchor))
             {
                 effects.Release(returnMarker);
                 returnMarker = null;
+            }
+            if (motor != null && motor.IsDashing && Tier(UpgradeId.DASH_08) > 0 && CanResolveContextualUpgrade)
+            {
+                Vector3 pos = player.WorldCenter;
+                float step = tuning.trailStepDistance;
+                Vector3 delta = pos - lastTrailPos; delta.y = 0f;
+                if (!trailInitialized) { trailInitialized = true; lastTrailPos = pos; PlaceFlameTrail(pos, Tier(UpgradeId.DASH_08)); }
+                else if (delta.sqrMagnitude >= step * step) { lastTrailPos = pos; PlaceFlameTrail(pos, Tier(UpgradeId.DASH_08)); }
             }
             Gather();
             for(int i=0;i<targets.Count;i++) targets[i].StepUpgradeStatus(dt);
@@ -691,6 +801,14 @@ namespace EchoScrap.Combat
                 }
             }
             else turretTimer = 0f;
+            StepAura(dt);
+            StepPlasmaPuddles(dt);
+            StepBouncingDiscs(dt);
+            StepBoomerangs(dt);
+            StepOrbitalLightning(dt);
+            StepParabolicScrap(dt);
+            StepWhipSweep(dt);
+            StepGroundZones(dt);
             StepElectricCables();
             StepDevices(dt); StepProjectiles(dt); StepVoltaicChains(dt); StepSaws(); StepBlasts(dt); StepStatusViews();
             if(player.UpgradeProtectionRemaining>0)
@@ -709,6 +827,310 @@ namespace EchoScrap.Combat
                 }
             }
             else {effects.Release(shield);shield=null;}
+        }
+        private void StepAura(float dt)
+        {
+            int tier = Tier(UpgradeId.SCRAP_05);
+            if (tier <= 0)
+            {
+                auraTimer = 0f;
+                if (auraView != null) { effects.Release(auraView); auraView = null; }
+                return;
+            }
+            float radius = At(tuning.auraRadius, tier) * stats.AreaMultiplier;
+            Vector3 center = player.WorldCenter;
+            Vector3 groundPos = center; groundPos.y = ArenaSurface.Height(center) + .04f;
+            auraView ??= effects.Acquire(UpgradeEffectPool.Shape.Ring, groundPos, Plasma, radius);
+            if (auraView != null)
+            {
+                auraView.Root.position = groundPos;
+                auraView.Root.localScale = Vector3.one * radius;
+                auraView.Radius = radius;
+            }
+            auraTimer += dt;
+            float interval = Mathf.Max(.05f, tuning.auraInterval);
+            while (auraTimer >= interval)
+            {
+                auraTimer -= interval;
+                float damage = At(tuning.auraDamage, tier);
+                List<EnemyActor> list = targets;
+                if (allTargetsIndexed && radius <= 24f)
+                {
+                    EnemyActor.GatherCandidatesUnsorted(center, radius, spatialCandidates);
+                    list = spatialCandidates;
+                }
+                for (int i = 0; i < list.Count; i++)
+                {
+                    EnemyActor enemy = list[i];
+                    if (enemy == null || !enemy.IsAlive || enemy.CurrentHealth <= 0f || enemy.Session != session) continue;
+                    Vector3 offset = enemy.WorldCenter - center; offset.y = 0f;
+                    float hitRange = radius + enemy.HitRadius;
+                    if (offset.sqrMagnitude > hitRange * hitRange) continue;
+                    var hit = Deal(enemy, damage, center, DamageSourceType.StaticAura, DamageType.Supernatural);
+                    if (hit.AppliedRealDamage && enemy.IsAlive && enemy.CurrentHealth > 0f && tuning.auraPush > 0f)
+                        enemy.ApplyKnockback(Flat(offset) * tuning.auraPush);
+                }
+            }
+        }
+        private void StepPlasmaPuddles(float dt)
+        {
+            int tier = Tier(UpgradeId.DEMO_05);
+            if (tier <= 0) { puddleTimer = 0f; return; }
+            float interval = Mathf.Max(.2f, At(tuning.puddleInterval, tier));
+            puddleTimer += dt;
+            while (puddleTimer >= interval)
+            {
+                puddleTimer -= interval;
+                EnemyActor target = Nearest(player.WorldCenter, tuning.puddleThrowRange);
+                Vector3 fwd = weapon != null ? Flat(weapon.CurrentAimDirection) : Flat(player.transform.forward);
+                Vector3 pos = target != null ? target.WorldCenter : player.WorldCenter + fwd * 4f;
+                float radius = tuning.puddleRadius * stats.AreaMultiplier;
+                PlaceGroundZone(GroundZoneKind.PlasmaPuddle, pos, radius, At(tuning.puddleDamage, tier),
+                    tuning.puddleTick, tuning.puddleDuration, DamageSourceType.PlasmaPuddle, DamageType.Supernatural);
+                effects.Burst(pos, radius * .45f, Plasma, kind: UpgradeEffectPool.BurstKind.PlasmaImpact);
+            }
+        }
+        private void StepBouncingDiscs(float dt)
+        {
+            int tier = Tier(UpgradeId.SCRAP_06);
+            if (tier <= 0) { discTimer = 0f; return; }
+            float interval = Mathf.Max(.2f, tuning.discInterval);
+            discTimer += dt;
+            while (discTimer >= interval)
+            {
+                discTimer -= interval;
+                int count = Mathf.RoundToInt(At(tuning.discCount, tier)) + stats.ExtraProjectileCount;
+                float dmg = At(tuning.discDamage, tier);
+                EnemyActor target = Nearest(player.WorldCenter, tuning.discBounceRange);
+                Vector3 baseDir = target != null
+                    ? Flat(target.WorldCenter - player.WorldCenter)
+                    : (weapon != null ? Flat(weapon.CurrentAimDirection) : Flat(player.transform.forward));
+                for (int i = 0; i < count; i++)
+                {
+                    float yaw = count <= 1 ? 0f : (i - (count - 1) * .5f) * 24f;
+                    Vector3 dir = yaw == 0f ? baseDir : Quaternion.Euler(0f, yaw, 0f) * baseDir;
+                    var p = AcquireProjectile(player.WorldCenter, dir, dmg, tuning.discSpeed, tuning.discLifetime,
+                        DamageSourceType.BouncingDisc, piercing: true, radius: tuning.discRadius * stats.AreaMultiplier,
+                        damageType: DamageType.Physical, mode: ProjectileMode.BouncingDisc,
+                        shapeOverride: UpgradeEffectPool.Shape.Saw, colorOverride: Amber, viewScale: .42f);
+                    if (p != null) p.FloatData = tuning.discHitCooldown;
+                }
+            }
+        }
+        private void StepBoomerangs(float dt)
+        {
+            int tier = Tier(UpgradeId.GREED_07);
+            if (tier <= 0) { boomerangTimer = 0f; return; }
+            float interval = Mathf.Max(.2f, tuning.boomerangInterval);
+            boomerangTimer += dt;
+            while (boomerangTimer >= interval)
+            {
+                boomerangTimer -= interval;
+                int count = Mathf.RoundToInt(At(tuning.boomerangCount, tier)) + stats.ExtraProjectileCount;
+                float dmg = At(tuning.boomerangDamage, tier);
+                EnemyActor target = Nearest(player.WorldCenter, 18f);
+                Vector3 baseDir = target != null
+                    ? Flat(target.WorldCenter - player.WorldCenter)
+                    : (weapon != null ? Flat(weapon.CurrentAimDirection) : Flat(player.transform.forward));
+                for (int i = 0; i < count; i++)
+                {
+                    float yaw = count <= 1 ? 0f : (i - (count - 1) * .5f) * 28f;
+                    Vector3 dir = yaw == 0f ? baseDir : Quaternion.Euler(0f, yaw, 0f) * baseDir;
+                    var p = AcquireProjectile(player.WorldCenter, dir, dmg, tuning.boomerangSpeed,
+                        tuning.boomerangOutTime * 2.5f + 2f, DamageSourceType.Boomerang, piercing: true,
+                        radius: tuning.boomerangHitRadius * stats.AreaMultiplier, damageType: DamageType.Physical,
+                        mode: ProjectileMode.Boomerang, shapeOverride: UpgradeEffectPool.Shape.Blade,
+                        colorOverride: Plasma, viewScale: 1f);
+                    if (p != null) { p.Duration = tuning.boomerangOutTime; p.Elapsed = 0f; p.BoolFlag = false; }
+                }
+            }
+        }
+        private void StepOrbitalLightning(float dt)
+        {
+            int tier = Tier(UpgradeId.FLASH_09);
+            if (tier <= 0) { orbitalTimer = 0f; return; }
+            float interval = Mathf.Max(.2f, At(tuning.orbitalInterval, tier));
+            orbitalTimer += dt;
+            while (orbitalTimer >= interval)
+            {
+                orbitalTimer -= interval;
+                int count = Mathf.RoundToInt(At(tuning.orbitalCount, tier)) + stats.ExtraProjectileCount;
+                float dmg = At(tuning.orbitalDamage, tier);
+                selectedTargets.Clear();
+                for (int i = 0; i < count; i++)
+                {
+                    EnemyActor target = Nearest(player.WorldCenter, tuning.orbitalRange, unique: true);
+                    if (target == null) break;
+                    selectedTargets.Add(target.TargetId);
+                    Vector3 strikePos = target.WorldCenter;
+                    lightning.ShowStrike(strikePos + Vector3.up * 7.5f, strikePos, .28f);
+                    QueueBlast(strikePos, dmg, tuning.orbitalRadius, source: DamageSourceType.OrbitalLightning, damageType: DamageType.Supernatural);
+                }
+                selectedTargets.Clear();
+            }
+        }
+        private void StepParabolicScrap(float dt)
+        {
+            int tier = Tier(UpgradeId.DEMO_06);
+            if (tier <= 0) { parabolicTimer = 0f; return; }
+            float interval = Mathf.Max(.2f, tuning.parabolicInterval);
+            parabolicTimer += dt;
+            while (parabolicTimer >= interval)
+            {
+                parabolicTimer -= interval;
+                int count = Mathf.RoundToInt(At(tuning.parabolicCount, tier)) + stats.ExtraProjectileCount;
+                float dmg = At(tuning.parabolicDamage, tier);
+                Vector3 fwd = weapon != null ? Flat(weapon.CurrentAimDirection) : Flat(player.transform.forward);
+                selectedTargets.Clear();
+                for (int i = 0; i < count; i++)
+                {
+                    EnemyActor target = Nearest(player.WorldCenter, 12f, unique: true);
+                    Vector3 endPos;
+                    if (target != null)
+                    {
+                        selectedTargets.Add(target.TargetId);
+                        endPos = target.WorldCenter;
+                    }
+                    else
+                    {
+                        Vector3 dir = Quaternion.Euler(0f, i * (360f / Mathf.Max(1, count)), 0f) * fwd;
+                        endPos = player.WorldCenter + dir * 6.5f;
+                    }
+                    float dist = Vector3.ProjectOnPlane(endPos - player.WorldCenter, Vector3.up).magnitude;
+                    float duration = Mathf.Clamp(dist / Mathf.Max(1f, tuning.parabolicSpeed), .35f, tuning.parabolicLifetime);
+                    var p = AcquireProjectile(player.WorldCenter, endPos - player.WorldCenter, dmg, tuning.parabolicSpeed,
+                        duration, DamageSourceType.ParabolicScrap, piercing: true,
+                        radius: tuning.parabolicRadius * stats.AreaMultiplier, damageType: DamageType.Physical,
+                        mode: ProjectileMode.Parabolic, shapeOverride: UpgradeEffectPool.Shape.Mine,
+                        colorOverride: Amber, viewScale: .8f);
+                    if (p != null) { p.StartPosition = player.WorldCenter; p.EndPosition = endPos; p.Duration = duration; p.Elapsed = 0f; }
+                }
+                selectedTargets.Clear();
+            }
+        }
+        private void StepWhipSweep(float dt)
+        {
+            int tier = Tier(UpgradeId.FLASH_10);
+            if (tier <= 0) { whipTimer = 0f; return; }
+            float interval = Mathf.Max(.2f, tuning.whipInterval);
+            whipTimer += dt;
+            while (whipTimer >= interval)
+            {
+                whipTimer -= interval;
+                Vector3 origin = player.WorldCenter;
+                Vector3 fwd = weapon != null ? Flat(weapon.CurrentAimDirection) : Flat(player.transform.forward);
+                float range = tuning.whipRange * stats.AreaMultiplier;
+                float halfCos = Mathf.Cos(tuning.whipAngle * .5f * Mathf.Deg2Rad);
+                float dmg = tuning.whipBaseDamage + tier * tuning.whipDamagePerTier;
+                effects.Burst(origin + fwd * (range * .45f), range * .55f, Amber, kind: UpgradeEffectPool.BurstKind.Shock);
+                List<EnemyActor> list = targets;
+                if (allTargetsIndexed && range <= 24f)
+                {
+                    EnemyActor.GatherCandidatesUnsorted(origin, range, spatialCandidates);
+                    list = spatialCandidates;
+                }
+                for (int i = 0; i < list.Count; i++)
+                {
+                    EnemyActor enemy = list[i];
+                    if (enemy == null || !enemy.IsAlive || enemy.CurrentHealth <= 0f || enemy.Session != session) continue;
+                    Vector3 offset = enemy.WorldCenter - origin; offset.y = 0f;
+                    float maxDist = range + enemy.HitRadius;
+                    if (offset.sqrMagnitude > maxDist * maxDist) continue;
+                    if (offset.sqrMagnitude > .0001f && Vector3.Dot(offset.normalized, fwd) < halfCos) continue;
+                    var hit = Deal(enemy, dmg, origin, DamageSourceType.WhipSweep, DamageType.Physical);
+                    if (hit.AppliedRealDamage && enemy.IsAlive && enemy.CurrentHealth > 0f && tuning.whipPush > 0f)
+                        enemy.ApplyKnockback(Flat(offset) * tuning.whipPush);
+                }
+            }
+        }
+        private void PlaceFlameTrail(Vector3 position, int tier) =>
+            PlaceGroundZone(GroundZoneKind.FlameTrail, position, tuning.trailRadius * stats.AreaMultiplier,
+                At(tuning.trailDamage, tier), tuning.trailTick, tuning.trailDuration,
+                DamageSourceType.FlameTrail, DamageType.Supernatural);
+        private void PlaceGroundZone(GroundZoneKind kind, Vector3 position, float radius, float damagePerTick,
+            float tickInterval, float life, DamageSourceType source, DamageType damageType)
+        {
+            GroundZone slot = null, oldest = null;
+            for (int i = 0; i < groundZones.Length; i++)
+            {
+                var z = groundZones[i];
+                if (z == null) continue;
+                if (!z.Active) { slot = z; break; }
+                if (oldest == null || z.Life < oldest.Life) oldest = z;
+            }
+            if (slot == null)
+            {
+                slot = oldest;
+                if (slot == null) return;
+                effects.Release(slot.View);
+                slot.View = null;
+            }
+            Vector3 pos = position; pos.y = ArenaSurface.Height(position) + .04f;
+            slot.Active = true; slot.Kind = kind; slot.Position = pos; slot.Radius = radius;
+            slot.DamagePerTick = damagePerTick; slot.TickInterval = Mathf.Max(.05f, tickInterval);
+            slot.TickTimer = 0f; slot.Life = life; slot.Slow = 0f; slot.Vulnerability = 0f;
+            slot.Source = source; slot.DamageType = damageType;
+            slot.View = effects.Acquire(UpgradeEffectPool.Shape.Ring, pos, kind == GroundZoneKind.FlameTrail ? FlameColor : Plasma, radius);
+        }
+        private void StepGroundZones(float dt)
+        {
+            for (int i = 0; i < groundZones.Length; i++)
+            {
+                var z = groundZones[i];
+                if (z == null || !z.Active) continue;
+                z.Life -= dt;
+                if (z.Life <= 0f)
+                {
+                    z.Active = false;
+                    effects.Release(z.View);
+                    z.View = null;
+                    continue;
+                }
+                z.TickTimer -= dt;
+                while (z.TickTimer <= 0f)
+                {
+                    z.TickTimer += z.TickInterval;
+                    List<EnemyActor> list = targets;
+                    if (allTargetsIndexed && z.Radius <= 24f)
+                    {
+                        EnemyActor.GatherCandidatesUnsorted(z.Position, z.Radius, spatialCandidates);
+                        list = spatialCandidates;
+                    }
+                    for (int e = 0; e < list.Count; e++)
+                    {
+                        EnemyActor enemy = list[e];
+                        if (enemy == null || !enemy.IsAlive || enemy.CurrentHealth <= 0f || enemy.Session != session) continue;
+                        Vector3 d = enemy.WorldCenter - z.Position; d.y = 0f;
+                        float hitRadius = z.Radius + enemy.HitRadius;
+                        if (d.sqrMagnitude <= hitRadius * hitRadius)
+                            Deal(enemy, z.DamagePerTick, z.Position, z.Source, z.DamageType);
+                    }
+                }
+            }
+        }
+        private void TriggerCryoMagnet(Vector3 center)
+        {
+            int tier = Tier(UpgradeId.CRYO_05);
+            if (tier <= 0 || !CanResolveContextualUpgrade) return;
+            float attractRadius = At(tuning.cryoMagnetRadius, tier) * stats.AreaMultiplier;
+            pickups?.AttractWithin(center, attractRadius);
+            float chillRadius = tuning.cryoMagnetSlowRadius * stats.AreaMultiplier;
+            List<EnemyActor> list = targets;
+            if (allTargetsIndexed && chillRadius <= 24f)
+            {
+                EnemyActor.GatherCandidatesUnsorted(center, chillRadius, cryoCandidates);
+                list = cryoCandidates;
+            }
+            for (int i = 0; i < list.Count; i++)
+            {
+                EnemyActor enemy = list[i];
+                if (enemy == null || !enemy.IsAlive || enemy.CurrentHealth <= 0f || enemy.Session != session) continue;
+                Vector3 d = enemy.WorldCenter - center; d.y = 0f;
+                float hitRadius = chillRadius + enemy.HitRadius;
+                if (d.sqrMagnitude <= hitRadius * hitRadius)
+                    enemy.ApplySlow(tuning.cryoMagnetSlow, tuning.cryoMagnetSlowDuration);
+            }
+            effects.Burst(center, Mathf.Max(.6f, chillRadius * .65f), Ice, kind: UpgradeEffectPool.BurstKind.Frost);
         }
         private void StepDevices(float dt)
         {
@@ -749,17 +1171,93 @@ namespace EchoScrap.Combat
                 }
             }
         }
+        private EnemyActor NearestDiscTarget(Vector3 origin, int excludeId, Dictionary<int, float> cooldowns)
+        {
+            EnemyActor readyBest = null, fallbackBest = null;
+            float readyDistSq = tuning.discBounceRange * tuning.discBounceRange;
+            float fallbackDistSq = readyDistSq;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                EnemyActor enemy = targets[i];
+                if (enemy == null || !enemy.IsAlive || enemy.CurrentHealth <= 0f || enemy.Session != session || enemy.TargetId == excludeId) continue;
+                Vector3 d = enemy.WorldCenter - origin; d.y = 0f;
+                float sq = d.sqrMagnitude;
+                if (sq > fallbackDistSq) continue;
+                bool onCooldown = cooldowns != null && cooldowns.TryGetValue(enemy.TargetId, out float readyAt) && time < readyAt;
+                if (!onCooldown && sq <= readyDistSq) { readyBest = enemy; readyDistSq = sq; }
+                fallbackBest = enemy; fallbackDistSq = sq;
+            }
+            return readyBest ?? fallbackBest;
+        }
         private void StepProjectiles(float dt)
         {
             for(int i=0;i<projectiles.Length;i++)
             {
                 var p=projectiles[i];if(!p.Active)continue;
-                if(p.Target!=null && p.Target.IsAlive && p.Target.SpawnVersion==p.TargetVersion) p.Direction=Flat(p.Target.WorldCenter-p.Position);
-                Vector3 from=p.Position,to=from+p.Direction*p.Speed*dt;
-                bool blocked=Physics.Linecast(from,to,out RaycastHit wall,1<<0,QueryTriggerInteraction.Ignore);
-                if(blocked) to=wall.point;
-                p.Position=to;p.Life-=dt;
-                if(p.View!=null) {p.View.Root.position=to;p.View.Root.rotation=Quaternion.LookRotation(p.Direction);}
+                Vector3 from=p.Position,to;
+                bool blocked=false;
+                if (p.Mode == ProjectileMode.BouncingDisc)
+                {
+                    to = from + p.Direction * (p.Speed * dt);
+                    if (Physics.Linecast(from, to, out RaycastHit wall, 1 << PhysicsLayers.DefaultLayer, QueryTriggerInteraction.Ignore))
+                    {
+                        Vector3 n = wall.normal; n.y = 0f;
+                        p.Direction = n.sqrMagnitude > .0001f ? Flat(Vector3.Reflect(p.Direction, n.normalized)) : -p.Direction;
+                        to = wall.point + p.Direction * .08f; to.y = from.y;
+                    }
+                    p.Position = to; p.Life -= dt;
+                    if (p.View != null) { p.View.Root.position = to; p.View.Root.rotation = Quaternion.Euler(0f, -time * 900f, 0f); }
+                }
+                else if (p.Mode == ProjectileMode.Boomerang)
+                {
+                    if (!p.BoolFlag)
+                    {
+                        float remainingOut = Mathf.Max(0f, p.Duration - p.Elapsed);
+                        float stepOut = Mathf.Min(dt, remainingOut);
+                        p.Elapsed += dt;
+                        to = from + p.Direction * (p.Speed * stepOut);
+                        if (p.Elapsed >= p.Duration)
+                        {
+                            p.BoolFlag = true;
+                            p.Hits.Clear();
+                            Vector3 home = player.WorldCenter;
+                            Vector3 toPlayer = home - to; toPlayer.y = 0f;
+                            if (toPlayer.sqrMagnitude > .0001f) p.Direction = toPlayer.normalized;
+                        }
+                    }
+                    else
+                    {
+                        p.Elapsed += dt;
+                        Vector3 home = player.WorldCenter;
+                        Vector3 toPlayer = home - from; toPlayer.y = 0f;
+                        if (toPlayer.sqrMagnitude > .0001f) p.Direction = toPlayer.normalized;
+                        to = from + p.Direction * (p.Speed * 1.15f * dt);
+                        Vector3 rem = home - to; rem.y = 0f;
+                        if (rem.sqrMagnitude <= .65f * .65f) p.Life = 0f;
+                    }
+                    p.Position = to; p.Life -= dt;
+                    if (p.View != null) { p.View.Root.position = to; p.View.Root.rotation = Quaternion.Euler(0f, time * 1080f, 0f); }
+                }
+                else if (p.Mode == ProjectileMode.Parabolic)
+                {
+                    p.Elapsed += dt;
+                    float u = Mathf.Clamp01(p.Elapsed / Mathf.Max(.05f, p.Duration));
+                    Vector3 nextFlat = Vector3.Lerp(p.StartPosition, p.EndPosition, u);
+                    float arcY = ArenaSurface.Height(nextFlat) + .35f + Mathf.Sin(u * Mathf.PI) * 3.2f;
+                    to = new Vector3(nextFlat.x, arcY, nextFlat.z);
+                    p.Position = to; p.Life -= dt;
+                    if (u >= 1f) p.Life = 0f;
+                    if (p.View != null) { p.View.Root.position = to; p.View.Root.rotation = Quaternion.Euler(time * 540f, 0f, 0f); }
+                }
+                else
+                {
+                    if(p.Target!=null && p.Target.IsAlive && p.Target.SpawnVersion==p.TargetVersion) p.Direction=Flat(p.Target.WorldCenter-p.Position);
+                    to=from+p.Direction*p.Speed*dt;
+                    blocked=Physics.Linecast(from,to,out RaycastHit wall,1<<0,QueryTriggerInteraction.Ignore);
+                    if(blocked) to=wall.point;
+                    p.Position=to;p.Life-=dt;
+                    if(p.View!=null) {p.View.Root.position=to;p.View.Root.rotation=Quaternion.LookRotation(p.Direction);}
+                }
                 List<EnemyActor> candidates = targets;
                 if (allTargetsIndexed)
                 {
@@ -771,22 +1269,44 @@ namespace EchoScrap.Combat
                 for(int e=0;e<candidates.Count;e++)
                 {
                     var enemy=candidates[e];
-                    if(enemy==null || !enemy.IsAlive || enemy.CurrentHealth<=0 || enemy.Session!=session || (p.Hits.TryGetValue(enemy.TargetId,out int version)&&version==enemy.SpawnVersion)) continue;
+                    if(enemy==null || !enemy.IsAlive || enemy.CurrentHealth<=0 || enemy.Session!=session) continue;
+                    if (p.Mode == ProjectileMode.BouncingDisc)
+                    {
+                        if (p.HitCooldowns.TryGetValue(enemy.TargetId, out float readyAt) && time < readyAt) continue;
+                    }
+                    else if (p.Hits.TryGetValue(enemy.TargetId, out int version) && version == enemy.SpawnVersion) continue;
                     var offset=enemy.WorldCenter-from;offset.y=0;
                     float t=deltaSqr>0?Mathf.Clamp01(Vector3.Dot(offset,delta)/deltaSqr):0;
                     float radius=enemy.HitRadius+p.Radius;
                     if((offset-delta*t).sqrMagnitude>radius*radius)continue;
-                    p.Hits[enemy.TargetId]=enemy.SpawnVersion;
+                    if (p.Mode == ProjectileMode.BouncingDisc) p.HitCooldowns[enemy.TargetId] = time + p.FloatData;
+                    else p.Hits[enemy.TargetId]=enemy.SpawnVersion;
                     var hit=Deal(enemy,p.Damage,from,p.Source,p.DamageType);
-                    if(p.Freeze>0&&hit.AppliedRealDamage&&enemy.IsAlive&&enemy.CurrentHealth>0)enemy.ApplyFreeze(p.Freeze);
+                    if(p.Freeze>0&&hit.AppliedRealDamage&&enemy.IsAlive&&enemy.CurrentHealth>0)
+                    {
+                        bool wasFrozen = enemy.IsFrozen;
+                        enemy.ApplyFreeze(p.Freeze);
+                        if (!wasFrozen && enemy.IsFrozen) TriggerCryoMagnet(enemy.WorldCenter);
+                    }
                     if(hit.AppliedRealDamage)
                     {
                         if(p.Freeze<=0&&p.DamageType==DamageType.Supernatural)effects.Burst(enemy.WorldCenter,.45f,Plasma,kind:UpgradeEffectPool.BurstKind.PlasmaImpact);
                         else effects.Impact(enemy.WorldCenter,p.Freeze>0?Ice:Amber,p.Freeze>0);
                     }
+                    if (p.Mode == ProjectileMode.BouncingDisc)
+                    {
+                        EnemyActor next = NearestDiscTarget(p.Position, enemy.TargetId, p.HitCooldowns);
+                        if (next != null) p.Direction = Flat(next.WorldCenter - p.Position);
+                        break;
+                    }
                     if(!p.Piercing) {p.Life=0;break;}
                 }
-                if(p.Life<=0||blocked) {p.Active=false;effects.Release(p.View);p.View=null;p.Target=null;ActiveProjectileCount--;}
+                if(p.Life<=0||blocked)
+                {
+                    if (p.Mode == ProjectileMode.Parabolic && p.Life <= 0f)
+                        effects.Burst(p.EndPosition, p.Radius * 1.6f, Amber, kind: UpgradeEffectPool.BurstKind.Impact);
+                    p.Active=false;effects.Release(p.View);p.View=null;p.Target=null;p.HitCooldowns.Clear();ActiveProjectileCount--;
+                }
             }
         }
         private DamageResult Deal(EnemyActor enemy,float damage,Vector3 origin,DamageSourceType source,DamageType damageType=DamageType.Inherit,bool canCrit=true)
@@ -819,7 +1339,12 @@ namespace EchoScrap.Combat
                     if (delta.sqrMagnitude > hitRange * hitRange) continue;
                     if(b.Damage>0 && !Deal(enemy,b.Damage,b.Position,b.Source,b.DamageType,canCrit:b.Source!=DamageSourceType.WallSlam).AppliedRealDamage) continue;
                     if(!enemy.IsAlive||enemy.CurrentHealth<=0)continue;
-                    if(b.Freeze>0)enemy.ApplyFreeze(b.Freeze);
+                    if(b.Freeze>0)
+                    {
+                        bool wasFrozen = enemy.IsFrozen;
+                        enemy.ApplyFreeze(b.Freeze);
+                        if (!wasFrozen && enemy.IsFrozen) TriggerCryoMagnet(enemy.WorldCenter);
+                    }
                     if(b.Stun>0)enemy.ApplyStun(b.Stun);
                     if(b.Push>0)enemy.PushDistance(delta,b.Push);
                     if (b.Echo) enemy.PushDistance(-delta, Mathf.Min(delta.magnitude, b.Radius * tuning.implosionPullRadiusFraction));
@@ -835,25 +1360,28 @@ namespace EchoScrap.Combat
         }
         private void StepSaws()
         {
-            int tier=Tier(UpgradeId.SCRAP_03),count=Mathf.RoundToInt(At(tuning.sawCounts,tier));
-            for(int i=0;i<4;i++)
+            int tier=Tier(UpgradeId.SCRAP_03);
+            int count=tier>0?Mathf.Min(sawViews.Length,Mathf.RoundToInt(At(tuning.sawCounts,tier))+stats.ExtraProjectileCount):0;
+            float orbitRadius=tuning.sawRadius*stats.AreaMultiplier;
+            float hitRadiusThreshold=tuning.sawHitRadius*stats.AreaMultiplier;
+            for(int i=0;i<sawViews.Length;i++)
             {
                 if(i>=count) {effects.Release(sawViews[i]);sawViews[i]=null;continue;}
                 float angle=(time*tuning.sawAngularSpeed+i*360f/count)*Mathf.Deg2Rad;
-                Vector3 p=player.WorldCenter+new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle))*tuning.sawRadius;
+                Vector3 p=player.WorldCenter+new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle))*orbitRadius;
                 sawViews[i]??=effects.Acquire(UpgradeEffectPool.Shape.Saw,p,Amber,.55f);
                 if(sawViews[i]!=null) {sawViews[i].Root.position=p;sawViews[i].Root.rotation=Quaternion.Euler(0,-time*720,0);}
                 List<EnemyActor> candidates = targets;
                 if (allTargetsIndexed)
                 {
-                    EnemyActor.GatherCandidatesUnsorted(p, tuning.sawHitRadius, spatialCandidates);
+                    EnemyActor.GatherCandidatesUnsorted(p, hitRadiusThreshold, spatialCandidates);
                     candidates = spatialCandidates;
                 }
                 for(int e=0;e<candidates.Count;e++)
                 {
                     var enemy=candidates[e];if(enemy==null||!enemy.IsAlive||enemy.CurrentHealth<=0||enemy.Session!=session)continue;
                     var delta=enemy.WorldCenter-p;delta.y=0;
-                    float hitRadius = enemy.HitRadius + tuning.sawHitRadius;
+                    float hitRadius = enemy.HitRadius + hitRadiusThreshold;
                     if (delta.sqrMagnitude > hitRadius * hitRadius) continue;
                     var sawHit=Deal(enemy,At(tuning.sawDamage,tier),p,DamageSourceType.UpgradeSaw);
                     if(sawHit.AppliedRealDamage)effects.Impact(enemy.WorldCenter,Amber);
@@ -953,7 +1481,18 @@ namespace EchoScrap.Combat
                 nextPlacementOrder = nextPlacementOrder,
                 explosionsResolved = ExplosionsResolved,
                 projectilesFired = ProjectilesFired,
-                chainsTriggered = ChainsTriggered
+                chainsTriggered = ChainsTriggered,
+                reactiveReadyAt = reactiveReadyAt,
+                batteryGems = batteryGems,
+                puddleTimer = puddleTimer,
+                discTimer = discTimer,
+                boomerangTimer = boomerangTimer,
+                orbitalTimer = orbitalTimer,
+                parabolicTimer = parabolicTimer,
+                whipTimer = whipTimer,
+                auraTimer = auraTimer,
+                lastTrailPos = lastTrailPos,
+                trailInitialized = trailInitialized
             };
             if (projectiles != null)
             {
@@ -973,7 +1512,14 @@ namespace EchoScrap.Combat
                         radius = p.Radius,
                         sourceType = (int)p.Source,
                         damageType = (int)p.DamageType,
-                        targetEnemyIndex = FindEnemyIndex(enemyLookup, p.Target, p.TargetVersion)
+                        targetEnemyIndex = FindEnemyIndex(enemyLookup, p.Target, p.TargetVersion),
+                        mode = (int)p.Mode,
+                        floatData = p.FloatData,
+                        boolFlag = p.BoolFlag,
+                        elapsed = p.Elapsed,
+                        duration = p.Duration,
+                        startPosition = p.StartPosition,
+                        endPosition = p.EndPosition
                     };
                     if (enemyLookup != null && p.Hits != null && p.Hits.Count > 0)
                     {
@@ -982,6 +1528,18 @@ namespace EchoScrap.Combat
                             EnemyActor enemy = enemyLookup[e];
                             if (enemy != null && p.Hits.TryGetValue(enemy.TargetId, out int ver) && ver == enemy.SpawnVersion)
                                 item.hitEnemyIndices.Add(e);
+                        }
+                    }
+                    if (enemyLookup != null && p.HitCooldowns != null && p.HitCooldowns.Count > 0)
+                    {
+                        for (int e = 0; e < enemyLookup.Count; e++)
+                        {
+                            EnemyActor enemy = enemyLookup[e];
+                            if (enemy != null && p.HitCooldowns.TryGetValue(enemy.TargetId, out float readyAt) && readyAt > time)
+                            {
+                                item.hitCooldownKeys.Add(e);
+                                item.hitCooldownValues.Add(readyAt);
+                            }
                         }
                     }
                     snapshot.projectiles.Add(item);
@@ -1071,6 +1629,25 @@ namespace EchoScrap.Combat
                     snapshot.chains.Add(item);
                 }
             }
+            for (int i = 0; i < groundZones.Length; i++)
+            {
+                GroundZone z = groundZones[i];
+                if (z == null || !z.Active) continue;
+                snapshot.zones.Add(new GroundZoneSnapshot
+                {
+                    kind = (int)z.Kind,
+                    position = z.Position,
+                    radius = z.Radius,
+                    damagePerTick = z.DamagePerTick,
+                    tickInterval = z.TickInterval,
+                    tickTimer = z.TickTimer,
+                    life = z.Life,
+                    slow = z.Slow,
+                    vulnerability = z.Vulnerability,
+                    sourceType = (int)z.Source,
+                    damageType = (int)z.DamageType
+                });
+            }
             return snapshot;
         }
 
@@ -1091,6 +1668,17 @@ namespace EchoScrap.Combat
             emergencyReady = snapshot.emergencyReady;
             overheal = Mathf.Max(0f, snapshot.overheal);
             gems = Mathf.Max(0, snapshot.gems);
+            batteryGems = Mathf.Max(0, snapshot.batteryGems);
+            reactiveReadyAt = snapshot.reactiveReadyAt;
+            puddleTimer = snapshot.puddleTimer;
+            discTimer = snapshot.discTimer;
+            boomerangTimer = snapshot.boomerangTimer;
+            orbitalTimer = snapshot.orbitalTimer;
+            parabolicTimer = snapshot.parabolicTimer;
+            whipTimer = snapshot.whipTimer;
+            auraTimer = snapshot.auraTimer;
+            lastTrailPos = snapshot.lastTrailPos;
+            trailInitialized = snapshot.trailInitialized;
             activeDecoys = Mathf.Max(0, snapshot.activeDecoys);
             nextPlacementOrder = snapshot.nextPlacementOrder;
             ExplosionsResolved = Mathf.Max(0, snapshot.explosionsResolved);
@@ -1099,6 +1687,30 @@ namespace EchoScrap.Combat
 
             if (snapshot.hasReturnMarker && effects != null)
                 returnMarker = effects.Acquire(UpgradeEffectPool.Shape.Decoy, dashStart, Plasma, .9f);
+
+            if (snapshot.zones != null)
+            {
+                for (int i = 0; i < snapshot.zones.Count && i < groundZones.Length; i++)
+                {
+                    GroundZoneSnapshot item = snapshot.zones[i];
+                    GroundZone z = groundZones[i];
+                    if (z == null) continue;
+                    z.Active = true;
+                    z.Kind = (GroundZoneKind)item.kind;
+                    z.Position = item.position;
+                    z.Radius = item.radius;
+                    z.DamagePerTick = item.damagePerTick;
+                    z.TickInterval = Mathf.Max(.05f, item.tickInterval);
+                    z.TickTimer = item.tickTimer;
+                    z.Life = item.life;
+                    z.Slow = item.slow;
+                    z.Vulnerability = item.vulnerability;
+                    z.Source = (DamageSourceType)item.sourceType;
+                    z.DamageType = (DamageType)item.damageType;
+                    if (effects != null)
+                        z.View = effects.Acquire(UpgradeEffectPool.Shape.Ring, z.Position, z.Kind == GroundZoneKind.FlameTrail ? FlameColor : Plasma, z.Radius);
+                }
+            }
 
             if (projectiles != null && snapshot.projectiles != null)
             {
@@ -1109,6 +1721,13 @@ namespace EchoScrap.Combat
                     Projectile p = projectiles[slot++];
                     p.Active = true;
                     p.Piercing = item.piercing;
+                    p.Mode = (ProjectileMode)item.mode;
+                    p.FloatData = item.floatData;
+                    p.BoolFlag = item.boolFlag;
+                    p.Elapsed = item.elapsed;
+                    p.Duration = item.duration;
+                    p.StartPosition = item.startPosition;
+                    p.EndPosition = item.endPosition;
                     p.Position = item.position;
                     p.Direction = Flat(item.direction);
                     p.Damage = item.damage;
@@ -1124,6 +1743,7 @@ namespace EchoScrap.Combat
                     p.Target = target;
                     p.TargetVersion = target != null ? target.SpawnVersion : 0;
                     p.Hits.Clear();
+                    p.HitCooldowns.Clear();
                     if (enemyLookup != null && item.hitEnemyIndices != null)
                     {
                         for (int h = 0; h < item.hitEnemyIndices.Count; h++)
@@ -1133,11 +1753,27 @@ namespace EchoScrap.Combat
                                 p.Hits[enemyLookup[idx].TargetId] = enemyLookup[idx].SpawnVersion;
                         }
                     }
+                    if (enemyLookup != null && item.hitCooldownKeys != null && item.hitCooldownValues != null)
+                    {
+                        int pairs = Mathf.Min(item.hitCooldownKeys.Count, item.hitCooldownValues.Count);
+                        for (int h = 0; h < pairs; h++)
+                        {
+                            int idx = item.hitCooldownKeys[h];
+                            if (idx >= 0 && idx < enemyLookup.Count && enemyLookup[idx] != null)
+                                p.HitCooldowns[enemyLookup[idx].TargetId] = item.hitCooldownValues[h];
+                        }
+                    }
                     if (effects != null)
                     {
-                        var shape = p.Source == DamageSourceType.UpgradeBlade ? UpgradeEffectPool.Shape.Blade : UpgradeEffectPool.Shape.Dart;
+                        var shape = p.Mode == ProjectileMode.BouncingDisc ? UpgradeEffectPool.Shape.Saw
+                            : p.Mode == ProjectileMode.Parabolic ? UpgradeEffectPool.Shape.Mine
+                            : p.Mode == ProjectileMode.Boomerang || p.Source == DamageSourceType.UpgradeBlade ? UpgradeEffectPool.Shape.Blade
+                            : UpgradeEffectPool.Shape.Dart;
                         Color color = p.Freeze > 0 ? Ice : (p.DamageType == DamageType.Physical ? Amber : Plasma);
-                        float scale = p.Source == DamageSourceType.UpgradeBlade ? 1.5f : .65f;
+                        float scale = p.Mode == ProjectileMode.BouncingDisc ? .42f
+                            : p.Mode == ProjectileMode.Parabolic ? .8f
+                            : p.Mode == ProjectileMode.Boomerang ? 1f
+                            : p.Source == DamageSourceType.UpgradeBlade ? 1.5f : .65f;
                         p.View = effects.Acquire(shape, p.Position, color, scale);
                         if (p.View != null && p.Direction.sqrMagnitude > 0.0001f)
                             p.View.Root.rotation = Quaternion.LookRotation(p.Direction);

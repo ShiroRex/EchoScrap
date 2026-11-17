@@ -671,6 +671,25 @@ namespace EchoScrap.Combat
             return started;
         }
 
+        public int AttractWithin(Vector3 center, float radius)
+        {
+            if (session == null || playerHealth == null || !playerHealth.IsAlive || session.State == SessionState.Victory || session.State == SessionState.Defeat || radius <= 0f) return 0;
+            int started = 0;
+            float radiusSqr = radius * radius;
+            for (int i = 0; i < activeSlots.Count; i++)
+            {
+                PickupSlot slot = activeSlots[i];
+                if (slot.GlobalFlight || slot.Kind != CombatPickupKind.Experience) continue;
+                Vector3 d = slot.Position - center; d.y = 0f;
+                if (d.sqrMagnitude > radiusSqr) continue;
+                slot.GlobalFlight = slot.Attracted = true;
+                slot.FlightStart = slot.Position; slot.FlightAge = 0f;
+                slot.FlightDuration = Mathf.Clamp(.4f + Vector3.Distance(slot.Position, playerHealth.transform.position) * .012f, .45f, 1.4f);
+                started++;
+            }
+            return started;
+        }
+
         private float experienceRemainder;
         public void CollectAll()
         {

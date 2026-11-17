@@ -28,7 +28,9 @@ namespace EchoScrap.Core
         Lava = 9,
         UpgradeProjectile = 10, UpgradeExplosion = 11, UpgradeFrost = 12, UpgradeSaw = 13, UpgradeTurret = 14, UpgradeBlade = 15,
         SpectralSweep = 16, CopperBolt = 17, BossSweep = 18, BossMagmaRing = 19,
-        RearFlashlightPulse = 20, WallSlam = 21, DashRam = 22, DashReturn = 23, ElectricCable = 24, SharpGem = 25
+        RearFlashlightPulse = 20, WallSlam = 21, DashRam = 22, DashReturn = 23, ElectricCable = 24, SharpGem = 25,
+        StaticAura = 26, PlasmaPuddle = 27, BouncingDisc = 28, Boomerang = 29,
+        OrbitalLightning = 30, ParabolicScrap = 31, FlameTrail = 32, WhipSweep = 33, ShieldDeflect = 34
     }
 
     public enum DamageType { Inherit = -1, Physical = 0, Supernatural = 1 }
@@ -43,6 +45,7 @@ namespace EchoScrap.Core
         {
             DamageSourceType.FlashlightPulse or DamageSourceType.SolarPulse or DamageSourceType.RearFlashlightPulse or
             DamageSourceType.DashReturn or DamageSourceType.ElectricCable or DamageSourceType.UpgradeProjectile or DamageSourceType.UpgradeFrost or
+            DamageSourceType.StaticAura or DamageSourceType.PlasmaPuddle or DamageSourceType.OrbitalLightning or DamageSourceType.FlameTrail or
             DamageSourceType.Lava or DamageSourceType.BossBombardmentPuddle or DamageSourceType.BossMagmaRing or DamageSourceType.SpectralSweep => DamageType.Supernatural,
             _ => DamageType.Physical
         };

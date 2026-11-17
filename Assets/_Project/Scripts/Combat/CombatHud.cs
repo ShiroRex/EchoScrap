@@ -28,8 +28,8 @@ namespace EchoScrap.Combat
         private const float DefeatPulseDuration = 2f * DefeatPulsePeriod;
         private const float ObjectiveHintSeconds = 5f;
         private const float DashReadySeconds = 2f;
-        private const int AcquiredCardColumns = 7;
-        private const float AcquiredCardStep = 46f;
+        private const int AcquiredCardColumns = 9;
+        private const float AcquiredCardStep = 34f;
         private const float AcquiredCardRightColumn = 144f;
         private static readonly Vector2 AcquiredCardsPosition = new Vector2(-206f, 182f);
         private CombatGameBootstrap game;
@@ -346,7 +346,7 @@ namespace EchoScrap.Combat
             dashFill.color = returnReady || cooldown == 0 ? Apollo : new Color(.44f, .48f, .49f);
             if (cardsDirty) RefreshCards();
             // On narrow screens the centered XP bar reaches into the upgrades column.
-            var cardsPosition = AcquiredCardsPosition + (canvasRect.rect.width < 1530f ? Vector2.up * 64f : Vector2.zero);
+            var cardsPosition = AcquiredCardsPosition + (canvasRect.rect.width < 1530f ? Vector2.up * 100f : Vector2.zero);
             if (acquiredCards.anchoredPosition != cardsPosition) acquiredCards.anchoredPosition = cardsPosition;
             RefreshBoss();
             RefreshModal();
@@ -778,7 +778,7 @@ namespace EchoScrap.Combat
             for (int i = 0; i < acquiredCardLevels.Length; i++)
             {
                 var card = UpgradeCatalog.Cards[i];
-                var tile = ImageRect(acquiredCards, card.Id, Vector2.zero, Vector2.one * 42f, Color.white);
+                var tile = ImageRect(acquiredCards, card.Id, Vector2.zero, Vector2.one * 32f, Color.white);
                 tile.sprite = frame;
                 tile.type = Image.Type.Sliced;
                 tile.pixelsPerUnitMultiplier = 1f;
@@ -793,13 +793,13 @@ namespace EchoScrap.Combat
                     if (hoveredCardTile == tile.rectTransform) HideCardTooltip();
                 });
                 trigger.triggers.Add(exit);
-                var icon = ImageRect(tile.transform, "Icon", new Vector2(-3f, 3f), Vector2.one * 29f, UpgradeCatalog.RarityColor(card.Rarity));
+                var icon = ImageRect(tile.transform, "Icon", new Vector2(-2f, 2f), Vector2.one * 21f, UpgradeCatalog.RarityColor(card.Rarity));
                 icon.sprite = skin.icons[(int)card.Icon];
                 icon.preserveAspect = true;
-                var badgePosition = new Vector2(11f, -10f);
-                ImageRect(tile.transform, "LevelBadge", badgePosition, Vector2.one * 16f, Ink);
-                acquiredCardLevels[i] = Label(tile.transform, "Level", badgePosition, new Vector2(16f, 24f), "",
-                    15, TextAnchor.MiddleCenter, Pale);
+                var badgePosition = new Vector2(9f, -8f);
+                ImageRect(tile.transform, "LevelBadge", badgePosition, Vector2.one * 14f, Ink);
+                acquiredCardLevels[i] = Label(tile.transform, "Level", badgePosition, new Vector2(14f, 18f), "",
+                    12, TextAnchor.MiddleCenter, Pale);
                 tile.gameObject.SetActive(false);
             }
             BuildCardTooltip(skin);

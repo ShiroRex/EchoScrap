@@ -578,9 +578,12 @@ namespace EchoScrap.Combat
         public bool IsControlLocked => IsFrozen || StunRemaining > 0f;
         public int SpawnVersion { get; private set; }
         public float FrozenVisualCoverage { get; private set; }
+        public float VulnerabilityRemaining { get; private set; }
+        public float VulnerabilityBonus { get; private set; }
         private int coldHits;
         public Vector3 PursuitGoal => session != null && session.Upgrades != null ? session.Upgrades.PursuitGoal(transform.position, targetPlayer != null ? targetPlayer.WorldCenter : transform.position) : (targetPlayer != null ? targetPlayer.WorldCenter : transform.position);
         public virtual void ApplySlow(float fraction, float duration) { slowFraction = Mathf.Max(slowFraction, Mathf.Clamp01(fraction)); SlowRemaining = Mathf.Max(SlowRemaining, duration); RefreshColdTint(); }
+        public virtual void ApplyVulnerability(float bonus, float duration) { VulnerabilityBonus = Mathf.Max(VulnerabilityBonus, Mathf.Max(0f, bonus)); VulnerabilityRemaining = Mathf.Max(VulnerabilityRemaining, duration); }
         internal bool TouchElectricCable(float time, float interval, float fraction)
         {
             cableSlow = LimitCableSlow(fraction);
@@ -606,6 +609,8 @@ namespace EchoScrap.Combat
             SlowRemaining = Mathf.Max(0f, SlowRemaining - dt);
             FrozenRemaining = Mathf.Max(0f, FrozenRemaining - dt);
             StunRemaining = Mathf.Max(0f, StunRemaining - dt);
+            VulnerabilityRemaining = Mathf.Max(0f, VulnerabilityRemaining - dt);
+            if (VulnerabilityRemaining <= 0f) VulnerabilityBonus = 0f;
             if (SlowRemaining <= 0f) { slowFraction = 0f; coldHits = 0; }
             cableSlowRemaining = Mathf.Max(0f, cableSlowRemaining - dt);
             if (cableSlowRemaining <= 0f) cableSlow = 0f;
@@ -620,6 +625,7 @@ namespace EchoScrap.Combat
         protected void ClearCrowdControl()
         {
             SlowRemaining = FrozenRemaining = StunRemaining = slowFraction = FrozenVisualCoverage = 0f;
+            VulnerabilityRemaining = VulnerabilityBonus = 0f;
             cableSlow = cableSlowRemaining = 0f;
             wallSlamTimeRemaining = 0f;
             coldHits = 0;
@@ -637,6 +643,7 @@ namespace EchoScrap.Combat
 
             // 1. Salud máxima y estado de muerte/recompensas
             SpawnVersion++; SlowRemaining = FrozenRemaining = StunRemaining = slowFraction = FrozenVisualCoverage = 0f; coldHits = 0;
+            VulnerabilityRemaining = VulnerabilityBonus = 0f;
             cableSlow = cableSlowRemaining = cableDamageReadyAt = 0f;
             currentHealth = Mathf.Max(1f, runtimeArchetype.MaxHealth);
             isDead = false;
@@ -1331,13 +1338,13 @@ namespace EchoScrap.Combat
             bool executed = false;
             bool playerAttack = DamageTypes.IsFlashlight(request.SourceType) ||
                 (request.SourceType >= DamageSourceType.UpgradeProjectile && request.SourceType <= DamageSourceType.UpgradeBlade) ||
-                request.SourceType is DamageSourceType.WallSlam or DamageSourceType.DashRam or DamageSourceType.DashReturn or
-                    DamageSourceType.ElectricCable or DamageSourceType.SharpGem;
+                (request.SourceType >= DamageSourceType.RearFlashlightPulse && request.SourceType <= DamageSourceType.ShieldDeflect);
             var upgradeStats = session != null ? session.PlayerStats : null;
             if (playerAttack && upgradeStats != null)
             {
                 resolvedDamage *= upgradeStats.CompanionDamageMultiplier;
                 if (IsFrozen) resolvedDamage *= 1f + upgradeStats.Upgrades.frozenDamageBonus;
+                if (VulnerabilityRemaining > 0f) resolvedDamage *= 1f + VulnerabilityBonus;
                 if (isCritical && upgradeStats.GetUpgradeTier(UpgradeId.CRIT_05) > 0 && currentHealth / MaxHealth < upgradeStats.Upgrades.eyeHealthThreshold)
                     resolvedDamage *= upgradeStats.Upgrades.eyeCritMultiplier;
             }
@@ -1530,6 +1537,8 @@ namespace EchoScrap.Combat
                 frozenRemaining = FrozenRemaining,
                 stunRemaining = StunRemaining,
                 frozenVisualCoverage = FrozenVisualCoverage,
+                vulnerabilityBonus = VulnerabilityBonus,
+                vulnerabilityRemaining = VulnerabilityRemaining,
                 coldHits = coldHits,
                 cableSlow = cableSlow,
                 cableSlowRemaining = cableSlowRemaining,
@@ -1562,6 +1571,8 @@ namespace EchoScrap.Combat
             FrozenRemaining = Mathf.Max(0f, snapshot.frozenRemaining);
             StunRemaining = Mathf.Max(0f, snapshot.stunRemaining);
             FrozenVisualCoverage = Mathf.Clamp01(snapshot.frozenVisualCoverage);
+            VulnerabilityBonus = Mathf.Max(0f, snapshot.vulnerabilityBonus);
+            VulnerabilityRemaining = Mathf.Max(0f, snapshot.vulnerabilityRemaining);
             coldHits = Mathf.Max(0, snapshot.coldHits);
             cableSlow = Mathf.Clamp01(snapshot.cableSlow);
             cableSlowRemaining = Mathf.Max(0f, snapshot.cableSlowRemaining);

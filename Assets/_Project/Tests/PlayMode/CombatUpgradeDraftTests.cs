@@ -656,16 +656,17 @@ namespace EchoScrap.Tests
         }
 
         [Test]
-        public void PixelCardSkinContainsFourSlicedFramesTenDistinctIconsAndSpanishFonts()
+        public void PixelCardSkinContainsFiveSlicedFramesTenDistinctIconsAndSpanishFonts()
         {
             UpgradeCardSkin skin = Resources.Load<UpgradeCardSkin>("UI/UpgradeCardSkin");
             Assert.That(skin, Is.Not.Null);
-            Assert.That(skin.frames.Length, Is.EqualTo(4)); Assert.That(skin.icons.Length, Is.EqualTo(10));
-            Assert.That(new HashSet<Sprite>(skin.frames).Count, Is.EqualTo(4));
+            Assert.That(skin.frames.Length, Is.EqualTo(5)); Assert.That(skin.icons.Length, Is.EqualTo(10));
+            Assert.That(new HashSet<Sprite>(skin.frames).Count, Is.EqualTo(5));
             Assert.That(skin.frames[0].rect.size, Is.EqualTo(new Vector2(64, 64)));
             Assert.That(skin.frames[1].rect.size, Is.EqualTo(new Vector2(64, 64)));
             Assert.That(skin.frames[2].rect.size, Is.EqualTo(new Vector2(72, 64)), "Preserve the original epic canvas.");
             Assert.That(skin.frames[3].rect.size, Is.EqualTo(new Vector2(64, 70)), "Preserve the original legendary canvas.");
+            Assert.That(skin.frames[4].rect.size, Is.EqualTo(new Vector2(64, 70)), "Preserve the Mythic frame canvas.");
             var icons = new HashSet<Sprite>();
             foreach (Sprite frame in skin.frames)
             {
@@ -688,7 +689,7 @@ namespace EchoScrap.Tests
         public void SharedIconFamiliesCoverEveryImplementedCard()
         {
             var expected = new HashSet<string>();
-            foreach (var group in new[] { ("FLASH", 8), ("DASH", 7), ("BIO", 5), ("GREED", 6), ("CRIT", 5), ("DEMO", 4), ("SCRAP", 4), ("CRYO", 4) })
+            foreach (var group in new[] { ("FLASH", 14), ("DASH", 10), ("BIO", 5), ("GREED", 7), ("CRIT", 5), ("DEMO", 7), ("SCRAP", 8), ("CRYO", 5), ("MYTH", 1) })
                 for (int i = 1; i <= group.Item2; i++) expected.Add($"{group.Item1}_{i:00}");
             Assert.That(UpgradeCatalog.IconAssignments.Keys, Is.EquivalentTo(expected));
             Assert.That(new HashSet<UpgradeIcon>(UpgradeCatalog.IconAssignments.Values).Count, Is.EqualTo(10));
@@ -699,7 +700,39 @@ namespace EchoScrap.Tests
             }
             Assert.That(UpgradeCatalog.Cards.Count, Is.EqualTo(UpgradeRules.Count));
             Assert.That(UpgradeCatalog.TryGet("CRYO_01", out _), Is.True);
+            Assert.That(UpgradeCatalog.TryGet("MYTH_01", out var myth), Is.True);
+            Assert.That(myth.Rarity, Is.EqualTo(UpgradeRarity.M));
+            Assert.That(UpgradeCatalog.RarityName(UpgradeRarity.M), Is.EqualTo("MÍTICA"));
             Assert.That(UpgradeCatalog.TryGetIcon("UNKNOWN", out _), Is.False);
+        }
+
+        [Test]
+        public void MythicAllInRequiresOwnedCardAndRandomizesPlusOneTier()
+        {
+            Assert.That(UpgradeCatalog.TryGet("MYTH_01", out var myth), Is.True);
+            Assert.That(draft.IsEligible(myth), Is.False, "All In cannot appear with zero cards.");
+            stats.SetUpgradeTier("FLASH_01", 2);
+            stats.SetUpgradeTier("DASH_01", 1);
+            stats.SetUpgradeTier("CRYO_01", 5);
+            Assert.That(draft.IsEligible(myth), Is.True);
+
+            progression.AddExperience(100);
+            SetVisualOffers("MYTH_01", "BIO_01", "GREED_01");
+            Assert.That(draft.TryChoose(0), Is.True);
+            Assert.That(stats.GetUpgradeTier("MYTH_01"), Is.EqualTo(1));
+            Assert.That(draft.IsEligible(myth), Is.False);
+
+            int ownedCount = 0;
+            foreach (var card in UpgradeCatalog.Cards)
+            {
+                if (card.Id == "MYTH_01") continue;
+                int tier = stats.GetUpgradeTier(card.Id);
+                if (tier <= 0) continue;
+                ownedCount++;
+                Assert.That(tier, Is.LessThanOrEqualTo(card.MaxTier));
+                Assert.That(card.Id, Is.Not.EqualTo("FLASH_01").And.Not.EqualTo("DASH_01").And.Not.EqualTo("CRYO_01"));
+            }
+            Assert.That(ownedCount, Is.EqualTo(3));
         }
 
         [UnityTest]

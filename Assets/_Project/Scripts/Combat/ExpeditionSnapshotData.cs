@@ -133,12 +133,15 @@ namespace EchoScrap.Combat
         public float capturedCritChance;
         public float capturedCritMultiplier;
         public bool capturedSolarMode;
+        public bool capturedSolarCapacitor;
+        public bool capturedVacuumBeacon;
         public int capturedWallSlamTier;
         public float capturedRearDamage;
         public Vector3 currentAimDirection = Vector3.forward;
         public int guaranteedPending;
         public int guaranteedActive;
         public int totalPulsesEmitted;
+        public int burstKills;
     }
 
     [Serializable]
@@ -303,6 +306,8 @@ namespace EchoScrap.Combat
         public float stunRemaining;
         public float frozenVisualCoverage;
         public int coldHits;
+        public float vulnerabilityBonus;
+        public float vulnerabilityRemaining;
         public float cableSlow;
         public float cableSlowRemaining;
         public float cableDamageReadyAt;
@@ -515,12 +520,24 @@ namespace EchoScrap.Combat
         public int explosionsResolved;
         public int projectilesFired;
         public int chainsTriggered;
+        public float reactiveReadyAt;
+        public int batteryGems;
+        public float puddleTimer;
+        public float discTimer;
+        public float boomerangTimer;
+        public float orbitalTimer;
+        public float parabolicTimer;
+        public float whipTimer;
+        public float auraTimer;
+        public Vector3 lastTrailPos;
+        public bool trailInitialized;
 
         public List<UpgradeProjectileSnapshot> projectiles = new List<UpgradeProjectileSnapshot>();
         public List<UpgradeDeviceSnapshot> devices = new List<UpgradeDeviceSnapshot>();
         public List<ElectricCableSnapshot> cables = new List<ElectricCableSnapshot>();
         public List<UpgradeBlastSnapshot> blasts = new List<UpgradeBlastSnapshot>();
         public List<VoltaicChainSnapshot> chains = new List<VoltaicChainSnapshot>();
+        public List<GroundZoneSnapshot> zones = new List<GroundZoneSnapshot>();
     }
 
     [Serializable]
@@ -538,6 +555,31 @@ namespace EchoScrap.Combat
         public int damageType;
         public int targetEnemyIndex = -1;
         public List<int> hitEnemyIndices = new List<int>();
+        public int mode;
+        public float floatData;
+        public bool boolFlag;
+        public float elapsed;
+        public float duration;
+        public Vector3 startPosition;
+        public Vector3 endPosition;
+        public List<int> hitCooldownKeys = new List<int>();
+        public List<float> hitCooldownValues = new List<float>();
+    }
+
+    [Serializable]
+    public sealed class GroundZoneSnapshot
+    {
+        public int kind;
+        public Vector3 position;
+        public float radius;
+        public float damagePerTick;
+        public float tickInterval;
+        public float tickTimer;
+        public float life;
+        public float slow;
+        public float vulnerability;
+        public int sourceType;
+        public int damageType;
     }
 
     [Serializable]
@@ -586,7 +628,7 @@ namespace EchoScrap.Combat
     [Serializable]
     public sealed class VoltaicChainSnapshot
     {
-        public int[] targetEnemyIndices = new int[4];
+        public int[] targetEnemyIndices = new int[6];
         public int count;
         public int next;
         public int order;
