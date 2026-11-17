@@ -681,6 +681,57 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void StaticAuraProjectsOntoTerrainSlopesWithZeroAllocations()
+        {
+            var surfaceGo = new GameObject("Arena surface");
+            surfaceGo.AddComponent<ArenaSurface>();
+            try
+            {
+                Vector3 hillOrigin = new Vector3(-28f, ArenaSurface.Height(new Vector3(-28f, 0f, 3f)) + 1f, 3f);
+                player.transform.position = hillOrigin;
+                Set("SCRAP_05", 3);
+                upgrades.Step(.016f);
+
+                MeshFilter ringFilter = null;
+                foreach (var filter in upgrades.GetComponentsInChildren<MeshFilter>(false))
+                {
+                    if (filter.sharedMesh != null && filter.sharedMesh.name == "Upgrade projected ground ring")
+                    {
+                        ringFilter = filter;
+                        break;
+                    }
+                }
+                Assert.NotNull(ringFilter, "Static aura must use the projected ground ring mesh on ArenaSurface.");
+                Vector3[] vertices = ringFilter.sharedMesh.vertices;
+                float minY = float.MaxValue, maxY = float.MinValue;
+                for (int i = 0; i < vertices.Length; i++)
+                {
+                    Vector3 worldPoint = ringFilter.transform.TransformPoint(vertices[i]);
+                    float expectedY = ArenaSurface.Height(worldPoint) + .06f;
+                    Assert.That(worldPoint.y, Is.EqualTo(expectedY).Within(.001f));
+                    if (worldPoint.y < minY) minY = worldPoint.y;
+                    if (worldPoint.y > maxY) maxY = worldPoint.y;
+                }
+                Assert.That(maxY - minY, Is.GreaterThan(.25f), "Static aura ring must conform vertically across the hillside.");
+
+                long before = System.GC.GetAllocatedBytesForCurrentThread();
+                for (int step = 0; step < 12; step++)
+                {
+                    Vector3 next = hillOrigin + Vector3.left * (step * .15f);
+                    next.y = ArenaSurface.Height(next) + 1f;
+                    player.transform.position = next;
+                    upgrades.Step(1f / 60f);
+                }
+                long allocated = System.GC.GetAllocatedBytesForCurrentThread() - before;
+                Assert.That(allocated, Is.EqualTo(0), "Updating terrain projection on hills must not allocate GC memory.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(surfaceGo);
+            }
+        }
+
+        [Test]
         public void BouncingDiscBoomerangOrbitalParabolicAndWhipDealDamageAndScaleWithDuplicator()
         {
             Set("SCRAP_06", 1);

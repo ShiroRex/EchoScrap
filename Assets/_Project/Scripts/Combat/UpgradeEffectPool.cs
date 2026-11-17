@@ -19,8 +19,11 @@ namespace EchoScrap.Combat
             public MeshRenderer Renderer;
             public ScrapTurretView Turret;
             public MaterialPropertyBlock Block;
-            public bool Used, Transient, Inward, HasStaticColor;
-            public float Age, Life, Radius, Reaction;
+            public Mesh RingMesh;
+            public Vector3[] RingVertices;
+            public ArenaSurface LastRingSurface;
+            public bool Used, Transient, Inward, HasStaticColor, HasRingProjection;
+            public float Age, Life, Radius, Reaction, LastRingX, LastRingZ, LastRingRadius;
             public Color Color;
             public Vector3 ReactionDirection;
             internal Shape Shape;
@@ -52,6 +55,8 @@ namespace EchoScrap.Combat
         }
         public const int ParticleRigCapacity = 32;
         public const int LightCapacity = 6;
+        private const int GroundRingGrid = 12;
+        private const int GroundRingVertexCount = (GroundRingGrid + 1) * (GroundRingGrid + 1);
         private static readonly string[] ProfileNames = { "ElectricalImpact", "FrostBurst", "MetalImpact", "Explosion", "PlasmaExplosion", "Shockwave", "Implosion", "Repair", "Collection", "FrostAura", "SawWake", "EnergyShield", "PlasmaTrail", "MetalTrail" };
         private static readonly int[] ProfileReserves = { 4, 4, 6, 4, 3, 3, 3, 3, 2, 8, 4, 2, 4, 4 };
         private readonly View[] views;
@@ -59,6 +64,9 @@ namespace EchoScrap.Combat
         private readonly LightSlot[] lights = new LightSlot[LightCapacity];
         private readonly Transform reserveRoot;
         private readonly Mesh groundQuad, uprightQuad, turretQuad, shieldMesh, iceMesh;
+        private readonly int[] groundRingTriangles;
+        private readonly Vector2[] groundRingUv;
+        private readonly Color[] groundRingColors;
         private readonly Material flatMaterial, shieldMaterial, sawMaterial;
         private readonly bool ownsFlatMaterial;
         private readonly Material[] spriteMaterials = new Material[11];
@@ -99,12 +107,14 @@ namespace EchoScrap.Combat
             }
             shieldMaterial = new Material(energyShader != null ? energyShader : spriteShader) { name = "Nanobot energy envelope" };
             shieldMaterial.SetTexture("_MainTex", Resources.Load<Texture2D>("Upgrades/Vfx/Shield"));
+            BuildGroundRingTopology(out groundRingTriangles, out groundRingUv, out groundRingColors);
             views = new View[Mathf.Max(16, capacity)+8];
             for (int i = 0; i < views.Length; i++)
             {
                 var go = new GameObject("UpgradeEffect"); go.transform.SetParent(parent, false);
                 var v = new View { Root = go.transform, Filter = go.AddComponent<MeshFilter>(), Renderer = go.AddComponent<MeshRenderer>() };
                 if(i<8){v.Turret=go.AddComponent<ScrapTurretView>();v.Turret.Initialize(turretQuad);v.Turret.enabled=false;}
+                else InitGroundRingMesh(v);
                 v.Renderer.shadowCastingMode = ShadowCastingMode.Off; v.Renderer.receiveShadows = false; go.SetActive(false); views[i] = v;
             }
             reserveRoot = new GameObject("Authored upgrade VFX reserve").transform; reserveRoot.SetParent(parent, false);
@@ -153,7 +163,7 @@ namespace EchoScrap.Combat
             {
                 View v = views[i]; if (v.Used) continue;
                 if((shape==Shape.Turret)!=(v.Turret!=null))continue;
-                v.Used = true; v.Transient = false; v.Inward = false; v.HasStaticColor = false; v.Age = 0; v.Color = color; v.Shape = shape; v.Kind = BurstKind.Auto; v.Rig = null; v.Reaction = 0; v.ReactionDirection = Vector3.forward;
+                v.Used = true; v.Transient = false; v.Inward = false; v.HasStaticColor = false; v.HasRingProjection = false; v.LastRingSurface = null; v.Age = 0; v.Color = color; v.Shape = shape; v.Kind = BurstKind.Auto; v.Rig = null; v.Reaction = 0; v.ReactionDirection = Vector3.forward;
                 v.Block ??= new MaterialPropertyBlock(); v.Block.Clear();
                 v.Root.SetPositionAndRotation(position, Quaternion.identity); v.Root.localScale = Vector3.one * scale;
                 v.Renderer.SetPropertyBlock(null); ConfigureRenderer(v);
@@ -171,6 +181,60 @@ namespace EchoScrap.Combat
             }
             return null;
         }
+        public void ProjectGroundRing(View v, Vector3 center, float radius)
+        {
+            if (v == null || !v.Used || v.Shape != Shape.Ring) return;
+            float safeRadius = Mathf.Max(.05f, radius);
+            ArenaSurface surface = ArenaSurface.Active;
+            float groundY = surface != null ? ArenaSurface.Height(center) + .06f : .06f;
+            center.y = groundY;
+            v.Root.SetPositionAndRotation(center, Quaternion.identity);
+            v.Root.localScale = Vector3.one * safeRadius;
+            v.Radius = safeRadius;
+            if (surface == null || v.RingMesh == null || v.RingVertices == null)
+            {
+                if (v.HasRingProjection)
+                {
+                    v.HasRingProjection = false;
+                    v.LastRingSurface = null;
+                    v.Filter.sharedMesh = groundQuad;
+                }
+                return;
+            }
+            if (v.HasRingProjection
+                && v.LastRingSurface == surface
+                && Mathf.Abs(center.x - v.LastRingX) < .03f
+                && Mathf.Abs(center.z - v.LastRingZ) < .03f
+                && Mathf.Abs(safeRadius - v.LastRingRadius) < .02f)
+                return;
+
+            v.HasRingProjection = true;
+            v.LastRingSurface = surface;
+            v.LastRingX = center.x;
+            v.LastRingZ = center.z;
+            v.LastRingRadius = safeRadius;
+            v.Filter.sharedMesh = v.RingMesh;
+            float invRadius = 1f / safeRadius;
+            int stride = GroundRingGrid + 1;
+            float minLocalY = -.01f, maxLocalY = .01f;
+            for (int row = 0; row <= GroundRingGrid; row++)
+            {
+                float nz = (row / (float)GroundRingGrid) * 2f - 1f;
+                float worldZ = center.z + nz * safeRadius;
+                for (int col = 0; col <= GroundRingGrid; col++)
+                {
+                    float nx = (col / (float)GroundRingGrid) * 2f - 1f;
+                    float worldX = center.x + nx * safeRadius;
+                    float localY = (ArenaSurface.Height(new Vector3(worldX, center.y, worldZ)) + .06f - groundY) * invRadius;
+                    if (localY < minLocalY) minLocalY = localY;
+                    if (localY > maxLocalY) maxLocalY = localY;
+                    v.RingVertices[row * stride + col] = new Vector3(nx, localY, nz);
+                }
+            }
+            v.RingMesh.SetVertices(v.RingVertices);
+            v.RingMesh.bounds = new Bounds(new Vector3(0f, (minLocalY + maxLocalY) * .5f, 0f),
+                new Vector3(2f, Mathf.Max(.05f, maxLocalY - minLocalY + .1f), 2f));
+        }
         private void ConfigureRenderer(View v)
         {
             if(v.Turret!=null)
@@ -180,6 +244,7 @@ namespace EchoScrap.Combat
             v.Renderer.enabled = true; v.Filter.sharedMesh = groundQuad; int material = 6;
             switch (v.Shape)
             {
+                case Shape.Ring: if (v.HasRingProjection && v.RingMesh != null) v.Filter.sharedMesh = v.RingMesh; break;
                 case Shape.Dart: material = 3; break;
                 case Shape.Saw: if (sawMaterial != null) { v.Renderer.sharedMaterial = sawMaterial; return; } material = 0; break;
                 case Shape.Mine: material = 1; break;
@@ -374,11 +439,61 @@ namespace EchoScrap.Combat
         public void Clear() { for (int i = 0; i < views.Length; i++) Release(views[i]); for (int i = 0; i < lights.Length; i++) DisableLight(lights[i]); sequence = 0; }
         public void Dispose()
         {
-            Clear(); for (int i = 0; i < views.Length; i++) if (views[i].Root != null) Object.Destroy(views[i].Root.gameObject);
+            Clear(); for (int i = 0; i < views.Length; i++) { if (views[i].RingMesh != null) Object.Destroy(views[i].RingMesh); if (views[i].Root != null) Object.Destroy(views[i].Root.gameObject); }
             if (reserveRoot != null) Object.Destroy(reserveRoot.gameObject);
             Object.Destroy(groundQuad); Object.Destroy(uprightQuad); Object.Destroy(turretQuad); Object.Destroy(shieldMesh); Object.Destroy(iceMesh);
             for (int i = 0; i < spriteMaterials.Length; i++) { Object.Destroy(spriteMaterials[i]); Object.Destroy(particleMaterials[i]); }
             Object.Destroy(shieldMaterial); if (ownsFlatMaterial) Object.Destroy(flatMaterial);
+        }
+        private static void BuildGroundRingTopology(out int[] triangles, out Vector2[] uv, out Color[] colors)
+        {
+            int stride = GroundRingGrid + 1;
+            uv = new Vector2[GroundRingVertexCount];
+            colors = new Color[GroundRingVertexCount];
+            triangles = new int[GroundRingGrid * GroundRingGrid * 6];
+            for (int row = 0; row <= GroundRingGrid; row++)
+            {
+                float v = row / (float)GroundRingGrid;
+                for (int col = 0; col <= GroundRingGrid; col++)
+                {
+                    int index = row * stride + col;
+                    uv[index] = new Vector2(col / (float)GroundRingGrid, v);
+                    colors[index] = Color.white;
+                }
+            }
+            int t = 0;
+            for (int row = 0; row < GroundRingGrid; row++)
+            {
+                for (int col = 0; col < GroundRingGrid; col++)
+                {
+                    int a = row * stride + col;
+                    int b = a + 1;
+                    int c = a + stride + 1;
+                    int d = a + stride;
+                    triangles[t++] = a; triangles[t++] = c; triangles[t++] = b;
+                    triangles[t++] = a; triangles[t++] = d; triangles[t++] = c;
+                }
+            }
+        }
+        private void InitGroundRingMesh(View v)
+        {
+            v.RingVertices = new Vector3[GroundRingVertexCount];
+            int stride = GroundRingGrid + 1;
+            for (int row = 0; row <= GroundRingGrid; row++)
+            {
+                float nz = (row / (float)GroundRingGrid) * 2f - 1f;
+                for (int col = 0; col <= GroundRingGrid; col++)
+                    v.RingVertices[row * stride + col] = new Vector3((col / (float)GroundRingGrid) * 2f - 1f, 0f, nz);
+            }
+            var mesh = new Mesh { name = "Upgrade projected ground ring" };
+            mesh.MarkDynamic();
+            mesh.SetVertices(v.RingVertices);
+            mesh.SetTriangles(groundRingTriangles, 0, false);
+            mesh.SetUVs(0, groundRingUv);
+            mesh.SetColors(groundRingColors);
+            mesh.RecalculateNormals();
+            mesh.bounds = new Bounds(Vector3.zero, new Vector3(2f, .1f, 2f));
+            v.RingMesh = mesh;
         }
         private static Mesh Quad(bool upright, bool bottomPivot)
         {

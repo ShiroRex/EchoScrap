@@ -839,14 +839,9 @@ namespace EchoScrap.Combat
             }
             float radius = At(tuning.auraRadius, tier) * stats.AreaMultiplier;
             Vector3 center = player.WorldCenter;
-            Vector3 groundPos = center; groundPos.y = ArenaSurface.Height(center) + .04f;
+            Vector3 groundPos = center; groundPos.y = ArenaSurface.Height(center) + .06f;
             auraView ??= effects.Acquire(UpgradeEffectPool.Shape.Ring, groundPos, Plasma, radius);
-            if (auraView != null)
-            {
-                auraView.Root.position = groundPos;
-                auraView.Root.localScale = Vector3.one * radius;
-                auraView.Radius = radius;
-            }
+            if (auraView != null) effects.ProjectGroundRing(auraView, center, radius);
             auraTimer += dt;
             float interval = Mathf.Max(.05f, tuning.auraInterval);
             while (auraTimer >= interval)
@@ -1065,12 +1060,13 @@ namespace EchoScrap.Combat
                 effects.Release(slot.View);
                 slot.View = null;
             }
-            Vector3 pos = position; pos.y = ArenaSurface.Height(position) + .04f;
+            Vector3 pos = position; pos.y = ArenaSurface.Height(position) + .06f;
             slot.Active = true; slot.Kind = kind; slot.Position = pos; slot.Radius = radius;
             slot.DamagePerTick = damagePerTick; slot.TickInterval = Mathf.Max(.05f, tickInterval);
             slot.TickTimer = 0f; slot.Life = life; slot.Slow = 0f; slot.Vulnerability = 0f;
             slot.Source = source; slot.DamageType = damageType;
             slot.View = effects.Acquire(UpgradeEffectPool.Shape.Ring, pos, kind == GroundZoneKind.FlameTrail ? FlameColor : Plasma, radius);
+            if (slot.View != null) effects.ProjectGroundRing(slot.View, pos, radius);
         }
         private void StepGroundZones(float dt)
         {
@@ -1708,7 +1704,10 @@ namespace EchoScrap.Combat
                     z.Source = (DamageSourceType)item.sourceType;
                     z.DamageType = (DamageType)item.damageType;
                     if (effects != null)
+                    {
                         z.View = effects.Acquire(UpgradeEffectPool.Shape.Ring, z.Position, z.Kind == GroundZoneKind.FlameTrail ? FlameColor : Plasma, z.Radius);
+                        if (z.View != null) effects.ProjectGroundRing(z.View, z.Position, z.Radius);
+                    }
                 }
             }
 
