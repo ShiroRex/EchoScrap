@@ -182,40 +182,55 @@ namespace EchoScrap.Tests
         }
         [UnityTest] public IEnumerator SettingsWorkWithoutArenaAndSurviveBothSceneDirections()
         {
-            Menu.OpenConfiguration(); Assert.IsTrue(Menu.IsConfiguring); Assert.IsNull(Game);
-            Transform panel = Menu.Settings.transform;
-            panel.Find("General/ShakeSlider").GetComponent<Slider>().value = 35;
-            panel.Find("General/EffectsSlider").GetComponent<Slider>().value = 45;
-            Canvas.ForceUpdateCanvases();
-            foreach (var slider in Menu.Settings.GetComponentsInChildren<Slider>())
-                Assert.AreEqual(slider.normalizedValue * ((RectTransform)slider.fillRect.parent).rect.width, slider.fillRect.rect.width, .1f, "Slider fill must fit its track at the actual percentage.");
-            panel.Find("General/ReducedEffects").GetComponent<Toggle>().isOn = true;
-            panel.Find("Tabs/Interface").GetComponent<Button>().onClick.Invoke();
-            panel.Find("Interface/StatsDisplayMode/Full").GetComponent<Button>().onClick.Invoke();
-            Assert.AreEqual(StatsDisplayMode.Full, SceneTransitionState.StatsMode);
-            panel.Find("Interface/StatsDisplayMode/Reduced").GetComponent<Button>().onClick.Invoke();
-            Assert.AreEqual(StatsDisplayMode.Reduced, SceneTransitionState.StatsMode);
-            panel.Find("Interface/CompanionPowers/Yes").GetComponent<Toggle>().isOn = true;
-            Assert.IsTrue(SceneTransitionState.ShowCompanionPowers);
+            const string fullScreenKey = "EchoScrap.Graphics.FullScreen";
+            int previousDisplayPref = PlayerPrefs.GetInt(fullScreenKey, -1);
+            try
+            {
+                Menu.OpenConfiguration(); Assert.IsTrue(Menu.IsConfiguring); Assert.IsNull(Game);
+                Transform panel = Menu.Settings.transform;
+                panel.Find("General/ShakeSlider").GetComponent<Slider>().value = 35;
+                panel.Find("General/EffectsSlider").GetComponent<Slider>().value = 45;
+                Canvas.ForceUpdateCanvases();
+                foreach (var slider in Menu.Settings.GetComponentsInChildren<Slider>())
+                    Assert.AreEqual(slider.normalizedValue * ((RectTransform)slider.fillRect.parent).rect.width, slider.fillRect.rect.width, .1f, "Slider fill must fit its track at the actual percentage.");
+                panel.Find("General/ReducedEffects").GetComponent<Toggle>().isOn = true;
+                panel.Find("General/DisplayMode/Windowed").GetComponent<Button>().onClick.Invoke();
+                Assert.AreEqual(0, PlayerPrefs.GetInt(fullScreenKey));
+                panel.Find("General/DisplayMode/FullScreen").GetComponent<Button>().onClick.Invoke();
+                Assert.AreEqual(1, PlayerPrefs.GetInt(fullScreenKey));
+                panel.Find("Tabs/Interface").GetComponent<Button>().onClick.Invoke();
+                panel.Find("Interface/StatsDisplayMode/Full").GetComponent<Button>().onClick.Invoke();
+                Assert.AreEqual(StatsDisplayMode.Full, SceneTransitionState.StatsMode);
+                panel.Find("Interface/StatsDisplayMode/Reduced").GetComponent<Button>().onClick.Invoke();
+                Assert.AreEqual(StatsDisplayMode.Reduced, SceneTransitionState.StatsMode);
+                panel.Find("Interface/CompanionPowers/Yes").GetComponent<Toggle>().isOn = true;
+                Assert.IsTrue(SceneTransitionState.ShowCompanionPowers);
 
-            var back = panel.Find("Resume").GetComponent<Button>();
-            ExecuteEvents.Execute(back.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
-            Assert.IsFalse(Menu.IsConfiguring);
-            yield return NewCollection();
-            Assert.AreEqual(.35f, Game.Session.Effects.RawShakeIntensity, .001f);
-            Assert.AreEqual(.45f, Game.Session.Effects.RawDecorativeIntensity, .001f);
-            Assert.IsTrue(Game.Session.Effects.ReducedEffectsMode); Assert.AreEqual(StatsDisplayMode.Reduced, Game.Hud.StatsMode);
-            Assert.IsTrue(SceneTransitionState.ShowCompanionPowers);
-            Game.Hud.SetShakePercent(75); Game.Hud.SetReducedEffects(false);
-            Game.Session.SetManualPause(true);
-            Game.Hud.RefreshNow();
-            var pause = Game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause");
-            var mainMenu = pause.Find("Restart").GetComponent<Button>();
-            Assert.AreEqual("CONTINUAR", pause.Find("Resume/Label").GetComponent<Text>().text);
-            Assert.AreEqual("VOLVER AL MENÚ", mainMenu.GetComponentInChildren<Text>().text);
-            mainMenu.onClick.Invoke();
-            yield return Title();
-            Assert.AreEqual(.75f, Menu.Effects.RawShakeIntensity, .001f); Assert.IsFalse(Menu.Effects.ReducedEffectsMode);
+                var back = panel.Find("Resume").GetComponent<Button>();
+                ExecuteEvents.Execute(back.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                Assert.IsFalse(Menu.IsConfiguring);
+                yield return NewCollection();
+                Assert.AreEqual(.35f, Game.Session.Effects.RawShakeIntensity, .001f);
+                Assert.AreEqual(.45f, Game.Session.Effects.RawDecorativeIntensity, .001f);
+                Assert.IsTrue(Game.Session.Effects.ReducedEffectsMode); Assert.AreEqual(StatsDisplayMode.Reduced, Game.Hud.StatsMode);
+                Assert.IsTrue(SceneTransitionState.ShowCompanionPowers);
+                Game.Hud.SetShakePercent(75); Game.Hud.SetReducedEffects(false);
+                Game.Session.SetManualPause(true);
+                Game.Hud.RefreshNow();
+                var pause = Game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause");
+                var mainMenu = pause.Find("Restart").GetComponent<Button>();
+                Assert.AreEqual("CONTINUAR", pause.Find("Resume/Label").GetComponent<Text>().text);
+                Assert.AreEqual("VOLVER AL MENÚ", mainMenu.GetComponentInChildren<Text>().text);
+                mainMenu.onClick.Invoke();
+                yield return Title();
+                Assert.AreEqual(.75f, Menu.Effects.RawShakeIntensity, .001f); Assert.IsFalse(Menu.Effects.ReducedEffectsMode);
+            }
+            finally
+            {
+                if (previousDisplayPref == -1) PlayerPrefs.DeleteKey(fullScreenKey);
+                else PlayerPrefs.SetInt(fullScreenKey, previousDisplayPref);
+                PlayerPrefs.Save();
+            }
         }
         [UnityTest] public IEnumerator RepeatedExpeditionsStayInSameWorldAndResultsReturnToVault()
         {

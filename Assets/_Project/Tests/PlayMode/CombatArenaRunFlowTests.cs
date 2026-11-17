@@ -263,6 +263,49 @@ namespace EchoScrap.Tests
         }
 
         [Test]
+        public void PauseDisplayModeButtonsPersistSelectionAndChainGeneralNavigation()
+        {
+            const string key = "EchoScrap.Graphics.FullScreen";
+            int previousPreference = PlayerPrefs.GetInt(key, -1);
+            try
+            {
+                PlayerPrefs.DeleteKey(key);
+                game.Session.SetManualPause(true);
+                game.Hud.RefreshNow();
+                var general = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause/General");
+                var fpsGroup = general.Find("FrameRateLimit");
+                var displayGroup = general.Find("DisplayMode");
+                Assert.NotNull(displayGroup);
+                var windowed = displayGroup.Find("Windowed").GetComponent<UnityEngine.UI.Button>();
+                var fullscreen = displayGroup.Find("FullScreen").GetComponent<UnityEngine.UI.Button>();
+                var resume = game.Hud.CanvasRoot.transform.Find("PauseAndResultOverlay/Panel/Pause/Resume").GetComponent<UnityEngine.UI.Button>();
+                var selectedFps = fpsGroup.Find(Application.targetFrameRate.ToString()).GetComponent<UnityEngine.UI.Button>();
+
+                windowed.onClick.Invoke();
+                Assert.AreEqual(0, PlayerPrefs.GetInt(key));
+                Assert.AreSame(windowed, selectedFps.navigation.selectOnDown);
+                Assert.AreSame(selectedFps, windowed.navigation.selectOnUp);
+                Assert.AreSame(resume, windowed.navigation.selectOnDown);
+
+                fullscreen.onClick.Invoke();
+                Assert.AreEqual(1, PlayerPrefs.GetInt(key));
+                Assert.AreSame(fullscreen, selectedFps.navigation.selectOnDown);
+                Assert.AreSame(selectedFps, fullscreen.navigation.selectOnUp);
+                Assert.AreSame(resume, fullscreen.navigation.selectOnDown);
+
+                typeof(MenuSettingsView).GetMethod("LoadDisplayMode",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).Invoke(null, null);
+            }
+            finally
+            {
+                if (previousPreference == -1) PlayerPrefs.DeleteKey(key);
+                else PlayerPrefs.SetInt(key, previousPreference);
+                PlayerPrefs.Save();
+                game.Session.SetManualPause(false);
+            }
+        }
+
+        [Test]
         public void PauseMenu_ChangesEffectsAndResumesBothUserPauseReasonsWhileKeepingPreferences()
         {
             game.Session.SetManualPause(true);

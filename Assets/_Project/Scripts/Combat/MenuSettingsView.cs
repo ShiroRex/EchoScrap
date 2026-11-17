@@ -18,8 +18,10 @@ namespace EchoScrap.Combat
         private const string VolumePreference = "EchoScrap.Audio.MasterVolume";
         private static readonly int[] FrameRateLimits = { 30, 60, 120 };
         private const string FrameRatePreference = "EchoScrap.Graphics.FrameRateLimit";
+        private const string FullScreenPreference = "EchoScrap.Graphics.FullScreen";
 
         private readonly Button[] frameRateButtons = new Button[FrameRateLimits.Length];
+        private readonly Button[] displayModeButtons = new Button[2];
         private readonly Button[] statsModeButtons = new Button[3];
         private readonly Toggle[] powerToggles = new Toggle[2];
         private readonly Button[] pauseTabs = new Button[3];
@@ -90,8 +92,8 @@ namespace EchoScrap.Combat
             ImageRect(panel, "LeftTitleRivet", new Vector2(-titleRivetOffset, 217), new Vector2(6, 6), Copper);
             ImageRect(panel, "RightTitleRivet", new Vector2(titleRivetOffset, 217), new Vector2(6, 6), Copper);
 
-            PausePlate(panel, "SettingsInset", new Vector2(0, -20), new Vector2(714, 236));
-            settingDivider = ImageRect(panel, "SettingDivider", new Vector2(0, -20), new Vector2(640, 2), CopperShadow).rectTransform;
+            PausePlate(panel, "SettingsInset", new Vector2(0, -36), new Vector2(714, 276));
+            settingDivider = ImageRect(panel, "SettingDivider", new Vector2(0, 8), new Vector2(640, 2), CopperShadow).rectTransform;
             BuildPauseTabs();
 
             Transform general = pausePages[0].transform;
@@ -100,10 +102,11 @@ namespace EchoScrap.Combat
 
             (volumeSlider, volumeLabel) = CreatePauseSlider(sound, "Volume", "Volumen general", 48, SetVolumePercent);
             (musicSlider, musicLabel) = CreatePauseSlider(sound, "Music", "Música", -48, SetMusicPercent);
-            (shakeSlider, shakeLabel) = CreatePauseSlider(general, "Shake", "Movimiento de cámara", 72, SetShakePercent);
-            (decorativeSlider, decorativeLabel) = CreatePauseSlider(general, "Effects", "Efectos decorativos", -4, SetDecorativePercent);
+            (shakeSlider, shakeLabel) = CreatePauseSlider(general, "Shake", "Movimiento de cámara", 86, SetShakePercent);
+            (decorativeSlider, decorativeLabel) = CreatePauseSlider(general, "Effects", "Efectos decorativos", 6, SetDecorativePercent);
             if (titleMenu) BuildReducedEffectsToggle(general);
             else BuildFrameRateSelector(general);
+            BuildDisplayModeSelector(general);
 
             Label(layout, "StatsLabel", new Vector2(0, 67), new Vector2(640, 32), "Estadísticas generales", 26, TextAnchor.MiddleLeft, Pale).font = pauseTitle.font;
             var statsModes = Rect(layout, "StatsDisplayMode", Vector2.one * .5f, new Vector2(0, 17), new Vector2(640, 52));
@@ -116,14 +119,14 @@ namespace EchoScrap.Combat
             powerToggles[0] = CreatePowerToggle(powers, powerGroup, "Yes", -257, "SÍ", true);
             powerToggles[1] = CreatePowerToggle(powers, powerGroup, "No", -122, "NO", false);
 
-            BackButton = CreatePauseButton(panel, "Resume", new Vector2(titleMenu ? 0 : 165, -208),
+            BackButton = CreatePauseButton(panel, "Resume", new Vector2(titleMenu ? 0 : 165, -214),
                 titleMenu ? "VOLVER" : "CONTINUAR", "Presentation/ButtonBlue");
             if (titleMenu) BackButton.transition = Selectable.Transition.ColorTint;
             BackButton.onClick.AddListener(onBack);
             resumeLabel = BackButton.transform.Find("Label").GetComponent<Text>();
             if (!titleMenu)
             {
-                secondaryButton = CreatePauseButton(panel, "Restart", new Vector2(-165, -208), "REINICIAR", "Presentation/ButtonRed");
+                secondaryButton = CreatePauseButton(panel, "Restart", new Vector2(-165, -214), "REINICIAR", "Presentation/ButtonRed");
                 secondaryButton.onClick.AddListener(onSecondary);
                 secondaryLabel = secondaryButton.transform.Find("Label").GetComponent<Text>();
                 secondaryLabel.fontSize = 22;
@@ -133,9 +136,9 @@ namespace EchoScrap.Combat
 
         private void BuildFrameRateSelector(Transform general)
         {
-            Label(general, "FrameRateLabel", new Vector2(-206, -84), new Vector2(228, 40),
+            Label(general, "FrameRateLabel", new Vector2(-206, -78), new Vector2(228, 40),
                 "Límite de FPS", 26, TextAnchor.MiddleLeft, Pale).font = pauseTitle.font;
-            var group = Rect(general, "FrameRateLimit", Vector2.one * .5f, new Vector2(119, -84), new Vector2(402, 44));
+            var group = Rect(general, "FrameRateLimit", Vector2.one * .5f, new Vector2(119, -78), new Vector2(402, 44));
             for (int i = 0; i < FrameRateLimits.Length; i++)
             {
                 int rate = FrameRateLimits[i];
@@ -145,6 +148,77 @@ namespace EchoScrap.Combat
                 button.transform.Find("Label").GetComponent<Text>().rectTransform.sizeDelta = new Vector2(108f, 40f);
                 frameRateButtons[i] = button;
             }
+        }
+
+        private void BuildDisplayModeSelector(Transform general)
+        {
+            Label(general, "DisplayModeLabel", new Vector2(-206, -128), new Vector2(228, 40),
+                "Pantalla", 26, TextAnchor.MiddleLeft, Pale).font = pauseTitle.font;
+            var group = Rect(general, "DisplayMode", Vector2.one * .5f, new Vector2(119, -128), new Vector2(402, 44));
+            displayModeButtons[0] = CreateDisplayChoice(group, "FullScreen", -99f, "COMPLETA", () => SetDisplayMode(true));
+            displayModeButtons[1] = CreateDisplayChoice(group, "Windowed", 99f, "VENTANA", () => SetDisplayMode(false));
+            SyncDisplayModeControls();
+        }
+
+        private Button CreateDisplayChoice(Transform parent, string name, float x, string labelText, UnityAction onClick)
+        {
+            Button button = CreatePauseChoice(parent, name, x, labelText, onClick);
+            button.image.rectTransform.sizeDelta = new Vector2(190f, 44f);
+            button.transform.Find("Label").GetComponent<Text>().rectTransform.sizeDelta = new Vector2(174f, 40f);
+            return button;
+        }
+
+        private static bool PreferredFullscreen => PlayerPrefs.GetInt(FullScreenPreference, 1) != 0;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void LoadDisplayMode() => ApplySavedDisplayMode(true);
+
+        internal static void ApplySavedDisplayMode(bool fallbackFullscreen)
+        {
+            bool fullscreen = PlayerPrefs.GetInt(FullScreenPreference, fallbackFullscreen ? 1 : 0) != 0;
+            ApplyDisplayMode(fullscreen);
+        }
+
+        private static void ApplyDisplayMode(bool fullscreen)
+        {
+            if (Application.isBatchMode) return;
+            int systemWidth = Display.main != null && Display.main.systemWidth > 0 ? Display.main.systemWidth : Screen.currentResolution.width;
+            int systemHeight = Display.main != null && Display.main.systemHeight > 0 ? Display.main.systemHeight : Screen.currentResolution.height;
+            if (fullscreen)
+            {
+                if (systemWidth > 0 && systemHeight > 0) Screen.SetResolution(systemWidth, systemHeight, FullScreenMode.FullScreenWindow);
+                else Screen.fullScreenMode = FullScreenMode.FullScreenWindow;
+                Screen.fullScreen = true;
+                return;
+            }
+            Screen.fullScreen = false;
+            if (systemWidth > 0 && systemHeight > 0 && Screen.width >= systemWidth && Screen.height >= systemHeight)
+            {
+                int windowWidth = Mathf.Clamp(Mathf.RoundToInt(systemWidth * .8f), 960, Mathf.Max(960, systemWidth - 80));
+                int windowHeight = Mathf.Clamp(Mathf.RoundToInt(windowWidth * 9f / 16f), 540, Mathf.Max(540, systemHeight - 80));
+                Screen.SetResolution(windowWidth, windowHeight, FullScreenMode.Windowed);
+            }
+            else
+            {
+                Screen.fullScreenMode = FullScreenMode.Windowed;
+            }
+        }
+
+        private void SetDisplayMode(bool fullscreen)
+        {
+            PlayerPrefs.SetInt(FullScreenPreference, fullscreen ? 1 : 0);
+            PlayerPrefs.Save();
+            ApplyDisplayMode(fullscreen);
+            SyncDisplayModeControls();
+            LinkPauseControls();
+        }
+
+        private void SyncDisplayModeControls()
+        {
+            if (displayModeButtons[0] == null) return;
+            bool fullscreen = PreferredFullscreen;
+            PixelControlArtwork.SetChoiceActive(displayModeButtons[0], fullscreen);
+            PixelControlArtwork.SetChoiceActive(displayModeButtons[1], !fullscreen);
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -181,7 +255,7 @@ namespace EchoScrap.Combat
 
         private void BuildReducedEffectsToggle(Transform general)
         {
-            Image hitArea = ImageRect(general, "ReducedEffects", new Vector2(0, -84), new Vector2(640, 44), Color.clear);
+            Image hitArea = ImageRect(general, "ReducedEffects", new Vector2(0, -78), new Vector2(640, 44), Color.clear);
             hitArea.raycastTarget = true;
             Image box = ImageRect(hitArea.transform, "Box", new Vector2(-298, 0), new Vector2(40, 40), Color.white);
             Image check = ImageRect(box.transform, "Check", Vector2.zero, new Vector2(40, 40), Color.white);
@@ -235,6 +309,8 @@ namespace EchoScrap.Combat
         {
             SelectPauseTab(0);
             RefreshPreferences();
+            SyncFrameRateControls();
+            SyncDisplayModeControls();
             SyncStatsModeControls();
         }
 
@@ -335,6 +411,7 @@ namespace EchoScrap.Combat
             PixelControlArtwork.Refresh(decorativeSlider);
             PixelControlArtwork.Refresh(musicSlider);
             SyncFrameRateControls();
+            SyncDisplayModeControls();
             LinkPauseControls();
         }
 
@@ -372,7 +449,7 @@ namespace EchoScrap.Combat
         private void SelectPauseTab(int tab)
         {
             pauseTab = tab;
-            settingDivider.anchoredPosition = new Vector2(0, tab == 0 ? -4 : -20);
+            settingDivider.anchoredPosition = new Vector2(0, tab == 0 ? 8 : -20);
             for (int i = 0; i < pauseTabs.Length; i++)
             {
                 bool active = i == tab;
@@ -449,30 +526,41 @@ namespace EchoScrap.Combat
             {
                 top = pauseTab == 0 ? shakeSlider : volumeSlider;
                 bottom = pauseTab == 0 ? decorativeSlider : musicSlider;
-                if (pauseTab == 0 && reducedEffectsToggle != null)
+                if (pauseTab == 0 && displayModeButtons[0] != null)
                 {
-                    if (top.IsInteractable())
+                    Button activeDisplay = displayModeButtons[PreferredFullscreen ? 0 : 1];
+                    Button otherDisplay = displayModeButtons[PreferredFullscreen ? 1 : 0];
+                    if (reducedEffectsToggle != null)
                     {
+                        if (top.IsInteractable())
+                        {
+                            SetNavigation(top, tab, bottom);
+                            SetNavigation(bottom, top, reducedEffectsToggle);
+                            SetNavigation(reducedEffectsToggle, bottom, activeDisplay);
+                            SetNavigation(activeDisplay, reducedEffectsToggle, BackButton, otherDisplay, otherDisplay);
+                            SetNavigation(otherDisplay, reducedEffectsToggle, BackButton, activeDisplay, activeDisplay);
+                        }
+                        else
+                        {
+                            top = reducedEffectsToggle;
+                            SetNavigation(reducedEffectsToggle, tab, activeDisplay);
+                            SetNavigation(activeDisplay, reducedEffectsToggle, BackButton, otherDisplay, otherDisplay);
+                            SetNavigation(otherDisplay, reducedEffectsToggle, BackButton, activeDisplay, activeDisplay);
+                        }
+                    }
+                    else if (frameRateButtons[0] != null)
+                    {
+                        int selected = Mathf.Max(0, System.Array.IndexOf(FrameRateLimits, Application.targetFrameRate));
+                        Button activeFps = frameRateButtons[selected];
                         SetNavigation(top, tab, bottom);
-                        SetNavigation(bottom, top, reducedEffectsToggle);
-                        SetNavigation(reducedEffectsToggle, bottom, BackButton);
+                        SetNavigation(bottom, top, activeFps);
+                        for (int i = 0; i < frameRateButtons.Length; i++)
+                            SetNavigation(frameRateButtons[i], bottom, activeDisplay,
+                                frameRateButtons[(i + 2) % 3], frameRateButtons[(i + 1) % 3]);
+                        SetNavigation(activeDisplay, activeFps, BackButton, otherDisplay, otherDisplay);
+                        SetNavigation(otherDisplay, activeFps, BackButton, activeDisplay, activeDisplay);
                     }
-                    else
-                    {
-                        top = reducedEffectsToggle;
-                        SetNavigation(reducedEffectsToggle, tab, BackButton);
-                    }
-                    bottom = reducedEffectsToggle;
-                }
-                else if (pauseTab == 0 && frameRateButtons[0] != null)
-                {
-                    int selected = Mathf.Max(0, System.Array.IndexOf(FrameRateLimits, Application.targetFrameRate));
-                    SetNavigation(top, tab, bottom);
-                    SetNavigation(bottom, top, frameRateButtons[selected]);
-                    for (int i = 0; i < frameRateButtons.Length; i++)
-                        SetNavigation(frameRateButtons[i], bottom, BackButton,
-                            frameRateButtons[(i + 2) % 3], frameRateButtons[(i + 1) % 3]);
-                    bottom = frameRateButtons[selected];
+                    bottom = activeDisplay;
                 }
                 else
                 {
