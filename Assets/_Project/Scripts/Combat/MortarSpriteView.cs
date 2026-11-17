@@ -11,6 +11,7 @@ namespace EchoScrap.Combat
     {
         private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
         private static readonly int StatusTintId = Shader.PropertyToID("_StatusTint");
         private static readonly int StatusAmountId = Shader.PropertyToID("_StatusAmount");
         private static readonly int GlowStrengthId = Shader.PropertyToID("_GlowStrength");
@@ -79,7 +80,8 @@ namespace EchoScrap.Combat
             FrameIndex = 0;
             clock = clipTime = chargeProgress = 0f;
             pendingFire = false;
-            appliedClip = null; appliedFrame = -1; appliedRevision = uint.MaxValue; appliedGlowStrength = -1f;
+            properties.Clear();
+            appliedClip = null; appliedFrame = -1; appliedRevision = uint.MaxValue; appliedFlash = false; appliedGlowStrength = -1f;
             hasShadowCache = false;
             lastParentScale = lastRootScale = new Vector3(-1f, -1f, -1f);
             Advance(0f);
@@ -207,8 +209,12 @@ namespace EchoScrap.Combat
                     appliedFrame = FrameIndex;
                     appliedRevision = revision;
                     appliedFlash = flash;
-                    if (flash) pixels.GetPropertyBlock(properties);
-                    else properties.SetColor(BaseColorId, Color.white);
+                    pixels.GetPropertyBlock(properties);
+                    if (!flash)
+                    {
+                        properties.SetColor(BaseColorId, Color.white);
+                        properties.SetColor(EmissionColorId, Color.clear);
+                    }
                     properties.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
                     properties.SetColor(StatusTintId, status);
                     properties.SetFloat(StatusAmountId, !flash && status != Color.white ? .9f : 0f);

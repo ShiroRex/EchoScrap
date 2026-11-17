@@ -10,6 +10,7 @@ namespace EchoScrap.Combat
     {
         private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
         private static readonly int StatusTintId = Shader.PropertyToID("_StatusTint");
         private static readonly int StatusAmountId = Shader.PropertyToID("_StatusAmount");
         private EnemyActor actor;
@@ -66,7 +67,9 @@ namespace EchoScrap.Combat
             deaths.Prewarm(sprites);
             Motion = EnemySpriteMotion.Idle;
             Facing = ResolveFacing();
+            block.Clear();
             clipTime = attackRemaining = hitRemaining = 0f;
+            appliedRevision = uint.MaxValue;
             hasShadowCache = false;
             lastRootScale = new Vector3(-1f, -1f, -1f);
             ApplyFrame();
@@ -190,7 +193,11 @@ namespace EchoScrap.Combat
             appliedRevision = revision;
             pixels.GetPropertyBlock(block);
             block.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
-            if (!actor.VisualComposer.IsFlashActive) block.SetColor(BaseColorId, Color.white);
+            if (!actor.VisualComposer.IsFlashActive)
+            {
+                block.SetColor(BaseColorId, Color.white);
+                block.SetColor(EmissionColorId, Color.clear);
+            }
             Color tint = actor.VisualComposer.StatusTint;
             block.SetColor(StatusTintId, tint);
             block.SetFloat(StatusAmountId, !actor.VisualComposer.IsFlashActive && tint != Color.white ? .9f : 0f);

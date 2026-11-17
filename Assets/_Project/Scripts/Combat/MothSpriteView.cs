@@ -10,6 +10,7 @@ namespace EchoScrap.Combat
     {
         private static readonly int FrameRectId = Shader.PropertyToID("_FrameRect");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
         private static readonly int GlowStrengthId = Shader.PropertyToID("_GlowStrength");
         private static readonly int StatusTintId = Shader.PropertyToID("_StatusTint");
         private static readonly int StatusAmountId = Shader.PropertyToID("_StatusAmount");
@@ -60,8 +61,9 @@ namespace EchoScrap.Combat
             }
             pixels.sharedMaterial = sprites.material;
             glow.Bind(actor.Session);
+            properties.Clear();
             clock = 0f; Facing = CharacterFacing.Down; FrameIndex = 0;
-            appliedClip = null; appliedFrame = -1; appliedRevision = uint.MaxValue; appliedGlowStrength = -1f;
+            appliedClip = null; appliedFrame = -1; appliedRevision = uint.MaxValue; appliedFlash = false; appliedGlowStrength = -1f;
             hasShadowCache = false; lastScaleCheckTarget = -1f;
             Advance(0f);
         }
@@ -95,8 +97,12 @@ namespace EchoScrap.Combat
                     appliedFrame = FrameIndex;
                     appliedRevision = revision;
                     appliedFlash = flash;
-                    if (flash) pixels.GetPropertyBlock(properties);
-                    else properties.SetColor(BaseColorId, Color.white);
+                    pixels.GetPropertyBlock(properties);
+                    if (!flash)
+                    {
+                        properties.SetColor(BaseColorId, Color.white);
+                        properties.SetColor(EmissionColorId, Color.clear);
+                    }
                     properties.SetVector(FrameRectId, clip.frames[FrameIndex].uvRect);
                     // The old fuse blink belongs to placeholder meshes; the reactor communicates urgency through its core.
                     properties.SetColor(StatusTintId, status);

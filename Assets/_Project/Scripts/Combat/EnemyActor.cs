@@ -1369,12 +1369,15 @@ namespace EchoScrap.Combat
                 ArmMoth(fromLethalDamage: true);
             bool causedDeath = lethal && !moth;
 
-            if (visualComposer != null)
+            bool skipHitFlash = request.SourceType is DamageSourceType.StaticAura
+                or DamageSourceType.PlasmaPuddle
+                or DamageSourceType.FlameTrail;
+            if (visualComposer != null && !skipHitFlash)
             {
                 bool reduced = session != null && session.Effects.ReducedEffectsMode;
                 visualComposer.TriggerHitReaction(request.HitDirection, isCritical, isPlayerHurt: false, reducedEffects: reduced);
             }
-            if (!lethal) groundSpriteView?.NotifyHit();
+            if (!lethal && !skipHitFlash) groundSpriteView?.NotifyHit();
 
             // El impacto conserva su posición y resultado antes de desactivar o devolver el enemigo al pool
             var result = new DamageResult(

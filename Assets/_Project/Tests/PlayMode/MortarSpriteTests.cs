@@ -195,6 +195,18 @@ namespace EchoScrap.Tests
             actor.StepVisuals(0.2f);
             view.Advance(0.12f);
             Assert.That(view.ClipTime, Is.GreaterThan(time));
+            var block = new MaterialPropertyBlock();
+            view.CharacterRenderer.GetPropertyBlock(block);
+            Assert.That(block.GetColor("_EmissionColor"), Is.EqualTo(Color.clear));
+
+            actor.ReceiveDamage(in hit);
+            view.Advance(0f);
+            enemies.ReturnToPool(actor);
+            EnemyActor reused = enemies.Spawn(EnemyArchetypeId.Mortar, new Vector3(4f, 1f, 0f));
+            reused.GetComponent<MortarSpriteView>().Advance(0f);
+            reused.GetComponent<MortarSpriteView>().CharacterRenderer.GetPropertyBlock(block);
+            Assert.That(reused.VisualComposer.IsFlashActive, Is.False);
+            Assert.That(block.GetColor("_EmissionColor"), Is.EqualTo(Color.clear));
         }
 
         [Test]
